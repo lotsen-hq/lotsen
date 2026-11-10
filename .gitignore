@@ -10,6 +10,8 @@
 .claude/worktrees/
 # Claude Code's settings for one machine, such as the maintainer's nibs hooks.
 .claude/settings.local.json
+# Claude Code's instructions for one machine.
+CLAUDE.local.md
 
 # .NET build output
 bin/
