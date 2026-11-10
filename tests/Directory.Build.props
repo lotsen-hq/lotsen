@@ -1,0 +1,31 @@
+<!-- PublishAot is local so that a solution-wide "dotnet publish -p:PublishAot=true" leaves the tests on the JIT. -->
+<Project TreatAsLocalProperty="PublishAot">
+
+   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+   <PropertyGroup>
+      <TargetFramework>net11.0</TargetFramework>
+      <RootNamespace>Lotsen.Tests</RootNamespace>
+
+      <!-- The tests run under the JIT, so a solution-wide publish skips them. -->
+      <IsPublishable>false</IsPublishable>
+      <PublishAot>false</PublishAot>
+   </PropertyGroup>
+
+   <!-- A test project's name ends in .Tests. Lotsen.TestSupport is a library of fixtures that the test projects share. -->
+   <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
+      <OutputType>Exe</OutputType>
+   </PropertyGroup>
+
+   <!-- The VSTest adapter lets a filter such as Category=Pinning select tests by their Category trait. -->
+   <ItemGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
+      <PackageReference Include="Microsoft.NET.Test.Sdk" />
+      <PackageReference Include="xunit.v3" />
+      <PackageReference Include="xunit.runner.visualstudio" />
+   </ItemGroup>
+
+   <ItemGroup>
+      <Using Include="Xunit" />
+   </ItemGroup>
+
+</Project>

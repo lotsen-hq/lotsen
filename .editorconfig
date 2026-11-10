@@ -1,0 +1,68 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 3
+insert_final_newline = true
+trim_trailing_whitespace = true
+# A target for statements and argument lists, not a hard limit: a long string literal may run past it.
+max_line_length = 200
+
+[*.{json,yml,yaml,md}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+dotnet_sort_system_directives_first = true
+csharp_using_directive_placement = outside_namespace:suggestion
+csharp_style_namespace_declarations = file_scoped:suggestion
+
+# Classes use explicit constructors; primary constructors are for records only.
+csharp_style_prefer_primary_constructors = false:silent
+
+# Private instance fields are _camelCase; static and const fields are PascalCase. Silent, so it steers generated code and refactorings without gating the build.
+dotnet_naming_rule.private_static_fields_pascal.symbols = private_static_fields
+dotnet_naming_rule.private_static_fields_pascal.style = pascal_case
+dotnet_naming_rule.private_static_fields_pascal.severity = silent
+dotnet_naming_symbols.private_static_fields.applicable_kinds = field
+dotnet_naming_symbols.private_static_fields.applicable_accessibilities = private
+dotnet_naming_symbols.private_static_fields.required_modifiers = static
+dotnet_naming_rule.private_const_fields_pascal.symbols = private_const_fields
+dotnet_naming_rule.private_const_fields_pascal.style = pascal_case
+dotnet_naming_rule.private_const_fields_pascal.severity = silent
+dotnet_naming_symbols.private_const_fields.applicable_kinds = field
+dotnet_naming_symbols.private_const_fields.applicable_accessibilities = private
+dotnet_naming_symbols.private_const_fields.required_modifiers = const
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+dotnet_naming_rule.private_fields_underscore.symbols = private_instance_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel_case
+dotnet_naming_rule.private_fields_underscore.severity = silent
+dotnet_naming_symbols.private_instance_fields.applicable_kinds = field
+dotnet_naming_symbols.private_instance_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel_case.required_prefix = _
+dotnet_naming_style.underscore_camel_case.capitalization = camel_case
+
+# Log message templates keep their named placeholders, because an interpolated message captures nothing a log provider can read back. The SDK's default analysis mode leaves this rule off.
+dotnet_diagnostic.CA2254.severity = error
+
+# Off, although `just format-check` gates every info-level rule: the rewrites that these four rules propose read worse than the code they replace.
+dotnet_diagnostic.IDE0028.severity = none
+dotnet_diagnostic.IDE0270.severity = none
+dotnet_diagnostic.IDE0042.severity = none
+dotnet_diagnostic.IDE0066.severity = none
+# Signatures expose interface and base types so callers don't depend on the concrete type, and logging cost doesn't matter in a local tool.
+dotnet_diagnostic.CA1859.severity = none
+dotnet_diagnostic.CA1873.severity = none
+
+# A test builds its data once, so caching constant arrays and regular expressions gains nothing.
+[tests/**.cs]
+dotnet_diagnostic.CA1861.severity = none
+dotnet_diagnostic.SYSLIB1045.severity = none
+
+# The UI's catch-all route names its segment only because a catch-all needs a name, and its handler reads the request path instead.
+[src/Lotsen.Core/Server/UiAssets.cs]
+dotnet_diagnostic.ASP0018.severity = none

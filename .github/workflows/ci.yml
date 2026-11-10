@@ -1,0 +1,201 @@
+name: CI
+
+# A push or pull request that changes only these paths starts no run. No test, build or publish reads them, so plugin/skills/tour/SKILL.md, which SkillTests reads, is not among them.
+on:
+  push:
+    branches: [main]
+    paths-ignore: &notes-and-docs
+      - .decaf/**
+      - docs/**
+      - README.md
+      - ui/README.md
+      - CLAUDE.md
+      - CONTRIBUTING.md
+      - CODE_OF_CONDUCT.md
+  pull_request:
+    paths-ignore: *notes-and-docs
+  workflow_dispatch:
+
+# A newer push to a branch or pull request cancels its run in progress. A run started by hand has a group of its own, so no push cancels it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 45
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      # Native AOT links with clang and zlib.
+      - name: Install native toolchain
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: npm ci
+
+      - name: Check UI formatting
+        working-directory: ui
+        run: npm run format:check
+
+      - name: Check C# formatting
+        run: dotnet format --verify-no-changes --severity info
+
+      # The layout suite runs in Playwright's Chromium. The runner's user is not root, so Playwright installs the browser's system libraries through sudo.
+      - name: Install the browser for the layout suite
+        working-directory: ui
+        run: npx playwright install --with-deps chromium
+
+      # The UI's flow tests run real servers in the test host, so it builds first, and the tests use that build.
+      - name: Build the test host
+        run: dotnet build tests/Lotsen.TestHost
+
+      - name: Test UI
+        working-directory: ui
+        env:
+          LOTSEN_TEST_HOST: ${{ github.workspace }}/tests/Lotsen.TestHost/bin/Debug/net11.0/Lotsen.TestHost.dll
+        run: npm test
+
+      - name: Check UI types
+        working-directory: ui
+        run: npm run check
+
+      - name: Lint UI
+        working-directory: ui
+        run: npm run lint
+
+      # The publish embeds ui/dist and fails without it.
+      - name: Build UI
+        working-directory: ui
+        run: npm run build
+
+      # The suite runs the demo, which starts the test host that the flow tests use and stops it when the suite ends.
+      - name: Test the UI's layout in a browser
+        working-directory: ui
+        env:
+          LOTSEN_TEST_HOST: ${{ github.workspace }}/tests/Lotsen.TestHost/bin/Debug/net11.0/Lotsen.TestHost.dll
+        run: npm run e2e
+
+      - name: Test
+        run: dotnet test
+
+      # Warnings are errors, so any AOT or trim warning fails the publish.
+      - name: Publish with Native AOT
+        run: dotnet publish -c Release -p:PublishAot=true -p:TreatWarningsAsErrors=true
+
+      - name: Check that the publish holds the executable alone
+        run: |
+          publish=src/Lotsen/bin/Release/net11.0/linux-x64/publish
+          ls -la "$publish"
+          files=$(find "$publish" -mindepth 1)
+          if [ "$files" != "$publish/lotsen" ] || [ ! -x "$publish/lotsen" ]; then
+            echo "::error::Expected only the lotsen executable in $publish."
+            exit 1
+          fi
+
+      - name: Check the npm packages
+        run: node npm/check.mjs src/Lotsen/bin/Release/net11.0/linux-x64/publish/lotsen
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lotsen-linux-x64
+          path: src/Lotsen/bin/Release/net11.0/linux-x64/publish/lotsen
+          if-no-files-found: error
+
+  windows:
+    # While the repository is private, this job runs only when started by hand, to save runner minutes.
+    if: ${{ !github.event.repository.private || github.event_name == 'workflow_dispatch' }}
+    runs-on: blacksmith-2vcpu-windows-2025
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: bash
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      PUBLISH: src/Lotsen/bin/Release/net11.0/win-x64/publish
+    # The formatting, lint and type checks run in the linux job alone, because they check the same files on every platform.
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: npm ci
+
+      - name: Install the browser for the layout suite
+        working-directory: ui
+        run: npx playwright install chromium
+
+      - name: Build the test host
+        run: dotnet build tests/Lotsen.TestHost
+
+      - name: Test UI
+        working-directory: ui
+        env:
+          LOTSEN_TEST_HOST: ${{ github.workspace }}/tests/Lotsen.TestHost/bin/Debug/net11.0/Lotsen.TestHost.dll
+        run: npm test
+
+      # This step, the layout suite and the .NET suite still run after a failed suite, so one run reports every Windows failure.
+      - name: Build UI
+        if: ${{ !cancelled() }}
+        working-directory: ui
+        run: npm run build
+
+      - name: Test the UI's layout in a browser
+        if: ${{ !cancelled() }}
+        working-directory: ui
+        env:
+          LOTSEN_TEST_HOST: ${{ github.workspace }}/tests/Lotsen.TestHost/bin/Debug/net11.0/Lotsen.TestHost.dll
+        run: npm run e2e
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: layout-suite-traces-windows
+          path: ui/test-results
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Test
+        if: ${{ !cancelled() }}
+        run: dotnet test
+
+      - name: Publish with Native AOT
+        run: dotnet publish -c Release -p:PublishAot=true -p:TreatWarningsAsErrors=true
+
+      - name: Check that the publish holds the executable alone
+        run: |
+          ls -la "$PUBLISH"
+          files=$(find "$PUBLISH" -mindepth 1)
+          if [ "$files" != "$PUBLISH/lotsen.exe" ]; then
+            echo "::error::Expected only lotsen.exe in $PUBLISH."
+            exit 1
+          fi

@@ -1,0 +1,933 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn-svelte/tailwind.css';
+@import './syntax-colors.css';
+
+/* src/lib/colorScheme.ts sets the dark class on <html> from the reviewer's theme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+   color-scheme: light;
+   --background: oklch(1 0 0);
+   --foreground: oklch(12.9% 0.042 264.695);
+   --card: oklch(98.4% 0.003 247.858);
+   --card-foreground: var(--foreground);
+   --popover: var(--card);
+   --popover-foreground: var(--foreground);
+   --primary: oklch(54.6% 0.245 262.881);
+   --primary-foreground: oklch(1 0 0);
+   --secondary: oklch(96.8% 0.007 247.896);
+   --secondary-foreground: var(--foreground);
+   --muted: oklch(96.8% 0.007 247.896);
+   --muted-foreground: oklch(55.4% 0.046 257.417);
+   --accent: oklch(92.9% 0.013 255.508);
+   --accent-foreground: var(--foreground);
+   --destructive: oklch(57.7% 0.245 27.325);
+   --success: oklch(52.7% 0.154 150.069);
+   /* The warning notices' bar, fill and mark. The mark stands at least 3:1 off the fill, as the warning notices test in e2e/layout.spec.ts checks. */
+   --warning: #bf8700;
+   --warning-surface: #fdf6e3;
+   --warning-mark: #9a6700;
+   --border: oklch(92.9% 0.013 255.508);
+   --input: var(--border);
+   --ring: oklch(62.3% 0.214 259.815);
+   /* Button fill, border and hover fill. On the card the border stands at least 2:1 off it and the hover fill 1.2:1, as e2e/buttons.spec.ts checks. */
+   --button-fill: #ffffff;
+   --button-border: #aab2be;
+   --button-hover: #dee4ec;
+
+   /* The diff and file editors. */
+   --code-selection: #c8dcf8;
+   --code-special-char: #cf222e;
+   --diff-deleted-line: #ffebe9;
+   --diff-inserted-line: #dafbe1;
+   --diff-deleted-marker: #cf222e;
+   --diff-inserted-marker: #1a7f37;
+   --passage-primary-line: rgba(9, 105, 218, 0.1);
+   --passage-primary-marker: #0969da;
+   --passage-related-line: rgba(154, 103, 0, 0.1);
+   --passage-related-marker: #9a6700;
+   --reference-hovered-line: rgba(130, 80, 223, 0.14);
+   --reference-hovered-marker: #8250df;
+   --ref-focused-background: rgba(9, 105, 218, 0.16);
+   --passage-label-foreground: #ffffff;
+   --dimmed-opacity: 0.45;
+   --thread-marker: #bf3989;
+   /* Claude's messages in a thread view: their tint, and their bar and name. */
+   --claude-fill: rgba(130, 80, 223, 0.08);
+   --claude-marker: #8250df;
+   --kind-overview-fill: #e3e6eb;
+   --kind-overview-text: #3a4150;
+   --kind-context-fill: #d3f0eb;
+   --kind-context-text: #0f5c55;
+   --kind-inspect-fill: #dce8fb;
+   --kind-inspect-text: #1d4a8c;
+   --kind-risk-fill: #fbdede;
+   --kind-risk-text: #9a1c22;
+   --kind-question-fill: #ece1f9;
+   --kind-question-text: #59339a;
+   --state-in-progress-fill: #fbefd5;
+   --state-in-progress-text: #7a4d00;
+   --state-finished-fill: #dcf3e2;
+   --state-finished-text: #1a6b34;
+   --folder: #c09553;
+}
+
+/* Until src/lib/colorScheme.ts runs, a system that does not ask for light gets the dark palette's background, as the system theme does. */
+@media not (prefers-color-scheme: light) {
+   :root:not([data-color-scheme]) {
+      color-scheme: dark;
+      --background: #16181d;
+   }
+}
+
+.dark {
+   color-scheme: dark;
+   --background: #16181d;
+   --foreground: #e3e6eb;
+   --card: #1e2128;
+   --secondary: #242a35;
+   --muted: #242a35;
+   --muted-foreground: #9aa1ad;
+   --accent: #2a3242;
+   --primary: #7fb4ff;
+   --primary-foreground: #16181d;
+   --destructive: #ff8f8f;
+   --success: #7fd49a;
+   --warning: #d29922;
+   --warning-surface: rgba(210, 153, 34, 0.1);
+   --warning-mark: #e3b341;
+   --border: #323743;
+   --ring: #9cc4ff;
+   --button-fill: #262a33;
+   --button-border: #4b5262;
+   --button-hover: #353c4a;
+
+   --code-selection: #35486b;
+   --code-special-char: #f78;
+   --diff-deleted-line: rgba(248, 81, 73, 0.16);
+   --diff-inserted-line: rgba(63, 185, 80, 0.16);
+   --diff-deleted-marker: #f85149;
+   --diff-inserted-marker: #3fb950;
+   --passage-primary-line: rgba(56, 139, 253, 0.16);
+   --passage-primary-marker: #58a6ff;
+   --passage-related-line: rgba(210, 153, 34, 0.14);
+   --passage-related-marker: #d29922;
+   --reference-hovered-line: rgba(188, 140, 255, 0.18);
+   --reference-hovered-marker: #bc8cff;
+   --ref-focused-background: rgba(56, 139, 253, 0.28);
+   --passage-label-foreground: #16181d;
+   --dimmed-opacity: 0.4;
+   --thread-marker: #db61a2;
+   --claude-fill: rgba(188, 140, 255, 0.1);
+   --claude-marker: #bc8cff;
+   --kind-overview-fill: #3a3f4b;
+   --kind-overview-text: #d5d9e0;
+   --kind-context-fill: #1f4d4a;
+   --kind-context-text: #9fe3da;
+   --kind-inspect-fill: #253a5c;
+   --kind-inspect-text: #a9c8ff;
+   --kind-risk-fill: #5c2427;
+   --kind-risk-text: #ffb3b3;
+   --kind-question-fill: #43305f;
+   --kind-question-text: #d6bdff;
+   --state-in-progress-fill: #4a3a17;
+   --state-in-progress-text: #f0c674;
+   --state-finished-fill: #1f4a2c;
+   --state-finished-text: #9fe3b4;
+   --folder: #dcb67a;
+}
+
+@theme {
+   /* Without Tailwind's palette, a class such as text-red-500 generates nothing and lint reports it as unknown. */
+   --color-*: initial;
+   --font-sans: system-ui, sans-serif;
+   --font-mono: ui-monospace, monospace;
+   /* The body text size keeps the page's line height. */
+   --text-base--line-height: 1.4;
+}
+
+@theme inline {
+   --color-background: var(--background);
+   --color-foreground: var(--foreground);
+   --color-card: var(--card);
+   --color-card-foreground: var(--card-foreground);
+   --color-popover: var(--popover);
+   --color-popover-foreground: var(--popover-foreground);
+   --color-primary: var(--primary);
+   --color-primary-foreground: var(--primary-foreground);
+   --color-secondary: var(--secondary);
+   --color-secondary-foreground: var(--secondary-foreground);
+   --color-muted: var(--muted);
+   --color-muted-foreground: var(--muted-foreground);
+   --color-accent: var(--accent);
+   --color-accent-foreground: var(--accent-foreground);
+   --color-destructive: var(--destructive);
+   --color-success: var(--success);
+   --color-warning: var(--warning);
+   --color-warning-surface: var(--warning-surface);
+   --color-warning-mark: var(--warning-mark);
+   --color-border: var(--border);
+   --color-input: var(--input);
+   --color-ring: var(--ring);
+   --color-button-fill: var(--button-fill);
+   --color-button-border: var(--button-border);
+   --color-button-hover: var(--button-hover);
+   --color-folder: var(--folder);
+   --color-claude-fill: var(--claude-fill);
+   --color-claude-marker: var(--claude-marker);
+   /* The marker and the label of a thread row in which Claude waits on the reviewer, in the tour list's color of a tour in progress. */
+   --color-your-turn: var(--state-in-progress-text);
+}
+
+/* VS Code's Seti file icon theme. src/seti/ holds its notices, and scripts/generate-seti.mjs writes the folder. */
+@font-face {
+   font-family: seti;
+   src: url('./seti/seti.woff') format('woff');
+   font-display: block;
+}
+
+/* The small-caps label of a heading, such as a section of a stop's explanation or a chapter of the plan. */
+@utility caps-label {
+   @apply font-semibold text-muted-foreground uppercase;
+   font-size: 12px;
+   letter-spacing: 0.06em;
+}
+
+/* A panel's scroll box. It is positioned, so it holds and clips the absolutely positioned content inside it, such as `sr-only` text, which would otherwise extend the page. */
+@utility scroll-box {
+   position: relative;
+   overflow-y: auto;
+}
+
+@layer base {
+   * {
+      @apply border-border;
+   }
+
+   html {
+      font-size: 15px;
+      line-height: 1.4;
+   }
+
+   html,
+   body,
+   #app {
+      height: 100%;
+   }
+
+   body {
+      @apply bg-background text-foreground;
+   }
+
+   /* The ring is a box shadow built from Tailwind's ring variables, so an element's own shadow utilities compose with it. Forced colors drop shadows, so outline-hidden keeps an outline there. */
+   :focus-visible {
+      @apply ring-3 ring-ring/50 outline-hidden;
+   }
+
+   button:not(:disabled),
+   [role='button']:not(:disabled),
+   [role='tab']:not(:disabled) {
+      cursor: pointer;
+   }
+}
+
+@layer components {
+   /* The marker of a thread at its anchor: in the code, at a file's heading and at a stop's text. The code's lines and the page's prose both hold it, so it sets its own font. */
+   .thread-marker {
+      @apply inline-flex max-w-80 cursor-pointer items-center gap-1 rounded-sm border bg-card px-1.5 align-top font-sans text-xs/normal font-normal text-card-foreground not-italic hover:bg-accent;
+      border-color: var(--thread-marker);
+      user-select: none;
+
+      & svg {
+         @apply size-3 shrink-0;
+         color: var(--thread-marker);
+      }
+
+      & span {
+         @apply truncate;
+      }
+   }
+
+   .thread-markers {
+      @apply inline-flex flex-wrap gap-1 align-baseline;
+   }
+
+   /* Claude's name at the top of each of Claude's messages in a thread view. */
+   .claude-name {
+      @apply flex items-center gap-1.5 font-semibold text-claude-marker;
+      font-size: 12px;
+   }
+
+   /* The rows of the changed-file tree and the whole-repository tree. */
+   .tree {
+      @apply py-1;
+   }
+
+   .tree [role='group'] {
+      @apply pl-4;
+   }
+
+   /* The item holds its subtree, so its row draws the focus ring and the forced-colors outline. Focus scrolls to a whole pixel, and the margin keeps that rounding from clipping the ring at the list's edge. */
+   .tree [role='treeitem'] {
+      @apply scroll-my-1 ring-0 outline-none;
+   }
+
+   .tree .row {
+      @apply flex cursor-pointer items-baseline gap-1.5 px-4 py-0.5 whitespace-nowrap hover:bg-card;
+   }
+
+   /* The open file's row, or the collapsed folder that holds it. The bar is a shadow, so the row's text does not move. */
+   .tree .row.current {
+      @apply bg-accent inset-shadow-[3px_0_0_var(--primary)];
+   }
+
+   /* The plan's stops: the number in its own column, then the kind's pill, the title and any status as one wrapping line. */
+   .plan .stop-row {
+      @apply grid w-full scroll-my-1 items-baseline gap-x-2 px-2 py-1 text-left hover:bg-card focus-visible:ring-inset;
+      grid-template-columns: 1.5rem minmax(0, 1fr);
+      border-radius: 6px;
+
+      & .number {
+         @apply text-right text-muted-foreground tabular-nums;
+         font-size: 12px;
+      }
+
+      & .kind-pill {
+         margin-right: 6px;
+      }
+
+      & .title.writing {
+         @apply text-muted-foreground italic;
+      }
+
+      & .spinner {
+         @apply size-3 shrink-0 animate-spin self-center;
+      }
+
+      & .stale svg {
+         @apply size-3 shrink-0 self-center;
+      }
+
+      /* The stale marker is the longest status, so it wraps in a narrow plan instead of running past the row. */
+      & .status.stale {
+         @apply whitespace-normal;
+      }
+
+      & .dot {
+         @apply size-1.5 shrink-0 self-center rounded-full;
+         background-color: var(--passage-related-marker);
+      }
+
+      & .summary-icon {
+         @apply ml-auto inline size-3.5;
+      }
+   }
+
+   /* A status after a stop's title, in the plan list and in the stop order editor. */
+   :is(.plan .stop-row, .stop-order-row) {
+      & .status {
+         @apply ml-1.5 inline-flex items-baseline gap-1 whitespace-nowrap text-muted-foreground;
+         font-size: 12px;
+      }
+
+      & .skipped svg {
+         @apply size-3 shrink-0 self-center;
+      }
+   }
+
+   .plan .stop-item {
+      @apply flex items-center gap-1;
+
+      & .stop-row {
+         @apply min-w-0 flex-1;
+      }
+   }
+
+   /* A stop's skip toggle, which shows while the pointer or the focus is in the row, or while the stop is skipped. */
+   :is(.plan .stop-item, .stop-order-row) {
+      & .skip-toggle {
+         @apply shrink-0 text-muted-foreground;
+      }
+
+      &:not(:hover, :focus-within) .skip-toggle[aria-pressed='false'] {
+         @apply opacity-0;
+      }
+
+      @media (hover: none) {
+         &:not(:hover, :focus-within) .skip-toggle[aria-pressed='false'] {
+            @apply opacity-100;
+         }
+      }
+   }
+
+   /* A skipped stop's title is muted, so the stops left to read stand out. */
+   :is(.plan .stop-row, .stop-order-row).skipped-row .title {
+      @apply text-muted-foreground;
+   }
+
+   /* A proposed order of stops: the grip, the number, then the kind's pill and the title as one wrapping line above the chapter, then the move buttons, one above the other to leave the title the width. */
+   .stop-order-row {
+      @apply relative grid w-full cursor-grab items-baseline gap-x-2 px-4 py-1;
+      grid-template-columns: auto 1.5rem minmax(0, 1fr) auto;
+
+      & .grip {
+         @apply size-3.5 self-center text-muted-foreground;
+      }
+
+      & .number {
+         @apply text-right text-muted-foreground tabular-nums;
+         font-size: 12px;
+      }
+
+      & .kind-pill {
+         margin-right: 6px;
+      }
+
+      & .chapter {
+         @apply block text-muted-foreground;
+         font-size: 12px;
+      }
+
+      & > :last-child {
+         @apply self-center;
+      }
+
+      /* The move buttons show on hover and on keyboard focus within the row, and always on a device without hover. */
+      &:not(:hover, :focus-within) .move-buttons {
+         @apply opacity-0;
+      }
+
+      @media (hover: none) {
+         &:not(:hover, :focus-within) .move-buttons {
+            @apply opacity-100;
+         }
+      }
+
+      &.dragged {
+         opacity: var(--dimmed-opacity);
+      }
+
+      /* The line that shows where the dragged row lands, centered on the edge between two rows. */
+      &.drop-before::before,
+      &.drop-after::after {
+         @apply pointer-events-none absolute inset-x-2 bg-primary;
+         height: 2px;
+         content: '';
+      }
+
+      &.drop-before::before {
+         top: -1px;
+      }
+
+      &.drop-after::after {
+         bottom: -1px;
+      }
+   }
+
+   /* A stop's kind, which sits on its title's baseline. The text is 70% of the container's font size, and never below 10.5px. The font and line height are its own, because an editor's explanation block sets others. */
+   .kind-pill {
+      @apply inline-block font-sans font-semibold uppercase;
+      padding: 0.095em 0.476em;
+      border-radius: 2px;
+      font-size: max(10.5px, 0.7em);
+      line-height: 1.4;
+      letter-spacing: 0.05em;
+      vertical-align: baseline;
+      background-color: var(--kind-fill);
+      color: var(--kind-text);
+
+      &[data-kind='overview'] {
+         --kind-fill: var(--kind-overview-fill);
+         --kind-text: var(--kind-overview-text);
+      }
+
+      &[data-kind='context'] {
+         --kind-fill: var(--kind-context-fill);
+         --kind-text: var(--kind-context-text);
+      }
+
+      &[data-kind='inspect'] {
+         --kind-fill: var(--kind-inspect-fill);
+         --kind-text: var(--kind-inspect-text);
+      }
+
+      &[data-kind='risk'] {
+         --kind-fill: var(--kind-risk-fill);
+         --kind-text: var(--kind-risk-text);
+      }
+
+      &[data-kind='question'] {
+         --kind-fill: var(--kind-question-fill);
+         --kind-text: var(--kind-question-text);
+      }
+   }
+
+   /* A tour's state in the tour list, a pill like a stop's kind in its own colors. Generating and archived tours read as waiting and set aside, so they stay neutral. */
+   .tour-state {
+      @apply inline-block font-sans font-semibold whitespace-nowrap;
+      padding: 0 5px;
+      border-radius: 2px;
+      font-size: 11px;
+      line-height: 1.5;
+      background-color: var(--state-fill);
+      color: var(--state-text);
+      --state-fill: var(--kind-overview-fill);
+      --state-text: var(--kind-overview-text);
+
+      &[data-state='generating'] {
+         @apply italic;
+      }
+
+      &[data-state='ready'] {
+         --state-fill: var(--kind-inspect-fill);
+         --state-text: var(--kind-inspect-text);
+      }
+
+      &[data-state='inProgress'] {
+         --state-fill: var(--state-in-progress-fill);
+         --state-text: var(--state-in-progress-text);
+      }
+
+      &[data-state='finished'] {
+         --state-fill: var(--state-finished-fill);
+         --state-text: var(--state-finished-text);
+      }
+   }
+
+   /* The flag of a tour whose pull request is closed, outlined so it does not read as a second tour state. */
+   .tour-flag {
+      @apply inline-block font-sans font-semibold whitespace-nowrap;
+      padding: 0 4px;
+      border: 1px solid currentColor;
+      border-radius: 2px;
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--kind-overview-text);
+
+      &[data-pull-request='completed'] {
+         color: var(--kind-question-text);
+      }
+   }
+
+   /* The open stop's row. The bar is a shadow and the weight stays, so selecting a stop does not reflow the list. */
+   .plan .stop-row.current {
+      @apply bg-accent inset-shadow-[3px_0_0_var(--passage-primary-marker)];
+   }
+
+   /* A file outside the open stop, or a folder that holds only such files, while the Files pane's "Dim other files" is on. */
+   .tree .row.dimmed {
+      opacity: var(--dimmed-opacity);
+   }
+
+   .tree [role='treeitem']:focus-visible > .row {
+      @apply ring-3 ring-ring/50 ring-inset forced-colors:outline-2 forced-colors:-outline-offset-2;
+   }
+
+   .tree [aria-disabled='true'] > .row {
+      @apply cursor-default;
+   }
+
+   /* An icon centers on the row's first line, not its baseline, which would put the icon's bottom edge on the text's baseline. */
+   .tree :is(.twisty, .icon) {
+      @apply flex h-lh shrink-0 items-center justify-center self-start text-muted-foreground;
+   }
+
+   .tree .twisty {
+      @apply w-3.5;
+   }
+
+   /* A file's review checkbox is as wide as its 16 px mark, and its negative margins keep the twisty's column, so the file's icon lines up with a folder's. */
+   .tree .check {
+      @apply flex h-lh w-[16px] shrink-0 items-center justify-center self-start text-muted-foreground hover:text-foreground;
+      margin-inline: calc((--spacing(3.5) - 16px) / 2);
+   }
+
+   .tree .check.checked {
+      @apply text-success;
+   }
+
+   .tree :is(.twisty, .icon) svg {
+      @apply size-3.5;
+   }
+
+   .tree .check svg {
+      @apply size-[16px];
+   }
+
+   /* A Seti glyph at the size VS Code gives the font, 150%, in a line box as tall as the row's line, so the row keeps its height. The font's ascent is its whole em, so baseline alignment would lift the glyph. */
+   .tree .icon.seti {
+      @apply w-3.5 select-none;
+      font-family: seti;
+      font-size: 150%;
+      line-height: 1lh;
+      color: var(--seti-light);
+   }
+
+   .dark .tree .icon.seti {
+      color: var(--seti-dark);
+   }
+
+   .tree .twisty svg {
+      @apply transition-transform;
+   }
+
+   /* The name takes the room the row's other parts leave, so a long name truncates and never pushes them to another line. Its minimum keeps a few characters once the tags truncate too. */
+   .tree .row > .label,
+   .tree .content {
+      @apply min-w-8 grow basis-0;
+   }
+
+   /* A changed file's name, with its mark's reason under it while the reasons show. */
+   .tree .content {
+      @apply flex flex-col;
+   }
+
+   .tree .label {
+      @apply flex gap-1.5;
+   }
+
+   /* A renamed file's old path gets only the room its new path leaves, so it gives way first, but keeps enough for an ellipsis before its arrow. */
+   .tree .label > .old-path {
+      @apply w-0 max-w-fit min-w-6 grow truncate text-muted-foreground;
+   }
+
+   .tree .label > .old-path-arrow {
+      @apply shrink-0 text-muted-foreground;
+   }
+
+   .tree .path {
+      @apply flex min-w-0;
+   }
+
+   /* The directory gives way before the file name, which truncates only once the directory is gone. */
+   .tree .directory {
+      @apply min-w-0 truncate;
+   }
+
+   .tree .name {
+      @apply max-w-full shrink-0 truncate;
+   }
+
+   /* The marker sits on the row's first line in a line box as tall as that line, as an icon does, so the monospace font's ascent and descent never make the row taller. */
+   .tree .marker {
+      @apply w-3.5 shrink-0 self-start text-center font-mono font-semibold;
+      font-size: 14px;
+      line-height: 1lh;
+   }
+
+   .tree .kind-added .marker {
+      @apply text-success;
+   }
+
+   .tree .kind-modified .marker,
+   .tree .kind-renamed .marker {
+      @apply text-primary;
+   }
+
+   .tree .kind-deleted .marker {
+      @apply text-destructive;
+   }
+
+   .tree .tag {
+      @apply min-w-0 truncate rounded-sm border px-1 text-xs text-muted-foreground;
+   }
+
+   .tree .reason {
+      @apply truncate text-sm text-muted-foreground;
+   }
+
+   .tree .kind-deleted :is(.directory, .name) {
+      @apply text-muted-foreground line-through;
+   }
+
+   /* The merge view does not scroll by default, and it scrolls both of its editors together. */
+   .editor .cm-mergeView {
+      @apply scroll-box h-full;
+   }
+
+   /* The row fills the view below a short file, so the pane splitter reaches the bottom of the diff. */
+   .editor .cm-mergeViewEditors {
+      @apply min-h-full;
+   }
+
+   /* Server-rendered Markdown, whose elements the base reset leaves without spacing, list markers or heading sizes. */
+   .markdown {
+      font-size: 15px;
+      line-height: 1.65;
+
+      & > * + * {
+         @apply mt-3;
+      }
+
+      & :is(h1, h2, h3, h4, h5, h6) {
+         @apply mt-5 font-semibold;
+      }
+
+      & h1 {
+         @apply text-2xl;
+      }
+
+      & h2 {
+         @apply text-xl;
+      }
+
+      & h3 {
+         @apply text-lg;
+      }
+
+      & h4,
+      & h5,
+      & h6 {
+         @apply text-base;
+      }
+
+      & ul {
+         @apply list-disc pl-6;
+      }
+
+      & ol {
+         @apply list-decimal pl-6;
+      }
+
+      & li + li,
+      & li > :is(ul, ol) {
+         margin-top: 8px;
+      }
+
+      & li::marker {
+         @apply text-muted-foreground;
+      }
+
+      & a {
+         @apply text-primary;
+         border-bottom: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+      }
+
+      & a:hover {
+         border-bottom-color: currentColor;
+      }
+
+      & a:focus-visible {
+         @apply border-ring;
+      }
+
+      /* A ref: link has no href, so the browser gives it no pointer of its own. */
+      & a[data-ref-path] {
+         @apply cursor-pointer;
+      }
+
+      /* A ref: link at an earlier commit than the pin's, which does not open. */
+      & a[data-ref-path][aria-disabled='true'] {
+         @apply cursor-default text-muted-foreground;
+         border-bottom-style: dashed;
+      }
+
+      /* A ref: link into the focused passage. */
+      & a.lotsen-ref-focused {
+         @apply rounded-sm shadow-[0_0_0_2px_var(--ref-focused-background)];
+         background-color: var(--ref-focused-background);
+      }
+
+      & strong {
+         @apply font-semibold;
+      }
+
+      & blockquote {
+         @apply border-l-3 pl-3 text-muted-foreground;
+      }
+
+      & hr {
+         @apply my-5;
+      }
+
+      & :not(pre) > code {
+         @apply bg-muted px-1 py-0.5;
+         border-radius: 4px;
+         font-size: 13.5px;
+      }
+
+      & pre {
+         @apply overflow-x-auto rounded-md border bg-card p-3 text-sm;
+      }
+
+      & table {
+         @apply w-full border-collapse text-sm;
+      }
+
+      & :is(th, td) {
+         @apply border px-2 py-1 text-left;
+      }
+
+      & th {
+         @apply bg-muted font-semibold;
+      }
+   }
+
+   /* The Stop panel sets the variable from its bar's height. */
+   .stop-panel * {
+      scroll-margin-top: var(--stop-bar-room);
+   }
+
+   /* A stop's explanation, whose sections open under small-caps headings. */
+   .stop-explanation {
+      & .headline {
+         @apply mt-2;
+         font-size: 16px;
+      }
+
+      & .section {
+         margin-top: 20px;
+      }
+
+      & .section-heading {
+         @apply flex items-center gap-1 rounded-sm;
+      }
+
+      & .section-body {
+         margin-top: 6px;
+      }
+
+      & .checks {
+         @apply list-decimal pl-6;
+         font-size: 15px;
+         line-height: 1.65;
+
+         & li + li {
+            margin-top: 8px;
+         }
+
+         & li::marker {
+            @apply text-muted-foreground;
+         }
+
+         & .recommendation,
+         & .answer {
+            margin-top: 4px;
+         }
+
+         & .answer {
+            @apply flex flex-col gap-1.5;
+            font-size: 14px;
+            line-height: 1.4;
+         }
+
+         & .chosen-answer {
+            @apply flex flex-col gap-1.5 rounded-md border border-l-4 border-l-primary bg-card px-3 py-2;
+         }
+
+         & .suggestions ul {
+            @apply mt-1 flex flex-wrap gap-1.5;
+
+            & li {
+               margin-top: 0;
+            }
+         }
+
+         & .suggestion {
+            @apply inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-left hover:bg-accent focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden;
+
+            &.chosen {
+               @apply border-primary bg-accent;
+            }
+         }
+      }
+   }
+
+   /* The summary page: one readable column, a group per heading, each item a card with its links in a wrapping row below. */
+   .summary-page {
+      @apply mx-auto flex max-w-3xl flex-col gap-6 px-4 py-4;
+
+      & .summary-heading {
+         @apply mb-2 text-base font-semibold;
+      }
+
+      & .summary-list {
+         @apply flex flex-col gap-2;
+      }
+
+      & .summary-item {
+         @apply flex flex-col gap-1.5 rounded-md border bg-card px-3 py-2;
+         font-size: 15px;
+         line-height: 1.5;
+      }
+
+      & .summary-answer {
+         @apply border-l-2 border-l-primary pl-3 whitespace-pre-wrap;
+      }
+
+      & .summary-meta {
+         @apply flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1 text-sm;
+      }
+
+      & .summary-state {
+         @apply rounded-sm bg-muted px-1.5 text-xs text-muted-foreground;
+      }
+   }
+
+   /* A stop's passages as a table: the rows share the columns, so the labels, file names and lines line up. A long label wraps before a file name truncates. */
+   .stop-passages {
+      @apply mt-4 grid;
+      grid-template-columns: 3px minmax(6em, 1fr) minmax(0, max-content) max-content;
+      column-gap: 10px;
+
+      & li,
+      & button {
+         @apply grid;
+         grid-column: 1 / -1;
+         grid-template-columns: subgrid;
+      }
+
+      & li + li {
+         @apply border-t;
+      }
+
+      & button {
+         @apply cursor-pointer scroll-my-1 items-baseline py-1.5 pr-2 text-left hover:bg-accent focus-visible:ring-inset;
+      }
+
+      /* A passage at an earlier commit than the pin's, which does not open. */
+      & button[aria-disabled='true'] {
+         @apply cursor-default hover:bg-transparent;
+
+         & .label,
+         & .file {
+            @apply text-muted-foreground;
+         }
+      }
+
+      & .role {
+         @apply relative self-stretch rounded-full;
+         background-color: var(--passage-primary-marker);
+
+         /* A 3px bar is too thin to point at, so its tooltip takes a wider area. */
+         &::before {
+            @apply absolute -inset-x-1.5 inset-y-0;
+            content: '';
+         }
+      }
+
+      & .role[data-role='related'] {
+         background-color: var(--passage-related-marker);
+      }
+
+      & .label {
+         font-size: 14px;
+         @apply font-semibold;
+      }
+
+      & .unlabeled {
+         @apply font-normal text-muted-foreground italic;
+      }
+
+      & .file {
+         @apply truncate font-mono;
+         font-size: 13px;
+      }
+
+      & .lines {
+         @apply text-right whitespace-nowrap text-muted-foreground tabular-nums;
+         font-size: 13px;
+      }
+   }
+}

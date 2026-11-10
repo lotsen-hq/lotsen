@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+   <ItemGroup>
+      <ProjectReference Include="../../src/Lotsen.Core/Lotsen.Core.csproj" />
+      <ProjectReference Include="../../src/Lotsen.AzureDevOps/Lotsen.AzureDevOps.csproj" />
+      <ProjectReference Include="../Lotsen.TestSupport/Lotsen.TestSupport.csproj" />
+      <!-- Built first for the tests that run it as a process and use none of its types. -->
+      <ProjectReference Include="../Lotsen.TestChild/Lotsen.TestChild.csproj" ReferenceOutputAssembly="false" />
+   </ItemGroup>
+
+</Project>

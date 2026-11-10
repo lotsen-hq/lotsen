@@ -1,0 +1,12 @@
+package-lock.json
+
+# Build output and the layout suite's results, which the repository's .gitignore lists.
+/dist/
+/demo-dist/
+/test-results/
+/playwright-report/
+
+# The contract's generators write these, and `just check` fails while they differ from what the generators write.
+/src/lib/contract.schema.json
+/src/lib/contract.generated.ts
+/tests/contract/fixtures.generated.ts

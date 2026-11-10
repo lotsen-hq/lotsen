@@ -1,0 +1,17 @@
+{
+  "name": "@lotsen-hq/lotsen-linux-x64",
+  "version": "0.0.0",
+  "description": "The lotsen executable for Linux x64 with glibc. Install the package lotsen, which runs it.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lotsen-hq/lotsen.git"
+  },
+  "os": ["linux"],
+  "cpu": ["x64"],
+  "libc": ["glibc"],
+  "files": ["lotsen", "NOTICE"],
+  "publishConfig": {
+    "access": "public"
+  }
+}

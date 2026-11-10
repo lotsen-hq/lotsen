@@ -1,0 +1,17 @@
+# Text files are LF in the repository and on checkout, so the shell scripts that tests write and run keep working when a contributor commits from Windows.
+* text=auto eol=lf
+
+# Batch files stay CRLF, for cmd.exe.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.woff binary
+*.woff2 binary

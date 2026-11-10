@@ -1,0 +1,18 @@
+<!-- A test-side executable that the UI's tests and the demo start: real servers in worlds of their own. Nothing in src/ references it, and it is never published. -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+   <PropertyGroup>
+      <OutputType>Exe</OutputType>
+      <RootNamespace>Lotsen.TestHost</RootNamespace>
+   </PropertyGroup>
+
+   <ItemGroup>
+      <FrameworkReference Include="Microsoft.AspNetCore.App" />
+   </ItemGroup>
+
+   <ItemGroup>
+      <ProjectReference Include="../../src/Lotsen.Core/Lotsen.Core.csproj" />
+      <ProjectReference Include="../Lotsen.TestSupport/Lotsen.TestSupport.csproj" />
+   </ItemGroup>
+
+</Project>

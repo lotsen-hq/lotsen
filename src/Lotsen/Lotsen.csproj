@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+   <PropertyGroup>
+      <OutputType>Exe</OutputType>
+      <AssemblyName>lotsen</AssemblyName>
+      <RootNamespace>Lotsen</RootNamespace>
+      <PublishAot>true</PublishAot>
+      <InvariantGlobalization>true</InvariantGlobalization>
+
+      <!-- The UI is embedded in Lotsen.Core, so the Web SDK must not copy static web assets beside the executable. -->
+      <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+   </PropertyGroup>
+
+   <ItemGroup>
+      <ProjectReference Include="../Lotsen.Core/Lotsen.Core.csproj" />
+      <ProjectReference Include="../Lotsen.AzureDevOps/Lotsen.AzureDevOps.csproj" />
+   </ItemGroup>
+
+   <ItemGroup>
+      <InternalsVisibleTo Include="Lotsen.Tests" />
+   </ItemGroup>
+
+</Project>

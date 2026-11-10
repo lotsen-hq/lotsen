@@ -1,0 +1,5758 @@
+{
+  "type": "object",
+  "properties": {
+    "hello": {
+      "$ref": "#/definitions/HelloEvent"
+    },
+    "tourCreated": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TourSummary"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "planSet": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/PlanSetEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "stopPut": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/StopPutEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "stopRevised": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/StopRevisedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "tourPinned": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TourPinnedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "availableIterationChanged": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/AvailableIterationChangedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "tourBindingChanged": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TourBindingChangedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "threadCreated": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ThreadCreatedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "threadUpdated": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ThreadUpdatedEvent"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "threadDeleted": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/DeletedThread"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "answerUpdated": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UpdatedAnswer"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "answerCleared": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ClearedAnswer"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "answerBatchUpdated": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UpdatedBatch"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "skipsUpdated": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UpdatedSkips"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "seenVersionUpdated": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UpdatedSeenVersion"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "familiarityChanged": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UpdatedFamiliarity"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "planApproved": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UpdatedPlanApproval"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "tourStateChanged": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UpdatedTourState"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "synthesisWritten": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/WrittenSynthesis"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "controlsChanged": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TourControls"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
+    "tourDeleted": {
+      "$ref": "#/definitions/DeletedTour"
+    }
+  },
+  "required": [
+    "hello",
+    "tourCreated",
+    "planSet",
+    "stopPut",
+    "stopRevised",
+    "tourPinned",
+    "availableIterationChanged",
+    "tourBindingChanged",
+    "threadCreated",
+    "threadUpdated",
+    "threadDeleted",
+    "answerUpdated",
+    "answerCleared",
+    "answerBatchUpdated",
+    "skipsUpdated",
+    "seenVersionUpdated",
+    "familiarityChanged",
+    "planApproved",
+    "tourStateChanged",
+    "synthesisWritten",
+    "controlsChanged",
+    "tourDeleted"
+  ],
+  "additionalProperties": false,
+  "title": "EventPayloads",
+  "definitions": {
+    "ActionRequest": {
+      "title": "ActionRequest",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ExplainRequest"
+        },
+        {
+          "$ref": "#/definitions/ReviseRequest"
+        },
+        {
+          "$ref": "#/definitions/ReplanRequest"
+        },
+        {
+          "$ref": "#/definitions/ReorderRequest"
+        },
+        {
+          "$ref": "#/definitions/SummarizeRequest"
+        },
+        {
+          "$ref": "#/definitions/DraftWorkItemsRequest"
+        },
+        {
+          "$ref": "#/definitions/WalkOpenQuestionsRequest"
+        },
+        {
+          "$ref": "#/definitions/DraftCommentsRequest"
+        }
+      ]
+    },
+    "AnchorHint": {
+      "title": "AnchorHint",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "line"
+      ]
+    },
+    "AnchorInput": {
+      "title": "AnchorInput",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/CodeRangeInput"
+        },
+        {
+          "$ref": "#/definitions/StopTextInput"
+        },
+        {
+          "$ref": "#/definitions/WholeFileInput"
+        },
+        {
+          "$ref": "#/definitions/WholeStopInput"
+        },
+        {
+          "$ref": "#/definitions/WholeTourInput"
+        }
+      ]
+    },
+    "AnswerBatch": {
+      "title": "AnswerBatch",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "sentAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "receivedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "sessionId",
+        "sentAt"
+      ]
+    },
+    "AnswerCheckInput": {
+      "title": "AnswerCheckInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "stopId": {
+          "description": "The ID of the stop whose content holds the check.",
+          "type": "string"
+        },
+        "checkId": {
+          "description": "The ID of a check of the stop's current content.",
+          "type": "string"
+        },
+        "text": {
+          "description": "The answer as plain text, with no control characters but tabs and line breaks.",
+          "type": "string"
+        },
+        "fromSuggestion": {
+          "description": "true when the reviewer picked one of the check's suggested answers, whose text this text repeats exactly. The answer then takes that suggestion's type. Omit it for the reviewer's own words, which keep the type of the check's earlier answer, or start as a decision when the check has no answer.",
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "tourId",
+        "stopId",
+        "checkId",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "AnswerState": {
+      "title": "AnswerState",
+      "type": "string",
+      "enum": [
+        "draft",
+        "sent",
+        "received"
+      ]
+    },
+    "AnswerType": {
+      "title": "AnswerType",
+      "type": "string",
+      "enum": [
+        "decision",
+        "concern",
+        "openQuestion"
+      ]
+    },
+    "ApprovePlanInput": {
+      "title": "ApprovePlanInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "stopIds": {
+          "description": "The IDs of every stop of the plan, each once, in the order that the reviewer proposes.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "skippedStops": {
+          "description": "The IDs of the plan's stops that the reviewer skips, in any order, or an empty list for none. They become the tour's skipped stops.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "familiarity": {
+          "description": "The familiarity level for Claude to write the stops at: familiar, some or new. It becomes the tour's level.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Familiarity"
+            }
+          ]
+        },
+        "text": {
+          "description": "The reviewer's words for Claude about the plan as plain text, with no control characters but tabs and line breaks. Omit them, or leave them empty, for an approval without words.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "tourId",
+        "stopIds",
+        "skippedStops",
+        "familiarity"
+      ],
+      "additionalProperties": false
+    },
+    "ApprovedPlan": {
+      "title": "ApprovedPlan",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "planApproval": {
+          "$ref": "#/definitions/PlanApproval"
+        },
+        "familiarity": {
+          "$ref": "#/definitions/Familiarity"
+        },
+        "skippedStops": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "thread": {
+          "$ref": "#/definitions/QuestionThread"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "planApproval",
+        "familiarity",
+        "skippedStops",
+        "thread"
+      ]
+    },
+    "AskFollowUpInput": {
+      "title": "AskFollowUpInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "threadId": {
+          "description": "The ID of the thread to follow up in.",
+          "type": "string"
+        },
+        "text": {
+          "description": "The reviewer's follow-up as plain text, with no control characters but tabs and line breaks.",
+          "type": "string"
+        },
+        "stopId": {
+          "description": "The ID of the stop that the reviewer views while asking. Omit it when no stop is open.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "tourId",
+        "threadId",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "AskQuestionInput": {
+      "title": "AskQuestionInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "text": {
+          "description": "The reviewer's question as plain text, with no control characters but tabs and line breaks.",
+          "type": "string"
+        },
+        "anchor": {
+          "description": "Where the reviewer asked: code for whole lines at one side, stopText for text selected in a prose field of a stop, file, stop, or tour.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AnchorInput"
+            }
+          ]
+        },
+        "stopId": {
+          "description": "The ID of the stop that the reviewer views while asking. Omit it when no stop is open.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "tourId",
+        "text",
+        "anchor"
+      ],
+      "additionalProperties": false
+    },
+    "AskedThread": {
+      "title": "AskedThread",
+      "properties": {
+        "kind": {
+          "const": "asked"
+        },
+        "action": {
+          "$ref": "#/definitions/TourAction"
+        },
+        "messages": {
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/definitions/ThreadQuestion"
+            }
+          ],
+          "additionalItems": {
+            "$ref": "#/definitions/ThreadMessage"
+          },
+          "minItems": 1
+        },
+        "id": {
+          "type": "string"
+        },
+        "anchor": {
+          "$ref": "#/definitions/ThreadAnchor"
+        },
+        "state": {
+          "$ref": "#/definitions/ThreadState"
+        },
+        "status": {
+          "$ref": "#/definitions/ThreadStatus"
+        }
+      },
+      "required": [
+        "kind",
+        "messages",
+        "id",
+        "anchor",
+        "state",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "AttachmentLevel": {
+      "title": "AttachmentLevel",
+      "type": "string",
+      "enum": [
+        "unconfirmed",
+        "confirmed"
+      ]
+    },
+    "AvailableIteration": {
+      "title": "AvailableIteration",
+      "type": "object",
+      "properties": {
+        "pin": {
+          "$ref": "#/definitions/PinnedCommits"
+        },
+        "staleStops": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "foundAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "pin",
+        "staleStops",
+        "foundAt"
+      ]
+    },
+    "AvailableIterationChangedEvent": {
+      "title": "AvailableIterationChangedEvent",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "availableIteration": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AvailableIteration"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "availableIteration"
+      ]
+    },
+    "CancelQuestionInput": {
+      "title": "CancelQuestionInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "questionId": {
+          "description": "The ID of the question that waits for an answer.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tourId",
+        "questionId"
+      ],
+      "additionalProperties": false
+    },
+    "ChangeFamiliarityInput": {
+      "title": "ChangeFamiliarityInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "familiarity": {
+          "description": "The tour's new familiarity level: familiar, some or new. The tour's current level asks Claude again for the rewrite when the last question in the thread of the latest change to it, the change or a follow-up, was declined, canceled or unanswered.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Familiarity"
+            }
+          ]
+        },
+        "stopId": {
+          "description": "The ID of the stop that the reviewer views. Claude rewrites the stops after it. Omit it when no stop is open, and Claude rewrites every stop.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "text": {
+          "description": "The reviewer's words for Claude about the change as plain text, with no control characters but tabs and line breaks. Omit them, or leave them empty, for a change without words.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "tourId",
+        "familiarity"
+      ],
+      "additionalProperties": false
+    },
+    "ChangedFamiliarity": {
+      "title": "ChangedFamiliarity",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "familiarity": {
+          "$ref": "#/definitions/Familiarity"
+        },
+        "thread": {
+          "$ref": "#/definitions/QuestionThread"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "familiarity",
+        "thread"
+      ]
+    },
+    "ChangedFile": {
+      "title": "ChangedFile",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/FileChangeKind"
+        },
+        "oldPath": {
+          "type": "string"
+        },
+        "binary": {
+          "type": "boolean"
+        },
+        "large": {
+          "$ref": "#/definitions/LargeFile"
+        },
+        "lineEndingsOnly": {
+          "type": "boolean"
+        },
+        "headObjectId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "kind"
+      ]
+    },
+    "ChangedFileList": {
+      "title": "ChangedFileList",
+      "type": "object",
+      "properties": {
+        "mergeBase": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "head": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ChangedFile"
+          }
+        },
+        "reviewedPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "mergeBase",
+        "head",
+        "files",
+        "reviewedPaths"
+      ]
+    },
+    "Chapter": {
+      "title": "Chapter",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ]
+    },
+    "CheckAnswer": {
+      "title": "CheckAnswer",
+      "type": "object",
+      "properties": {
+        "stopId": {
+          "type": "string"
+        },
+        "checkId": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/AnswerType"
+        },
+        "state": {
+          "$ref": "#/definitions/AnswerState"
+        },
+        "savedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "batch": {
+          "$ref": "#/definitions/AnswerBatch"
+        },
+        "outdatedOn": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "stopId",
+        "checkId",
+        "text",
+        "type",
+        "state",
+        "savedAt"
+      ]
+    },
+    "CheckHtml": {
+      "title": "CheckHtml",
+      "type": "object",
+      "properties": {
+        "question": {
+          "type": "string"
+        },
+        "recommendation": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "question"
+      ]
+    },
+    "CheckIterationInput": {
+      "title": "CheckIterationInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        }
+      },
+      "required": [
+        "tourId"
+      ],
+      "additionalProperties": false
+    },
+    "CheckedIteration": {
+      "title": "CheckedIteration",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "availableIteration": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AvailableIteration"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "failure": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "availableIteration"
+      ]
+    },
+    "ClearAnswerInput": {
+      "title": "ClearAnswerInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "stopId": {
+          "description": "The ID of the stop whose content holds the check.",
+          "type": "string"
+        },
+        "checkId": {
+          "description": "The ID of a check of the stop's current content.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tourId",
+        "stopId",
+        "checkId"
+      ],
+      "additionalProperties": false
+    },
+    "ClearFileReviewedInput": {
+      "title": "ClearFileReviewedInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "path": {
+          "description": "The changed file's repository path, as list_changed_files names it: a renamed file by its path at the head.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tourId",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "ClearedAnswer": {
+      "title": "ClearedAnswer",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stopId": {
+          "type": "string"
+        },
+        "checkId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "stopId",
+        "checkId"
+      ]
+    },
+    "ClosedOffer": {
+      "title": "ClosedOffer",
+      "properties": {
+        "state": {
+          "const": "closed"
+        },
+        "code": {
+          "$ref": "#/definitions/OperationErrorCode"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "code",
+        "reason"
+      ]
+    },
+    "CodeRange": {
+      "title": "CodeRange",
+      "properties": {
+        "kind": {
+          "const": "code"
+        },
+        "side": {
+          "$ref": "#/definitions/FileSide"
+        },
+        "startLine": {
+          "type": "integer"
+        },
+        "endLine": {
+          "type": "integer"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "text": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "side",
+        "startLine",
+        "endLine",
+        "commit",
+        "text",
+        "path"
+      ]
+    },
+    "CodeRangeInput": {
+      "title": "CodeRangeInput",
+      "properties": {
+        "kind": {
+          "const": "code"
+        },
+        "side": {
+          "description": "The side the lines are on: base for the merge base, head for the head.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/FileSide"
+            }
+          ]
+        },
+        "path": {
+          "description": "The file's repository path at that side, relative, with forward slashes.",
+          "type": "string"
+        },
+        "startLine": {
+          "description": "The first line, from 1.",
+          "type": "integer"
+        },
+        "endLine": {
+          "description": "The last line, inclusive, not before startLine.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "side",
+        "path",
+        "startLine",
+        "endLine"
+      ],
+      "additionalProperties": false
+    },
+    "DecidedThread": {
+      "title": "DecidedThread",
+      "properties": {
+        "kind": {
+          "const": "decided"
+        },
+        "decision": {
+          "$ref": "#/definitions/ReviewerDecision"
+        },
+        "messages": {
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/definitions/ThreadQuestion"
+            }
+          ],
+          "additionalItems": {
+            "$ref": "#/definitions/ThreadMessage"
+          },
+          "minItems": 1
+        },
+        "id": {
+          "type": "string"
+        },
+        "anchor": {
+          "$ref": "#/definitions/ThreadAnchor"
+        },
+        "state": {
+          "$ref": "#/definitions/ThreadState"
+        },
+        "status": {
+          "$ref": "#/definitions/ThreadStatus"
+        }
+      },
+      "required": [
+        "kind",
+        "decision",
+        "messages",
+        "id",
+        "anchor",
+        "state",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "Decoded": {
+      "title": "Decoded",
+      "properties": {
+        "content": {
+          "const": "text"
+        },
+        "text": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "side": {
+          "$ref": "#/definitions/FileSide"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        }
+      },
+      "required": [
+        "content",
+        "text",
+        "path",
+        "side",
+        "commit"
+      ]
+    },
+    "DeleteTourInput": {
+      "title": "DeleteTourInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        }
+      },
+      "required": [
+        "tourId"
+      ],
+      "additionalProperties": false
+    },
+    "DeletedThread": {
+      "title": "DeletedThread",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "threadId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "threadId"
+      ]
+    },
+    "DeletedTour": {
+      "title": "DeletedTour",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        }
+      },
+      "required": [
+        "tourId"
+      ]
+    },
+    "DiffFileInput": {
+      "title": "DiffFileInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "path": {
+          "description": "The file's repository path, relative, with forward slashes.",
+          "type": "string"
+        },
+        "oldPath": {
+          "description": "The file's repository path at the base, for a renamed file: the oldPath that list_changed_files gives it. Then path is its path at the head. Omit it when the path is the same on both sides.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "large": {
+          "description": "Whether to return the content of a large file: withhold, the default, returns only its size, and include returns its content.",
+          "default": "withhold",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/LargeFileContent"
+            }
+          ]
+        },
+        "whitespace": {
+          "description": "How the diff compares whitespace: compare, the default, counts every whitespace character, and ignore counts a line that differs from the other side only in whitespace or in its line ending as unchanged. The texts are the same either way.",
+          "default": "compare",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/DiffWhitespace"
+            }
+          ]
+        }
+      },
+      "required": [
+        "tourId",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "DiffWhitespace": {
+      "title": "DiffWhitespace",
+      "type": "string",
+      "enum": [
+        "compare",
+        "ignore"
+      ]
+    },
+    "DirectoryListing": {
+      "title": "DirectoryListing",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "side": {
+          "$ref": "#/definitions/FileSide"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RepositoryEntry"
+          }
+        }
+      },
+      "required": [
+        "path",
+        "side",
+        "commit",
+        "entries"
+      ]
+    },
+    "DiscardNoteInput": {
+      "title": "DiscardNoteInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "threadId": {
+          "description": "The ID of the note's thread.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tourId",
+        "threadId"
+      ],
+      "additionalProperties": false
+    },
+    "DraftCommentsAction": {
+      "title": "DraftCommentsAction",
+      "properties": {
+        "kind": {
+          "const": "draftComments"
+        },
+        "concerns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FollowUpAnswer"
+          }
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FollowUpRisk"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "concerns",
+        "risks"
+      ],
+      "additionalProperties": false
+    },
+    "DraftCommentsRequest": {
+      "title": "DraftCommentsRequest",
+      "properties": {
+        "kind": {
+          "const": "draftComments"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "DraftWorkItemsAction": {
+      "title": "DraftWorkItemsAction",
+      "properties": {
+        "kind": {
+          "const": "draftWorkItems"
+        },
+        "decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FollowUpAnswer"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "decisions"
+      ],
+      "additionalProperties": false
+    },
+    "DraftWorkItemsRequest": {
+      "title": "DraftWorkItemsRequest",
+      "properties": {
+        "kind": {
+          "const": "draftWorkItems"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "EditNoteInput": {
+      "title": "EditNoteInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "threadId": {
+          "description": "The ID of the note's thread.",
+          "type": "string"
+        },
+        "text": {
+          "description": "The note's new words as plain text, with no control characters but tabs and line breaks.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tourId",
+        "threadId",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "EventName": {
+      "title": "EventName",
+      "type": "string",
+      "enum": [
+        "hello",
+        "tourCreated",
+        "planSet",
+        "stopPut",
+        "stopRevised",
+        "tourPinned",
+        "availableIterationChanged",
+        "tourBindingChanged",
+        "threadCreated",
+        "threadUpdated",
+        "threadDeleted",
+        "answerUpdated",
+        "answerCleared",
+        "answerBatchUpdated",
+        "skipsUpdated",
+        "seenVersionUpdated",
+        "familiarityChanged",
+        "planApproved",
+        "tourStateChanged",
+        "synthesisWritten",
+        "controlsChanged",
+        "tourDeleted"
+      ]
+    },
+    "ExplainAction": {
+      "title": "ExplainAction",
+      "properties": {
+        "kind": {
+          "const": "explain"
+        },
+        "stopVersion": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "ExplainRequest": {
+      "title": "ExplainRequest",
+      "properties": {
+        "kind": {
+          "const": "explain"
+        },
+        "target": {
+          "description": "The stop, or the text selected in a prose field of a stop, that the action is about.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/StopTarget"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "Failed": {
+      "title": "Failed",
+      "properties": {
+        "state": {
+          "const": "failed"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "reason"
+      ]
+    },
+    "Familiarity": {
+      "title": "Familiarity",
+      "type": "string",
+      "enum": [
+        "familiar",
+        "some",
+        "new"
+      ]
+    },
+    "FamiliarityChanged": {
+      "title": "FamiliarityChanged",
+      "properties": {
+        "kind": {
+          "const": "familiarityChanged"
+        },
+        "from": {
+          "$ref": "#/definitions/Familiarity"
+        },
+        "to": {
+          "$ref": "#/definitions/Familiarity"
+        },
+        "stopIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "from",
+        "to",
+        "stopIds"
+      ],
+      "additionalProperties": false
+    },
+    "FileChangeKind": {
+      "title": "FileChangeKind",
+      "type": "string",
+      "enum": [
+        "added",
+        "modified",
+        "deleted",
+        "renamed"
+      ]
+    },
+    "FileDiff": {
+      "title": "FileDiff",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/TextDiff"
+        },
+        {
+          "$ref": "#/definitions/FileDiffBinary"
+        },
+        {
+          "$ref": "#/definitions/FileDiffLarge"
+        }
+      ]
+    },
+    "FileDiffBinary": {
+      "title": "FileDiffBinary",
+      "properties": {
+        "content": {
+          "const": "binary"
+        }
+      },
+      "required": [
+        "content"
+      ]
+    },
+    "FileDiffLarge": {
+      "title": "FileDiffLarge",
+      "properties": {
+        "content": {
+          "const": "large"
+        },
+        "size": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "content",
+        "size"
+      ]
+    },
+    "FileMark": {
+      "title": "FileMark",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "mark": {
+          "$ref": "#/definitions/FileMarkKind"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "mark",
+        "reason"
+      ]
+    },
+    "FileMarkKind": {
+      "title": "FileMarkKind",
+      "type": "string",
+      "enum": [
+        "mechanical",
+        "generated"
+      ]
+    },
+    "FileSide": {
+      "title": "FileSide",
+      "type": "string",
+      "enum": [
+        "base",
+        "head"
+      ]
+    },
+    "FileText": {
+      "title": "FileText",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Decoded"
+        },
+        {
+          "$ref": "#/definitions/FileTextBinary"
+        },
+        {
+          "$ref": "#/definitions/FileTextLarge"
+        }
+      ]
+    },
+    "FileTextBinary": {
+      "title": "FileTextBinary",
+      "properties": {
+        "content": {
+          "const": "binary"
+        },
+        "path": {
+          "type": "string"
+        },
+        "side": {
+          "$ref": "#/definitions/FileSide"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        }
+      },
+      "required": [
+        "content",
+        "path",
+        "side",
+        "commit"
+      ]
+    },
+    "FileTextLarge": {
+      "title": "FileTextLarge",
+      "properties": {
+        "content": {
+          "const": "large"
+        },
+        "size": {
+          "type": "integer"
+        },
+        "path": {
+          "type": "string"
+        },
+        "side": {
+          "$ref": "#/definitions/FileSide"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        }
+      },
+      "required": [
+        "content",
+        "size",
+        "path",
+        "side",
+        "commit"
+      ]
+    },
+    "FollowUpAnswer": {
+      "title": "FollowUpAnswer",
+      "type": "object",
+      "properties": {
+        "stopId": {
+          "type": "string"
+        },
+        "checkId": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/AnswerType"
+        },
+        "stopTitle": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "stopId",
+        "checkId",
+        "text",
+        "type"
+      ]
+    },
+    "FollowUpRisk": {
+      "title": "FollowUpRisk",
+      "type": "object",
+      "properties": {
+        "stopId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "scenario": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "stopId",
+        "title",
+        "scenario"
+      ]
+    },
+    "HelloEvent": {
+      "title": "HelloEvent",
+      "type": "object",
+      "properties": {
+        "keepAliveMs": {
+          "type": "integer"
+        },
+        "silenceFactor": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "keepAliveMs",
+        "silenceFactor"
+      ]
+    },
+    "IterationUpdated": {
+      "title": "IterationUpdated",
+      "properties": {
+        "kind": {
+          "const": "iterationUpdated"
+        },
+        "iteration": {
+          "type": "integer"
+        },
+        "stopIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "iteration",
+        "stopIds"
+      ],
+      "additionalProperties": false
+    },
+    "LargeFile": {
+      "title": "LargeFile",
+      "type": "object",
+      "properties": {
+        "size": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "size"
+      ]
+    },
+    "LargeFileContent": {
+      "title": "LargeFileContent",
+      "type": "string",
+      "enum": [
+        "withhold",
+        "include"
+      ]
+    },
+    "LevelOffer": {
+      "title": "LevelOffer",
+      "type": "object",
+      "properties": {
+        "change": {
+          "$ref": "#/definitions/Offer"
+        },
+        "askAgain": {
+          "$ref": "#/definitions/RequestState"
+        }
+      },
+      "required": [
+        "change"
+      ]
+    },
+    "ListChangedFilesInput": {
+      "title": "ListChangedFilesInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        }
+      },
+      "required": [
+        "tourId"
+      ],
+      "additionalProperties": false
+    },
+    "ListDirectoryInput": {
+      "title": "ListDirectoryInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "side": {
+          "description": "The side to list the directory at: base for the merge base, head for the head.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/FileSide"
+            }
+          ]
+        },
+        "path": {
+          "description": "The directory's repository path, relative, with forward slashes. Omit it for the repository's root directory.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "tourId",
+        "side"
+      ],
+      "additionalProperties": false
+    },
+    "MarkFileReviewedInput": {
+      "title": "MarkFileReviewedInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "path": {
+          "description": "The changed file's repository path, as list_changed_files names it: a renamed file by its path at the head.",
+          "type": "string"
+        },
+        "headObjectId": {
+          "description": "The file's headObjectId from list_changed_files, or null for a deleted file. The mark counts only while the file at the pinned head has this object ID, or for null, while the file stays deleted.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "tourId",
+        "path",
+        "headObjectId"
+      ],
+      "additionalProperties": false
+    },
+    "NoInput": {
+      "title": "NoInput",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "NoteThread": {
+      "title": "NoteThread",
+      "properties": {
+        "kind": {
+          "const": "note"
+        },
+        "text": {
+          "type": "string"
+        },
+        "savedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stopId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "anchor": {
+          "$ref": "#/definitions/ThreadAnchor"
+        },
+        "state": {
+          "$ref": "#/definitions/ThreadState"
+        },
+        "status": {
+          "$ref": "#/definitions/ThreadStatus"
+        }
+      },
+      "required": [
+        "kind",
+        "text",
+        "savedAt",
+        "id",
+        "anchor",
+        "state",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "Offer": {
+      "title": "Offer",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/OpenOffer"
+        },
+        {
+          "$ref": "#/definitions/ClosedOffer"
+        }
+      ]
+    },
+    "OpenOffer": {
+      "title": "OpenOffer",
+      "properties": {
+        "state": {
+          "const": "open"
+        }
+      },
+      "required": [
+        "state"
+      ]
+    },
+    "OperationError": {
+      "title": "OperationError",
+      "type": "object",
+      "properties": {
+        "code": {
+          "$ref": "#/definitions/OperationErrorCode"
+        },
+        "problem": {
+          "type": "string"
+        },
+        "field": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "pin": {
+          "$ref": "#/definitions/TourPin"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "problem",
+        "field",
+        "reason"
+      ]
+    },
+    "OperationErrorCode": {
+      "title": "OperationErrorCode",
+      "type": "string",
+      "enum": [
+        "invalidInput",
+        "tourNotFound",
+        "stopNotFound",
+        "tourUnreadable",
+        "tourNotPinned",
+        "fileNotFound",
+        "repositoryUnavailable",
+        "callerNotAllowed",
+        "attachedToAnotherSession",
+        "noSessionAttached",
+        "questionNotFound",
+        "threadNotFound",
+        "requestNotPending",
+        "questionAnswered",
+        "questionWaiting",
+        "questionFollowedUp",
+        "wrongNonce",
+        "noteSent",
+        "threadIsNote",
+        "checkNotFound",
+        "answerNotFound",
+        "batchNotFound",
+        "planAwaitsApproval",
+        "noAnswersToSend",
+        "iterationNotAvailable",
+        "tourChanged",
+        "tourRuleBroken",
+        "operationNotFound",
+        "buildMismatch",
+        "serverExiting",
+        "sessionUnknown"
+      ]
+    },
+    "OperationName": {
+      "title": "OperationName",
+      "type": "string",
+      "enum": [
+        "read_state",
+        "read_summary",
+        "ask_question",
+        "request_tour_action",
+        "ask_follow_up",
+        "resend_question",
+        "cancel_question",
+        "set_thread_state",
+        "remove_thread",
+        "save_note",
+        "edit_note",
+        "discard_note",
+        "send_notes",
+        "answer_check",
+        "set_answer_type",
+        "clear_answer",
+        "send_answers",
+        "list_tours",
+        "list_changed_files",
+        "read_file_text",
+        "diff_file",
+        "list_directory",
+        "mark_file_reviewed",
+        "clear_file_reviewed",
+        "set_stop_skipped",
+        "record_reading_progress",
+        "set_tour_archived",
+        "delete_tour",
+        "prune_clones",
+        "change_familiarity",
+        "approve_plan",
+        "check_iteration",
+        "update_iteration"
+      ]
+    },
+    "OperationResponseBody": {
+      "title": "OperationResponseBody",
+      "type": "object",
+      "properties": {
+        "output": true,
+        "revision": {
+          "type": "integer"
+        },
+        "controls": {
+          "$ref": "#/definitions/TourControls"
+        }
+      },
+      "required": [
+        "output"
+      ]
+    },
+    "Operations": {
+      "title": "Operations",
+      "type": "object",
+      "properties": {
+        "read_state": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/ReadStateInput"
+            },
+            "output": {
+              "$ref": "#/definitions/Tour"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "read_summary": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/ReadSummaryInput"
+            },
+            "output": {
+              "$ref": "#/definitions/ReviewSummary"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "ask_question": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/AskQuestionInput"
+            },
+            "output": {
+              "$ref": "#/definitions/QuestionThread"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "request_tour_action": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/RequestTourActionInput"
+            },
+            "output": {
+              "$ref": "#/definitions/QuestionThread"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "ask_follow_up": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/AskFollowUpInput"
+            },
+            "output": {
+              "$ref": "#/definitions/QuestionThread"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "resend_question": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/ResendQuestionInput"
+            },
+            "output": {
+              "$ref": "#/definitions/QuestionThread"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "cancel_question": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/CancelQuestionInput"
+            },
+            "output": {
+              "$ref": "#/definitions/QuestionThread"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "set_thread_state": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/SetThreadStateInput"
+            },
+            "output": {
+              "$ref": "#/definitions/UpdatedThread"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "remove_thread": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/RemoveThreadInput"
+            },
+            "output": {
+              "$ref": "#/definitions/DeletedThread"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "save_note": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/AskQuestionInput"
+            },
+            "output": {
+              "$ref": "#/definitions/UpdatedThread"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "edit_note": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/EditNoteInput"
+            },
+            "output": {
+              "$ref": "#/definitions/UpdatedThread"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "discard_note": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/DiscardNoteInput"
+            },
+            "output": {
+              "$ref": "#/definitions/DeletedThread"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "send_notes": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/SendNotesInput"
+            },
+            "output": {
+              "$ref": "#/definitions/SentNotes"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "answer_check": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/AnswerCheckInput"
+            },
+            "output": {
+              "$ref": "#/definitions/UpdatedAnswer"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "set_answer_type": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/SetAnswerTypeInput"
+            },
+            "output": {
+              "$ref": "#/definitions/UpdatedAnswer"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "clear_answer": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/ClearAnswerInput"
+            },
+            "output": {
+              "$ref": "#/definitions/ClearedAnswer"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "send_answers": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/SendAnswersInput"
+            },
+            "output": {
+              "$ref": "#/definitions/UpdatedBatch"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "list_tours": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/NoInput"
+            },
+            "output": {
+              "$ref": "#/definitions/TourList"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "list_changed_files": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/ListChangedFilesInput"
+            },
+            "output": {
+              "$ref": "#/definitions/ChangedFileList"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "read_file_text": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/ReadFileTextInput"
+            },
+            "output": {
+              "$ref": "#/definitions/FileText"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "diff_file": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/DiffFileInput"
+            },
+            "output": {
+              "$ref": "#/definitions/FileDiff"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "list_directory": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/ListDirectoryInput"
+            },
+            "output": {
+              "$ref": "#/definitions/DirectoryListing"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "mark_file_reviewed": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/MarkFileReviewedInput"
+            },
+            "output": {
+              "$ref": "#/definitions/ReviewMarkList"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "clear_file_reviewed": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/ClearFileReviewedInput"
+            },
+            "output": {
+              "$ref": "#/definitions/ReviewMarkList"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "set_stop_skipped": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/SetStopSkippedInput"
+            },
+            "output": {
+              "$ref": "#/definitions/UpdatedSkips"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "record_reading_progress": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/RecordReadingProgressInput"
+            },
+            "output": {
+              "$ref": "#/definitions/RecordedProgress"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "set_tour_archived": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/SetTourArchivedInput"
+            },
+            "output": {
+              "$ref": "#/definitions/UpdatedTourState"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "delete_tour": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/DeleteTourInput"
+            },
+            "output": {
+              "$ref": "#/definitions/DeletedTour"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "prune_clones": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/NoInput"
+            },
+            "output": {
+              "$ref": "#/definitions/PrunedClones"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "change_familiarity": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/ChangeFamiliarityInput"
+            },
+            "output": {
+              "$ref": "#/definitions/ChangedFamiliarity"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "approve_plan": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/ApprovePlanInput"
+            },
+            "output": {
+              "$ref": "#/definitions/ApprovedPlan"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "check_iteration": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/CheckIterationInput"
+            },
+            "output": {
+              "$ref": "#/definitions/CheckedIteration"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "update_iteration": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/UpdateIterationInput"
+            },
+            "output": {
+              "$ref": "#/definitions/UpdatedIteration"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "read_state",
+        "read_summary",
+        "ask_question",
+        "request_tour_action",
+        "ask_follow_up",
+        "resend_question",
+        "cancel_question",
+        "set_thread_state",
+        "remove_thread",
+        "save_note",
+        "edit_note",
+        "discard_note",
+        "send_notes",
+        "answer_check",
+        "set_answer_type",
+        "clear_answer",
+        "send_answers",
+        "list_tours",
+        "list_changed_files",
+        "read_file_text",
+        "diff_file",
+        "list_directory",
+        "mark_file_reviewed",
+        "clear_file_reviewed",
+        "set_stop_skipped",
+        "record_reading_progress",
+        "set_tour_archived",
+        "delete_tour",
+        "prune_clones",
+        "change_familiarity",
+        "approve_plan",
+        "check_iteration",
+        "update_iteration"
+      ],
+      "additionalProperties": false
+    },
+    "PassageRole": {
+      "title": "PassageRole",
+      "type": "string",
+      "enum": [
+        "primary",
+        "related"
+      ]
+    },
+    "PendingStop": {
+      "title": "PendingStop",
+      "properties": {
+        "stage": {
+          "const": "pending"
+        },
+        "anchorHint": {
+          "default": null,
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AnchorHint"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/StopKind"
+        },
+        "chapter": {
+          "type": "string"
+        },
+        "skipped": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/definitions/StopStatus"
+        }
+      },
+      "required": [
+        "stage",
+        "anchorHint",
+        "id",
+        "title",
+        "kind",
+        "chapter",
+        "status"
+      ]
+    },
+    "PendingWork": {
+      "title": "PendingWork",
+      "type": "object",
+      "properties": {
+        "stops": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "plan": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "level": {
+          "type": "string"
+        },
+        "iteration": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "stops",
+        "plan",
+        "summary"
+      ]
+    },
+    "PinInput": {
+      "title": "PinInput",
+      "type": "object",
+      "properties": {
+        "mergeBase": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$",
+          "description": "The iteration's merge base, as a full commit ID."
+        },
+        "head": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$",
+          "description": "The iteration's head, as a full commit ID."
+        },
+        "iteration": {
+          "description": "The pull request's number of the iteration, from 1.",
+          "type": "integer"
+        },
+        "remoteUrl": {
+          "description": "The URL of the repository that the commits come from, absolute.",
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "mergeBase",
+        "head",
+        "iteration",
+        "remoteUrl"
+      ],
+      "additionalProperties": false
+    },
+    "Pinned": {
+      "title": "Pinned",
+      "properties": {
+        "state": {
+          "const": "pinned"
+        },
+        "mergeBase": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "head": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "iteration": {
+          "type": "integer"
+        },
+        "remoteUrl": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "state",
+        "mergeBase",
+        "head",
+        "iteration",
+        "remoteUrl"
+      ]
+    },
+    "PinnedCommits": {
+      "title": "PinnedCommits",
+      "type": "object",
+      "properties": {
+        "mergeBase": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "head": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "iteration": {
+          "type": "integer"
+        },
+        "remoteUrl": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "mergeBase",
+        "head",
+        "iteration",
+        "remoteUrl"
+      ]
+    },
+    "Pinning": {
+      "title": "Pinning",
+      "properties": {
+        "state": {
+          "const": "pinning"
+        }
+      },
+      "required": [
+        "state"
+      ]
+    },
+    "Plan": {
+      "title": "Plan",
+      "type": "object",
+      "properties": {
+        "chapters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Chapter"
+          }
+        },
+        "stops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Stop"
+          }
+        },
+        "fileMarks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FileMark"
+          }
+        }
+      },
+      "required": [
+        "chapters",
+        "stops",
+        "fileMarks"
+      ]
+    },
+    "PlanApproval": {
+      "title": "PlanApproval",
+      "type": "string",
+      "enum": [
+        "notNeeded",
+        "awaited",
+        "given"
+      ]
+    },
+    "PlanApproved": {
+      "title": "PlanApproved",
+      "properties": {
+        "kind": {
+          "const": "planApproved"
+        },
+        "stopIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "skippedStops": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "familiarity": {
+          "$ref": "#/definitions/Familiarity"
+        }
+      },
+      "required": [
+        "kind",
+        "stopIds",
+        "skippedStops",
+        "familiarity"
+      ],
+      "additionalProperties": false
+    },
+    "PlanSetEvent": {
+      "title": "PlanSetEvent",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "plan": {
+          "$ref": "#/definitions/Plan"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "plan"
+      ]
+    },
+    "PrunedClones": {
+      "title": "PrunedClones",
+      "type": "object",
+      "properties": {
+        "removed": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "removed"
+      ]
+    },
+    "PullRequestState": {
+      "title": "PullRequestState",
+      "type": "string",
+      "enum": [
+        "active",
+        "completed",
+        "abandoned"
+      ]
+    },
+    "PullRequestTarget": {
+      "title": "PullRequestTarget",
+      "properties": {
+        "kind": {
+          "const": "pullRequest"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "kind",
+        "platform",
+        "url"
+      ]
+    },
+    "QuestionOutcome": {
+      "title": "QuestionOutcome",
+      "type": "string",
+      "enum": [
+        "waiting",
+        "answered",
+        "canceled",
+        "unanswered"
+      ]
+    },
+    "QuestionRequest": {
+      "title": "QuestionRequest",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/definitions/RequestState"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "sentAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "receivedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "state",
+        "sessionId",
+        "sentAt"
+      ],
+      "additionalProperties": false
+    },
+    "QuestionStatus": {
+      "title": "QuestionStatus",
+      "type": "object",
+      "properties": {
+        "questionId": {
+          "type": "string"
+        },
+        "outcome": {
+          "$ref": "#/definitions/QuestionOutcome"
+        }
+      },
+      "required": [
+        "questionId",
+        "outcome"
+      ]
+    },
+    "QuestionThread": {
+      "title": "QuestionThread",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/NoteThread"
+        },
+        {
+          "$ref": "#/definitions/AskedThread"
+        },
+        {
+          "$ref": "#/definitions/DecidedThread"
+        },
+        {
+          "$ref": "#/definitions/StartedThread"
+        }
+      ]
+    },
+    "ReadFileTextInput": {
+      "title": "ReadFileTextInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "side": {
+          "description": "The side to read the file at: base for the merge base, head for the head.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/FileSide"
+            }
+          ]
+        },
+        "path": {
+          "description": "The file's repository path, relative, with forward slashes.",
+          "type": "string"
+        },
+        "large": {
+          "description": "Whether to return the content of a large file: withhold, the default, returns only its size, and include returns its content.",
+          "default": "withhold",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/LargeFileContent"
+            }
+          ]
+        }
+      },
+      "required": [
+        "tourId",
+        "side",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "ReadStateInput": {
+      "title": "ReadStateInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        }
+      },
+      "required": [
+        "tourId"
+      ],
+      "additionalProperties": false
+    },
+    "ReadSummaryInput": {
+      "title": "ReadSummaryInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        }
+      },
+      "required": [
+        "tourId"
+      ],
+      "additionalProperties": false
+    },
+    "ReadingProgress": {
+      "title": "ReadingProgress",
+      "type": "object",
+      "properties": {
+        "finished": {
+          "type": "boolean"
+        },
+        "lastStop": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "finished"
+      ]
+    },
+    "RecordReadingProgressInput": {
+      "title": "RecordReadingProgressInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "stopId": {
+          "description": "The ID of the stop of the tour's plan that the reviewer opened. Omit it when the reviewer opened the summary page.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "summary": {
+          "description": "true when the reviewer opened the summary page. Omit it when the reviewer opened a stop.",
+          "type": "boolean",
+          "default": false
+        },
+        "version": {
+          "description": "The number of the stop's current version when the reviewer sees it. Omit it while the page shows an earlier version.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "tourId"
+      ],
+      "additionalProperties": false
+    },
+    "RecordedProgress": {
+      "title": "RecordedProgress",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "state": {
+          "$ref": "#/definitions/TourState"
+        },
+        "pullRequestState": {
+          "$ref": "#/definitions/PullRequestState"
+        },
+        "progress": {
+          "$ref": "#/definitions/ReadingProgress"
+        },
+        "seenVersion": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "state",
+        "pullRequestState",
+        "progress"
+      ]
+    },
+    "RemoveThreadInput": {
+      "title": "RemoveThreadInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "threadId": {
+          "description": "The ID of the thread.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tourId",
+        "threadId"
+      ],
+      "additionalProperties": false
+    },
+    "ReorderAction": {
+      "title": "ReorderAction",
+      "properties": {
+        "kind": {
+          "const": "reorder"
+        },
+        "stopIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "stopIds"
+      ],
+      "additionalProperties": false
+    },
+    "ReorderRequest": {
+      "title": "ReorderRequest",
+      "properties": {
+        "kind": {
+          "const": "reorder"
+        },
+        "stopIds": {
+          "description": "The IDs of every stop of the plan, each once, in the order that the reviewer proposes.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "stopIds"
+      ],
+      "additionalProperties": false
+    },
+    "ReplanAction": {
+      "title": "ReplanAction",
+      "properties": {
+        "kind": {
+          "const": "replan"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "ReplanRequest": {
+      "title": "ReplanRequest",
+      "properties": {
+        "kind": {
+          "const": "replan"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "RepositoryEntry": {
+      "title": "RepositoryEntry",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/RepositoryEntryType"
+        }
+      },
+      "required": [
+        "path",
+        "type"
+      ]
+    },
+    "RepositoryEntryType": {
+      "title": "RepositoryEntryType",
+      "type": "string",
+      "enum": [
+        "file",
+        "directory",
+        "symlink",
+        "submodule"
+      ]
+    },
+    "RequestState": {
+      "title": "RequestState",
+      "type": "string",
+      "enum": [
+        "pending",
+        "done",
+        "needsAnswer",
+        "declined",
+        "unanswered",
+        "canceled"
+      ]
+    },
+    "RequestTourActionInput": {
+      "title": "RequestTourActionInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "action": {
+          "description": "What the reviewer asks Claude to do: explain to explain a stop or text selected in it more deeply, or revise to revise the stop, each with its target, replan to change the plan as the words say, reorder to put the plan's stops in the order of stopIds, which names every stop of the plan once, summarize to write a synthesis of the review, or a follow-up action: draftWorkItems to propose work items for the sent decisions, walkOpenQuestions to start a thread on each sent open question, or draftComments to draft comments for the author from the sent concerns and the risk stops that Claude wrote and the reviewer did not skip. Only explain and revise take a target, and every other kind applies to the whole tour. The server collects a follow-up action's items, so the kind is all that a follow-up action holds. A reviewer decision is no tour action: change_familiarity, approve_plan and update_iteration report each.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ActionRequest"
+            }
+          ]
+        },
+        "text": {
+          "description": "The reviewer's words as plain text, with no control characters but tabs and line breaks. Omit them, or leave them empty, for an action without words. A revise and a replan need them.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "stopId": {
+          "description": "The ID of the stop that the reviewer views while asking. Omit it when no stop is open.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "tourId",
+        "action"
+      ],
+      "additionalProperties": false
+    },
+    "ResendQuestionInput": {
+      "title": "ResendQuestionInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "questionId": {
+          "description": "The ID of the question that has no answer yet.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tourId",
+        "questionId"
+      ],
+      "additionalProperties": false
+    },
+    "ReviewMark": {
+      "title": "ReviewMark",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "headObjectId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "headObjectId"
+      ]
+    },
+    "ReviewMarkList": {
+      "title": "ReviewMarkList",
+      "type": "object",
+      "properties": {
+        "marks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ReviewMark"
+          }
+        }
+      },
+      "required": [
+        "marks"
+      ]
+    },
+    "ReviewSummary": {
+      "title": "ReviewSummary",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "answers": {
+          "$ref": "#/definitions/SummaryAnswers"
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SummaryRisk"
+          }
+        },
+        "threads": {
+          "$ref": "#/definitions/SummaryThreads"
+        },
+        "skippedStops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SummaryStop"
+          }
+        },
+        "staleStops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SummaryStaleStop"
+          }
+        },
+        "synthesis": {
+          "$ref": "#/definitions/SummarySynthesis"
+        },
+        "summaryFingerprint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "followUps": {
+          "$ref": "#/definitions/SummaryFollowUps"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "answers",
+        "risks",
+        "threads",
+        "skippedStops",
+        "staleStops"
+      ]
+    },
+    "ReviewerDecision": {
+      "title": "ReviewerDecision",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/FamiliarityChanged"
+        },
+        {
+          "$ref": "#/definitions/PlanApproved"
+        },
+        {
+          "$ref": "#/definitions/IterationUpdated"
+        }
+      ]
+    },
+    "ReviewerThreadState": {
+      "title": "ReviewerThreadState",
+      "type": "string",
+      "enum": [
+        "open",
+        "resolved"
+      ]
+    },
+    "ReviseAction": {
+      "title": "ReviseAction",
+      "properties": {
+        "kind": {
+          "const": "revise"
+        },
+        "stopVersion": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "ReviseRequest": {
+      "title": "ReviseRequest",
+      "properties": {
+        "kind": {
+          "const": "revise"
+        },
+        "target": {
+          "description": "The stop, or the text selected in a prose field of a stop, that the action is about.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/StopTarget"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "SendAnswersInput": {
+      "title": "SendAnswersInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        }
+      },
+      "required": [
+        "tourId"
+      ],
+      "additionalProperties": false
+    },
+    "SendNotesInput": {
+      "title": "SendNotesInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "threadIds": {
+          "description": "The IDs of the notes' threads, each once, in the order to send them.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "tourId",
+        "threadIds"
+      ],
+      "additionalProperties": false
+    },
+    "SentNotes": {
+      "title": "SentNotes",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "threads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QuestionThread"
+          }
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "threads"
+      ]
+    },
+    "SetAnswerTypeInput": {
+      "title": "SetAnswerTypeInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "stopId": {
+          "description": "The ID of the stop whose content holds the check.",
+          "type": "string"
+        },
+        "checkId": {
+          "description": "The ID of a check of the stop's current content.",
+          "type": "string"
+        },
+        "type": {
+          "description": "The answer's new type: decision, concern or openQuestion.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AnswerType"
+            }
+          ]
+        }
+      },
+      "required": [
+        "tourId",
+        "stopId",
+        "checkId",
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "SetStopSkippedInput": {
+      "title": "SetStopSkippedInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "stopId": {
+          "description": "The ID of a stop of the tour's plan, pending or with content.",
+          "type": "string"
+        },
+        "skipped": {
+          "description": "true to skip the stop, false to take the skip back.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "tourId",
+        "stopId",
+        "skipped"
+      ],
+      "additionalProperties": false
+    },
+    "SetThreadStateInput": {
+      "title": "SetThreadStateInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "threadId": {
+          "description": "The ID of the thread.",
+          "type": "string"
+        },
+        "state": {
+          "description": "The thread's new state: resolved when the reviewer considers it settled, open to reopen it.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ReviewerThreadState"
+            }
+          ]
+        }
+      },
+      "required": [
+        "tourId",
+        "threadId",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "SetTourArchivedInput": {
+      "title": "SetTourArchivedInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "archived": {
+          "description": "true to archive the tour, false to unarchive it.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "tourId",
+        "archived"
+      ],
+      "additionalProperties": false
+    },
+    "StartedThread": {
+      "title": "StartedThread",
+      "properties": {
+        "kind": {
+          "const": "started"
+        },
+        "messages": {
+          "type": "array",
+          "items": [
+            {
+              "$ref": "#/definitions/ThreadAgentMessage"
+            }
+          ],
+          "additionalItems": {
+            "$ref": "#/definitions/ThreadMessage"
+          },
+          "minItems": 1
+        },
+        "id": {
+          "type": "string"
+        },
+        "anchor": {
+          "$ref": "#/definitions/ThreadAnchor"
+        },
+        "state": {
+          "$ref": "#/definitions/ThreadState"
+        },
+        "status": {
+          "$ref": "#/definitions/ThreadStatus"
+        }
+      },
+      "required": [
+        "kind",
+        "messages",
+        "id",
+        "anchor",
+        "state",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "Stop": {
+      "title": "Stop",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/PendingStop"
+        },
+        {
+          "$ref": "#/definitions/WrittenStop"
+        }
+      ]
+    },
+    "StopCheck": {
+      "title": "StopCheck",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "recommendation": {
+          "type": "string"
+        },
+        "suggestions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SuggestedAnswer"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "question"
+      ]
+    },
+    "StopContent": {
+      "title": "StopContent",
+      "type": "object",
+      "properties": {
+        "headline": {
+          "type": "string"
+        },
+        "passages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StopPassage"
+          }
+        },
+        "how": {
+          "type": "string"
+        },
+        "why": {
+          "type": "string"
+        },
+        "designChoices": {
+          "type": "string"
+        },
+        "pinnedBy": {
+          "type": "string"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StopCheck"
+          }
+        },
+        "scenario": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "placement": {
+          "$ref": "#/definitions/StopPlacement"
+        },
+        "html": {
+          "$ref": "#/definitions/StopHtml"
+        }
+      },
+      "required": [
+        "headline",
+        "passages",
+        "html"
+      ]
+    },
+    "StopHtml": {
+      "title": "StopHtml",
+      "type": "object",
+      "properties": {
+        "headline": {
+          "type": "string"
+        },
+        "how": {
+          "type": "string"
+        },
+        "why": {
+          "type": "string"
+        },
+        "designChoices": {
+          "type": "string"
+        },
+        "pinnedBy": {
+          "type": "string"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CheckHtml"
+          }
+        },
+        "scenario": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "headline"
+      ]
+    },
+    "StopKind": {
+      "title": "StopKind",
+      "type": "string",
+      "enum": [
+        "overview",
+        "context",
+        "inspect",
+        "risk",
+        "question"
+      ]
+    },
+    "StopOffers": {
+      "title": "StopOffers",
+      "type": "object",
+      "properties": {
+        "explain": {
+          "$ref": "#/definitions/Offer"
+        },
+        "revise": {
+          "$ref": "#/definitions/Offer"
+        }
+      },
+      "required": [
+        "explain",
+        "revise"
+      ]
+    },
+    "StopPassage": {
+      "title": "StopPassage",
+      "type": "object",
+      "properties": {
+        "side": {
+          "$ref": "#/definitions/FileSide"
+        },
+        "path": {
+          "type": "string"
+        },
+        "startLine": {
+          "type": "integer"
+        },
+        "endLine": {
+          "type": "integer"
+        },
+        "role": {
+          "$ref": "#/definitions/PassageRole"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "text": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "side",
+        "path",
+        "startLine",
+        "endLine",
+        "role",
+        "commit",
+        "text"
+      ]
+    },
+    "StopPlacement": {
+      "title": "StopPlacement",
+      "type": "string",
+      "enum": [
+        "inline",
+        "side"
+      ]
+    },
+    "StopPutEvent": {
+      "title": "StopPutEvent",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stop": {
+          "$ref": "#/definitions/Stop"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "stop"
+      ]
+    },
+    "StopRevisedEvent": {
+      "title": "StopRevisedEvent",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stop": {
+          "$ref": "#/definitions/Stop"
+        },
+        "answers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CheckAnswer"
+          }
+        },
+        "threads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QuestionThread"
+          }
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "stop",
+        "answers",
+        "threads"
+      ]
+    },
+    "StopStatus": {
+      "title": "StopStatus",
+      "type": "string",
+      "enum": [
+        "pending",
+        "ready",
+        "revised"
+      ]
+    },
+    "StopTarget": {
+      "title": "StopTarget",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/WholeStopTarget"
+        },
+        {
+          "$ref": "#/definitions/StopTextTarget"
+        }
+      ]
+    },
+    "StopText": {
+      "title": "StopText",
+      "properties": {
+        "kind": {
+          "const": "stopText"
+        },
+        "stopId": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "stopId",
+        "field",
+        "text",
+        "version"
+      ]
+    },
+    "StopTextInput": {
+      "title": "StopTextInput",
+      "properties": {
+        "kind": {
+          "const": "stopText"
+        },
+        "stopId": {
+          "description": "The ID of the stop whose text the reviewer selected.",
+          "type": "string"
+        },
+        "field": {
+          "description": "The prose field of the stop's content: headline, how, why, designChoices, pinnedBy, scenario, or checks[<id>].question or checks[<id>].recommendation for the check with that id.",
+          "type": "string"
+        },
+        "text": {
+          "description": "The selected text.",
+          "type": "string"
+        },
+        "version": {
+          "description": "The stop's version that the text was selected in, as the stop's version in the tour. A version that is not the stop's current one is refused. Omit it for the current version.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "stopId",
+        "field",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "StopTextTarget": {
+      "title": "StopTextTarget",
+      "properties": {
+        "kind": {
+          "const": "stopText"
+        },
+        "stopId": {
+          "description": "The ID of the stop whose text the reviewer selected.",
+          "type": "string"
+        },
+        "field": {
+          "description": "The prose field of the stop's content: headline, how, why, designChoices, pinnedBy, scenario, or checks[<id>].question or checks[<id>].recommendation for the check with that id.",
+          "type": "string"
+        },
+        "text": {
+          "description": "The selected text.",
+          "type": "string"
+        },
+        "version": {
+          "description": "The stop's version that the text was selected in, as the stop's version in the tour. A version that is not the stop's current one is refused. Omit it for the current version.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "stopId",
+        "field",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "StopVersion": {
+      "title": "StopVersion",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/StopKind"
+        },
+        "content": {
+          "$ref": "#/definitions/StopContent"
+        },
+        "replacedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "title",
+        "kind",
+        "content",
+        "replacedAt"
+      ]
+    },
+    "SuggestedAnswer": {
+      "title": "SuggestedAnswer",
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/AnswerType"
+        }
+      },
+      "required": [
+        "text",
+        "type"
+      ]
+    },
+    "SummarizeAction": {
+      "title": "SummarizeAction",
+      "properties": {
+        "kind": {
+          "const": "summarize"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "SummarizeRequest": {
+      "title": "SummarizeRequest",
+      "properties": {
+        "kind": {
+          "const": "summarize"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "SummaryAnswer": {
+      "title": "SummaryAnswer",
+      "type": "object",
+      "properties": {
+        "stopId": {
+          "type": "string"
+        },
+        "stopTitle": {
+          "type": "string"
+        },
+        "checkId": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/AnswerType"
+        },
+        "state": {
+          "$ref": "#/definitions/AnswerState"
+        },
+        "outdatedOn": {
+          "type": "integer"
+        },
+        "questionHtml": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "stopId",
+        "checkId",
+        "text",
+        "type",
+        "state"
+      ]
+    },
+    "SummaryAnswers": {
+      "title": "SummaryAnswers",
+      "type": "object",
+      "properties": {
+        "decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SummaryAnswer"
+          }
+        },
+        "concerns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SummaryAnswer"
+          }
+        },
+        "openQuestions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SummaryAnswer"
+          }
+        },
+        "outdated": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SummaryAnswer"
+          }
+        }
+      },
+      "required": [
+        "decisions",
+        "concerns",
+        "openQuestions",
+        "outdated"
+      ]
+    },
+    "SummaryFollowUps": {
+      "title": "SummaryFollowUps",
+      "type": "object",
+      "properties": {
+        "draftWorkItems": {
+          "type": "string"
+        },
+        "walkOpenQuestions": {
+          "type": "string"
+        },
+        "draftComments": {
+          "type": "string"
+        }
+      },
+      "required": []
+    },
+    "SummaryRisk": {
+      "title": "SummaryRisk",
+      "type": "object",
+      "properties": {
+        "stopId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "scenario": {
+          "type": "string"
+        },
+        "scenarioHtml": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "stopId",
+        "title"
+      ]
+    },
+    "SummaryStaleStop": {
+      "title": "SummaryStaleStop",
+      "type": "object",
+      "properties": {
+        "stopId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "staleOn": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "stopId",
+        "title",
+        "staleOn"
+      ]
+    },
+    "SummaryStop": {
+      "title": "SummaryStop",
+      "type": "object",
+      "properties": {
+        "stopId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "stopId",
+        "title"
+      ]
+    },
+    "SummarySynthesis": {
+      "title": "SummarySynthesis",
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "writtenAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "pin": {
+          "$ref": "#/definitions/PinnedCommits"
+        },
+        "predatesSummary": {
+          "type": "boolean"
+        },
+        "html": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "writtenAt",
+        "pin",
+        "predatesSummary",
+        "html"
+      ]
+    },
+    "SummaryThread": {
+      "title": "SummaryThread",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "anchor": {
+          "$ref": "#/definitions/ThreadAnchor"
+        },
+        "stopId": {
+          "type": "string"
+        },
+        "stopTitle": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string"
+        },
+        "decision": {
+          "type": "string"
+        },
+        "note": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "anchor"
+      ]
+    },
+    "SummaryThreads": {
+      "title": "SummaryThreads",
+      "type": "object",
+      "properties": {
+        "open": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SummaryThread"
+          }
+        },
+        "resolved": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SummaryThread"
+          }
+        },
+        "outdated": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SummaryThread"
+          }
+        }
+      },
+      "required": [
+        "open",
+        "resolved",
+        "outdated"
+      ]
+    },
+    "TextChange": {
+      "title": "TextChange",
+      "type": "object",
+      "properties": {
+        "fromA": {
+          "type": "integer"
+        },
+        "toA": {
+          "type": "integer"
+        },
+        "fromB": {
+          "type": "integer"
+        },
+        "toB": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "fromA",
+        "toA",
+        "fromB",
+        "toB"
+      ]
+    },
+    "TextDiff": {
+      "title": "TextDiff",
+      "properties": {
+        "content": {
+          "const": "text"
+        },
+        "baseText": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "headText": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "changes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TextChange"
+          }
+        }
+      },
+      "required": [
+        "content",
+        "baseText",
+        "headText",
+        "changes"
+      ]
+    },
+    "ThreadAgentMessage": {
+      "title": "ThreadAgentMessage",
+      "properties": {
+        "kind": {
+          "const": "agentMessage"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "html": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId",
+        "text",
+        "id",
+        "createdAt",
+        "html"
+      ],
+      "additionalProperties": false
+    },
+    "ThreadAnchor": {
+      "title": "ThreadAnchor",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/CodeRange"
+        },
+        {
+          "$ref": "#/definitions/StopText"
+        },
+        {
+          "$ref": "#/definitions/WholeFile"
+        },
+        {
+          "$ref": "#/definitions/WholeStop"
+        },
+        {
+          "$ref": "#/definitions/WholeTour"
+        }
+      ]
+    },
+    "ThreadCreatedEvent": {
+      "title": "ThreadCreatedEvent",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "thread": {
+          "$ref": "#/definitions/QuestionThread"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "thread"
+      ]
+    },
+    "ThreadMessage": {
+      "title": "ThreadMessage",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ThreadQuestion"
+        },
+        {
+          "$ref": "#/definitions/ThreadReply"
+        },
+        {
+          "$ref": "#/definitions/ThreadAgentMessage"
+        }
+      ]
+    },
+    "ThreadOffers": {
+      "title": "ThreadOffers",
+      "type": "object",
+      "properties": {
+        "resend": {
+          "$ref": "#/definitions/Offer"
+        },
+        "followUp": {
+          "$ref": "#/definitions/Offer"
+        },
+        "cancel": {
+          "$ref": "#/definitions/Offer"
+        },
+        "sendNote": {
+          "$ref": "#/definitions/Offer"
+        }
+      },
+      "required": [
+        "resend",
+        "followUp",
+        "cancel",
+        "sendNote"
+      ]
+    },
+    "ThreadQuestion": {
+      "title": "ThreadQuestion",
+      "properties": {
+        "kind": {
+          "const": "question"
+        },
+        "text": {
+          "type": "string"
+        },
+        "requests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QuestionRequest"
+          }
+        },
+        "stopId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "kind",
+        "text",
+        "requests",
+        "id",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "ThreadReply": {
+      "title": "ThreadReply",
+      "properties": {
+        "kind": {
+          "const": "reply"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "html": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId",
+        "requestId",
+        "id",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "ThreadState": {
+      "title": "ThreadState",
+      "type": "string",
+      "enum": [
+        "open",
+        "resolved",
+        "outdated"
+      ]
+    },
+    "ThreadStatus": {
+      "title": "ThreadStatus",
+      "type": "object",
+      "properties": {
+        "waiting": {
+          "$ref": "#/definitions/WaitingQuestion"
+        },
+        "questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QuestionStatus"
+          }
+        }
+      },
+      "required": [
+        "questions"
+      ]
+    },
+    "ThreadUpdatedEvent": {
+      "title": "ThreadUpdatedEvent",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "thread": {
+          "$ref": "#/definitions/QuestionThread"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "thread"
+      ]
+    },
+    "Tour": {
+      "title": "Tour",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "target": {
+          "$ref": "#/definitions/TourTarget"
+        },
+        "familiarity": {
+          "$ref": "#/definitions/Familiarity"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "pin": {
+          "$ref": "#/definitions/TourPin"
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Plan"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "threads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QuestionThread"
+          }
+        },
+        "answers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CheckAnswer"
+          }
+        },
+        "planApproval": {
+          "$ref": "#/definitions/PlanApproval"
+        },
+        "availableIteration": {
+          "$ref": "#/definitions/AvailableIteration"
+        },
+        "synthesis": {
+          "$ref": "#/definitions/TourSynthesis"
+        },
+        "progress": {
+          "$ref": "#/definitions/ReadingProgress"
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "pullRequestState": {
+          "$ref": "#/definitions/PullRequestState"
+        },
+        "revision": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "target",
+        "familiarity",
+        "createdAt",
+        "updatedAt",
+        "pin",
+        "plan",
+        "threads",
+        "answers",
+        "revision"
+      ]
+    },
+    "TourAction": {
+      "title": "TourAction",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ExplainAction"
+        },
+        {
+          "$ref": "#/definitions/ReviseAction"
+        },
+        {
+          "$ref": "#/definitions/ReplanAction"
+        },
+        {
+          "$ref": "#/definitions/ReorderAction"
+        },
+        {
+          "$ref": "#/definitions/SummarizeAction"
+        },
+        {
+          "$ref": "#/definitions/DraftWorkItemsAction"
+        },
+        {
+          "$ref": "#/definitions/WalkOpenQuestionsAction"
+        },
+        {
+          "$ref": "#/definitions/DraftCommentsAction"
+        }
+      ]
+    },
+    "TourBinding": {
+      "title": "TourBinding",
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/definitions/AttachmentLevel"
+        }
+      },
+      "required": [
+        "sessionId",
+        "level"
+      ]
+    },
+    "TourBindingChangedEvent": {
+      "title": "TourBindingChangedEvent",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "binding": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/TourBinding"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "tourId",
+        "binding"
+      ]
+    },
+    "TourControls": {
+      "title": "TourControls",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "revision": {
+          "type": "integer"
+        },
+        "offers": {
+          "$ref": "#/definitions/TourOffers"
+        }
+      },
+      "required": [
+        "tourId",
+        "revision",
+        "offers"
+      ]
+    },
+    "TourList": {
+      "title": "TourList",
+      "type": "object",
+      "properties": {
+        "tours": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TourSummary"
+          }
+        }
+      },
+      "required": [
+        "tours"
+      ]
+    },
+    "TourOffers": {
+      "title": "TourOffers",
+      "type": "object",
+      "properties": {
+        "ask": {
+          "$ref": "#/definitions/Offer"
+        },
+        "sendAnswers": {
+          "$ref": "#/definitions/Offer"
+        },
+        "level": {
+          "$ref": "#/definitions/LevelOffer"
+        },
+        "approvePlan": {
+          "$ref": "#/definitions/Offer"
+        },
+        "updateIteration": {
+          "$ref": "#/definitions/Offer"
+        },
+        "replan": {
+          "$ref": "#/definitions/Offer"
+        },
+        "reorder": {
+          "$ref": "#/definitions/Offer"
+        },
+        "stops": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/StopOffers"
+          }
+        },
+        "summarize": {
+          "$ref": "#/definitions/Offer"
+        },
+        "followUps": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Offer"
+          }
+        },
+        "threads": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ThreadOffers"
+          }
+        },
+        "pending": {
+          "$ref": "#/definitions/PendingWork"
+        }
+      },
+      "required": [
+        "ask",
+        "sendAnswers",
+        "level",
+        "approvePlan",
+        "updateIteration",
+        "replan",
+        "reorder",
+        "stops",
+        "summarize",
+        "followUps",
+        "threads",
+        "pending"
+      ]
+    },
+    "TourPin": {
+      "title": "TourPin",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Pinning"
+        },
+        {
+          "$ref": "#/definitions/Pinned"
+        },
+        {
+          "$ref": "#/definitions/Failed"
+        }
+      ]
+    },
+    "TourPinnedEvent": {
+      "title": "TourPinnedEvent",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "pin": {
+          "$ref": "#/definitions/TourPin"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "pin"
+      ]
+    },
+    "TourState": {
+      "title": "TourState",
+      "type": "string",
+      "enum": [
+        "generating",
+        "ready",
+        "inProgress",
+        "finished",
+        "archived"
+      ]
+    },
+    "TourSummary": {
+      "title": "TourSummary",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "target": {
+          "$ref": "#/definitions/TourTarget"
+        },
+        "familiarity": {
+          "$ref": "#/definitions/Familiarity"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "pin": {
+          "$ref": "#/definitions/TourPin"
+        },
+        "stopCount": {
+          "type": "integer"
+        },
+        "label": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/definitions/TourState"
+        },
+        "pullRequestState": {
+          "$ref": "#/definitions/PullRequestState"
+        },
+        "revision": {
+          "type": "integer"
+        },
+        "binding": {
+          "$ref": "#/definitions/TourBinding"
+        },
+        "planApproval": {
+          "$ref": "#/definitions/PlanApproval"
+        }
+      },
+      "required": [
+        "id",
+        "target",
+        "familiarity",
+        "createdAt",
+        "updatedAt",
+        "pin",
+        "stopCount",
+        "label",
+        "state",
+        "pullRequestState",
+        "revision"
+      ]
+    },
+    "TourSynthesis": {
+      "title": "TourSynthesis",
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "writtenAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "pin": {
+          "$ref": "#/definitions/PinnedCommits"
+        },
+        "basedOn": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "text",
+        "writtenAt",
+        "pin",
+        "basedOn"
+      ]
+    },
+    "TourTarget": {
+      "title": "TourTarget",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/PullRequestTarget"
+        }
+      ]
+    },
+    "UpdateIterationInput": {
+      "title": "UpdateIterationInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "pin": {
+          "description": "The pin of the available iteration that the reviewer's notice showed. The update is refused when the tour's available iteration is another one.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PinInput"
+            }
+          ]
+        }
+      },
+      "required": [
+        "tourId",
+        "pin"
+      ],
+      "additionalProperties": false
+    },
+    "UpdatedAnswer": {
+      "title": "UpdatedAnswer",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "answer": {
+          "$ref": "#/definitions/CheckAnswer"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "answer"
+      ]
+    },
+    "UpdatedBatch": {
+      "title": "UpdatedBatch",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "batchId": {
+          "type": "string"
+        },
+        "answers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CheckAnswer"
+          }
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "batchId",
+        "answers"
+      ]
+    },
+    "UpdatedFamiliarity": {
+      "title": "UpdatedFamiliarity",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "familiarity": {
+          "$ref": "#/definitions/Familiarity"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "familiarity"
+      ]
+    },
+    "UpdatedIteration": {
+      "title": "UpdatedIteration",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "pin": {
+          "$ref": "#/definitions/TourPin"
+        },
+        "staleStops": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "thread": {
+          "$ref": "#/definitions/QuestionThread"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "pin",
+        "staleStops"
+      ]
+    },
+    "UpdatedPlanApproval": {
+      "title": "UpdatedPlanApproval",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "planApproval": {
+          "$ref": "#/definitions/PlanApproval"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "planApproval"
+      ]
+    },
+    "UpdatedSeenVersion": {
+      "title": "UpdatedSeenVersion",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stopId": {
+          "type": "string"
+        },
+        "seenVersion": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "stopId",
+        "seenVersion"
+      ]
+    },
+    "UpdatedSkips": {
+      "title": "UpdatedSkips",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stopIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "stopIds"
+      ]
+    },
+    "UpdatedThread": {
+      "title": "UpdatedThread",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "thread": {
+          "$ref": "#/definitions/QuestionThread"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "thread"
+      ]
+    },
+    "UpdatedTourState": {
+      "title": "UpdatedTourState",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "state": {
+          "$ref": "#/definitions/TourState"
+        },
+        "pullRequestState": {
+          "$ref": "#/definitions/PullRequestState"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "state",
+        "pullRequestState"
+      ]
+    },
+    "WaitingQuestion": {
+      "title": "WaitingQuestion",
+      "type": "object",
+      "properties": {
+        "questionId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "questionId",
+        "requestId",
+        "sessionId"
+      ]
+    },
+    "WalkOpenQuestionsAction": {
+      "title": "WalkOpenQuestionsAction",
+      "properties": {
+        "kind": {
+          "const": "walkOpenQuestions"
+        },
+        "openQuestions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FollowUpAnswer"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "openQuestions"
+      ],
+      "additionalProperties": false
+    },
+    "WalkOpenQuestionsRequest": {
+      "title": "WalkOpenQuestionsRequest",
+      "properties": {
+        "kind": {
+          "const": "walkOpenQuestions"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "WholeFile": {
+      "title": "WholeFile",
+      "properties": {
+        "kind": {
+          "const": "file"
+        },
+        "side": {
+          "$ref": "#/definitions/FileSide"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "side",
+        "commit",
+        "path"
+      ]
+    },
+    "WholeFileInput": {
+      "title": "WholeFileInput",
+      "properties": {
+        "kind": {
+          "const": "file"
+        },
+        "side": {
+          "description": "The side the file is on: base for the merge base, head for the head.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/FileSide"
+            }
+          ]
+        },
+        "path": {
+          "description": "The file's repository path at that side, relative, with forward slashes.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "side",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "WholeStop": {
+      "title": "WholeStop",
+      "properties": {
+        "kind": {
+          "const": "stop"
+        },
+        "stopId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "stopId"
+      ]
+    },
+    "WholeStopInput": {
+      "title": "WholeStopInput",
+      "properties": {
+        "kind": {
+          "const": "stop"
+        },
+        "stopId": {
+          "description": "The ID of the stop.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "stopId"
+      ],
+      "additionalProperties": false
+    },
+    "WholeStopTarget": {
+      "title": "WholeStopTarget",
+      "properties": {
+        "kind": {
+          "const": "stop"
+        },
+        "stopId": {
+          "description": "The ID of the stop.",
+          "type": "string"
+        },
+        "version": {
+          "description": "The stop's version that the reviewer viewed. A version that is not the stop's current one is refused. Omit it for the current version.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "stopId"
+      ],
+      "additionalProperties": false
+    },
+    "WholeTour": {
+      "title": "WholeTour",
+      "properties": {
+        "kind": {
+          "const": "tour"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "WholeTourInput": {
+      "title": "WholeTourInput",
+      "properties": {
+        "kind": {
+          "const": "tour"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ]
+    },
+    "WrittenStop": {
+      "title": "WrittenStop",
+      "properties": {
+        "stage": {
+          "const": "written"
+        },
+        "content": {
+          "$ref": "#/definitions/StopContent"
+        },
+        "version": {
+          "type": "integer"
+        },
+        "earlier": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StopVersion"
+          }
+        },
+        "staleOn": {
+          "type": "integer"
+        },
+        "seenVersion": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/StopKind"
+        },
+        "chapter": {
+          "type": "string"
+        },
+        "skipped": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/definitions/StopStatus"
+        }
+      },
+      "required": [
+        "stage",
+        "content",
+        "version",
+        "earlier",
+        "id",
+        "title",
+        "kind",
+        "chapter",
+        "status"
+      ]
+    },
+    "WrittenSynthesis": {
+      "title": "WrittenSynthesis",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "writtenAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "writtenAt"
+      ]
+    }
+  }
+}

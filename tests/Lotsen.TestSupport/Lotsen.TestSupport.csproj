@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+   <!-- The xunit.v3 package's build targets require an executable, so a library takes the assertions and the test context alone. -->
+   <ItemGroup>
+      <PackageReference Include="xunit.v3.extensibility.core" />
+      <PackageReference Include="xunit.v3.assert" />
+   </ItemGroup>
+
+   <ItemGroup>
+      <ProjectReference Include="../../src/Lotsen.Core/Lotsen.Core.csproj" />
+   </ItemGroup>
+
+   <ItemGroup>
+      <InternalsVisibleTo Include="Lotsen.Core.Tests" />
+      <InternalsVisibleTo Include="Lotsen.AzureDevOps.Tests" />
+      <InternalsVisibleTo Include="Lotsen.Tests" />
+      <InternalsVisibleTo Include="Lotsen.TestHost" />
+   </ItemGroup>
+
+</Project>

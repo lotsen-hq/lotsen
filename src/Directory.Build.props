@@ -1,0 +1,16 @@
+<Project>
+
+   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+   <PropertyGroup>
+      <TargetFramework>net11.0</TargetFramework>
+
+      <!-- A release build sets Version on the command line to the version in its tag, which overrides this value. -->
+      <Version>0.0.0-dev</Version>
+
+      <!-- A publish yields the executable alone, so no project writes .pdb or .dbg symbol files in Release. -->
+      <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
+      <DebugSymbols Condition="'$(Configuration)' == 'Release'">false</DebugSymbols>
+   </PropertyGroup>
+
+</Project>

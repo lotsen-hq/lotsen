@@ -1,0 +1,15 @@
+<Solution>
+   <Folder Name="/src/">
+      <Project Path="src/Lotsen.AzureDevOps/Lotsen.AzureDevOps.csproj" />
+      <Project Path="src/Lotsen.Core/Lotsen.Core.csproj" />
+      <Project Path="src/Lotsen/Lotsen.csproj" />
+   </Folder>
+   <Folder Name="/tests/">
+      <Project Path="tests/Lotsen.AzureDevOps.Tests/Lotsen.AzureDevOps.Tests.csproj" />
+      <Project Path="tests/Lotsen.Core.Tests/Lotsen.Core.Tests.csproj" />
+      <Project Path="tests/Lotsen.Tests/Lotsen.Tests.csproj" />
+      <Project Path="tests/Lotsen.TestChild/Lotsen.TestChild.csproj" />
+      <Project Path="tests/Lotsen.TestHost/Lotsen.TestHost.csproj" />
+      <Project Path="tests/Lotsen.TestSupport/Lotsen.TestSupport.csproj" />
+   </Folder>
+</Solution>

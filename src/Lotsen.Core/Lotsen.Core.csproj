@@ -1,0 +1,67 @@
+<!-- PublishAot is local, because the ILCompiler targets fail a library in a solution-wide "dotnet publish -p:PublishAot=true". -->
+<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="PublishAot">
+
+   <PropertyGroup>
+      <RootNamespace>Lotsen</RootNamespace>
+
+      <!-- The executable compiles this library into its Native AOT image, so a trim or AOT warning here fails the build. -->
+      <IsAotCompatible>true</IsAotCompatible>
+      <IsPublishable>false</IsPublishable>
+      <PublishAot>false</PublishAot>
+
+      <!-- The SDK turns the generator on only where PublishAot is set, and the minimal-API endpoints live here. -->
+      <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+
+      <!-- The marshalling code that the LibraryImport generator writes for the Windows rename is unsafe code. -->
+      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+      <!--
+         The directory whose files are embedded and served as the UI: the build of ui/ (npm run build) when it exists.
+         Without it, a Debug build embeds the placeholder page so that dotnet test needs no Node, and a Release build or
+         a publish fails, so the placeholder can never ship.
+      -->
+      <LotsenBuiltUiDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '..', '..', 'ui', 'dist'))</LotsenBuiltUiDirectory>
+      <LotsenUiDirectory Condition="'$(LotsenUiDirectory)' == '' And Exists('$(LotsenBuiltUiDirectory)index.html')">$(LotsenBuiltUiDirectory)</LotsenUiDirectory>
+      <LotsenUiDirectory Condition="'$(LotsenUiDirectory)' == '' And '$(Configuration)' != 'Release' And '$(_IsPublishing)' != 'true'">$(MSBuildProjectDirectory)/placeholder-ui/</LotsenUiDirectory>
+   </PropertyGroup>
+
+   <ItemGroup Condition="'$(LotsenUiDirectory)' != ''">
+      <EmbeddedResource Include="$(LotsenUiDirectory)**/*" LogicalName="ui/%(RecursiveDir)%(Filename)%(Extension)" />
+      <Content Remove="$(LotsenUiDirectory)**/*" />
+      <None Remove="$(LotsenUiDirectory)**/*" />
+   </ItemGroup>
+
+   <Target Name="RequireBuiltUi" BeforeTargets="PrepareForBuild" Condition="'$(LotsenUiDirectory)' == ''">
+      <Error Text="The UI is not built: $(LotsenBuiltUiDirectory)index.html is missing. Run 'npm ci' and 'npm run build' in ui/ before a Release build or a publish." />
+   </Target>
+
+   <ItemGroup>
+      <FrameworkReference Include="Microsoft.AspNetCore.App" />
+      <PackageReference Include="Markdig" />
+      <PackageReference Include="ModelContextProtocol" />
+      <PackageReference Include="System.CommandLine" />
+   </ItemGroup>
+
+   <!-- The global usings that the Web SDK adds, which a library on Microsoft.NET.Sdk does not get. -->
+   <ItemGroup>
+      <Using Include="System.Net.Http.Json" />
+      <Using Include="Microsoft.AspNetCore.Builder" />
+      <Using Include="Microsoft.AspNetCore.Hosting" />
+      <Using Include="Microsoft.AspNetCore.Http" />
+      <Using Include="Microsoft.AspNetCore.Routing" />
+      <Using Include="Microsoft.Extensions.Configuration" />
+      <Using Include="Microsoft.Extensions.DependencyInjection" />
+      <Using Include="Microsoft.Extensions.Hosting" />
+      <Using Include="Microsoft.Extensions.Logging" />
+   </ItemGroup>
+
+   <!-- Every test assembly and the test host read the core's internals, such as the data directory and the state file. No production project sees them. -->
+   <ItemGroup>
+      <InternalsVisibleTo Include="Lotsen.Core.Tests" />
+      <InternalsVisibleTo Include="Lotsen.AzureDevOps.Tests" />
+      <InternalsVisibleTo Include="Lotsen.Tests" />
+      <InternalsVisibleTo Include="Lotsen.TestSupport" />
+      <InternalsVisibleTo Include="Lotsen.TestHost" />
+   </ItemGroup>
+
+</Project>

@@ -1,0 +1,16 @@
+{
+  "name": "@lotsen-hq/lotsen-win32-x64",
+  "version": "0.0.0",
+  "description": "The lotsen executable for Windows x64. Install the package lotsen, which runs it.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lotsen-hq/lotsen.git"
+  },
+  "os": ["win32"],
+  "cpu": ["x64"],
+  "files": ["lotsen.exe", "NOTICE"],
+  "publishConfig": {
+    "access": "public"
+  }
+}

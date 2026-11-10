@@ -1,0 +1,108 @@
+/*
+ * The diff editors' syntax colors (src/lib/editor/diffTheme.ts), one palette per syntax color family and theme. src/lib/syntaxColors.ts sets data-syntax-colors on <html> from the reviewer's
+ * choice, and src/lib/colorScheme.ts sets the dark class. A family's selectors carry the attribute, so they win over the Lotsen palettes whatever their order.
+ */
+
+:root {
+   --syntax-keyword: #8250df;
+   --syntax-control: #8250df;
+   --syntax-string: #116329;
+   --syntax-number: #b35900;
+   --syntax-constant: #b35900;
+   --syntax-comment: #6e7781;
+   --syntax-comment-style: italic;
+   --syntax-type: #8a6100;
+   --syntax-function: #0550ae;
+   --syntax-property: #a0461f;
+   --syntax-tag: #cf222e;
+   --syntax-operator: #0f6e85;
+   --syntax-invalid: #d1242f;
+}
+
+.dark {
+   --syntax-keyword: #c792ea;
+   --syntax-control: #c792ea;
+   --syntax-string: #a5d6a7;
+   --syntax-number: #f78c6c;
+   --syntax-constant: #f78c6c;
+   --syntax-comment: #8b93a1;
+   --syntax-comment-style: italic;
+   --syntax-type: #ffcb6b;
+   --syntax-function: #82aaff;
+   --syntax-property: #f0a875;
+   --syntax-tag: #f07178;
+   --syntax-operator: #89ddff;
+   --syntax-invalid: #ff6b6b;
+}
+
+/*
+ * The other families' values are the tokenColors of VS Code's default themes, Copyright (c) Microsoft Corporation, MIT License: extensions/theme-defaults/themes/ in
+ * microsoft/vscode at 79749f565febf2216982fce236448995e0c4bde9. Visual Studio Code is Light Modern and Dark Modern, through the light_plus.json and dark_plus.json they include.
+ * Visual Studio is light_vs.json and dark_vs.json, the closest published palettes, because Visual Studio's own are not published. Each role takes the color of one scope, as a
+ * TextMate prefix match resolves it: keyword, keyword.control, string, constant.numeric, constant.language, comment, entity.name.type, entity.name.function, variable.other.property,
+ * entity.name.tag, keyword.operator and invalid. A role whose scope has no color takes the theme's editor.foreground. No scope sets a fontStyle on comments, so they are not italic.
+ */
+
+:root[data-syntax-colors='vscode'] {
+   --syntax-keyword: #0000ff;
+   --syntax-control: #af00db;
+   --syntax-string: #a31515;
+   --syntax-number: #098658;
+   --syntax-constant: #0000ff;
+   --syntax-comment: #008000;
+   --syntax-comment-style: normal;
+   --syntax-type: #267f99;
+   --syntax-function: #795e26;
+   --syntax-property: #001080;
+   --syntax-tag: #800000;
+   --syntax-operator: #000000;
+   --syntax-invalid: #cd3131;
+}
+
+:root.dark[data-syntax-colors='vscode'] {
+   --syntax-keyword: #569cd6;
+   --syntax-control: #c586c0;
+   --syntax-string: #ce9178;
+   --syntax-number: #b5cea8;
+   --syntax-constant: #569cd6;
+   --syntax-comment: #6a9955;
+   --syntax-comment-style: normal;
+   --syntax-type: #4ec9b0;
+   --syntax-function: #dcdcaa;
+   --syntax-property: #9cdcfe;
+   --syntax-tag: #569cd6;
+   --syntax-operator: #d4d4d4;
+   --syntax-invalid: #f44747;
+}
+
+:root[data-syntax-colors='visualStudio'] {
+   --syntax-keyword: #0000ff;
+   --syntax-control: #0000ff;
+   --syntax-string: #a31515;
+   --syntax-number: #098658;
+   --syntax-constant: #0000ff;
+   --syntax-comment: #008000;
+   --syntax-comment-style: normal;
+   --syntax-type: #000000;
+   --syntax-function: #000000;
+   --syntax-property: #000000;
+   --syntax-tag: #800000;
+   --syntax-operator: #000000;
+   --syntax-invalid: #cd3131;
+}
+
+:root.dark[data-syntax-colors='visualStudio'] {
+   --syntax-keyword: #569cd6;
+   --syntax-control: #569cd6;
+   --syntax-string: #ce9178;
+   --syntax-number: #b5cea8;
+   --syntax-constant: #569cd6;
+   --syntax-comment: #6a9955;
+   --syntax-comment-style: normal;
+   --syntax-type: #d4d4d4;
+   --syntax-function: #d4d4d4;
+   --syntax-property: #d4d4d4;
+   --syntax-tag: #569cd6;
+   --syntax-operator: #d4d4d4;
+   --syntax-invalid: #f44747;
+}

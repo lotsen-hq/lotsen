@@ -1,0 +1,7 @@
+{
+  "name": "lotsen",
+  "description": "Guided tours of Azure DevOps pull requests in the lotsen web UI",
+  "author": { "name": "lotsen-hq" },
+  "license": "Apache-2.0",
+  "keywords": ["code-review", "pull-request", "azure-devops", "tour"]
+}

@@ -1,0 +1,30 @@
+<!-- PublishAot is local, because the ILCompiler targets fail a library in a solution-wide "dotnet publish -p:PublishAot=true". -->
+<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="PublishAot">
+
+   <PropertyGroup>
+      <RootNamespace>Lotsen.AzureDevOps</RootNamespace>
+
+      <!-- The executable compiles this library into its Native AOT image, so a trim or AOT warning here fails the build. -->
+      <IsAotCompatible>true</IsAotCompatible>
+      <IsPublishable>false</IsPublishable>
+      <PublishAot>false</PublishAot>
+   </PropertyGroup>
+
+   <ItemGroup>
+      <FrameworkReference Include="Microsoft.AspNetCore.App" />
+   </ItemGroup>
+
+   <ItemGroup>
+      <ProjectReference Include="../Lotsen.Core/Lotsen.Core.csproj" />
+   </ItemGroup>
+
+   <ItemGroup>
+      <Using Include="Microsoft.Extensions.DependencyInjection" />
+      <Using Include="Microsoft.Extensions.Logging" />
+   </ItemGroup>
+
+   <ItemGroup>
+      <InternalsVisibleTo Include="Lotsen.AzureDevOps.Tests" />
+   </ItemGroup>
+
+</Project>

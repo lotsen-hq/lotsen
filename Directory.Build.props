@@ -1,0 +1,22 @@
+<Project>
+
+   <PropertyGroup>
+      <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+      <Nullable>enable</Nullable>
+      <ImplicitUsings>enable</ImplicitUsings>
+      <!-- The build is the gate, so a warning in any project stops it, the test project included. -->
+      <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+      <EnableNETAnalyzers>true</EnableNETAnalyzers>
+      <AnalysisLevel>latest</AnalysisLevel>
+      <!-- The compiler checks doc comments only when it writes a documentation file, so a cref that names nothing fails the build. Members need no doc comment, and a doc comment need not cover every parameter. -->
+      <GenerateDocumentationFile>true</GenerateDocumentationFile>
+      <PublishDocumentationFile>false</PublishDocumentationFile>
+      <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
+      <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
+      <!-- The runtime reads this switch from the entry assembly's runtimeconfig, so the test host needs it too, or a type missing from the JSON context serializes in tests and fails only under Native AOT. -->
+      <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+      <!-- A vulnerability advisory against any package in the graph would otherwise fail every build with no change to the code. -->
+      <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+   </PropertyGroup>
+
+</Project>

@@ -1,0 +1,34 @@
+# superpowers execution ledger (scratch)
+.superpowers/
+
+# The maintainer's nibs, a git repository of its own, and the agents' run output. Only the comment conventions are part of the project.
+.nibs/
+.decaf/*
+!.decaf/conventions/
+
+# Isolated git worktrees that agents create for parallel work.
+.claude/worktrees/
+# Claude Code's settings for one machine, such as the maintainer's nibs hooks.
+.claude/settings.local.json
+
+# .NET build output
+bin/
+obj/
+artifacts/
+# The npm package's starter, which the bin/ rule would hide.
+!npm/lotsen/bin/
+*.user
+TestResults/
+# The results of `just stress`
+.stress/
+
+# UI dependencies and build output
+node_modules/
+ui/dist/
+ui/demo-dist/
+# The browser layout suite's results and traces
+ui/test-results/
+ui/playwright-report/
+
+# Console logs and snapshots of the Playwright MCP browser
+.playwright-mcp/

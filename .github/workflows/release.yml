@@ -1,0 +1,228 @@
+name: Release
+run-name: Release ${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The version to release, such as v0.1.0, or v0.1.0-rc.1 for a pre-release
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  TAG: ${{ inputs.version }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # Reads the conclusion of the commit's CI run.
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check the version's format
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::The version must look like v1.2.3 or v1.2.3-rc.1 (got: $TAG)."
+            exit 1
+          fi
+
+      - name: Require a run from main
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::Start the release from main (got: $GITHUB_REF)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+
+      # The plugin at the release's tag starts the npm version that plugin/.mcp.json names, so it must be the one that this release publishes.
+      - name: Require plugin/.mcp.json to start this version
+        run: node npm/check-release-version.mjs "$TAG"
+
+      - name: Require passing CI on this commit
+        run: |
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA" --jq '.workflow_runs | sort_by(.created_at) | last')
+          if [[ -z "$latest" || "$latest" == "null" ]]; then
+            echo "::error::$GITHUB_SHA has no CI run, as when its push changed only notes and docs. Start one with 'gh workflow run ci --ref main', wait for it to pass, then start the release again."
+            exit 1
+          fi
+          state="$(jq -r .status <<<"$latest")/$(jq -r .conclusion <<<"$latest")"
+          if [[ "$state" != "completed/success" ]]; then
+            echo "::error::CI on $GITHUB_SHA is $state. Release only a commit whose CI passed."
+            exit 1
+          fi
+
+      - name: Refuse a version that already has a tag
+        run: |
+          count=$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$TAG" | jq --arg ref "refs/tags/$TAG" 'map(select(.ref == $ref)) | length')
+          if [[ "$count" != "0" ]]; then
+            echo "::error::The tag $TAG already exists."
+            exit 1
+          fi
+
+  build:
+    needs: check
+    strategy:
+      matrix:
+        include:
+          - { rid: linux-x64, runner: ubuntu-latest, executable: lotsen, asset: lotsen-linux-x64 }
+          - { rid: win-x64, runner: windows-latest, executable: lotsen.exe, asset: lotsen-win-x64.exe }
+    runs-on: ${{ matrix.runner }}
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      PUBLISH: src/Lotsen/bin/Release/net11.0/${{ matrix.rid }}/publish
+      EXECUTABLE: ${{ matrix.executable }}
+      ASSET: ${{ matrix.asset }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      # Native AOT links with clang and zlib.
+      - name: Install native toolchain
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Strip the v from the version
+        run: echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: npm ci
+
+      # The publish embeds ui/dist and fails without it.
+      - name: Build UI
+        working-directory: ui
+        run: npm run build
+
+      # Warnings are errors, so any AOT or trim warning fails the publish.
+      - name: Publish with Native AOT
+        run: dotnet publish -c Release -p:PublishAot=true -p:TreatWarningsAsErrors=true -p:Version="$VERSION"
+
+      - name: Check that the publish holds the executable alone
+        run: |
+          ls -la "$PUBLISH"
+          files=$(find "$PUBLISH" -mindepth 1)
+          if [ "$files" != "$PUBLISH/$EXECUTABLE" ]; then
+            echo "::error::Expected only $EXECUTABLE in $PUBLISH."
+            exit 1
+          fi
+
+      - name: Check that the executable reports the version
+        run: |
+          actual=$("$PUBLISH/$EXECUTABLE" --version)
+          echo "$actual"
+          case "$actual" in
+            "$VERSION+"*) ;;
+            *)
+              echo "::error::Expected a version that starts with $VERSION+."
+              exit 1
+              ;;
+          esac
+
+      - name: Name the executable after its platform
+        run: mkdir asset && cp "$PUBLISH/$EXECUTABLE" "asset/$ASSET"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.asset }}
+          path: asset/${{ matrix.asset }}
+          if-no-files-found: error
+
+  npm:
+    needs: build
+    # Trusted publishing proves the run to npm through OIDC, so no npm token exists, and this job cannot write to the repository: https://docs.npmjs.com/trusted-publishers
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Require npm 11.5.1 or later, which trusted publishing needs
+        run: |
+          node -e '
+            const [major, minor, patch] = process.argv[1].split(".").map(Number);
+            if (major < 11 || (major === 11 && (minor < 5 || (minor === 5 && patch < 1)))) {
+              console.error(`::error::Trusted publishing needs npm 11.5.1 or later, and the runner has ${process.argv[1]}.`);
+              process.exit(1);
+            }' "$(npm --version)"
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: Strip the v from the version
+        run: echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+
+      - name: Pack the packages
+        run: node npm/pack.mjs "$VERSION" packs linux-x64=assets/lotsen-linux-x64 win32-x64=assets/lotsen-win-x64.exe | tee tarballs.txt
+
+      # The platforms go first, so the package lotsen never names a version that npm lacks. A rerun after a partial failure skips each package that npm holds at this version.
+      - name: Publish the packages
+        run: |
+          flags=()
+          if [[ "$TAG" == *-* ]]; then
+            flags+=(--tag next)
+          fi
+          while read -r tarball; do
+            name=$(tar -xzOf "$tarball" package/package.json | jq -r .name)
+            if npm view "$name@$VERSION" version > /dev/null 2>&1; then
+              echo "$name@$VERSION is on npm already."
+            else
+              npm publish "$tarball" "${flags[@]}"
+            fi
+          done < tarballs.txt
+
+  publish:
+    needs: npm
+    # Only this job's token can write to the repository, so it runs nothing from the packages that the build installs.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: assets
+          merge-multiple: true
+
+      # The checksum file lets anyone who downloads an executable by hand check it.
+      - name: Write the checksum file
+        working-directory: assets
+        run: sha256sum lotsen-* | tee checksums.txt
+
+      # The release creates the tag at the commit that the checks passed, so a failed build leaves no tag.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=(--repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$TAG" --generate-notes)
+          if [[ "$TAG" == *-* ]]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$TAG" assets/* "${flags[@]}"

@@ -1,0 +1,21 @@
+{
+  "name": "lotsen",
+  "version": "0.0.0",
+  "description": "Guided tours of Azure DevOps pull requests that Claude Code writes, in a local web UI",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lotsen-hq/lotsen.git"
+  },
+  "bin": {
+    "lotsen": "bin/lotsen.js"
+  },
+  "files": ["bin/lotsen.js", "NOTICE"],
+  "engines": {
+    "node": ">=18"
+  },
+  "optionalDependencies": {
+    "@lotsen-hq/lotsen-linux-x64": "0.0.0",
+    "@lotsen-hq/lotsen-win32-x64": "0.0.0"
+  }
+}

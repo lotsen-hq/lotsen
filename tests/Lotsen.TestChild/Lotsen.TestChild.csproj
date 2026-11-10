@@ -1,0 +1,14 @@
+<!-- A test-side executable that the process tests run as a child, and as the fake Azure CLI. Nothing in src/ references it, and it is never published. -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+   <PropertyGroup>
+      <OutputType>Exe</OutputType>
+      <RootNamespace>Lotsen.TestChild</RootNamespace>
+   </PropertyGroup>
+
+   <!-- The program references no xunit package. -->
+   <ItemGroup>
+      <Using Remove="Xunit" />
+   </ItemGroup>
+
+</Project>

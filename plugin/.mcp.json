@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "lotsen": {
+      "command": "npx",
+      "args": ["-y", "--prefix", "${CLAUDE_PLUGIN_DATA}", "lotsen@0.1.0-rc.2", "mcp"]
+    }
+  }
+}
