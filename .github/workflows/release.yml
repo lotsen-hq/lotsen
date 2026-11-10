@@ -226,3 +226,41 @@ jobs:
             flags+=(--prerelease)
           fi
           gh release create "$TAG" assets/* "${flags[@]}"
+
+  marketplace:
+    needs: publish
+    # The marketplace serves every user, so a pre-release stays off it, as it stays off npm's latest.
+    if: ${{ !contains(inputs.version, '-') }}
+    runs-on: ubuntu-latest
+    # Only a run from main gets the environment's deploy key, which can write to lotsen-hq/plugins alone.
+    environment: release
+    permissions: {}
+    steps:
+      - name: Pin the marketplace entry to the release
+        env:
+          DEPLOY_KEY: ${{ secrets.MARKETPLACE_DEPLOY_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/marketplace
+          gh api meta --jq '.ssh_keys[] | "github.com " + .' > ~/.ssh/known_hosts
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/marketplace -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+
+          git clone --depth 1 git@github.com:lotsen-hq/plugins.git plugins
+          cd plugins
+          file=.claude-plugin/marketplace.json
+          if ! jq -e '[.plugins[] | select(.name == "lotsen")] | length == 1' "$file" > /dev/null; then
+            echo "::error::$file has no single entry named lotsen."
+            exit 1
+          fi
+          jq --arg tag "$TAG" '(.plugins[] | select(.name == "lotsen") | .source.ref) = $tag' "$file" > "$file.new"
+          mv "$file.new" "$file"
+
+          # A rerun after the push finds the entry pinned already.
+          if git diff --quiet; then
+            echo "The marketplace entry pins $TAG already."
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -q -am "Pin the lotsen entry to $TAG"
+          git push -q origin HEAD
