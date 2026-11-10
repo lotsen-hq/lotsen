@@ -2,6 +2,14 @@
   <img alt="Lotsen" src="docs/assets/lotsen-logo.svg" height="128">
 </h1>
 
+<p align="center">
+  <a href="https://github.com/lotsen-hq/lotsen/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/lotsen-hq/lotsen/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+  <a href="https://www.npmjs.com/package/lotsen"><img alt="npm version" src="https://img.shields.io/npm/v/lotsen"></a>
+  <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
+  <a href="#requirements"><img alt="Platform: Linux x64 and Windows x64" src="https://img.shields.io/badge/platform-Linux%20x64%20%7C%20Windows%20x64-lightgrey"></a>
+  <a href="#install"><img alt="Claude Code plugin" src="https://img.shields.io/badge/Claude%20Code-plugin-blue"></a>
+</p>
+
 Lotsen layers a guided tour over an Azure DevOps pull request. Claude Code plans the tour and writes it stop by stop, and you read it in a local web UI, next to the code it talks about. You can ask Claude about any stop, answer the decisions it raises, and end with a summary of the review.
 
 <picture>
