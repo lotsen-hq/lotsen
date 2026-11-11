@@ -59,6 +59,22 @@ test.describe('the workspace', () => {
       expect(await widths()).toEqual(before);
    });
 
+   test('keeps a dragged panel in its group and a hidden panel hidden after a reload', async ({ page }) => {
+      await openDemoTour(page, checkoutTour);
+      await dragTab(page, 'Threads', center(page));
+      await expect(region(page, 'Threads').getByRole('tab', { name: 'Code' })).toBeVisible();
+      await page.getByRole('button', { name: 'Hide the stop' }).click();
+      await expect(region(page, 'Stop')).toBeHidden();
+
+      await page.reload();
+
+      const codeGroup = page.getByRole('tablist').filter({ has: page.getByRole('tab', { name: 'Code' }) });
+      await expect(codeGroup.getByRole('tab')).toHaveText(['Code', 'Threads']);
+      await expect(page.getByRole('tab', { name: 'Stop' })).toBeHidden();
+      await page.getByRole('button', { name: 'Panels' }).click();
+      await expect(page.getByRole('menuitemcheckbox', { name: 'Stop' })).toHaveAttribute('aria-checked', 'false');
+   });
+
    test('opens a thread menu and a tooltip inside a panel dragged to another group', async ({ page }) => {
       await openDemoTour(page, checkoutTour);
 
