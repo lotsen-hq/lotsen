@@ -1,6 +1,6 @@
 import { flushSync } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { applyPreference, booleanPreference, detachPreferences, preference, preferenceFamily, syncPreferences, type PreferenceWriter } from '../src/lib/preference';
+import { applyPreference, booleanPreference, detachPreferences, preference, preferenceFamily, storedPreference, syncPreferences, type PreferenceWriter } from '../src/lib/preference';
 
 const fruit = preference<'apple' | 'pear'>('test.fruit', ['apple', 'pear'], 'apple');
 const lit = booleanPreference('test.lit', true);
@@ -429,5 +429,23 @@ describe('a preference family', () => {
       detachPreferences();
 
       expect(counts.entries()).toEqual([]);
+   });
+});
+
+describe('the keys of the preferences and the families', () => {
+   const parse = (stored: string) => stored;
+
+   it.each([
+      { why: 'a key of a family', create: () => storedPreference('test.counts/a', parse, String, '') },
+      { why: 'a family that holds a preference’s key', create: () => preferenceFamily('test.fr', parse, String) },
+      { why: 'a family inside another', create: () => preferenceFamily('test.counts/a/', parse, String) },
+      { why: 'a family around another', create: () => preferenceFamily('test.count', parse, String) },
+   ])('refuses $why', ({ create }) => {
+      expect(create).toThrow(/overlaps/);
+   });
+
+   it('takes the same key or the same family again', () => {
+      expect(() => booleanPreference('test.lit', true)).not.toThrow();
+      expect(() => preferenceFamily('test.counts/', parse, String)).not.toThrow();
    });
 });

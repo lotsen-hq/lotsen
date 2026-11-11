@@ -71,10 +71,29 @@ describe('the named layouts', () => {
       expect(server).toEqual({ 'workspaceLayouts/a': value('Wider', newer) });
    });
 
-   it('refuses a rename to a name that another layout has', async () => {
-      await serve({ 'workspaceLayouts/a': value('Wide', columns), 'workspaceLayouts/b': value('Reading', columns) });
+   it('keeps every other member of the stored value through a rename, as a later version of lotsen may store more', async () => {
+      const stored = JSON.stringify({ name: 'Wide', record: newer, pinned: true });
+      const server = await serve({ 'workspaceLayouts/a': stored });
+
+      await renameLayout('a', 'Wider');
+
+      expect(JSON.parse(server['workspaceLayouts/a']!)).toEqual({ name: 'Wider', record: newer, pinned: true });
+   });
+
+   it('refuses to rename a layout whose stored value is not a JSON object, and writes nothing', async () => {
+      const server = await serve({ 'workspaceLayouts/a': 'not JSON', 'workspaceLayouts/b': '[1]' });
+
+      await expect(renameLayout('a', 'Wider')).rejects.toThrow('This layout cannot be renamed. Delete it instead.');
+      await expect(renameLayout('b', 'Wider')).rejects.toThrow('This layout cannot be renamed. Delete it instead.');
+      expect(server).toEqual({ 'workspaceLayouts/a': 'not JSON', 'workspaceLayouts/b': '[1]' });
+   });
+
+   it('refuses a rename to a name that another layout has, and writes nothing', async () => {
+      const stored = { 'workspaceLayouts/a': value('Wide', columns), 'workspaceLayouts/b': value('Reading', columns) };
+      const server = await serve(stored);
 
       await expect(renameLayout('a', 'READING')).rejects.toThrow('A layout named Reading already exists.');
+      expect(server).toEqual(stored);
    });
 
    it('deletes a layout', async () => {

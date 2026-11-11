@@ -8,11 +8,8 @@ export const maxNameLength = 60;
 /** The name that the page shows for a layout whose stored value holds no name. */
 const unnamed = 'Unnamed layout';
 
-/** A named layout's stored value as the page read it, with each member as some version of lotsen saved it. */
-interface StoredLayout {
-   name: unknown;
-   record: unknown;
-}
+/** A named layout's stored value as the page read it: a JSON object whose `name` and `record` members, and any other, are as some version of lotsen saved them. */
+type StoredLayout = Readonly<Record<string, unknown>>;
 
 /** A layout that the reviewer saved under a name. */
 export interface NamedLayout {
@@ -20,8 +17,8 @@ export interface NamedLayout {
    id: string;
    /** The name that the reviewer gave it, or a stand-in when the stored value holds none. */
    name: string;
-   /** The stored record as some version of lotsen saved it, which a rename stores again unchanged. */
-   raw: unknown;
+   /** The stored value, which a rename stores again with only its name changed, or undefined when it is not a JSON object. */
+   stored: StoredLayout | undefined;
    /** The record, or undefined when this page cannot read it, as for one that another version of lotsen saved. */
    record: LayoutRecord | undefined;
 }
@@ -44,7 +41,7 @@ export function namedLayouts(): NamedLayout[] {
       .map(({ key, value }) => ({
          id: key.slice(prefix.length),
          name: typeof value?.name === 'string' ? value.name : unnamed,
-         raw: value?.record,
+         stored: value,
          record: layoutFrom(value?.record),
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -87,9 +84,9 @@ export async function saveLayout(name: string, record: LayoutRecord): Promise<vo
 }
 
 /**
- * Gives the layout another name and keeps its record as stored.
+ * Gives the layout another name and keeps every other member of its stored value.
  *
- * @throws A {@link LayoutRefusal} when the name is refused, another layout has it or the layout is gone, or the server's refusal.
+ * @throws A {@link LayoutRefusal} when the name is refused, another layout has it, the layout is gone or its stored value is not a JSON object, or the server's refusal.
  */
 export async function renameLayout(id: string, name: string): Promise<void> {
    const check = checkName(name, id);
@@ -106,7 +103,11 @@ export async function renameLayout(id: string, name: string): Promise<void> {
       throw new LayoutRefusal('The layout no longer exists.');
    }
 
-   await family.write(prefix + id, { name: check.name, record: layout.raw });
+   if (layout.stored === undefined) {
+      throw new LayoutRefusal('This layout cannot be renamed. Delete it instead.');
+   }
+
+   await family.write(prefix + id, { ...layout.stored, name: check.name });
 }
 
 /**
@@ -132,5 +133,5 @@ function readStored(text: string): StoredLayout | undefined {
       return undefined;
    }
 
-   return typeof value === 'object' && value !== null && !Array.isArray(value) ? { name: (value as StoredLayout).name, record: (value as StoredLayout).record } : undefined;
+   return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as StoredLayout) : undefined;
 }

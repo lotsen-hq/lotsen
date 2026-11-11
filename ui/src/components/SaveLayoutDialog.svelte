@@ -75,7 +75,7 @@
 </script>
 
 <Dialog.Root bind:open>
-   <Dialog.Content class="sm:max-w-sm" escapeKeydownBehavior={busy ? 'ignore' : 'close'} interactOutsideBehavior={busy ? 'ignore' : 'close'} {onCloseAutoFocus}>
+   <Dialog.Content class="sm:max-w-sm" escapeKeydownBehavior={busy ? 'ignore' : 'close'} interactOutsideBehavior={busy ? 'ignore' : 'close'} showCloseButton={!busy} {onCloseAutoFocus}>
       {#if replacing === null}
          <form class="contents" onsubmit={submit}>
             <Dialog.Header>

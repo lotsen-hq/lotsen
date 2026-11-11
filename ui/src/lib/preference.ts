@@ -98,8 +98,14 @@ export function booleanPreference(key: string, fallback: boolean): Preference<bo
  * @param parse Returns the value that the stored text holds, or undefined when the text holds none.
  * @param format Returns the text that stores the value.
  * @param fallback The value that `read` returns when no valid value is stored.
+ * @throws An error when the key starts with the prefix of a {@link preferenceFamily}.
  */
 export function storedPreference<T>(key: string, parse: (stored: string) => T | undefined, format: (value: T) => string, fallback: T): Preference<T> {
+   const family = [...families].find((prefix) => key.startsWith(prefix));
+   if (family !== undefined) {
+      throw new Error(`The preference key ${key} overlaps the preference family ${family}.`);
+   }
+
    registered.add(key);
    return {
       read() {
@@ -120,10 +126,18 @@ export function storedPreference<T>(key: string, parse: (stored: string) => T | 
 /**
  * Returns the preference family of every key that starts with the prefix.
  *
+ * A key belongs to one preference or one family, because the family's settling deletes each of its keys that the server lacks.
+ *
  * @param parse Returns the value that a key's text holds, or undefined when the text holds none.
  * @param format Returns the text that stores a value.
+ * @throws An error when the prefix starts a preference's key, or starts or extends another family's prefix.
  */
 export function preferenceFamily<T>(prefix: string, parse: (stored: string) => T | undefined, format: (value: T) => string): PreferenceFamily<T> {
+   const overlap = [...registered].find((key) => key.startsWith(prefix)) ?? [...families].find((other) => other !== prefix && (other.startsWith(prefix) || prefix.startsWith(other)));
+   if (overlap !== undefined) {
+      throw new Error(`The preference family ${prefix} overlaps ${overlap}.`);
+   }
+
    families.add(prefix);
    return {
       entries() {
