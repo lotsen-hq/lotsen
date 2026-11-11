@@ -1,5 +1,6 @@
 import { StateEffect, StateField, type Extension } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view';
+import { editorWindow } from './editorWindow';
 
 /** Where a block sits in an editor: after the line that ends at `pos`, or with `before`, above the line at `pos` and below the deleted lines that the inline view draws there. */
 export interface BlockPosition {
@@ -61,10 +62,9 @@ class BlockWidget extends WidgetType {
       const host = document.createElement('div');
       host.className = blockClass;
       const remove = this.block.render(host);
-      const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(() => this.block.resized(view, host.getBoundingClientRect().height)) : null;
-      observer?.observe(host);
+      const unwatch = view.plugin(editorWindow)?.watch(host, () => this.block.resized(view, host.getBoundingClientRect().height));
       drawnBlocks.set(host, () => {
-         observer?.disconnect();
+         unwatch?.();
          remove();
       });
       view.plugin(blockWidth)?.schedule();
@@ -184,7 +184,7 @@ class BlockWidth {
 const blockWidth = ViewPlugin.fromClass(BlockWidth);
 
 /** The extension that lets an editor show one block or one spacer, which {@link showBlock}, {@link showSpacer} and {@link clearBlock} set. */
-export const blockWidgets: Extension = [blockField, blockWidth];
+export const blockWidgets: Extension = [blockField, blockWidth, editorWindow];
 
 /** Shows a block at a position, in place of the editor's block or spacer. */
 export function showBlock(view: EditorView, position: BlockPosition, block: ShownBlock): void {

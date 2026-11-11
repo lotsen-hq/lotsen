@@ -1,4 +1,5 @@
 import type { EditorView } from '@codemirror/view';
+import { windowOf } from './editorWindow';
 
 /**
  * Returns the nearest element around an editor's content that scrolls now: the editor's own scroller, or the merge view or the stack around an editor that grows to its content.
@@ -7,7 +8,7 @@ import type { EditorView } from '@codemirror/view';
  */
 export function scrollParent(view: EditorView): HTMLElement | null {
    let element: HTMLElement | null = view.scrollDOM;
-   while (element !== null && !(element.scrollHeight > element.clientHeight && ['auto', 'scroll'].includes(getComputedStyle(element).overflowY))) {
+   while (element !== null && !(element.scrollHeight > element.clientHeight && ['auto', 'scroll'].includes(windowOf(element).getComputedStyle(element).overflowY))) {
       element = element.parentElement;
    }
 

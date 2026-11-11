@@ -1,9 +1,10 @@
 import { render, waitFor } from '@testing-library/svelte';
 import { flushSync, tick } from 'svelte';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, onTestFinished } from 'vitest';
 import DiffView from '../src/components/DiffView.svelte';
 import FileView from '../src/components/FileView.svelte';
 import type { DiffSurfaceOptions, EditorSurfaces, FileSurfaceOptions } from '../src/lib/editor/surface';
+import { PanelDocument } from '../src/lib/panelDocument.svelte';
 import { filePassageDecorations } from '../src/lib/passageMarks';
 import type { Stop, StopPassage, TextDiff } from '../src/lib/types';
 import type { KnownDiff, KnownText } from '../src/lib/viewState';
@@ -157,5 +158,32 @@ describe('a file view whose file changes after its editors are built and before 
       await tick();
 
       expect(surfaces.built.map((surface) => surface.callsOf('destroy').length)).toEqual([1, 0]);
+   });
+});
+
+describe('a file view whose panel moves to another document', () => {
+   it.each([
+      ['the diff view', DiffView, { path: 'a.ts', known: loadedDiff('a.ts') }],
+      ['the file view', FileView, { known: loadedText('a.ts') }],
+   ] as const)('%s rebinds its editors there, and again once the panel returns', async (_, component, shown) => {
+      const element = document.body.appendChild(document.createElement('div'));
+      const panel = new PanelDocument(element);
+      onTestFinished(() => {
+         panel.dispose();
+         element.remove();
+      });
+      const surfaces = new RecordingSurfaces();
+      render(SurfaceHost, { target: element, props: { surfaces, component, props: new Reactive<Record<string, unknown>>(shown), panel } });
+      await waitFor(() => expect(surfaces.mounted).toHaveLength(1));
+
+      document.implementation.createHTMLDocument().body.append(element);
+      panel.follow();
+      flushSync();
+      document.body.append(element);
+      panel.follow();
+      flushSync();
+
+      expect(surfaces.last.callsOf('follow')).toHaveLength(2);
+      expect(surfaces.mounted).toHaveLength(1);
    });
 });

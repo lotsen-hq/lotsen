@@ -1,4 +1,5 @@
 import { getContext, setContext } from 'svelte';
+import { onMove } from '../panelDocument.svelte';
 import type { DiffLayout } from '../diffLayout';
 import type { LinesAtSide, PassageDecorations } from '../passageMarks';
 import type { FileSide, TextDiff } from '../types';
@@ -59,9 +60,17 @@ export interface EditorSurface {
    destroy(): void;
 }
 
+/** Tells its subscribers each time the panel that shows the editors moves to another document, as into a popout window and back. */
+export interface PanelMoves {
+   /** Calls `moved` after each move, until the returned function stops it. */
+   subscribe(moved: () => void): () => void;
+}
+
 /** What every editor of a file mounts from. */
 interface SurfaceOptions {
    parent: HTMLElement;
+   /** The moves of the panel that shows the editors, after each of which the surface rebinds its editors to the panel's new document. */
+   moves: PanelMoves;
    /** The file's path, which picks the language that highlights it. */
    path: string;
    /** Cancels the mount while the language loads, or undefined for a mount that nothing cancels. */
@@ -105,7 +114,29 @@ export function provideEditorSurfaces(surfaces: EditorSurfaces): void {
    setContext(surfacesKey, surfaces);
 }
 
-/** Returns the editor surfaces that a component mounts its editors through: the ones a parent provided, or else CodeMirror's. Call it while the component initializes. */
-export function editorSurfaces(): EditorSurfaces {
-   return getContext<EditorSurfaces | undefined>(surfacesKey) ?? codeMirrorSurfaces;
+/** The editor surfaces as a component mounts its editors through them, with the moves of the component's panel filled in. */
+export interface PanelSurfaces {
+   diff(options: Omit<DiffSurfaceOptions, 'moves'>): Promise<EditorSurface | null>;
+   file(options: Omit<FileSurfaceOptions, 'moves'>): Promise<EditorSurface | null>;
+}
+
+/**
+ * Returns the editor surfaces that a component mounts its editors through: the ones a parent provided, or else CodeMirror's. Call it while the component initializes.
+ *
+ * Each surface that they mount follows the component's panel to another document.
+ */
+export function editorSurfaces(): PanelSurfaces {
+   const surfaces = getContext<EditorSurfaces | undefined>(surfacesKey) ?? codeMirrorSurfaces;
+   const followers = new Set<() => void>();
+   onMove(() => followers.forEach((follow) => follow()));
+   const moves: PanelMoves = {
+      subscribe: (moved) => {
+         followers.add(moved);
+         return () => void followers.delete(moved);
+      },
+   };
+   return {
+      diff: (options) => surfaces.diff({ ...options, moves }),
+      file: (options) => surfaces.file({ ...options, moves }),
+   };
 }

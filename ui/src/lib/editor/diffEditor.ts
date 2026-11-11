@@ -8,6 +8,7 @@ import { diffTheme } from './diffTheme';
 import { blockWidgets, clearBlock, showBlock, showSpacer, ShownBlock, type BlockPosition } from './blockWidgets';
 import { gitLineStarts } from '../gitLines';
 import { islandSelection } from './islandSelection';
+import { followWindow, prepareStyles } from './editorWindow';
 import { collapsedLines, PassageCollapse } from './passageCollapse';
 import { blockBelow, decoratePassages, passageDecorations, selectionLines } from './passageDecorations';
 import { scrollParent } from './scrollParent';
@@ -121,16 +122,16 @@ export interface DiffEditor {
    explain(block: BlockHost | null): boolean;
    /** Returns the git lines at one side that a selection of the page covers in the editors, `bothSides` when it covers lines of both sides, or null when it covers none of their lines. */
    selection(range: Range): LinesAtSide | 'bothSides' | null;
+   /** Moves the editors' root, window listeners and size watching to the document that holds them now, as {@link followWindow} does. Call it after their element moves to another document. */
+   follow(): void;
    /** Removes the editors from the page and releases them. */
    destroy(): void;
 }
 
-/** What every editor of a file needs: its language and the page's style nonce. */
+/** What every editor of a file needs: its language. */
 export interface EditorSetup {
    /** The language that highlights the file, or null for plain text. */
    language: Language | null;
-   /** The page's style nonce, or undefined when the page has none. */
-   nonce: string | undefined;
 }
 
 export interface DiffEditorOptions extends EditorSetup {
@@ -150,6 +151,7 @@ export interface FileEditorOptions extends EditorSetup {
 /** Mounts a read-only view of a file's diff in the parent, in the layout given. */
 export function createDiffEditor(options: DiffEditorOptions): DiffEditor {
    const { parent, layout, diff: raw } = options;
+   prepareStyles(parent);
    const fileDiff = normalizeLineBreaks(options.diff);
    const extensions = editorExtensions(options);
    const base = fileDiff.baseText ?? '';
@@ -224,6 +226,8 @@ function chunkLines(chunk: Chunk, a: Text, b: Text): ChunkLines {
 function diffEditor(base: EditorView | null, head: EditorView | null, collapse: PassageCollapse, destroy: () => void, sideBySide?: { rows: RowLayout; panes: SideBySidePanes }): DiffEditor {
    const paneRows = sideBySide?.rows;
    const views = [base, head].filter((view) => view !== null);
+   // A merge view builds its editors before it adds them to the parent (MergeView in @codemirror/merge 6.12.3), so they start bound to the main page, also when the parent is in a popout window.
+   views.forEach(followWindow);
    let shownKey: string | null = null;
    let shown = false;
    const explain = (block: BlockHost | null): boolean => {
@@ -281,6 +285,7 @@ function diffEditor(base: EditorView | null, head: EditorView | null, collapse: 
          const found = views.map((view) => selectionLines(view, range)).filter((lines) => lines !== null);
          return found.length > 1 ? 'bothSides' : (found[0] ?? null);
       },
+      follow: () => views.forEach(followWindow),
       destroy: () => {
          explain(null);
          destroy();
@@ -381,22 +386,13 @@ export function scrollToPosition({ view, pos, deletedLine }: EditorPosition): vo
 
 /** Mounts a read-only view of a file's text in the parent, with the diff editors' setup and theme, as the one editor of its side. */
 export function createFileEditor(options: FileEditorOptions): DiffEditor {
+   prepareStyles(options.parent);
    const extensions = [editorExtensions(options), passageDecorations({ side: options.side, text: options.text }), collapsedLines];
    const view = new EditorView({ parent: options.parent, state: EditorState.create({ doc: options.text, extensions }) });
    const collapse = new PassageCollapse([view], singleRows(view.state.doc.lines));
    return options.side === 'base' ? diffEditor(view, null, collapse, () => view.destroy()) : diffEditor(null, view, collapse, () => view.destroy());
 }
 
-function editorExtensions({ language, nonce }: EditorSetup): Extension {
-   return [
-      EditorState.readOnly.of(true),
-      nonce === undefined ? [] : EditorView.cspNonce.of(nonce),
-      lineNumbers(),
-      highlightSpecialChars(),
-      language === null ? [] : new LanguageSupport(language),
-      diffTheme,
-      deletedLineScroll,
-      blockWidgets,
-      islandSelection,
-   ];
+function editorExtensions({ language }: EditorSetup): Extension {
+   return [EditorState.readOnly.of(true), lineNumbers(), highlightSpecialChars(), language === null ? [] : new LanguageSupport(language), diffTheme, deletedLineScroll, blockWidgets, islandSelection];
 }

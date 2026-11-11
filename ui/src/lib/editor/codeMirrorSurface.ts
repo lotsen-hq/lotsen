@@ -1,10 +1,9 @@
-import { cspNonce } from '../cspNonce';
 import { gitLineText } from '../gitLines';
 import type { LinesAtSide, PassageDecorations } from '../passageMarks';
 import type { TextDiff } from '../types';
 import { createDiffEditor, createFileEditor, linePosition, scrollToPosition, type DiffEditor } from './diffEditor';
 import { loadLanguageFor } from './languages';
-import type { BlockHost, EditorSurface, EditorSurfaces, SideBySidePanes, SideLine } from './surface';
+import type { BlockHost, EditorSurface, EditorSurfaces, PanelMoves, SideBySidePanes, SideLine } from './surface';
 
 /** The editors of one file in CodeMirror, as the page asks for them through {@link EditorSurface}. */
 export class CodeMirrorSurface implements EditorSurface {
@@ -13,11 +12,14 @@ export class CodeMirrorSurface implements EditorSurface {
    private readonly editor: DiffEditor;
    /** The texts that the editors show, as the server sent them: one side's text alone for a file's text. */
    private readonly texts: TextDiff;
+   private readonly unfollow: () => void;
 
-   constructor(parent: HTMLElement, editor: DiffEditor, texts: TextDiff) {
+   /** @param moves - The moves of the panel that shows the editors, which rebind the editors to the panel's new document. */
+   constructor(parent: HTMLElement, editor: DiffEditor, texts: TextDiff, moves: PanelMoves) {
       this.parent = parent;
       this.editor = editor;
       this.texts = texts;
+      this.unfollow = moves.subscribe(() => editor.follow());
    }
 
    get panes(): SideBySidePanes | null {
@@ -53,23 +55,24 @@ export class CodeMirrorSurface implements EditorSurface {
    }
 
    destroy(): void {
+      this.unfollow();
       this.editor.destroy();
    }
 }
 
 /** The editor surfaces of the page, which mount CodeMirror. */
 export const codeMirrorSurfaces: EditorSurfaces = {
-   diff: async ({ parent, path, layout, diff, signal }) => {
+   diff: async ({ parent, path, layout, diff, signal, moves }) => {
       const language = await loadLanguageFor(path);
-      return signal?.aborted ? null : new CodeMirrorSurface(parent, createDiffEditor({ parent, layout, diff, language, nonce: cspNonce() }), diff);
+      return signal?.aborted ? null : new CodeMirrorSurface(parent, createDiffEditor({ parent, layout, diff, language }), diff, moves);
    },
-   file: async ({ parent, path, text, side, signal }) => {
+   file: async ({ parent, path, text, side, signal, moves }) => {
       const language = await loadLanguageFor(path);
       if (signal?.aborted) {
          return null;
       }
 
       const texts: TextDiff = { content: 'text', baseText: side === 'base' ? text : null, headText: side === 'head' ? text : null, changes: [] };
-      return new CodeMirrorSurface(parent, createFileEditor({ parent, text, side, language, nonce: cspNonce() }), texts);
+      return new CodeMirrorSurface(parent, createFileEditor({ parent, text, side, language }), texts, moves);
    },
 };

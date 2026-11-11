@@ -12,7 +12,7 @@
 
    type LeftPanel = 'files' | 'plan';
 
-   const themeAttributes = ['class', 'data-color-scheme'];
+   const themeAttributes = ['class', 'data-color-scheme', 'data-syntax-colors'];
 
    let {
       layout,
@@ -48,7 +48,7 @@
    // The group headers and the panels mount their own components, which need the page's contexts, such as its tooltip delays.
    const contexts = getAllContexts();
 
-   /** Keeps the root element of a popout window's page in step with the theme class and color scheme of this page's root, which the palettes in `app.css` key on. */
+   /** Keeps the root element of a popout window's page in step with the theme class, the color scheme and the syntax color family of this page's root, which the palettes in `app.css` key on. */
    function followTheme(popout: Window): () => void {
       const source = document.documentElement;
       const copy = () => {

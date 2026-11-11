@@ -4,6 +4,7 @@ import { collapsedMarkerHeight } from './diffTheme';
 import { collapsedRegions, expandedRows, type CollapsedRegion, type ExpandEdge, type LineSpan, type RowLayout } from './collapseRows';
 import { passageLineMarks } from './passageDecorations';
 import { scrollParent } from './scrollParent';
+import { windowOf } from './editorWindow';
 import type { DecoratedPassage, PassageDecorations } from '../passageMarks';
 
 /** The lines around a passage that stay shown, the fewest lines that a marker hides, and how many lines one step of expanding shows. */
@@ -52,7 +53,7 @@ class CollapsedLinesWidget extends WidgetType {
          control.dataset.edge = edge;
          control.textContent = text;
          control.addEventListener('click', () => {
-            const focused = element.contains(document.activeElement);
+            const focused = element.contains(element.ownerDocument.activeElement);
             const kept = keptSide(view, element, lines);
             const rest = this.expand(lines.from, edge);
             settleAfterExpand(view, lines, rest, edge, focused, kept);
@@ -100,7 +101,7 @@ function keptSide(view: EditorView, marker: HTMLElement, lines: LineSpan): KeptS
       return null;
    }
 
-   const visible = scrollParent(view)?.getBoundingClientRect() ?? { top: 0, bottom: window.innerHeight };
+   const visible = scrollParent(view)?.getBoundingClientRect() ?? { top: 0, bottom: windowOf(view.dom).innerHeight };
    const box = marker.getBoundingClientRect();
    const below = !linesAbove || (linesBelow && box.top + box.bottom < visible.top + visible.bottom);
    const pos = doc.line(below ? lines.to + 1 : lines.from - 1).from;

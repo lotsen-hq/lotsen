@@ -3,7 +3,11 @@ import type { LinesAtSide, PassageDecorations } from '../../src/lib/passageMarks
 
 /** One call on a recorded surface, by its method and its argument. */
 export type SurfaceCall =
-   { call: 'showPassages'; decorations: PassageDecorations } | { call: 'focus'; line: SideLine } | { call: 'placeBlock'; key: string | null; below: LinesAtSide | null } | { call: 'destroy' };
+   | { call: 'showPassages'; decorations: PassageDecorations }
+   | { call: 'focus'; line: SideLine }
+   | { call: 'placeBlock'; key: string | null; below: LinesAtSide | null }
+   | { call: 'follow' }
+   | { call: 'destroy' };
 
 /** A surface that records the calls it receives, which shows every line and every block. */
 export class RecordingSurface implements EditorSurface {
@@ -12,9 +16,11 @@ export class RecordingSurface implements EditorSurface {
    readonly panes = null;
    /** The sides that the surface shows, which decide whether it shows a line or a block. */
    private readonly sides: ReadonlySet<'base' | 'head'>;
+   private readonly unfollow: () => void;
 
    constructor(options: DiffSurfaceOptions | FileSurfaceOptions) {
       this.options = options;
+      this.unfollow = options.moves.subscribe(() => this.calls.push({ call: 'follow' }));
       this.sides = new Set('side' in options ? [options.side] : (['base', 'head'] as const).filter((side) => (side === 'base' ? options.diff.baseText : options.diff.headText) !== null));
    }
 
@@ -41,6 +47,7 @@ export class RecordingSurface implements EditorSurface {
    }
 
    destroy(): void {
+      this.unfollow();
       this.calls.push({ call: 'destroy' });
    }
 

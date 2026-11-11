@@ -876,7 +876,7 @@ describe('linePosition', () => {
 
    function mount(fileDiff: TextDiff, layout: DiffLayout): DiffEditor {
       const parent = document.body.appendChild(document.createElement('div'));
-      editor = createDiffEditor({ parent, layout, diff: fileDiff, language: null, nonce: undefined });
+      editor = createDiffEditor({ parent, layout, diff: fileDiff, language: null });
       return editor;
    }
 

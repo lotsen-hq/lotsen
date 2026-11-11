@@ -1,5 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
-import { checkoutTour, openDemoTour, openStop } from './demo';
+import { expect, test, type Locator, type Page } from '@playwright/test';
+import { center, checkoutTour, editorLine, inScrollerView, openDemoTour, openStop } from './demo';
 
 const region = (page: Page, name: string) => page.getByRole('region', { name, exact: true });
 
@@ -20,6 +20,29 @@ const bodyPointer = (page: Page) => page.locator('body').evaluate((body) => getC
 
 /** Returns the row of the demo's thread on the discount in the Threads panel of the page. */
 const discountRow = (page: Page) => region(page, 'Threads').getByRole('list', { name: 'Threads' }).getByRole('listitem').filter({ hasText: 'Is the discount applied before tax?' });
+
+/** Opens the payment stop's passage in the shipping rates, a file longer than the window, which the Stop panel of the page offers. */
+async function openShippingRates(page: Page): Promise<void> {
+   await openStop(page, 'The new payment step');
+   await region(page, 'Stop')
+      .getByRole('button', { name: /shipping/ })
+      .click();
+}
+
+/** Selects the lines of an editor from the line that holds one text to the line that holds another, with a mouse drag in the editor's window. */
+async function dragOver(page: Page, from: Locator, to: Locator): Promise<void> {
+   const [start, end] = [(await from.boundingBox())!, (await to.boundingBox())!];
+   await page.mouse.move(start.x + 40, start.y + start.height / 2);
+   await page.mouse.down();
+   await page.mouse.move(end.x + 60, end.y + end.height / 2, { steps: 5 });
+   await page.mouse.up();
+}
+
+/** Returns the right and the bottom edge of an element in its window, in pixels. */
+async function farEdges(element: Locator): Promise<{ right: number; bottom: number }> {
+   const box = (await element.boundingBox())!;
+   return { right: Math.round(box.x + box.width), bottom: Math.round(box.y + box.height) };
+}
 
 test.describe('a popout window', () => {
    test('runs a click in the Threads panel that it holds, and returns the panel to its group once the window closes', async ({ page }) => {
@@ -157,6 +180,105 @@ test.describe('a popout window', () => {
       await region(popout, 'Stop').locator('[data-stop-field]').first().selectText();
 
       await expect(region(popout, 'Stop').getByRole('button', { name: /^Ask Claude about/ })).toBeVisible();
+   });
+
+   test('lays out, scrolls and selects the diff of the Code panel that it holds, asks about the selected lines, and does the same once the panel returns', async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem('lotsen.syntaxColors', 'vscode'));
+      await openDemoTour(page, checkoutTour, { placement: 'side', layout: 'sideBySide' });
+      await openShippingRates(page);
+      await expect(editorLine(center(page), "'region-052'")).toBeVisible();
+      const popout = await popOut(page, 'Code', 'Pop out the code');
+      const code = center(popout);
+      const base = code.locator('.cm-editor').first();
+
+      await expect(popout.locator('html')).toHaveAttribute('data-syntax-colors', 'vscode');
+      for (const size of [
+         { width: 900, height: 500 },
+         { width: 1200, height: 800 },
+      ]) {
+         await popout.setViewportSize(size);
+         await expect.poll(() => farEdges(code)).toEqual({ right: size.width, bottom: size.height });
+         await expect.poll(() => farEdges(code.locator('.cm-mergeView'))).toEqual({ right: size.width, bottom: size.height });
+      }
+
+      await popout.setViewportSize({ width: 900, height: 500 });
+      await base.hover();
+      await popout.mouse.wheel(0, 10_000);
+      await expect.poll(() => inScrollerView(editorLine(base, "'region-130'"))).toBe(true);
+
+      await dragOver(popout, editorLine(base, "'region-120'"), editorLine(base, "'region-124'"));
+
+      const ask = code.getByRole('button', { name: 'Ask Claude about src/checkout/shipping.ts, lines 122–126 at the base' });
+      await expect(ask).toBeVisible();
+      await ask.click();
+      await expect(region(page, 'Threads').getByRole('textbox', { name: 'Question for Claude' })).toHaveAttribute('placeholder', 'Ask Claude about these lines');
+
+      await popout.close({ runBeforeUnload: true });
+      await expect.poll(() => groups(page)).toEqual([['Files', 'Plan'], ['Code'], ['Stop'], ['Threads']]);
+      const returned = center(page).locator('.cm-editor').first();
+      await returned.hover();
+      await page.mouse.wheel(0, -10_000);
+      await expect.poll(() => inScrollerView(editorLine(returned, "'region-003'"))).toBe(true);
+      await dragOver(page, editorLine(returned, "'region-003'"), editorLine(returned, "'region-005'"));
+      await expect(center(page).getByRole('button', { name: 'Ask Claude about src/checkout/shipping.ts, lines 5–7 at the base' })).toBeVisible();
+   });
+
+   for (const layout of ['inline', 'sideBySide'] as const) {
+      test(`mounts the ${layout} diff of a file that opens while the Code panel is popped out, selects its deleted lines and scrolls it there`, async ({ page }) => {
+         await openDemoTour(page, checkoutTour, { placement: 'side', layout });
+         const popout = await popOut(page, 'Code', 'Pop out the code');
+         await popout.setViewportSize({ width: 900, height: 500 });
+
+         await openShippingRates(page);
+
+         // The inline diff draws the deleted lines in its one editor, and the side-by-side diff in its base editor, which comes first.
+         const editor = center(popout).locator('.cm-editor').first();
+         const deleted = (text: string) => (layout === 'inline' ? editor.locator('.cm-deletedLine', { hasText: text }) : editorLine(editor, text));
+         await expect.poll(() => inScrollerView(deleted("'region-052'"))).toBe(true);
+         await dragOver(popout, deleted("'region-052'"), deleted("'region-054'"));
+         await expect(center(popout).getByRole('button', { name: 'Ask Claude about src/checkout/shipping.ts, lines 54–56 at the base' })).toBeVisible();
+         await editor.hover();
+         await popout.mouse.wheel(0, 10_000);
+         await expect.poll(() => inScrollerView(editorLine(editor, "'region-130'"))).toBe(true);
+      });
+   }
+
+   test('keeps the focus on the control of a collapsed marker that expands it by keyboard in the Code panel that it holds', async ({ page }) => {
+      await openDemoTour(page, checkoutTour, { placement: 'side', layout: 'inline' });
+      await openShippingRates(page);
+      const popout = await popOut(page, 'Code', 'Pop out the code');
+      await popout.setViewportSize({ width: 900, height: 500 });
+      await center(popout).getByRole('button', { name: 'Collapse to passages' }).click();
+      const marker = center(popout).locator('.lotsen-collapsed').last();
+      const hidden = async () => Number((await marker.locator('.lotsen-collapsedCount').textContent())!.split(' ')[0]);
+      const before = await hidden();
+
+      await marker.getByRole('button', { name: 'Show first 20' }).focus();
+      await popout.keyboard.press('Enter');
+
+      await expect.poll(hidden).toBe(before - 20);
+      const focused = popout.locator(':focus');
+      await expect(focused).toHaveClass(/lotsen-expand/);
+      await expect.poll(() => inScrollerView(focused)).toBe(true);
+   });
+
+   test('keeps the spacer of an inline explanation as high as the explanation, once the popout window narrows and the explanation grows', async ({ page }) => {
+      await openDemoTour(page, checkoutTour, { placement: 'inline', layout: 'sideBySide' });
+      await openStop(page, 'A cart line needs at least one item');
+      await expect(center(page).locator('.lotsen-explanation')).toHaveCount(1);
+      const popout = await popOut(page, 'Code', 'Pop out the code');
+      const [base, head] = [center(popout).locator('.cm-editor').nth(0), center(popout).locator('.cm-editor').nth(1)];
+      const shown = head.locator('.lotsen-explanation');
+      const spacer = base.locator('.lotsen-explanationSpacer');
+      const height = async (element: Locator) => Math.round((await element.boundingBox())!.height);
+      await popout.setViewportSize({ width: 1400, height: 800 });
+      await expect.poll(async () => (await height(spacer)) - (await height(shown))).toBe(0);
+      const wide = await height(shown);
+
+      await popout.setViewportSize({ width: 700, height: 800 });
+
+      await expect.poll(() => height(shown)).toBeGreaterThan(wide);
+      await expect.poll(async () => (await height(spacer)) - (await height(shown))).toBe(0);
    });
 
    for (const overlay of ['menu', 'alertdialog'] as const) {
