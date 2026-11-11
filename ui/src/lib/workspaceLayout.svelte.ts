@@ -16,7 +16,7 @@ interface Origin {
  * Holds which panels of the workspace are hidden and which group is maximized, for the top bar, the group headers and the workspace to share.
  *
  * Dockview holds the workspace layout, and this class changes it only through Dockview's API. A hidden panel sits alone in a group that Dockview hides, so the panel
- * stays mounted and keeps its state.
+ * stays mounted and keeps its state. That group is the panel's own grid group, or a floating group when the panel shared its group with others.
  */
 export class WorkspaceLayout {
    /** Whether each panel is hidden from the Panels menu or its group's Hide button. A maximized group hides the others without hiding their panels. */
@@ -95,14 +95,14 @@ export class WorkspaceLayout {
       }
 
       this.restore();
-      let group = panel.group;
+      const group = panel.group;
       if (group.panels.length > 1) {
+         // A floating group sits over the grid, so the panel leaves without a split that would resize the groups around it.
          this.origins[id] = { groupId: group.id, index: group.panels.indexOf(panel) };
-         group = api.addGroup({ referenceGroup: group, direction: 'right' });
-         panel.api.moveTo({ group, skipSetActive: true });
+         api.addFloatingGroup(panel);
       }
 
-      group.api.setVisible(false);
+      panel.group.api.setVisible(false);
       this.hidden[id] = true;
       if (focusMenu) {
          this.menu?.focus();
@@ -154,10 +154,13 @@ export class WorkspaceLayout {
       const origin = this.origins[id];
       delete this.origins[id];
       const home = origin === undefined ? undefined : api.groups.find((group) => group.id === origin.groupId);
-      if (origin && home && home !== panel.group && home.api.isVisible) {
+      if (panel.group.api.location.type === 'grid') {
+         panel.group.api.setVisible(true);
+      } else if (origin && home?.api.isVisible) {
          panel.api.moveTo({ group: home, index: Math.min(origin.index, home.panels.length) });
       } else {
-         panel.group.api.setVisible(true);
+         // The group it shared is gone or hidden, so the panel takes a group of its own beside it, or at the right edge.
+         panel.api.moveTo({ group: api.addGroup(home ? { referenceGroup: home, direction: 'right' } : { direction: 'right' }) });
       }
 
       this.hidden[id] = false;
