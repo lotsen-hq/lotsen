@@ -95,12 +95,22 @@ public sealed class OperationCatalogTests
    public void Prose_view_that_does_not_fit_the_output_fails_the_definition()
    {
       var none = Assert.Throws<InvalidOperationException>(() => Define(LotsenJsonContext.Default.Tour, ProseView.None));
-      var holdsNoProse = Assert.Throws<InvalidOperationException>(() => Define(LotsenJsonContext.Default.DeletedTour, ProseView.Html<DeletedTour>(_ => new JsonObject())));
+      var holdsNoProse = Assert.Throws<InvalidOperationException>(() => Define(LotsenJsonContext.Default.DeletedTour, ProseView.Html<DeletedTour>((_, _) => new JsonObject())));
       var otherType = Assert.Throws<InvalidOperationException>(() => Define(LotsenJsonContext.Default.Tour, ProseView.Html<Stop>(ProseHtml.Of)));
 
       Assert.Contains("has no prose view, but its output can hold prose", none.Message, StringComparison.Ordinal);
       Assert.Contains("has a prose view, but its output holds no prose", holdsNoProse.Message, StringComparison.Ordinal);
       Assert.Contains("has the prose view of Stop on an output of Tour", otherType.Message, StringComparison.Ordinal);
+   }
+
+   [Fact]
+   public void Event_whose_payload_can_hold_prose_is_refused_without_the_mention_links_of_its_tour()
+   {
+      var payload = new StopPutEvent(TourValues.Id, TourValues.Now, TourValues.Pending("s1"));
+
+      var refused = Assert.Throws<InvalidOperationException>(() => ServerEvent.Of(ServerEvents.StopPut, payload));
+
+      Assert.Contains("stopPut", refused.Message, StringComparison.Ordinal);
    }
 
    /// <summary>The exporter gives a defaulted enum property no schema of its own, so the export describes it as it does a nullable one.</summary>

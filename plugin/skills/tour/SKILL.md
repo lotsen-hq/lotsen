@@ -370,6 +370,17 @@ diff rule does not apply, so a link may point at unchanged code.
 A link or a passage covers exactly the lines its sentence names, such as the one call and not the whole method, and
 two links that compare the base and the head of the same code cover the same span on each side.
 
+### Work item and pull request links
+
+When a field mentions a work item or another pull request that you read from the PR, such as a linked work item or a
+pull request that the description names, link it with its own scheme and label it with its ID:
+
+- A work item: `[#1234](workitem:1234)`.
+- A pull request in the PR's repository: `[!42](pullrequest:42)`.
+
+The UI opens each in a new tab on the PR's platform, with only its label shown. A pull request in another repository
+takes its full `https:` link instead. Write the ID as plain digits. A bare `#1234` or `!42` in the text stays text.
+
 ### Markdown
 
 Every prose field is restricted Markdown. Use only:
@@ -377,7 +388,8 @@ Every prose field is restricted Markdown. Use only:
 - paragraphs, bulleted lists and numbered lists
 - `*emphasis*`, `**strong**` and `` `inline code` ``
 - fenced code blocks, short ones; the UI shows no language
-- `ref:` links, and `https:` links, which the UI shows with their URL
+- `ref:`, `workitem:` and `pullrequest:` links
+- `https:` links, which the UI shows with their URL
 
 Nothing else renders. A heading or a block quote becomes a plain paragraph, a table or raw HTML shows as its source
 text, an image shows its alt text, and a link with any other scheme, such as `http:` or a relative path, shows its

@@ -21,6 +21,13 @@ public sealed class StopApiTests
       { "headline": "Line two becomes a digit.", "passages": [{ "side": "head", "path": "src/modified.txt", "startLine": 2, "endLine": 2, "role": "primary" }] }
       """;
 
+   private const string MentionStop = """
+      { "headline": "Fixes [#1234](workitem:1234).", "passages": [{ "side": "head", "path": "src/modified.txt", "startLine": 2, "endLine": 2, "role": "primary" }] }
+      """;
+
+   // The test platform places a work item of the tour's repository at /{repository}/workitems/{id}.
+   private const string MentionHtml = $"<p>Fixes <a href=\"https://{TestPlatform.DefaultHost}/shop/workitems/1234\" rel=\"noopener noreferrer\" target=\"_blank\">#1234</a>.</p>\n";
+
    private static readonly TimeSpan EventTimeout = TimeSpan.FromSeconds(10);
 
    [Fact]
@@ -51,6 +58,38 @@ public sealed class StopApiTests
       Assert.Equal(("tourStateChanged", "ready"), (ready.Type, (string?)ready.Data["state"]));
       var next = await stream.NextBesidesControlsAsync(EventTimeout);
       Assert.Equal(("tourCreated", (string)marker["id"]!), (next.Type, (string)next.Data["id"]!));
+   }
+
+   /// <summary><c>read_state</c> returns the tour itself, and <c>put_stop</c> returns a stop of the tour that its input names.</summary>
+   [Fact]
+   public async Task Mention_in_a_stop_links_to_the_url_of_the_tours_platform_in_each_output_with_html()
+   {
+      await using var fixture = await PinnedTourFixture.StartAsync();
+      var id = (string)(await fixture.Harness.AgentCallAsync(On("set_plan", fixture.TourId), Plan))["plan"]!["stops"]![0]!["id"]!;
+      var agent = await fixture.Harness.AgentAsync();
+
+      using var response = await fixture.Harness.SendAsync(agent.Request(fixture.Harness, On("put_stop", fixture.TourId, stopId: id)).WithProseHtml().Request(MentionStop));
+      var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+      Assert.True(response.IsSuccessStatusCode, body);
+
+      var put = SuccessBody.Output(body)["content"]!["html"]!;
+      var read = (await ReadAsTheUiAsync(fixture.Harness, fixture.TourId))["plan"]!["stops"]![0]!["content"]!["html"]!;
+      Assert.Equal(MentionHtml, (string)put["headline"]!);
+      Assert.Equal(MentionHtml, (string)read["headline"]!);
+   }
+
+   [Fact]
+   public async Task Mention_in_a_stop_links_to_the_url_of_the_tours_platform_in_the_stop_put_event()
+   {
+      await using var fixture = await PinnedTourFixture.StartAsync();
+      var id = (string)(await fixture.Harness.AgentCallAsync(On("set_plan", fixture.TourId), Plan))["plan"]!["stops"]![0]!["id"]!;
+      await using var stream = await EventStream.OpenAsync(fixture.Harness);
+
+      await fixture.Harness.AgentCallAsync(On("put_stop", fixture.TourId, stopId: id), MentionStop);
+
+      var put = await stream.NextBesidesControlsAsync(EventTimeout);
+      Assert.Equal("stopPut", put.Type);
+      Assert.Equal(MentionHtml, (string)put.Data["stop"]!["content"]!["html"]!["headline"]!);
    }
 
    /// <summary>Only a request with the prose header, as the UI sends it, gets the HTML. The <c>stopPut</c> and <c>planSet</c> events always carry it, because only the UI reads them.</summary>

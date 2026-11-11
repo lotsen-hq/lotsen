@@ -3,7 +3,7 @@ using Lotsen.Tours;
 
 namespace Lotsen.Tests;
 
-/// <summary>Covers how <see cref="PullRequestPlatforms.Of"/> finds a target's platform, and what it throws for a target without one.</summary>
+/// <summary>Covers how <see cref="PullRequestPlatforms"/> finds a target's platform and its mention links, and what it does for a target without one.</summary>
 [Trait("Category", "Platform")]
 public sealed class PullRequestPlatformsTests
 {
@@ -30,6 +30,24 @@ public sealed class PullRequestPlatformsTests
       var thrown = Assert.ThrowsAny<Exception>(() => _platforms.Of(new OtherTarget()));
 
       Assert.IsNotType<ExternalFailureException>(thrown, exactMatch: false);
+   }
+
+   [Fact]
+   public void Mentions_of_a_target_resolve_through_its_platform()
+   {
+      var mentions = _platforms.MentionsOf(new PullRequestTarget(TestPlatform.DefaultId, new Uri(TestPlatform.PrUrl)));
+
+      Assert.Equal($"https://{TestPlatform.DefaultHost}/shop/workitems/1234", mentions.UrlOf(MentionKind.WorkItem, 1234)?.AbsoluteUri);
+      Assert.Equal($"https://{TestPlatform.DefaultHost}/shop/pull/7", mentions.UrlOf(MentionKind.PullRequest, 7)?.AbsoluteUri);
+   }
+
+   [Fact]
+   public void Mentions_of_a_target_of_an_unknown_platform_place_nothing()
+   {
+      var mentions = _platforms.MentionsOf(new PullRequestTarget("gone", new Uri(TestPlatform.PrUrl)));
+
+      Assert.Null(mentions.UrlOf(MentionKind.WorkItem, 1234));
+      Assert.Null(mentions.UrlOf(MentionKind.PullRequest, 7));
    }
 
    private sealed record OtherTarget : TourTarget;

@@ -44,6 +44,10 @@ public sealed class AzureDevOpsPlatform : IPullRequestPlatform, IDisposable
 
    public string? Label(Uri url) => AzureDevOpsPullRequest.TryParse(url.AbsoluteUri, out var pullRequest) ? pullRequest.Label : null;
 
+   public Uri? MentionUrl(Uri url, MentionKind kind, int id) => !AzureDevOpsPullRequest.TryParse(url.AbsoluteUri, out var pullRequest)
+      ? null
+      : kind == MentionKind.WorkItem ? pullRequest.WorkItemUrl(id) : pullRequest.PullRequestUrl(id);
+
    public async Task<ResolvedPullRequest> ResolveAsync(Uri url, CancellationToken cancellationToken)
    {
       if (!AzureDevOpsPullRequest.TryParse(url.AbsoluteUri, out var pullRequest))

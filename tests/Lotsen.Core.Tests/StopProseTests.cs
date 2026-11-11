@@ -89,7 +89,7 @@ public sealed class StopProseTests
    public void Html_of_the_content_holds_the_rendered_prose_of_the_field(string row)
    {
       var (field, prose) = Expected[row];
-      var html = ProseHtml.Of(TourValues.Written("s1", StopKind.Risk, Full))["content"]!["html"]!;
+      var html = ProseHtml.Of(TourValues.Written("s1", StopKind.Risk, Full), MentionLinks.None)["content"]!["html"]!;
 
       var rendered = field switch
       {

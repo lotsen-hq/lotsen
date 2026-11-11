@@ -1,3 +1,4 @@
+using Lotsen.Prose;
 using Lotsen.Sessions;
 using Lotsen.Tours;
 
@@ -46,7 +47,7 @@ internal class TourEdit
       return new(write.Next, stored =>
       {
          var output = then(stored, write);
-         foreach (var serverEvent in ServerEvents.ForThreadWrite(write, stored.Tour))
+         foreach (var serverEvent in ServerEvents.ForThreadWrite(write, stored.Tour, stored.Mentions))
          {
             stored.Publish(serverEvent);
          }
@@ -114,10 +115,11 @@ internal sealed class Stored
    private readonly List<SessionSend> _sends;
    private bool _closed;
 
-   internal Stored(Tour before, Tour tour, EventBroadcaster events, List<SessionSend> sends)
+   internal Stored(Tour before, Tour tour, MentionLinks mentions, EventBroadcaster events, List<SessionSend> sends)
    {
       Before = before;
       Tour = tour;
+      Mentions = mentions;
       _events = events;
       _sends = sends;
    }
@@ -127,6 +129,9 @@ internal sealed class Stored
 
    /// <summary>The tour that the write changed.</summary>
    public Tour Before { get; }
+
+   /// <summary>The links of the mentions in the tour's prose, which the write's events with prose render with.</summary>
+   public MentionLinks Mentions { get; }
 
    /// <summary>Publishes the event now, under the lock, so events reach subscribers in the order of the stores. A tour-scoped event carries the stored tour's revision.</summary>
    public void Publish(ServerEvent serverEvent)

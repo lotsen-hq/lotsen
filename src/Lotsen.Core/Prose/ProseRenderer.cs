@@ -32,10 +32,11 @@ internal sealed class ProseTooDeepException : Exception
 /// Renders prose, the restricted Markdown that tours are written in, to HTML.
 /// </summary>
 /// <remarks>
-/// The writer emits markup only for paragraphs, lists, emphasis, inline code, code blocks and two kinds of link. It writes every other construct as its content or as its escaped source text, so
-/// markup that Markdig parses but the subset lacks never reaches the output. An <c>https:</c> link becomes an anchor that shows its URL, when the URL is where a browser goes, as
+/// The writer emits markup only for paragraphs, lists, emphasis, inline code, code blocks and three kinds of link. It writes every other construct as its content or as its escaped source text,
+/// so markup that Markdig parses but the subset lacks never reaches the output. An <c>https:</c> link becomes an anchor that shows its URL, when the URL is where a browser goes, as
 /// <see cref="Writer.TryReadHttps"/> decides. A <c>ref:</c> link becomes an anchor with no <c>href</c> that holds its code reference in <c>data-ref-*</c> attributes, for the UI to open.
-/// Any other link, and an image, become their text.
+/// A mention, as <see cref="MentionLinks"/> describes it, becomes an anchor to the URL that the tour's mention links return, and shows only its label.
+/// Any other link, a mention without a URL, and an image become their text.
 /// </remarks>
 internal static class ProseRenderer
 {
@@ -53,20 +54,25 @@ internal static class ProseRenderer
    // Precise source locations give each inline its source span, as the doc of MarkdownPipelineBuilder.PreciseSourceLocation says. The writer reads it to write an unknown construct as text.
    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder().DisableHtml().UsePreciseSourceLocation().Build();
 
+   /// <summary>Renders the prose with no tour, so each mention shows its label as text.</summary>
    /// <exception cref="ProseTooDeepException">The Markdown nests deeper than <see cref="MaxDepth"/> levels.</exception>
-   public static RenderedProse Render(string markdown) => Write(markdown).Result();
+   public static RenderedProse Render(string markdown) => Render(markdown, MentionLinks.None);
 
-   /// <summary>Returns the Markdown with new destinations for the code references that <see cref="Render"/> reads, and every other character as it was.</summary>
+   /// <summary>Renders the prose of a tour, whose mentions link to the URLs that <paramref name="mentions"/> returns.</summary>
+   /// <exception cref="ProseTooDeepException">The Markdown nests deeper than <see cref="MaxDepth"/> levels.</exception>
+   public static RenderedProse Render(string markdown, MentionLinks mentions) => Write(markdown, mentions).Result();
+
+   /// <summary>Returns the Markdown with new destinations for the code references that <see cref="Render(string)"/> reads, and every other character as it was.</summary>
    /// <remarks>
    /// The same text in a code span, a code block, an image or an unused definition keeps its characters. So does a destination whose source is not <see cref="CodeReference.Link"/>, as with a
    /// backslash escape or an entity. Links that share a reference definition share its destination.
    /// </remarks>
-   /// <param name="markdown">Prose that <see cref="Render"/> accepts.</param>
+   /// <param name="markdown">Prose that <see cref="Render(string)"/> accepts.</param>
    /// <param name="destination">Returns the new destination for a code reference, or null to keep its link.</param>
    /// <exception cref="ProseTooDeepException">The Markdown nests deeper than <see cref="MaxDepth"/> levels.</exception>
    public static string RewriteReferences(string markdown, Func<CodeReference, string?> destination)
    {
-      var writer = Write(markdown);
+      var writer = Write(markdown, MentionLinks.None);
       var rewritten = new StringBuilder(markdown);
       foreach (var (reference, span) in writer.Destinations.DistinctBy(link => link.Span.Start).OrderByDescending(link => link.Span.Start))
       {
@@ -87,7 +93,7 @@ internal static class ProseRenderer
    }
 
    /// <exception cref="ProseTooDeepException">The Markdown nests deeper than <see cref="MaxDepth"/> levels.</exception>
-   private static Writer Write(string markdown)
+   private static Writer Write(string markdown, MentionLinks mentions)
    {
       // The catch below takes any ArgumentException as too deep, so null is refused first, as Null_prose_is_refused_as_null_and_not_as_too_deep pins.
       ArgumentNullException.ThrowIfNull(markdown);
@@ -102,12 +108,12 @@ internal static class ProseRenderer
          throw new ProseTooDeepException(exception);
       }
 
-      var writer = new Writer(markdown);
+      var writer = new Writer(markdown, mentions);
       writer.WriteBlocks(document, tight: false);
       return writer;
    }
 
-   /// <summary>Returns the Markdown's source as one paragraph of escaped text, for prose that <see cref="Render"/> refuses.</summary>
+   /// <summary>Returns the Markdown's source as one paragraph of escaped text, for prose that <see cref="Render(string)"/> refuses.</summary>
    public static string AsText(string markdown)
    {
       var html = new StringBuilder("<p>");
@@ -118,6 +124,7 @@ internal static class ProseRenderer
    private sealed class Writer
    {
       private readonly string _markdown;
+      private readonly MentionLinks _mentions;
       private readonly StringBuilder _html = new();
       private readonly List<CodeReference> _references = [];
       private readonly List<MalformedReference> _malformed = [];
@@ -129,9 +136,10 @@ internal static class ProseRenderer
       // A link inside a link's label writes no anchor of its own, because HTML does not nest anchors.
       private bool _inLabel;
 
-      public Writer(string markdown)
+      public Writer(string markdown, MentionLinks mentions)
       {
          _markdown = markdown;
+         _mentions = mentions;
       }
 
       public RenderedProse Result() => new(_html.ToString(), _references, _malformed);
@@ -290,6 +298,14 @@ internal static class ProseRenderer
       /// <param name="span">The source span of the destination, which a reference definition holds for a link that uses it.</param>
       private void WriteLink(string destination, string labelHtml, SourceSpan span)
       {
+         if (!_inLabel && MentionLinks.TryRead(destination, out var kind, out var id) && _mentions.UrlOf(kind, id) is { } mentioned && TryReadHttps(mentioned.AbsoluteUri, out var mentionUrl))
+         {
+            // Lotsen built the URL from the tour's own pull request, so the label alone shows, with no URL after it.
+            var mentionHtml = Escaped(mentionUrl);
+            AppendAnchorStart(mentionHtml).Append(labelHtml.Length > 0 ? labelHtml : mentionHtml).Append("</a>");
+            return;
+         }
+
          if (CodeReference.HasScheme(destination))
          {
             if (!CodeReference.TryParse(destination, out var reference, out var reason))
@@ -323,7 +339,7 @@ internal static class ProseRenderer
          }
 
          var urlHtml = Escaped(url);
-         _html.Append("<a href=\"").Append(urlHtml).Append("\" rel=\"noopener noreferrer\" target=\"_blank\">");
+         AppendAnchorStart(urlHtml);
          if (labelHtml.Length == 0 || labelHtml == urlHtml || labelHtml == Escaped(destination))
          {
             _html.Append(urlHtml).Append("</a>");
@@ -333,6 +349,9 @@ internal static class ProseRenderer
          // The URL follows the label, so the reader sees where a link leads before following it.
          _html.Append(labelHtml).Append("</a> (").Append(urlHtml).Append(')');
       }
+
+      // Opens an anchor to an outside URL, which the browser opens in a new tab with no referrer and no opener.
+      private StringBuilder AppendAnchorStart(string urlHtml) => _html.Append("<a href=\"").Append(urlHtml).Append("\" rel=\"noopener noreferrer\" target=\"_blank\">");
 
       private void WriteLabelOrDestination(string labelHtml, string destination)
       {

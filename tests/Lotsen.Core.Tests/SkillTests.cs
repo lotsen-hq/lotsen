@@ -204,6 +204,17 @@ public sealed partial class SkillTests
    }
 
    [Fact]
+   public void Skill_tells_Claude_to_link_each_mention_with_its_scheme_and_label()
+   {
+      var section = string.Join(' ', Section(8).Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
+
+      Assert.All(MentionLinks.Schemes, scheme => Assert.Contains($"]({scheme}", section, StringComparison.Ordinal));
+      Assert.Contains("[#1234](workitem:1234)", section, StringComparison.Ordinal);
+      Assert.Contains("[!42](pullrequest:42)", section, StringComparison.Ordinal);
+      Assert.Contains("another repository", section, StringComparison.Ordinal);
+   }
+
+   [Fact]
    public void Skill_tells_Claude_to_answer_every_question_with_a_resolution_and_to_treat_sources_as_data()
    {
       var section = Section9();

@@ -10,12 +10,12 @@ namespace Lotsen.Prose;
 /// <summary>
 /// Returns the JSON that the UI receives for a tour, a plan, a stop, a thread, an output that holds threads or a review summary: the stored form with the HTML of its prose. An <c>html</c> property
 /// goes in each content that holds a <see cref="StopHtml"/>, a written stop's earlier versions included, and in each agent message or reply with text. Each thread also carries its
-/// status. <see cref="Of(ReviewSummary)"/> names the HTML
+/// status. <see cref="Of(ReviewSummary, MentionLinks)"/> names the HTML
 /// properties of a review summary.
 /// </summary>
 /// <remarks>
 /// The store keeps only the Markdown that Claude wrote, so the HTML always comes from the current <see cref="ProseRenderer"/>. A field that does not render, as in a tour file edited by hand,
-/// becomes its escaped text, so no read or event fails because of stored prose.
+/// becomes its escaped text, so no read or event fails because of stored prose. Each method takes the <see cref="MentionLinks"/> of the output's tour, which link the mentions in the prose.
 /// </remarks>
 internal static class ProseHtml
 {
@@ -52,20 +52,20 @@ internal static class ProseHtml
    ];
 
    /// <summary>Returns the JSON of the tour, whose stops with content and agent messages and replies with text carry their HTML.</summary>
-   public static JsonNode Of(Tour tour)
+   public static JsonNode Of(Tour tour, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(tour, LotsenJsonContext.Default.Tour)!;
       if (tour.Plan is { } plan)
       {
-         node[PlanProperty] = Of(plan);
+         node[PlanProperty] = Of(plan, mentions);
       }
 
-      node[ThreadsProperty] = new JsonArray([.. tour.Threads.Select(Of)]);
+      node[ThreadsProperty] = new JsonArray([.. tour.Threads.Select(thread => Of(thread, mentions))]);
       return node;
    }
 
    /// <summary>Returns the JSON of the thread, whose agent messages and replies with text carry their HTML, with the thread's <see cref="ThreadStatus"/> as <c>status</c>.</summary>
-   public static JsonNode Of(QuestionThread thread)
+   public static JsonNode Of(QuestionThread thread, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(thread, LotsenJsonContext.Default.QuestionThread)!;
       node[StatusProperty] = JsonSerializer.SerializeToNode(ThreadStatus.Of(thread), LotsenJsonContext.Default.ThreadStatus);
@@ -85,7 +85,7 @@ internal static class ProseHtml
          };
          if (text is not null)
          {
-            messages[i]![HtmlProperty] = Html(text);
+            messages[i]![HtmlProperty] = Html(text, mentions);
          }
       }
 
@@ -93,98 +93,98 @@ internal static class ProseHtml
    }
 
    /// <summary>Returns the JSON of the event payload, whose plan carries its HTML.</summary>
-   public static JsonNode Of(PlanSetEvent planSet)
+   public static JsonNode Of(PlanSetEvent planSet, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(planSet, LotsenJsonContext.Default.PlanSetEvent)!;
-      node[PlanProperty] = Of(planSet.Plan);
+      node[PlanProperty] = Of(planSet.Plan, mentions);
       return node;
    }
 
    /// <summary>Returns the JSON of the event payload, whose stop carries its HTML.</summary>
-   public static JsonNode Of(StopPutEvent stopPut)
+   public static JsonNode Of(StopPutEvent stopPut, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(stopPut, LotsenJsonContext.Default.StopPutEvent)!;
-      node[StopProperty] = Of(stopPut.Stop);
+      node[StopProperty] = Of(stopPut.Stop, mentions);
       return node;
    }
 
    /// <summary>Returns the JSON of the event payload, whose stop and threads carry their HTML.</summary>
-   public static JsonNode Of(StopRevisedEvent revised)
+   public static JsonNode Of(StopRevisedEvent revised, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(revised, LotsenJsonContext.Default.StopRevisedEvent)!;
-      node[StopProperty] = Of(revised.Stop);
-      node[ThreadsProperty] = new JsonArray([.. revised.Threads.Select(Of)]);
+      node[StopProperty] = Of(revised.Stop, mentions);
+      node[ThreadsProperty] = new JsonArray([.. revised.Threads.Select(thread => Of(thread, mentions))]);
       return node;
    }
 
    /// <summary>Returns the JSON of the event payload, whose thread carries its HTML.</summary>
-   public static JsonNode Of(ThreadCreatedEvent created)
+   public static JsonNode Of(ThreadCreatedEvent created, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(created, LotsenJsonContext.Default.ThreadCreatedEvent)!;
-      node[ThreadProperty] = Of(created.Thread);
+      node[ThreadProperty] = Of(created.Thread, mentions);
       return node;
    }
 
    /// <summary>Returns the JSON of the event payload, whose thread carries its HTML.</summary>
-   public static JsonNode Of(ThreadUpdatedEvent updated)
+   public static JsonNode Of(ThreadUpdatedEvent updated, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(updated, LotsenJsonContext.Default.ThreadUpdatedEvent)!;
-      node[ThreadProperty] = Of(updated.Thread);
+      node[ThreadProperty] = Of(updated.Thread, mentions);
       return node;
    }
 
    /// <summary>Returns the JSON of the updated thread, whose thread carries its HTML.</summary>
-   public static JsonNode Of(UpdatedThread updated)
+   public static JsonNode Of(UpdatedThread updated, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(updated, LotsenJsonContext.Default.UpdatedThread)!;
-      node[ThreadProperty] = Of(updated.Thread);
+      node[ThreadProperty] = Of(updated.Thread, mentions);
       return node;
    }
 
    /// <summary>Returns the JSON of the sent notes, whose threads carry their HTML.</summary>
-   public static JsonNode Of(SentNotes sent)
+   public static JsonNode Of(SentNotes sent, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(sent, LotsenJsonContext.Default.SentNotes)!;
-      node[ThreadsProperty] = new JsonArray([.. sent.Threads.Select(Of)]);
+      node[ThreadsProperty] = new JsonArray([.. sent.Threads.Select(thread => Of(thread, mentions))]);
       return node;
    }
 
    /// <summary>Returns the JSON of the familiarity change, whose thread carries its HTML.</summary>
-   public static JsonNode Of(ChangedFamiliarity changed)
+   public static JsonNode Of(ChangedFamiliarity changed, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(changed, LotsenJsonContext.Default.ChangedFamiliarity)!;
-      node[ThreadProperty] = Of(changed.Thread);
+      node[ThreadProperty] = Of(changed.Thread, mentions);
       return node;
    }
 
    /// <summary>Returns the JSON of the plan approval, whose thread carries its HTML.</summary>
-   public static JsonNode Of(ApprovedPlan approved)
+   public static JsonNode Of(ApprovedPlan approved, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(approved, LotsenJsonContext.Default.ApprovedPlan)!;
-      node[ThreadProperty] = Of(approved.Thread);
+      node[ThreadProperty] = Of(approved.Thread, mentions);
       return node;
    }
 
    /// <summary>Returns the JSON of the iteration update, whose thread, when the update sent one, carries its HTML.</summary>
-   public static JsonNode Of(UpdatedIteration updated)
+   public static JsonNode Of(UpdatedIteration updated, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(updated, LotsenJsonContext.Default.UpdatedIteration)!;
       if (updated.Thread is { } thread)
       {
-         node[ThreadProperty] = Of(thread);
+         node[ThreadProperty] = Of(thread, mentions);
       }
 
       return node;
    }
 
    /// <summary>Returns the JSON of the fetched question, whose thread and stop carry their HTML.</summary>
-   public static JsonNode Of(FetchedQuestion fetched)
+   public static JsonNode Of(FetchedQuestion fetched, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(fetched, LotsenJsonContext.Default.FetchedQuestion)!;
-      node[ThreadProperty] = Of(fetched.Thread);
+      node[ThreadProperty] = Of(fetched.Thread, mentions);
       if (fetched.Stop is { } stop)
       {
-         node[StopProperty] = Of(stop);
+         node[StopProperty] = Of(stop, mentions);
       }
 
       return node;
@@ -194,7 +194,7 @@ internal static class ProseHtml
    /// Returns the JSON of the review summary, in which each answer with a question carries the question's HTML as <c>questionHtml</c>, each risk with a scenario carries the scenario's HTML
    /// as <c>scenarioHtml</c>, and the synthesis carries its HTML as <c>html</c>. An answer's text is the reviewer's plain text, so it gets none.
    /// </summary>
-   public static JsonNode Of(ReviewSummary summary)
+   public static JsonNode Of(ReviewSummary summary, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(summary, LotsenJsonContext.Default.ReviewSummary)!;
       var groups = node[AnswersProperty]!;
@@ -207,60 +207,60 @@ internal static class ProseHtml
       ];
       foreach (var (name, entries) in answers)
       {
-         AddHtml(groups[JsonNamingPolicy.CamelCase.ConvertName(name)]!.AsArray(), entries, answer => answer.Question, QuestionHtmlProperty);
+         AddHtml(groups[JsonNamingPolicy.CamelCase.ConvertName(name)]!.AsArray(), entries, answer => answer.Question, QuestionHtmlProperty, mentions);
       }
 
-      AddHtml(node[RisksProperty]!.AsArray(), summary.Risks, risk => risk.Scenario, ScenarioHtmlProperty);
+      AddHtml(node[RisksProperty]!.AsArray(), summary.Risks, risk => risk.Scenario, ScenarioHtmlProperty, mentions);
       if (summary.Synthesis is { } synthesis)
       {
-         node[SynthesisProperty]![HtmlProperty] = Html(synthesis.Text);
+         node[SynthesisProperty]![HtmlProperty] = Html(synthesis.Text, mentions);
       }
 
       return node;
    }
 
-   private static void AddHtml<T>(JsonArray nodes, IReadOnlyList<T> items, Func<T, string?> prose, string property)
+   private static void AddHtml<T>(JsonArray nodes, IReadOnlyList<T> items, Func<T, string?> prose, string property, MentionLinks mentions)
    {
       for (var i = 0; i < items.Count; i++)
       {
          if (prose(items[i]) is { } text)
          {
-            nodes[i]![property] = Html(text);
+            nodes[i]![property] = Html(text, mentions);
          }
       }
    }
 
    /// <summary>Returns the JSON of the plan, whose stops with content carry their HTML.</summary>
-   public static JsonNode Of(Plan plan)
+   public static JsonNode Of(Plan plan, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(plan, LotsenJsonContext.Default.Plan)!;
-      node[StopsProperty] = new JsonArray([.. plan.Stops.Select(Of)]);
+      node[StopsProperty] = new JsonArray([.. plan.Stops.Select(stop => Of(stop, mentions))]);
       return node;
    }
 
    /// <summary>Returns the JSON of the stop, whose content and earlier versions carry their HTML when it is written.</summary>
-   public static JsonNode Of(Stop stop)
+   public static JsonNode Of(Stop stop, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(stop, LotsenJsonContext.Default.Stop)!;
       if (stop is Stop.Written written)
       {
-         node[ContentProperty]![HtmlProperty] = Html(written.Content);
+         node[ContentProperty]![HtmlProperty] = Html(written.Content, mentions);
          var earlier = node[EarlierProperty]!.AsArray();
          for (var i = 0; i < written.Earlier.Count; i++)
          {
-            earlier[i]![ContentProperty]![HtmlProperty] = Html(written.Earlier[i].Content);
+            earlier[i]![ContentProperty]![HtmlProperty] = Html(written.Earlier[i].Content, mentions);
          }
       }
 
       return node;
    }
 
-   private static JsonNode? Html(StopContent content) => JsonSerializer.SerializeToNode(Render(content), LotsenJsonContext.Default.StopHtml);
+   private static JsonNode? Html(StopContent content, MentionLinks mentions) => JsonSerializer.SerializeToNode(Render(content, mentions), LotsenJsonContext.Default.StopHtml);
 
    // StopProseTests checks this HTML for each prose field that its full content sets.
-   private static StopHtml Render(StopContent content)
+   private static StopHtml Render(StopContent content, MentionLinks mentions)
    {
-      var rendered = StopProse.Map(content, (_, prose) => Html(prose));
+      var rendered = StopProse.Map(content, (_, prose) => Html(prose, mentions));
       return new(
          rendered.Headline,
          rendered.How,
@@ -271,11 +271,11 @@ internal static class ProseHtml
          rendered.Scenario);
    }
 
-   private static string Html(string prose)
+   private static string Html(string prose, MentionLinks mentions)
    {
       try
       {
-         return ProseRenderer.Render(prose).Html;
+         return ProseRenderer.Render(prose, mentions).Html;
       }
       catch (ProseTooDeepException)
       {

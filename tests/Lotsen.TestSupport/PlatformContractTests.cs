@@ -86,6 +86,38 @@ public abstract class PlatformContractTests
       Assert.Null(Platform.Label(new Uri(Other)));
    }
 
+   [Theory]
+   [InlineData(MentionKind.WorkItem)]
+   [InlineData(MentionKind.PullRequest)]
+   public void Mention_of_a_recognized_pull_request_has_an_absolute_https_url(MentionKind kind)
+   {
+      Assert.All(PullRequestForms.Concat(SamePullRequestInOtherForms), form =>
+      {
+         var url = Platform.MentionUrl(Platform.Recognize(form)!, kind, 7);
+         Assert.NotNull(url);
+         Assert.True(url.IsAbsoluteUri, $"The mention URL for '{form}' is not absolute.");
+         Assert.Equal(Uri.UriSchemeHttps, url.Scheme);
+      });
+   }
+
+   [Fact]
+   public void Mentions_of_different_kinds_and_ids_have_different_urls()
+   {
+      (MentionKind Kind, int Id)[] mentions = [(MentionKind.WorkItem, 7), (MentionKind.WorkItem, 8), (MentionKind.PullRequest, 7)];
+
+      var urls = mentions.Select(mention => Platform.MentionUrl(PullRequestUrl, mention.Kind, mention.Id)).ToList();
+
+      Assert.Equal(mentions.Length, urls.Distinct().Count());
+   }
+
+   [Theory]
+   [InlineData(MentionKind.WorkItem)]
+   [InlineData(MentionKind.PullRequest)]
+   public void Mention_for_a_url_of_another_host_has_no_url(MentionKind kind)
+   {
+      Assert.Null(Platform.MentionUrl(new Uri("https://example.invalid/shop/pull/42"), kind, 7));
+   }
+
    [Fact]
    public void Every_form_of_the_pull_request_names_the_same_pull_request()
    {

@@ -114,6 +114,11 @@ internal sealed class TestPlatform : IPullRequestPlatform
 
    public string? Label(Uri url) => Recognize(url.AbsoluteUri) is { } recognized ? $"{recognized.Segments[1].TrimEnd('/')} #{recognized.Segments[^1]}" : null;
 
+   /// <summary>Returns <c>https://{host}/{repository}/workitems/{id}</c> for a work item, and the pull request URL with the mentioned ID for a pull request.</summary>
+   public Uri? MentionUrl(Uri url, MentionKind kind, int id) => Recognize(url.AbsoluteUri) is { } recognized
+      ? new Uri(recognized, kind == MentionKind.WorkItem ? $"../workitems/{id}" : id.ToString(CultureInfo.InvariantCulture))
+      : null;
+
    public async Task<ResolvedPullRequest> ResolveAsync(Uri url, CancellationToken cancellationToken)
    {
       Interlocked.Increment(ref _resolves);

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization.Metadata;
+using Lotsen.Prose;
 
 namespace Lotsen.Operations;
 
@@ -63,6 +64,6 @@ internal abstract class ServerEventKind<TPayload> : ServerEventKind
       _payload = payload;
    }
 
-   /// <summary>Returns the payload's JSON text as its prose view renders it.</summary>
-   public string Write(TPayload payload) => Prose.Render(payload)?.ToJsonString() ?? JsonSerializer.Serialize(payload, _payload);
+   /// <summary>Returns the payload's JSON text as its prose view renders it, with the mentions of its tour's prose linked.</summary>
+   public string Write(TPayload payload, MentionLinks mentions) => Prose.Render(payload, mentions)?.ToJsonString() ?? JsonSerializer.Serialize(payload, _payload);
 }

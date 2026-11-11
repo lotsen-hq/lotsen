@@ -11,9 +11,9 @@ namespace Lotsen.Operations;
 
 /// <summary>One event for the event stream: its kind's name and its payload as JSON text, with the tour's revision for a tour-scoped kind.</summary>
 /// <remarks>
-/// Only <see cref="Of"/> builds an event, from a kind and a payload of the kind's type, so each payload goes under the name that declares its type. The broadcaster publishes an event of a
-/// tour-scoped kind only once <see cref="At"/> gave it the revision of the tour that it shows, as <see cref="EventBroadcaster.Publish"/> checks. <see cref="Comment"/> builds a comment line,
-/// which has no kind.
+/// Only <see cref="Of{TPayload}(ServerEventKind{TPayload}, TPayload, MentionLinks)"/> builds an event, from a kind and a payload of the kind's type, so each payload goes under the name that
+/// declares its type. The broadcaster publishes an event of a tour-scoped kind only once <see cref="At"/> gave it the revision of the tour that it shows, as
+/// <see cref="EventBroadcaster.Publish"/> checks. <see cref="Comment"/> builds a comment line, which has no kind.
 /// </remarks>
 internal sealed class ServerEvent : IStreamEvent
 {
@@ -41,9 +41,15 @@ internal sealed class ServerEvent : IStreamEvent
    /// <summary>The revision of the tour that the event shows, or null before <see cref="At"/> or for a kind that is not tour-scoped.</summary>
    public long? Revision { get; }
 
-   /// <summary>Returns the event of the kind with the payload, as the kind's prose view renders it.</summary>
+   /// <summary>Returns the event of a kind whose payload holds no prose.</summary>
+   /// <exception cref="InvalidOperationException">The kind's payload can hold prose, whose mentions need the links of its tour.</exception>
    public static ServerEvent Of<TPayload>(ServerEventKind<TPayload> kind, TPayload payload)
-      where TPayload : class => new(kind.Name, kind.Write(payload), kind.IsTourScoped, null);
+      where TPayload : class =>
+      kind.Prose == ProseView.None ? Of(kind, payload, MentionLinks.None) : throw new InvalidOperationException($"The event {kind.Name} holds prose, so it needs the mention links of its tour.");
+
+   /// <summary>Returns the event of the kind with the payload, as the kind's prose view renders it with the mention links of the payload's tour.</summary>
+   public static ServerEvent Of<TPayload>(ServerEventKind<TPayload> kind, TPayload payload, MentionLinks mentions)
+      where TPayload : class => new(kind.Name, kind.Write(payload, mentions), kind.IsTourScoped, null);
 
    /// <summary>Returns a comment line of the text, which every reader of the stream skips.</summary>
    /// <exception cref="ArgumentException">The text holds a line break, which would end the comment line.</exception>
@@ -223,25 +229,28 @@ internal static class ServerEvents
 
    public static ServerEvent ForTourCreated(TourSummary summary) => ServerEvent.Of(TourCreated, summary);
 
-   public static ServerEvent ForPlanSet(Tour tour) => ServerEvent.Of(PlanSet, new PlanSetEvent(tour.Id, tour.UpdatedAt, tour.Plan!));
+   public static ServerEvent ForPlanSet(Tour tour, MentionLinks mentions) => ServerEvent.Of(PlanSet, new PlanSetEvent(tour.Id, tour.UpdatedAt, tour.Plan!), mentions);
 
-   public static ServerEvent ForStopPut(Tour tour, Stop stop) => ServerEvent.Of(StopPut, new StopPutEvent(tour.Id, tour.UpdatedAt, stop));
+   public static ServerEvent ForStopPut(Tour tour, Stop stop, MentionLinks mentions) => ServerEvent.Of(StopPut, new StopPutEvent(tour.Id, tour.UpdatedAt, stop), mentions);
 
-   public static ServerEvent ForStopRevised(Tour tour, StopWrite write) => ServerEvent.Of(StopRevised, new StopRevisedEvent(tour.Id, tour.UpdatedAt, write.Stop, write.Outdated, write.Threads.Changed));
+   public static ServerEvent ForStopRevised(Tour tour, StopWrite write, MentionLinks mentions) =>
+      ServerEvent.Of(StopRevised, new StopRevisedEvent(tour.Id, tour.UpdatedAt, write.Stop, write.Outdated, write.Threads.Changed), mentions);
 
    public static ServerEvent ForTourBindingChanged(TourId tourId, TourBinding? binding) => ServerEvent.Of(TourBindingChanged, new TourBindingChangedEvent(tourId, binding));
 
-   public static ServerEvent ForThreadCreated(Tour tour, QuestionThread thread) => ServerEvent.Of(ThreadCreated, new ThreadCreatedEvent(tour.Id, tour.UpdatedAt, thread));
+   public static ServerEvent ForThreadCreated(Tour tour, QuestionThread thread, MentionLinks mentions) =>
+      ServerEvent.Of(ThreadCreated, new ThreadCreatedEvent(tour.Id, tour.UpdatedAt, thread), mentions);
 
-   public static ServerEvent ForThreadUpdated(Tour tour, QuestionThread thread) => ServerEvent.Of(ThreadUpdated, new ThreadUpdatedEvent(tour.Id, tour.UpdatedAt, thread));
+   public static ServerEvent ForThreadUpdated(Tour tour, QuestionThread thread, MentionLinks mentions) =>
+      ServerEvent.Of(ThreadUpdated, new ThreadUpdatedEvent(tour.Id, tour.UpdatedAt, thread), mentions);
 
    public static ServerEvent ForThreadDeleted(DeletedThread deleted) => ServerEvent.Of(ThreadDeleted, deleted);
 
    /// <summary>Returns the events that the thread write publishes once the store holds <paramref name="stored"/>: one per change that no caller's event carries.</summary>
-   public static IEnumerable<ServerEvent> ForThreadWrite(ThreadWrite write, Tour stored) => write.Changes.Where(change => !change.Carried).Select(change => change.Kind switch
+   public static IEnumerable<ServerEvent> ForThreadWrite(ThreadWrite write, Tour stored, MentionLinks mentions) => write.Changes.Where(change => !change.Carried).Select(change => change.Kind switch
    {
-      ThreadChangeKind.Created => ForThreadCreated(stored, change.Thread),
-      ThreadChangeKind.Updated => ForThreadUpdated(stored, change.Thread),
+      ThreadChangeKind.Created => ForThreadCreated(stored, change.Thread, mentions),
+      ThreadChangeKind.Updated => ForThreadUpdated(stored, change.Thread, mentions),
       _ => ForThreadDeleted(new DeletedThread(stored.Id, stored.UpdatedAt, change.Thread.Id)),
    });
 

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Lotsen.Hosting;
 using Lotsen.Json;
+using Lotsen.Platforms;
 using Lotsen.Sessions;
 using Lotsen.Tours;
 
@@ -58,6 +59,7 @@ internal sealed class TourWriter
    private readonly Lock _lock = new();
    private readonly FileTourStore _store;
    private readonly EventBroadcaster _events;
+   private readonly PullRequestPlatforms _platforms;
    private readonly AgentSessions.Ledger _ledger;
    private readonly TimeProvider _timeProvider;
    private readonly ILogger<TourWriter> _logger;
@@ -70,10 +72,11 @@ internal sealed class TourWriter
    private Action<StoredChange>? _afterStore;
 
    /// <exception cref="InvalidOperationException">Another owner claimed the ledger of <paramref name="sessions"/> before.</exception>
-   public TourWriter(DataDirectory dataDirectory, EventBroadcaster events, AgentSessions sessions, TimeProvider timeProvider, ILogger<TourWriter> logger)
+   public TourWriter(DataDirectory dataDirectory, EventBroadcaster events, PullRequestPlatforms platforms, AgentSessions sessions, TimeProvider timeProvider, ILogger<TourWriter> logger)
    {
       _store = new FileTourStore(dataDirectory);
       _events = events;
+      _platforms = platforms;
       _ledger = sessions.ClaimLedger();
       _timeProvider = timeProvider;
       _logger = logger;
@@ -492,7 +495,7 @@ internal sealed class TourWriter
          return written.Error!;
       }
 
-      var stored = new Stored(stored1.Before, stored1.After, _events, sends);
+      var stored = new Stored(stored1.Before, stored1.After, _platforms.MentionsOf(stored1.After.Target), _events, sends);
       T value;
       try
       {
@@ -626,7 +629,7 @@ internal sealed class TourWriter
          return null;
       }
 
-      foreach (var serverEvent in ServerEvents.ForThreadWrite(released, tour))
+      foreach (var serverEvent in ServerEvents.ForThreadWrite(released, tour, _platforms.MentionsOf(tour.Target)))
       {
          _events.Publish(serverEvent.At(tour.Revision));
       }

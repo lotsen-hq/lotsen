@@ -2,6 +2,7 @@ using Lotsen.Git;
 using Lotsen.Hosting;
 using Lotsen.Json;
 using Lotsen.Operations;
+using Lotsen.Platforms;
 using Lotsen.Server;
 using Lotsen.Sessions;
 using Lotsen.Tours;
@@ -34,7 +35,7 @@ public sealed class TourWriterTests : IDisposable
    {
       var dataDirectory = new DataDirectory(Path.Combine(_root, "data"));
       _store = new FileTourStore(dataDirectory);
-      _writer = new TourWriter(dataDirectory, _events, _sessions, TimeProvider.System, _logs.CreateLogger<TourWriter>());
+      _writer = new TourWriter(dataDirectory, _events, new PullRequestPlatforms([new TestPlatform()]), _sessions, TimeProvider.System, _logs.CreateLogger<TourWriter>());
    }
 
    public void Dispose()
@@ -154,6 +155,26 @@ public sealed class TourWriterTests : IDisposable
       Assert.Equal([RequestState.Unanswered], RequestStates(_store.Get(tour.Id)!.Threads.Find(asked.Value.Id)!));
    }
 
+   /// <summary>The thread's agent message holds a mention, and the follow-up waits on the session when it ends.</summary>
+   [Fact]
+   public void Thread_events_of_a_write_and_of_the_settlement_of_an_end_link_the_mentions_through_the_tours_platform()
+   {
+      var tour = Create();
+      var session = Bind(tour.Id);
+      using var subscription = _events.Subscribe();
+
+      var threadId = Threaded(tour.Id, edit => edit.Threads.Apply(new ThreadCommand.Start(new ThreadAnchor.WholeTour(), "See [#7](workitem:7).", session.Recipient)));
+      var created = DrainBesidesControls(subscription).Single(received => received.Type == ServerEvents.ThreadCreated.Name);
+      _writer.Write(ToSession, tour.Id, edit => edit.Store(edit.Threads.FollowUp(threadId, "Why?", null), (_, written) => written.Thread!));
+      Drain(subscription);
+      session.End();
+      _writer.SettleEnds();
+      var settled = DrainBesidesControls(subscription).Single(received => received.Type == ServerEvents.ThreadUpdated.Name);
+
+      Assert.All([created, settled], received => Assert.Contains(
+         $"<a href=\"https://{TestPlatform.DefaultHost}/shop/workitems/7\"", (string)System.Text.Json.Nodes.JsonNode.Parse(received.Data)!["thread"]!["messages"]![0]!["html"]!, StringComparison.Ordinal));
+   }
+
    /// <summary>The ended session held two tours, and one settlement releases both of them.</summary>
    [Fact]
    public void Settlement_of_an_end_releases_every_tour_that_the_session_still_held()
@@ -233,7 +254,7 @@ public sealed class TourWriterTests : IDisposable
       TourWriter? writer = null;
       bool? lockFreeAtDelivery = null;
       var logs = new DeliveryProbe(() => lockFreeAtDelivery ??= Task.Run(() => writer!.Exclusive(_ => true)).Wait(TimeSpan.FromMilliseconds(500)));
-      writer = new TourWriter(new DataDirectory(Path.Combine(_root, "probe")), _events, sessions, TimeProvider.System, logs);
+      writer = new TourWriter(new DataDirectory(Path.Combine(_root, "probe")), _events, new PullRequestPlatforms([new TestPlatform()]), sessions, TimeProvider.System, logs);
       var tour = writer.Exclusive(locked => locked.Create(PullRequest, Familiarity.Some, PlanApproval.NotNeeded));
       var session = sessions.TryOpen()!;
 

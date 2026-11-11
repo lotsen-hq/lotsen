@@ -1,3 +1,4 @@
+using Lotsen.Prose;
 using Lotsen.Tours;
 
 namespace Lotsen.Platforms;
@@ -60,6 +61,12 @@ internal sealed class PullRequestPlatforms
       PullRequestTarget pullRequest => Find(pullRequest)?.Label(pullRequest.Url) ?? pullRequest.Url.AbsoluteUri,
       _ => throw new ArgumentException($"lotsen cannot label a target of type {target.GetType().Name}.", nameof(target)),
    };
+
+   /// <summary>Returns the links of the mentions in the prose of a tour of the target, which its platform's <see cref="IPullRequestPlatform.MentionUrl"/> builds.</summary>
+   /// <remarks>A target whose platform is not registered gets <see cref="MentionLinks.None"/>, so its prose still renders.</remarks>
+   public MentionLinks MentionsOf(TourTarget target) => target is PullRequestTarget pullRequest && Find(pullRequest) is { } platform
+      ? new MentionLinks((kind, id) => platform.MentionUrl(pullRequest.Url, kind, id))
+      : MentionLinks.None;
 
    private IPullRequestPlatform? Find(PullRequestTarget target) => _platforms.FirstOrDefault(platform => platform.Id == target.Platform);
 }

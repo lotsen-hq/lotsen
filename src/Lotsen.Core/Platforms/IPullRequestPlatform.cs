@@ -5,7 +5,7 @@ using Lotsen.Json;
 
 namespace Lotsen.Platforms;
 
-/// <summary>Provides the pull requests of one hosting platform: it recognizes their URLs, labels them and resolves them to commits.</summary>
+/// <summary>Provides the pull requests of one hosting platform: it recognizes their URLs, labels them, resolves them to commits and builds the web URLs of the mentions in their tours.</summary>
 /// <remarks>
 /// Tour creation, pinning and the file operations reach a platform only through this interface, so a new platform needs no change to them. <c>PlatformContractTests</c> checks the promises of its
 /// members on every adapter.
@@ -32,6 +32,16 @@ public interface IPullRequestPlatform
    /// <summary>Returns a short name for a pull request, such as <c>contoso/shop/web #42</c>.</summary>
    /// <returns>The name, or null when the URL is not one of this platform's pull request URLs.</returns>
    string? Label(Uri url);
+
+   /// <summary>Returns the web URL of a work item or a pull request that the prose of a tour mentions, for a tour of the pull request at a URL that <see cref="Recognize"/> returned.</summary>
+   /// <remarks>
+   /// A <see cref="MentionKind.PullRequest"/> mention names a pull request in the repository of the pull request at <paramref name="url"/>. The renderer links only an <c>https:</c> URL.
+   /// </remarks>
+   /// <param name="url">The URL of the tour's pull request.</param>
+   /// <param name="kind">What the mention names.</param>
+   /// <param name="id">The platform's number of the work item or pull request, from 1.</param>
+   /// <returns>The absolute URL that opens it in a browser, or null when the URL is not one of this platform's pull request URLs.</returns>
+   Uri? MentionUrl(Uri url, MentionKind kind, int id);
 
    /// <summary>Returns the latest iteration and the state of the pull request at a URL that <see cref="Recognize"/> returned.</summary>
    /// <remarks>
@@ -66,6 +76,16 @@ public enum PullRequestState
 
    /// <summary>A pull request that was closed without a merge.</summary>
    Abandoned,
+}
+
+/// <summary>What a mention in prose names on the platform of the tour's pull request.</summary>
+public enum MentionKind
+{
+   /// <summary>A work item, which a <c>workitem:</c> link names.</summary>
+   WorkItem,
+
+   /// <summary>A pull request in the repository of the tour's pull request, which a <c>pullrequest:</c> link names.</summary>
+   PullRequest,
 }
 
 /// <summary>The exception for a platform request that failed, or for a target whose platform lotsen does not know.</summary>

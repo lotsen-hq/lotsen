@@ -4,6 +4,7 @@ using Lotsen.Git;
 using Lotsen.Json;
 using Lotsen.Operations;
 using Lotsen.Platforms;
+using Lotsen.Prose;
 using Lotsen.Server;
 using Lotsen.Sessions;
 using Lotsen.Tours;
@@ -111,14 +112,14 @@ internal static class ContractSamples
       [
          ServerEvent.Of(ServerEvents.Hello, StreamLiveness.Default.Hello),
          ServerEvents.ForTourCreated(Summary),
-         ServerEvents.ForPlanSet(Tour),
-         ServerEvents.ForStopPut(Tour, Overview),
-         ServerEvent.Of(ServerEvents.StopRevised, new StopRevisedEvent(Id, Later, Writer, [Outdated], [AskedThread])),
+         ServerEvents.ForPlanSet(Tour, MentionLinks.None),
+         ServerEvents.ForStopPut(Tour, Overview, MentionLinks.None),
+         ServerEvent.Of(ServerEvents.StopRevised, new StopRevisedEvent(Id, Later, Writer, [Outdated], [AskedThread]), MentionLinks.None),
          ServerEvents.ForTourPinned(Tour),
          ServerEvents.ForAvailableIterationChanged(Tour),
          ServerEvents.ForTourBindingChanged(Id, Binding),
-         ServerEvents.ForThreadCreated(Tour, StartedThread),
-         ServerEvents.ForThreadUpdated(Tour, AskedThread),
+         ServerEvents.ForThreadCreated(Tour, StartedThread, MentionLinks.None),
+         ServerEvents.ForThreadUpdated(Tour, AskedThread, MentionLinks.None),
          ServerEvents.ForThreadDeleted(new DeletedThread(Id, Later, "t1")),
          ServerEvents.ForAnswerUpdated(new UpdatedAnswer(Id, Later, Draft)),
          ServerEvents.ForAnswerCleared(new ClearedAnswer(Id, Later, "s3", "c1")),
@@ -145,7 +146,7 @@ internal static class ContractSamples
       {
          var output = samples.SingleOrDefault(operation.OutputType.Type.IsInstanceOfType)
             ?? throw new KeyNotFoundException($"No sample has the output type {operation.OutputType.Type.Name} of {operation.Name}.");
-         return operation.Prose.Render(output) ?? JsonSerializer.SerializeToNode(output, operation.OutputType)!;
+         return operation.Prose.Render(output, MentionLinks.None) ?? JsonSerializer.SerializeToNode(output, operation.OutputType)!;
       });
    }
 

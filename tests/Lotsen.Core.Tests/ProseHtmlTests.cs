@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Lotsen.Git;
 using Lotsen.Operations;
+using Lotsen.Platforms;
 using Lotsen.Prose;
 using Lotsen.Tours;
 
@@ -17,7 +18,7 @@ public sealed class ProseHtmlTests
    {
       StopCheck[] checks = [new("c1", "", "*r*", [new SuggestedAnswer("*s*", AnswerType.Concern)]), new("c2", "*a*")];
 
-      var node = ProseHtml.Of(Ready(new StopContent("H", [Passage], Checks: checks)));
+      var node = ProseHtml.Of(Ready(new StopContent("H", [Passage], Checks: checks)), MentionLinks.None);
 
       var html = node["content"]!["html"]!["checks"]!.AsArray();
       Assert.Equal([("", "<p><em>r</em></p>\n"), ("<p><em>a</em></p>\n", null)], html.Select(check => ((string)check!["question"]!, (string?)check["recommendation"])));
@@ -30,11 +31,25 @@ public sealed class ProseHtmlTests
    {
       var tooDeep = string.Concat(Enumerable.Repeat("> ", ProseRenderer.MaxDepth + 1)) + "<x>";
 
-      var html = ProseHtml.Of(Ready(new StopContent(tooDeep, [Passage], Scenario: tooDeep)))["content"]!["html"]!;
+      var html = ProseHtml.Of(Ready(new StopContent(tooDeep, [Passage], Scenario: tooDeep)), MentionLinks.None)["content"]!["html"]!;
 
       Assert.Equal(ProseRenderer.AsText(tooDeep), (string)html["headline"]!);
       Assert.Equal(ProseRenderer.AsText(tooDeep), (string)html["scenario"]!);
       Assert.DoesNotContain("<x>", html.ToJsonString(), StringComparison.Ordinal);
+   }
+
+   [Fact]
+   public void Mention_in_a_tours_stop_links_to_the_url_that_the_tours_platform_builds()
+   {
+      var tour = TourValues.Tour(TourValues.Plan(Ready(new StopContent("Fixes [#1234](workitem:1234).", [Passage])))) with
+      {
+         Target = new PullRequestTarget(TestPlatform.DefaultId, new Uri(TestPlatform.PrUrl)),
+      };
+      var platforms = new PullRequestPlatforms([new TestPlatform()]);
+
+      var node = ProseHtml.Of(tour, platforms.MentionsOf(tour.Target));
+
+      Assert.Contains($"<a href=\"https://{TestPlatform.DefaultHost}/shop/workitems/1234\"", (string)node["plan"]!["stops"]![0]!["content"]!["html"]!["headline"]!, StringComparison.Ordinal);
    }
 
    [Fact]
@@ -43,7 +58,7 @@ public sealed class ProseHtmlTests
       var pending = new Stop.Pending("s1", "Pending", StopKind.Inspect, "c");
       var plan = new Plan([new Chapter("c", "C")], [pending, Ready(new StopContent("H", [Passage]))], []);
 
-      var node = ProseHtml.Of(plan);
+      var node = ProseHtml.Of(plan, MentionLinks.None);
 
       Assert.Null(node["stops"]![0]!["content"]);
       Assert.Equal(["headline"], node["stops"]![1]!["content"]!["html"]!.AsObject().Select(property => property.Key));
@@ -53,7 +68,7 @@ public sealed class ProseHtmlTests
    [Fact]
    public void Stored_https_link_whose_host_idna_refuses_renders_as_text()
    {
-      var html = ProseHtml.Of(Ready(new StopContent("[x](https://exa\u200Dmple.com/)", [Passage])))["content"]!["html"]!;
+      var html = ProseHtml.Of(Ready(new StopContent("[x](https://exa\u200Dmple.com/)", [Passage])), MentionLinks.None)["content"]!["html"]!;
 
       Assert.Equal("<p>x</p>\n", (string)html["headline"]!);
    }
@@ -80,7 +95,7 @@ public sealed class ProseHtmlTests
 
       foreach (var (operation, output, threadOf) in outputs)
       {
-         var node = OperationCatalog.Get(operation).Prose.Render(output)!;
+         var node = OperationCatalog.Get(operation).Prose.Render(output, MentionLinks.None)!;
 
          Assert.Equal("<p><em>Because.</em></p>\n", (string?)threadOf(node)["messages"]![1]!["html"]);
          Assert.Equal("*Because.*", (string?)threadOf(node)["messages"]![1]!["text"]);
@@ -100,7 +115,7 @@ public sealed class ProseHtmlTests
          ThreadFixtures.AgentMessage("m1", "s1", "*Also.*", now),
       ]));
 
-      var node = ProseHtml.Of(thread);
+      var node = ProseHtml.Of(thread, MentionLinks.None);
 
       var messages = node["messages"]!.AsArray();
       Assert.Equal([false, false, false, true, true], messages.Select(message => message!.AsObject().ContainsKey("html")));
@@ -113,7 +128,7 @@ public sealed class ProseHtmlTests
    {
       var tour = SummaryTours.Apply(SummaryTours.Empty());
 
-      var node = ProseHtml.Of(ReviewSummary.Of(tour, tour));
+      var node = ProseHtml.Of(ReviewSummary.Of(tour, tour), MentionLinks.None);
 
       var answers = node["answers"]!;
       Assert.Equal(("Is the cap right?", "<p>Is the cap right?</p>\n"), ((string)answers["decisions"]![0]!["question"]!, (string)answers["decisions"]![0]!["questionHtml"]!));
@@ -123,6 +138,18 @@ public sealed class ProseHtmlTests
 
       var risks = node["risks"]!.AsArray();
       Assert.Equal(["<p>Two discounts round twice.</p>\n", null], risks.Select(risk => (string?)risk!["scenarioHtml"]));
+   }
+
+   [Fact]
+   public void Mention_in_a_summarys_synthesis_links_to_the_url_that_the_tours_platform_builds()
+   {
+      var tour = SummaryTours.Apply(SummaryTours.Empty());
+      var summary = ReviewSummary.Of(tour, tour) with { Synthesis = new SummarySynthesis("Follows [!42](pullrequest:42).", TourValues.Now, TourValues.Pinned, PredatesSummary: false) };
+      var mentions = new PullRequestPlatforms([new TestPlatform()]).MentionsOf(new PullRequestTarget(TestPlatform.DefaultId, new Uri(TestPlatform.PrUrl)));
+
+      var node = ProseHtml.Of(summary, mentions);
+
+      Assert.Contains($"<a href=\"https://{TestPlatform.DefaultHost}/shop/pull/42\"", (string)node["synthesis"]!["html"]!, StringComparison.Ordinal);
    }
 
    private static Stop.Written Ready(StopContent content) => new("s2", "Ready", StopKind.Inspect, "c", content, 1, []);

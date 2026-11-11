@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Lotsen.Json;
 using Lotsen.Operations;
+using Lotsen.Platforms;
 using Lotsen.Prose;
 using Lotsen.Sessions;
 using Lotsen.Tours;
@@ -88,7 +89,7 @@ internal static class OperationEndpoints
          return;
       }
 
-      var written = context.Request.Headers[ProseHeader] == "html" && operation.Prose.Render(output!) is { } html
+      var written = context.Request.Headers[ProseHeader] == "html" && operation.Prose != ProseView.None && operation.Prose.Render(output!, MentionsFor(context, operation, value, output!)) is { } html
          ? html
          : JsonSerializer.SerializeToNode(output, operation.OutputType)!;
       var body = new OperationResponseBody(written, call.Revision ?? (output as Tour)?.Revision, ControlsFor(context, operation, value));
@@ -100,6 +101,13 @@ internal static class OperationEndpoints
       context.GetCaller() is Caller.Ui && operation.CarriesControls && operation.NamesTour && TourIdOf(operation, input) is { } tourId
          ? context.RequestServices.GetRequiredService<TourWriter>().Controls(tourId)
          : null;
+
+   // The mentions in the output's prose link through the platform of the output's tour, or else of the tour that the input names.
+   private static MentionLinks MentionsFor(HttpContext context, Operation operation, object input, object output)
+   {
+      var target = output is Tour tour ? tour.Target : TourIdOf(operation, input) is { } tourId ? context.RequestServices.GetRequiredService<TourWriter>().Read(tourId).Value?.Target : null;
+      return target is null ? MentionLinks.None : context.RequestServices.GetRequiredService<PullRequestPlatforms>().MentionsOf(target);
+   }
 
    private static TourId? TourIdOf(Operation operation, object input) =>
       operation.InputType.Properties.FirstOrDefault(property => property.Name == Operation.TourIdProperty)?.Get?.Invoke(input) as TourId;

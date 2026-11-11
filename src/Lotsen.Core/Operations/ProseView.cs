@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization.Metadata;
+using Lotsen.Prose;
 using Lotsen.Tours;
 
 namespace Lotsen.Operations;
@@ -20,13 +21,14 @@ internal abstract class ProseView
    /// <summary>The view of an output that holds no prose, which every request receives as it is.</summary>
    public static ProseView None { get; } = new NoneView();
 
-   /// <summary>Returns the view that renders an output of <typeparamref name="TOutput"/> with its prose as HTML.</summary>
-   public static ProseView Html<TOutput>(Func<TOutput, JsonNode> render)
+   /// <summary>Returns the view that renders an output of <typeparamref name="TOutput"/> with its prose as HTML, and its mentions as links of the output's tour.</summary>
+   public static ProseView Html<TOutput>(Func<TOutput, MentionLinks, JsonNode> render)
       where TOutput : class => new HtmlView<TOutput>(render);
 
    /// <summary>Returns the output's JSON with its prose as HTML, or null for <see cref="None"/>, whose output is written as it is.</summary>
    /// <param name="output">An output of the type that the view was checked against.</param>
-   public abstract JsonNode? Render(object output);
+   /// <param name="mentions">The mention links of the output's tour, or <see cref="MentionLinks.None"/> when the output names no tour.</param>
+   public abstract JsonNode? Render(object output, MentionLinks mentions);
 
    /// <summary>Checks the view against the output type of its operation, or the payload type of its event kind.</summary>
    /// <param name="owner">What declares the view, as the refusal names it, such as <c>Operation read_state</c>.</param>
@@ -78,21 +80,21 @@ internal abstract class ProseView
    {
       private protected override Type? RenderedType => null;
 
-      public override JsonNode? Render(object output) => null;
+      public override JsonNode? Render(object output, MentionLinks mentions) => null;
    }
 
    private sealed class HtmlView<TOutput> : ProseView
       where TOutput : class
    {
-      private readonly Func<TOutput, JsonNode> _render;
+      private readonly Func<TOutput, MentionLinks, JsonNode> _render;
 
-      public HtmlView(Func<TOutput, JsonNode> render)
+      public HtmlView(Func<TOutput, MentionLinks, JsonNode> render)
       {
          _render = render;
       }
 
       private protected override Type? RenderedType => typeof(TOutput);
 
-      public override JsonNode? Render(object output) => _render((TOutput)output);
+      public override JsonNode? Render(object output, MentionLinks mentions) => _render((TOutput)output, mentions);
    }
 }

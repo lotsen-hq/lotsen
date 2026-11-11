@@ -70,7 +70,7 @@ public sealed class ThreadStatusTests
    {
       var thread = Asked("t1", new ThreadAnchor.WholeTour());
 
-      var served = ProseHtml.Of(thread);
+      var served = ProseHtml.Of(thread, MentionLinks.None);
 
       Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(ThreadStatus.Of(thread), LotsenJsonContext.Default.ThreadStatus), served["status"]), $"status: {served["status"]}");
    }

@@ -157,7 +157,7 @@ internal sealed class PlanOperations
 
          return edit.Store(latest with { Plan = plan }, stored =>
          {
-            stored.Publish(ServerEvents.ForPlanSet(stored.Tour));
+            stored.Publish(ServerEvents.ForPlanSet(stored.Tour, stored.Mentions));
             return AgentView.Of(stored.Tour);
          });
       });
@@ -200,7 +200,7 @@ internal sealed class PlanOperations
             var write = StopVersions.Write(latest, applied, StopRules.Content(input, passages, StopRules.Checks(latest, applied.Stop, input).Value!), edit.Now);
             return edit.Store(write.Threads, (stored, _) =>
             {
-               stored.Publish(write.Replaced is null ? ServerEvents.ForStopPut(stored.Tour, write.Stop) : ServerEvents.ForStopRevised(stored.Tour, write));
+               stored.Publish(write.Replaced is null ? ServerEvents.ForStopPut(stored.Tour, write.Stop, stored.Mentions) : ServerEvents.ForStopRevised(stored.Tour, write, stored.Mentions));
                return AgentView.Of(write.Stop);
             });
          },

@@ -288,7 +288,7 @@ internal sealed class IterationLifecycle
          stored.Publish(ServerEvents.ForAvailableIterationChanged(tour));
          if (tour.Plan is not null)
          {
-            stored.Publish(ServerEvents.ForPlanSet(tour));
+            stored.Publish(ServerEvents.ForPlanSet(tour, stored.Mentions));
          }
 
          return (Attempt<UpdatedIteration>)new Attempt<UpdatedIteration>.Done(new UpdatedIteration(tour.Id, tour.UpdatedAt, tour.Pin, repin.StaleStops, written.Thread));

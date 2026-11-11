@@ -10,6 +10,9 @@ public sealed class ProseRendererTests
 {
    private const string Rel = "rel=\"noopener noreferrer\" target=\"_blank\"";
 
+   // Places every work item and pull request under example.com, with the kind in the path.
+   private static readonly MentionLinks Mentions = new((kind, id) => new Uri($"https://example.com/{kind.ToString().ToLowerInvariant()}/{id}"));
+
    [Theory]
    [InlineData("Plain text.", "<p>Plain text.</p>\n")]
    [InlineData("a < b & \"c\" > 'd'", "<p>a &lt; b &amp; &quot;c&quot; &gt; &#39;d&#39;</p>\n")]
@@ -169,6 +172,77 @@ public sealed class ProseRendererTests
       var html = ProseRenderer.Render(markdown).Html;
 
       Assert.Equal($"<p>{text}</p>\n", html);
+   }
+
+   [Theory]
+   [InlineData("Fixes [#1234](workitem:1234).", "<p>Fixes <a href=\"https://example.com/workitem/1234\" " + Rel + ">#1234</a>.</p>\n")]
+   [InlineData("Follows [!42](pullrequest:42).", "<p>Follows <a href=\"https://example.com/pullrequest/42\" " + Rel + ">!42</a>.</p>\n")]
+   [InlineData("[*the bug*](WorkItem:7)", "<p><a href=\"https://example.com/workitem/7\" " + Rel + "><em>the bug</em></a></p>\n")]
+   public void Mention_renders_as_an_anchor_to_its_url_with_only_its_label(string markdown, string html)
+   {
+      Assert.Equal(html, ProseRenderer.Render(markdown, Mentions).Html);
+   }
+
+   [Theory]
+   [InlineData("[#1234](workitem:1234)", "#1234")]
+   [InlineData("[!42](pullrequest:42)", "!42")]
+   public void Mention_that_the_tour_cannot_place_renders_as_its_label(string markdown, string text)
+   {
+      Assert.Equal($"<p>{text}</p>\n", ProseRenderer.Render(markdown, MentionLinks.None).Html);
+   }
+
+   [Theory]
+   [InlineData("http://example.com/workitem/1")]
+   [InlineData("javascript:alert(1)")]
+   [InlineData("https://user@example.com/workitem/1")]
+   public void Mention_whose_url_is_no_safe_https_url_renders_as_its_label(string url)
+   {
+      var mentions = new MentionLinks((_, _) => new Uri(url));
+
+      Assert.Equal("<p>#1</p>\n", ProseRenderer.Render("[#1](workitem:1)", mentions).Html);
+   }
+
+   /// <summary>Each ID is not a positive decimal integer that fits an <see cref="int"/>, or the scheme is not a mention's.</summary>
+   [Theory]
+   [InlineData("[#0](workitem:0)", "#0")]
+   [InlineData("[#-1](workitem:-1)", "#-1")]
+   [InlineData("[#+1](workitem:+1)", "#+1")]
+   [InlineData("[#x](workitem:abc)", "#x")]
+   [InlineData("[#1](workitem:1.5)", "#1")]
+   [InlineData("[#1](workitem:%201)", "#1")]
+   [InlineData("[#1](workitem:)", "#1")]
+   [InlineData("[!1](pullrequest:99999999999)", "!1")]
+   [InlineData("[!1](pullrequest:1/x)", "!1")]
+   [InlineData("[!1](pull:1)", "!1")]
+   public void Malformed_mention_renders_as_its_label(string markdown, string text)
+   {
+      Assert.Equal($"<p>{text}</p>\n", ProseRenderer.Render(markdown, Mentions).Html);
+   }
+
+   [Fact]
+   public void Mention_inside_a_link_label_writes_no_anchor_of_its_own()
+   {
+      var html = ProseRenderer.Render("[![see [#1](workitem:1)](https://example.com/i.png)](https://example.com/a)", Mentions).Html;
+
+      Assert.Equal("<p><a href=\"https://example.com/a\" " + Rel + ">see #1</a> (https://example.com/a)</p>\n", html);
+   }
+
+   [Theory]
+   [InlineData("Fixes #1234.", "<p>Fixes #1234.</p>\n")]
+   [InlineData("Fixes AB#1234.", "<p>Fixes AB#1234.</p>\n")]
+   [InlineData("Follows !42.", "<p>Follows !42.</p>\n")]
+   [InlineData("See workitem:1234 and pullrequest:42.", "<p>See workitem:1234 and pullrequest:42.</p>\n")]
+   public void Bare_mention_in_text_stays_text(string markdown, string html)
+   {
+      Assert.Equal(html, ProseRenderer.Render(markdown, Mentions).Html);
+   }
+
+   [Theory]
+   [InlineData("<workitem:1234>")]
+   [InlineData("[](workitem:1234)")]
+   public void Mention_without_a_label_shows_its_url(string markdown)
+   {
+      Assert.Equal("<p><a href=\"https://example.com/workitem/1234\" " + Rel + ">https://example.com/workitem/1234</a></p>\n", ProseRenderer.Render(markdown, Mentions).Html);
    }
 
    [Theory]

@@ -40,7 +40,7 @@ public sealed class IterationLifecycleTests : IDisposable
    {
       var dataDirectory = new DataDirectory(Path.Combine(_root, "data"));
       _store = new FileTourStore(dataDirectory);
-      _writer = new TourWriter(dataDirectory, _events, _sessions, TimeProvider.System, NullLogger<TourWriter>.Instance);
+      _writer = new TourWriter(dataDirectory, _events, new PullRequestPlatforms([new TestPlatform()]), _sessions, TimeProvider.System, NullLogger<TourWriter>.Instance);
       var truth = Facts("a.txt").Changed("a.txt", Text(1, 10, (2, "TWO")), new LineHunk(2, 1, 2, 1)).InDiff("a.txt").InDiff("b.txt");
       for (var i = 0; i < 10; i++)
       {

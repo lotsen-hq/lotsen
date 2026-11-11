@@ -23,6 +23,12 @@ internal sealed record AzureDevOpsPullRequest(string Organization, string Projec
    /// <summary>The organization's URL, which the REST API's paths start from, ending in a slash.</summary>
    public Uri OrganizationUrl => Url.Host == DevAzureHost ? new Uri($"https://{DevAzureHost}/{Uri.EscapeDataString(Organization)}/") : new Uri($"https://{Url.Host}/");
 
+   /// <summary>Returns the web URL of a work item in the pull request's project: <c>{organization URL}/{project}/_workitems/edit/{id}</c>.</summary>
+   public Uri WorkItemUrl(int id) => new($"{OrganizationUrl.AbsoluteUri}{Uri.EscapeDataString(Project)}/_workitems/edit/{id}");
+
+   /// <summary>Returns the web URL of a pull request in the pull request's repository: <c>{organization URL}/{project}/_git/{repository}/pullrequest/{id}</c>.</summary>
+   public Uri PullRequestUrl(int id) => new($"{OrganizationUrl.AbsoluteUri}{Uri.EscapeDataString(Project)}/_git/{Uri.EscapeDataString(Repository)}/pullrequest/{id}");
+
    /// <summary>The short name of the pull request, such as <c>contoso/shop/web #42</c>.</summary>
    public string Label => $"{Organization}/{Project}/{Repository} #{PullRequestId}";
 
