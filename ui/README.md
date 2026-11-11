@@ -119,9 +119,9 @@ before the .NET build:
   tests need no Node. Once `ui/dist/` exists, Debug builds embed it too, so delete it or rebuild it when it is stale.
 - `-p:LotsenUiDirectory=<dir>/` embeds another directory.
 
-The build emits fixed names, `index.html`, `app.js` and `app.css`, plus the code split from `app.js` as
+The build emits fixed names, `index.html`, `app.js` and `app.css`, the blank page of a popout window, `popout.html`, which it copies from `public/`, plus the code split from `app.js` as
 `chunks/<package>.js`, such as the diff view's languages, and the fonts that `app.css` loads, such as `seti.woff`; the server revalidates every file, so hashed names buy nothing.
-`scripts/check-dist.mjs` fails the build when `dist/` holds other files, when `index.html` has an inline script or style
+`scripts/check-dist.mjs` fails the build when `dist/` holds other files, when `index.html` or `popout.html` has an inline script or style
 or lacks the `__LOTSEN_CSP_NONCE__` placeholder that the server replaces with each load's style nonce, or when a script
 carries scoped component CSS (`.svelte-<hash>` selectors), as a component compiled with injected CSS does. CodeMirror
 builds its styles in the script too, but without Svelte's scope, and its `<style>` element takes the nonce.

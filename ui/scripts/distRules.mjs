@@ -1,5 +1,8 @@
 /** The files that every build holds. */
-const requiredFiles = ['THIRD-PARTY-NOTICES.txt', 'app.css', 'app.js', 'favicon.svg', 'index.html'];
+const requiredFiles = ['THIRD-PARTY-NOTICES.txt', 'app.css', 'app.js', 'favicon.svg', 'index.html', 'popout.html'];
+
+/** The pages of every build: the app's page, and the blank page that a popout window opens. */
+const pages = ['index.html', 'popout.html'];
 
 /**
  * Returns what keeps a build from running under the server's content security policy or fitting how it is embedded.
@@ -23,8 +26,8 @@ export function findDistProblems(files, read) {
       problems.push(`dist holds ${unexpected.join(', ')}, beyond ${requiredFiles.join(', ')}, scripts in chunks/ and .woff fonts.`);
    }
 
-   if (files.includes('index.html')) {
-      problems.push(...findPageProblems(read('index.html')));
+   for (const page of pages.filter((path) => files.includes(path))) {
+      problems.push(...findPageProblems(page, read(page)));
    }
 
    // A component compiled with injected CSS carries its scoped selectors, such as .tabs.svelte-1ha9w09, in the script and adds them as a <style> element without the nonce, which the policy blocks.
@@ -39,20 +42,20 @@ export function findDistProblems(files, read) {
    return problems;
 }
 
-function findPageProblems(html) {
+function findPageProblems(page, html) {
    const problems = [];
    if (!/<meta name="csp-nonce" content="__LOTSEN_CSP_NONCE__"\s*\/?>/.test(html)) {
-      problems.push('index.html lost the csp-nonce meta tag with the placeholder the server replaces.');
+      problems.push(`${page} lost the csp-nonce meta tag with the placeholder the server replaces.`);
    }
 
    for (const script of html.matchAll(/<script\b[^>]*>/g)) {
       if (!/\bsrc="\/[^"]+"/.test(script[0])) {
-         problems.push(`index.html has an inline script, which script-src 'self' blocks: ${script[0]}`);
+         problems.push(`${page} has an inline script, which script-src 'self' blocks: ${script[0]}`);
       }
    }
 
    if (/<style\b/.test(html) || /\sstyle=/.test(html)) {
-      problems.push('index.html has an inline style, which the style-src nonce does not cover.');
+      problems.push(`${page} has an inline style, which the style-src nonce does not cover.`);
    }
 
    return problems;

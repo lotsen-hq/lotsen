@@ -2,6 +2,7 @@
    import EyeOff from '@lucide/svelte/icons/eye-off';
    import Maximize from '@lucide/svelte/icons/maximize';
    import Minimize from '@lucide/svelte/icons/minimize';
+   import PopOut from '@lucide/svelte/icons/square-arrow-out-up-right';
    import type { DockviewGroupPanel } from 'dockview';
    import type { WorkspaceLayout } from '../lib/workspaceLayout.svelte';
    import type { PanelId } from '../lib/workspacePanels';
@@ -16,11 +17,18 @@
       return () => subscription.dispose();
    });
 
+   let popout = $state(false);
+   $effect(() => {
+      popout = group.api.location.type === 'popout';
+      const subscription = group.api.onDidLocationChange((event) => (popout = event.location.type === 'popout'));
+      return () => subscription.dispose();
+   });
+
    const maximized = $derived(layout.maximizedGroup === group.id);
 </script>
 
-<!-- The buttons act on the group's active panel, the one that its tab row shows. -->
-{#if active !== null}
+<!-- The buttons act on the group's active panel, the one that its tab row shows. A popout window holds no buttons, because closing the window returns its panel. -->
+{#if active !== null && !popout}
    {@const panel = active}
    {@const title = layout.label(panel)}
    <div class="flex h-full items-center pr-1">
@@ -36,6 +44,9 @@
          {:else}
             <Maximize />
          {/if}
+      </TooltipButton>
+      <TooltipButton tooltip="Pop out" variant="ghost" size="icon-xs" aria-label={`Pop out ${title}`} onclick={() => layout.popOut(panel)}>
+         <PopOut />
       </TooltipButton>
       {#if !maximized}
          {@const label = `Hide ${title}`}
