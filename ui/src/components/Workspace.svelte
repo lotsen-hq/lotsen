@@ -4,6 +4,7 @@
    import { arrangementRecord } from '../lib/arrangements';
    import { cspNonce } from '../lib/cspNonce';
    import { savedLayout } from '../lib/layoutRecord';
+   import { PanelDocument } from '../lib/panelDocument.svelte';
    import type { WorkspaceLayout } from '../lib/workspaceLayout.svelte';
    import { panelIds, type PanelId } from '../lib/workspacePanels';
    import GroupActions from './GroupActions.svelte';
@@ -98,7 +99,8 @@
       // Svelte listens for delegated events at a root's mount target and the main document (mount in svelte 5.57.2's render.js), so each panel is a root of its own, whose
       // handlers still run in a popout window, as popout.spec.ts checks.
       const snippets = { files, plan, diff, stop, threads };
-      const contents = panelIds.map((id) => mount(PanelContent, { target: elements[id]!, props: { content: snippets[id] }, context: contexts }));
+      const panels = Object.fromEntries(panelIds.map((id) => [id, new PanelDocument(elements[id]!)])) as Record<PanelId, PanelDocument>;
+      const contents = panelIds.map((id) => mount(PanelContent, { target: elements[id]!, props: { content: snippets[id], panel: panels[id] }, context: contexts }));
 
       // Dockview rounds the sizes it measures to whole pixels (watchElementResize in dockview-core 8.9.0's resizable.ts and shell.ts), which lays the groups out past a
       // container of a fractional size, so the container takes the frame's size rounded down.
@@ -172,6 +174,9 @@
             popoutTeardowns.filter((entry) => entry.window === window).forEach((entry) => entry.teardown());
             popoutTeardowns = popoutTeardowns.filter((entry) => entry.window !== window);
          }),
+         // Dockview fires it for each panel that a popout window takes or returns, once the panel's element is in its new document (fireDidMovePanel in dockview-core 8.9.0's
+         // dockviewComponent.ts), as popout.spec.ts checks.
+         dock.onDidMovePanel(({ panel }) => panels[panel.id as PanelId]?.follow()),
       ];
 
       const choices = dock.onDidActivePanelChange((event) => {
@@ -189,6 +194,7 @@
          detach();
          dock.dispose();
          contents.forEach((content) => unmount(content));
+         panelIds.forEach((id) => panels[id].dispose());
       };
    });
 

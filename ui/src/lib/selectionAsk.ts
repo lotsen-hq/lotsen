@@ -57,7 +57,7 @@ export function stopTextTarget(range: Range, container: Element, stopId: string,
          return [];
       }
 
-      const part = document.createRange();
+      const part = container.ownerDocument.createRange();
       part.selectNodeContents(element);
       if (range.compareBoundaryPoints(Range.START_TO_START, part) > 0) {
          part.setStart(range.startContainer, range.startOffset);

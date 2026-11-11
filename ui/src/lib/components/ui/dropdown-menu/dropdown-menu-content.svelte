@@ -1,11 +1,13 @@
 <script lang="ts">
    import { DropdownMenu as DropdownMenuPrimitive } from 'bits-ui';
+   import { locksScroll, panelDocument } from '$lib/panelDocument.svelte';
    import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
    import DropdownMenuPortal from './dropdown-menu-portal.svelte';
    import type { ComponentProps } from 'svelte';
 
    let {
       ref = $bindable(null),
+      preventScroll,
       sideOffset = 4,
       portalProps,
       class: className,
@@ -13,11 +15,14 @@
    }: DropdownMenuPrimitive.ContentProps & {
       portalProps?: WithoutChildrenOrChild<ComponentProps<typeof DropdownMenuPortal>>;
    } = $props();
+
+   const home = panelDocument();
 </script>
 
 <DropdownMenuPortal {...portalProps}>
    <DropdownMenuPrimitive.Content
       bind:ref
+      preventScroll={preventScroll ?? locksScroll(home)}
       data-slot="dropdown-menu-content"
       {sideOffset}
       class={cn(

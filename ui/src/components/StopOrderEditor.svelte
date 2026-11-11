@@ -9,6 +9,7 @@
    import SkipForward from '@lucide/svelte/icons/skip-forward';
    import { tick, type Snippet } from 'svelte';
    import { Button } from '$lib/components/ui/button';
+   import { panelDocument } from '../lib/panelDocument.svelte';
    import { droppedStop, movedStop, type DropPlace } from '../lib/stopOrder';
    import type { Chapter, Stop } from '../lib/types';
    import StopKindPill from './StopKindPill.svelte';
@@ -42,6 +43,7 @@
    /** The ID of the stop that the current drag holds, or null when no drag of this list is in progress. */
    let held: string | null = null;
    let dimmed = $state<string | null>(null);
+   const home = panelDocument();
    let dropLine = $state<{ stopId: string; place: DropPlace } | null>(null);
 
    const listed = $derived.by(() => {
@@ -68,8 +70,8 @@
       apply(stopId, movedStop(ids, index, offset));
       await tick();
       const direction = offset < 0 ? 'up' : 'down';
-      const same = document.getElementById(buttonId(stopId, direction)) as HTMLButtonElement | null;
-      const other = document.getElementById(buttonId(stopId, direction === 'up' ? 'down' : 'up'));
+      const same = home.document.getElementById(buttonId(stopId, direction)) as HTMLButtonElement | null;
+      const other = home.document.getElementById(buttonId(stopId, direction === 'up' ? 'down' : 'up'));
       (same !== null && !same.disabled ? same : other)?.focus();
    }
 
@@ -81,7 +83,7 @@
 
       held = stopId;
       // The row dims a frame after the drag starts, so the ghost keeps full strength.
-      requestAnimationFrame(() => (dimmed = held));
+      home.window.requestAnimationFrame(() => (dimmed = held));
    }
 
    function dragOver(event: DragEvent, stopId: string): void {

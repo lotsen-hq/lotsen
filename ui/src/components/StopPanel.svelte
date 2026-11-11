@@ -3,6 +3,7 @@
    import { Button } from '$lib/components/ui/button';
    import type { ExplanationView } from '../lib/explanationView.svelte';
    import { skipTooltip } from '../lib/labels';
+   import { panelDocument } from '../lib/panelDocument.svelte';
    import { primaryPassage } from '../lib/placement';
    import { stopThreads } from '../lib/threadView';
    import type { StopActionKind } from '../lib/tourActions';
@@ -80,6 +81,7 @@
    const shownVersion = $derived(inline ? null : view.shownVersion);
 
    let barHeight = $state(0);
+   const home = panelDocument();
    let headerGone = $state(false);
 
    // Whatever scrolls into view in the panel stops 8 pixels below the bar. The CSP blocks style attributes but not the CSSOM.
@@ -89,7 +91,7 @@
 
    // The scroller's overflow clips the observed box, so the box stops intersecting the window once it leaves the panel's top edge.
    function watchHeader(element: HTMLElement): () => void {
-      const observer = new IntersectionObserver((entries) => {
+      const observer = new home.window.IntersectionObserver((entries) => {
          headerGone = !entries.at(-1)!.isIntersecting;
       });
       observer.observe(element);

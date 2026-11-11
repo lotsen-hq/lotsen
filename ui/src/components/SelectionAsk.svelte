@@ -7,6 +7,7 @@
    import MessageSquarePlus from '@lucide/svelte/icons/message-square-plus';
    import { untrack } from 'svelte';
    import { Button } from '$lib/components/ui/button';
+   import { panelDocument } from '../lib/panelDocument.svelte';
    import type { PickedAnchor, PickHandler } from '../lib/viewState';
    import type { SelectionExplain, SelectionTarget } from '../lib/selectionAsk';
 
@@ -33,10 +34,13 @@
    let explaining = $state(false);
    let selected: Range | null = null;
    let element = $state<HTMLElement>();
+   const home = panelDocument();
 
+   // Each document has its own selection, so the listeners follow the panel into a popout window and back.
    $effect(() => {
       const container = within;
       const read = targetOf;
+      const { document, window } = home;
       if (!container) {
          return;
       }
@@ -76,7 +80,7 @@
       explaining = true;
       const refusal = await explain.send(anchor);
       explaining = false;
-      const selection = document.getSelection();
+      const selection = home.document.getSelection();
       if (range === null || selection === null || selection.rangeCount === 0 || selection.getRangeAt(0) !== range) {
          return;
       }

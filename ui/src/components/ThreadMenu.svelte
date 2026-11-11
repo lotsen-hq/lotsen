@@ -21,6 +21,7 @@
    import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
    import { disabledReason, threadOffers } from '../lib/controls';
    import type { PinCommits } from '../lib/pin';
+   import { panelDocument } from '../lib/panelDocument.svelte';
    import { PendingWrite } from '../lib/pendingWrite.svelte';
    import { getThreadActions, type WriteResult } from '../lib/threadActions.svelte';
    import type { ThreadWrites } from '../lib/threadsView.svelte';
@@ -78,6 +79,7 @@
    const id = $props.id();
    const actions = getThreadActions();
    const deleteWrite = new PendingWrite();
+   const home = panelDocument();
 
    let atButton = $state(false);
    let atPointer = $state(false);
@@ -142,7 +144,7 @@
       const failure = copyLabel === 'Copy the message' ? 'The message could not be copied.' : 'The question could not be copied.';
       void writes.menu.run(async () => {
          try {
-            await navigator.clipboard.writeText(words);
+            await home.window.navigator.clipboard.writeText(words);
             return { ok: true };
          } catch {
             return { ok: false, refusal: failure };
@@ -169,6 +171,9 @@
       const threadId = thread.id;
       if (await settle(deleteWrite, () => actions.deleteThread(threadId))) {
          confirming = false;
+      } else if (deleteWrite.refusal !== null) {
+         // A move of the panel to another window closes the dialog during the delete, and the refusal shows only in the dialog.
+         confirming = true;
       }
    }
 </script>

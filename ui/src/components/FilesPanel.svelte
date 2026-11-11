@@ -21,6 +21,7 @@
       type FileLayout,
       type FileTreeNode,
    } from '../lib/fileTree';
+   import { panelDocument } from '../lib/panelDocument.svelte';
    import { atPin, pinCommits } from '../lib/pin';
    import { changedFilesAt } from '../lib/repositoryTree';
    import type { FileReference } from '../lib/stopFiles';
@@ -138,6 +139,7 @@
    }
 
    let changedView = $state<HTMLElement | null>(null);
+   const home = panelDocument();
    // The row that held the focus as an update began, or null when the focus was outside the changed-file view.
    let focusedBefore: HTMLElement | null = null;
 
@@ -145,7 +147,7 @@
    // The pre effect runs before the DOM update, so it still sees the row that held the focus, and the effect after it focuses that file's new row.
    $effect.pre(() => {
       void [groups, files, layout, changedView];
-      const active = document.activeElement;
+      const active = home.document.activeElement;
       focusedBefore = active instanceof HTMLElement && changedView?.contains(active) ? active : null;
    });
 
@@ -153,8 +155,8 @@
       void [groups, files, layout, changedView];
       const row = focusedBefore;
       focusedBefore = null;
-      const active = document.activeElement;
-      if (row !== null && !row.isConnected && changedView !== null && (active === null || active === document.body)) {
+      const active = home.document.activeElement;
+      if (row !== null && !row.isConnected && changedView !== null && (active === null || active === home.document.body)) {
          [...changedView.querySelectorAll<HTMLElement>('[role="treeitem"]')].find((candidate) => candidate.dataset.id === row.dataset.id)?.focus();
       }
    });

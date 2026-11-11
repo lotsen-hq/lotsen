@@ -5,10 +5,11 @@
 -->
 <script lang="ts">
    import { Button } from '$lib/components/ui/button';
-   import { tick } from 'svelte';
+   import { tick, untrack } from 'svelte';
    import { disabledReason, threadOffers } from '../lib/controls';
    import type { LinkHover } from '../lib/linkHover';
    import type { MessageStyle } from '../lib/messageStyle';
+   import { panelDocument } from '../lib/panelDocument.svelte';
    import type { PinCommits } from '../lib/pin';
    import { PendingWrite } from '../lib/pendingWrite.svelte';
    import { getThreadActions } from '../lib/threadActions.svelte';
@@ -67,6 +68,7 @@
    let chosen = $state<readonly string[]>([]);
    let box = $state<AskBox>();
    let panel = $state<HTMLElement>();
+   const home = panelDocument();
    let status = $state<HTMLElement>();
    // Where the reviewer last scrolled the thread list to, which it takes again when it shows after a thread view, whatever opened that view.
    let listScroll = 0;
@@ -90,7 +92,7 @@
          return;
       }
 
-      void tick().then(() => requestAnimationFrame(() => focusThread(wanted.id)?.scrollIntoView({ block: 'nearest' })));
+      void tick().then(() => home.window.requestAnimationFrame(() => focusThread(wanted.id)?.scrollIntoView({ block: 'nearest' })));
    });
 
    // Chromium fires a scroll event at the next frame, which may come after a thread view replaced the list, and then delivers it to the removed list, whose `scrollTop` reads 0.
@@ -124,8 +126,8 @@
    // element stays there.
    async function focusAfterWrite(threadId: string): Promise<void> {
       await tick();
-      const focused = document.activeElement;
-      if (focused !== null && focused !== document.body && focused.isConnected) {
+      const focused = home.document.activeElement;
+      if (focused !== null && focused !== home.document.body && focused.isConnected) {
          return;
       }
 
@@ -158,7 +160,8 @@
          return;
       }
 
-      const shown = new ResizeObserver(() => {
+      // Untracked, so a move of the panel into a popout window or back does not set the list's scroll position again.
+      const shown = new (untrack(() => home.window).ResizeObserver)(() => {
          if (scroller.closest('[hidden]') === null) {
             shown.disconnect();
             scroller.scrollTop = listScroll;
