@@ -1,123 +1,175 @@
-import type { PaneGroupStorage } from 'paneforge';
+import type { DockviewApi, DockviewGroupPanel, IDockviewPanel } from 'dockview';
 
-/** A panel of the workspace: the tabs of the left column, the diff in the center, or the stop details or the threads in the right column. */
-export type PanelId = 'tour' | 'diff' | 'stop' | 'threads';
+/** A panel of the workspace. */
+export type PanelId = 'files' | 'plan' | 'diff' | 'stop' | 'threads';
 
-/** A side column of the workspace. */
-export type SideColumn = 'left' | 'right';
+/** The workspace's panels, in the order of the Panels menu. */
+export const panelIds: readonly PanelId[] = ['files', 'plan', 'diff', 'stop', 'threads'];
 
-/** A pane that folds or collapses: a side column, or a panel of the right column. */
-export type FoldableId = SideColumn | 'stop' | 'threads';
-
-/** The part of a paneforge pane that folds and unfolds it. */
-export interface FoldablePane {
-   collapse(): void;
-   expand(): void;
+/** Where a hidden panel sat, so that showing it puts it back as a tab of the group it shared. */
+interface Origin {
+   groupId: string;
+   index: number;
 }
 
 /**
- * Holds which panes of the workspace are folded and which panel is maximized, for the top bar and the workspace to share.
+ * Holds which panels of the workspace are hidden and which group is maximized, for the top bar, the group headers and the workspace to share.
  *
- * The workspace reports each pane's folded state through {@link WorkspaceLayout.setFolded}, because a splitter folds a pane too. Paneforge keeps the sizes and the folded state in the browser,
- * so they survive a reload. The maximized panel lasts only until the page loads again.
+ * Dockview holds the workspace layout, and this class changes it only through Dockview's API. A hidden panel sits alone in a group that Dockview hides, so the panel
+ * stays mounted and keeps its state.
  */
 export class WorkspaceLayout {
-   folded = $state<Record<FoldableId, boolean>>({ left: false, right: false, stop: false, threads: false });
-   /** The panel that fills the workspace, or null when every panel has its own place. */
-   maximized = $state<PanelId | null>(null);
+   /** Whether each panel is hidden from the Panels menu or its group's Hide button. A maximized group hides the others without hiding their panels. */
+   hidden = $state<Record<PanelId, boolean>>({ files: false, plan: false, diff: false, stop: false, threads: false });
+   /** The id of the Dockview group that fills the workspace, or null when every group has its own place. */
+   maximizedGroup = $state<string | null>(null);
+   /** Each panel's title, which its tab shows. */
+   titles = $state<Record<PanelId, string>>({ files: 'Files', plan: 'Plan', diff: 'Code', stop: 'Stop', threads: 'Threads' });
 
-   private readonly panes: Partial<Record<FoldableId, FoldablePane>> = {};
-   private readonly toggles: Partial<Record<SideColumn, HTMLElement>> = {};
+   private api: DockviewApi | null = null;
+   private menu: HTMLElement | null = null;
+   private readonly origins: Partial<Record<PanelId, Origin>> = {};
 
    /**
-    * Lets {@link WorkspaceLayout.toggleFolded} fold and unfold a pane.
+    * Lets this class read and change the workspace layout that Dockview holds.
     *
-    * @returns A function that removes the pane again, for when it unmounts.
+    * @returns A function that detaches this class again, for when the workspace unmounts.
     */
-   register(id: FoldableId, pane: FoldablePane): () => void {
-      this.panes[id] = pane;
+   attach(api: DockviewApi): () => void {
+      this.api = api;
+      const read = () => (this.maximizedGroup = api.groups.find((group) => group.api.isMaximized())?.id ?? null);
+      const subscription = api.onDidMaximizedGroupChange(read);
+      read();
       return () => {
-         if (this.panes[id] === pane) {
-            delete this.panes[id];
+         subscription.dispose();
+         if (this.api === api) {
+            this.api = null;
          }
       };
    }
 
    /**
-    * Lets {@link WorkspaceLayout.close} move focus to the control that shows the column again.
+    * Lets {@link WorkspaceLayout.hide} move focus to the control that shows the panel again.
     *
     * @returns A function that removes the control again, for when it unmounts.
     */
-   registerToggle(column: SideColumn, toggle: HTMLElement): () => void {
-      this.toggles[column] = toggle;
+   registerMenu(menu: HTMLElement): () => void {
+      this.menu = menu;
       return () => {
-         if (this.toggles[column] === toggle) {
-            delete this.toggles[column];
+         if (this.menu === menu) {
+            this.menu = null;
          }
       };
    }
 
-   /** Folds the side column and moves focus to its registered toggle, because the button that closed the column folds with it. */
-   close(column: SideColumn): void {
-      this.panes[column]?.collapse();
-      this.toggles[column]?.focus();
+   /** The name of the panel in a button's label, such as "the stop". */
+   label(id: PanelId): string {
+      return `the ${this.titles[id].toLowerCase()}`;
    }
 
-   setFolded(id: FoldableId, folded: boolean): void {
-      this.folded[id] = folded;
+   /** Sets the title that the panel's tab shows. */
+   setTitle(id: PanelId, title: string): void {
+      this.titles[id] = title;
+      this.api?.getPanel(id)?.api.setTitle(title);
    }
 
-   /** Folds the pane, or unfolds it when it is folded, and restores a maximized panel first, so the change shows. */
-   toggleFolded(id: FoldableId): void {
-      this.maximized = null;
-      const pane = this.panes[id];
-      if (this.folded[id]) {
-         pane?.expand();
+   /** Hides the panel, or shows it when it is hidden. */
+   toggleHidden(id: PanelId): void {
+      if (this.hidden[id]) {
+         this.show(id);
       } else {
-         pane?.collapse();
+         this.hide(id);
       }
    }
 
-   /** Shows a panel of the right column: unfolds the column and the panel, and restores another maximized panel first. */
-   reveal(id: 'stop' | 'threads'): void {
-      if (this.maximized !== null && this.maximized !== id) {
-         this.maximized = null;
+   /**
+    * Hides the panel and restores a maximized group first, so the change shows.
+    *
+    * @param focusMenu Whether to move focus to the Panels menu, because the button that hid the panel hides with it.
+    */
+   hide(id: PanelId, focusMenu = false): void {
+      const api = this.api;
+      const panel = api?.getPanel(id);
+      if (!api || !panel || this.hidden[id]) {
+         return;
       }
 
-      for (const pane of ['right', id] as const) {
-         if (this.folded[pane]) {
-            this.panes[pane]?.expand();
-         }
+      this.restore();
+      let group = panel.group;
+      if (group.panels.length > 1) {
+         this.origins[id] = { groupId: group.id, index: group.panels.indexOf(panel) };
+         group = api.addGroup({ referenceGroup: group, direction: 'right' });
+         panel.api.moveTo({ group, skipSetActive: true });
+      }
+
+      group.api.setVisible(false);
+      this.hidden[id] = true;
+      if (focusMenu) {
+         this.menu?.focus();
       }
    }
 
-   /** Maximizes the panel, or restores it when it is the maximized one. */
+   /** Shows a hidden panel as the active tab of its group, back in the group it shared when that group still shows, and restores another maximized group first. */
+   reveal(id: PanelId): void {
+      const panel = this.api?.getPanel(id);
+      if (!panel) {
+         return;
+      }
+
+      if (this.api?.hasMaximizedGroup() && !panel.api.isMaximized()) {
+         this.api.exitMaximizedGroup();
+      }
+
+      this.show(id);
+      panel.api.setActive();
+   }
+
+   /** Maximizes the panel's group, or restores it when it is the maximized one. */
    toggleMaximized(id: PanelId): void {
-      this.maximized = this.maximized === id ? null : id;
+      const panel = this.api?.getPanel(id);
+      if (!panel) {
+         return;
+      }
+
+      if (panel.api.isMaximized()) {
+         panel.api.exitMaximized();
+      } else {
+         panel.api.maximize();
+      }
    }
 
-   /** Whether the panel is visible: no panel is maximized, or this one is. */
-   shows(id: PanelId): boolean {
-      return this.maximized === null || this.maximized === id;
+   /** Returns the workspace's panel of a Dockview group's active panel, or null when the group shows none. */
+   activeIn(group: DockviewGroupPanel): PanelId | null {
+      return panelOf(group.activePanel);
+   }
+
+   private show(id: PanelId): void {
+      const api = this.api;
+      const panel = api?.getPanel(id);
+      if (!api || !panel || !this.hidden[id]) {
+         return;
+      }
+
+      this.restore();
+      const origin = this.origins[id];
+      delete this.origins[id];
+      const home = origin === undefined ? undefined : api.groups.find((group) => group.id === origin.groupId);
+      if (origin && home && home !== panel.group && home.api.isVisible) {
+         panel.api.moveTo({ group: home, index: Math.min(origin.index, home.panels.length) });
+      } else {
+         panel.group.api.setVisible(true);
+      }
+
+      this.hidden[id] = false;
+   }
+
+   private restore(): void {
+      if (this.api?.hasMaximizedGroup()) {
+         this.api.exitMaximizedGroup();
+      }
    }
 }
 
-// Browser storage can be missing or throw on access, as in a private window, so both calls catch its errors without a report.
-
-/** The browser storage that keeps the splitter positions, when it allows it. Without it, the panes start at their default sizes. */
-export const layoutStorage: PaneGroupStorage = {
-   getItem(name) {
-      try {
-         return localStorage.getItem(name);
-      } catch {
-         return null;
-      }
-   },
-   setItem(name, value) {
-      try {
-         localStorage.setItem(name, value);
-      } catch {
-         // The layout then lasts only until the page loads again.
-      }
-   },
-};
+function panelOf(panel: IDockviewPanel | undefined): PanelId | null {
+   return panel !== undefined && (panelIds as readonly string[]).includes(panel.id) ? (panel.id as PanelId) : null;
+}

@@ -14,20 +14,21 @@ function freePort() {
 }
 
 /**
- * Returns the port that LOTSEN_E2E_PORT names, or a free port, which this stores in LOTSEN_E2E_PORT when the variable is unset or empty.
+ * Returns the port that the environment variable names, or a free port, which this stores in the variable when it is unset or empty.
  *
- * @throws When LOTSEN_E2E_PORT names no port from 1 to 65535.
+ * @param {string} variable - The variable, LOTSEN_E2E_PORT for the demo and LOTSEN_E2E_CSP_PORT for the built demo under the server's policy.
+ * @throws When the variable names no port from 1 to 65535.
  */
-export async function suitePort() {
+export async function suitePort(variable = 'LOTSEN_E2E_PORT') {
    // Each worker loads the config again, so the variable carries the main process's port to the workers.
    // See https://github.com/microsoft/playwright/blob/v1.64.1/packages/playwright/src/common/configLoader.ts#L89-L100.
-   if (process.env.LOTSEN_E2E_PORT === undefined || process.env.LOTSEN_E2E_PORT === '') {
-      process.env.LOTSEN_E2E_PORT = String(await freePort());
+   if (process.env[variable] === undefined || process.env[variable] === '') {
+      process.env[variable] = String(await freePort());
    }
 
-   const port = Number(process.env.LOTSEN_E2E_PORT);
+   const port = Number(process.env[variable]);
    if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      throw new Error(`LOTSEN_E2E_PORT is ${process.env.LOTSEN_E2E_PORT}, which is not a port from 1 to 65535.`);
+      throw new Error(`${variable} is ${process.env[variable]}, which is not a port from 1 to 65535.`);
    }
 
    return port;

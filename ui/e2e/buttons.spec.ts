@@ -102,7 +102,7 @@ for (const theme of ['light', 'dark'] as const) {
 
          await expectHoverChange(page, skipStop(page), 'Skip stop');
          await expectHoverChange(page, explainDeeper(page), 'Explain deeper');
-         await expectHoverChange(page, page.getByRole('button', { name: 'Collapse the stop' }), 'Collapse');
+         await expectHoverChange(page, page.getByRole('button', { name: 'Maximize the stop' }), 'Maximize');
       });
 
       test('marks a pressed Skip stop with the primary border and a fill of its own', async ({ page }) => {

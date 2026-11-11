@@ -69,7 +69,7 @@ describe('PaneSplit', () => {
       expect(split.percent).toBe(60);
    });
 
-   describe('moves for a key as the column splitters do', () => {
+   describe('moves for a key', () => {
       it.each([
          ['ArrowRight', 60],
          ['ArrowLeft', 40],

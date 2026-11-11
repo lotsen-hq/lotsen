@@ -22,16 +22,16 @@ The steps below write `<lotsen>` for the absolute path of this repository's chec
 
 `scripts/live-test.sh` wraps the commands below:
 
-| Command | Does |
-|---|---|
-| `check` | Reports whether the publish, the server, the MCP registration and the Azure CLI sign-in are ready. |
-| `build` | Step 1. |
-| `serve` | Step 2, when you want the server in the foreground. |
-| `register` | Step 3, replacing an older entry. |
-| `plugin` | Prints the path of a new copy of `plugin/` without its MCP entry, for `--plugin-dir`. See step 3. |
-| `claude [dir]` | Step 4: an interactive session in `dir` with the development channel. |
-| `pin <pr-url> [familiarity]` | Creates a tour in a headless `claude -p` session and prints its pin section. It needs the registration from step 3, and starts a background server when none runs. |
-| `demo <pr-url> [familiarity] [dir]` | Steps 1 to 5 in one command: tours the PR in an interactive session with the development channel. See below. |
+| Command                             | Does                                                                                                                                                               |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `check`                             | Reports whether the publish, the server, the MCP registration and the Azure CLI sign-in are ready.                                                                 |
+| `build`                             | Step 1.                                                                                                                                                            |
+| `serve`                             | Step 2, when you want the server in the foreground.                                                                                                                |
+| `register`                          | Step 3, replacing an older entry.                                                                                                                                  |
+| `plugin`                            | Prints the path of a new copy of `plugin/` without its MCP entry, for `--plugin-dir`. See step 3.                                                                  |
+| `claude [dir]`                      | Step 4: an interactive session in `dir` with the development channel.                                                                                              |
+| `pin <pr-url> [familiarity]`        | Creates a tour in a headless `claude -p` session and prints its pin section. It needs the registration from step 3, and starts a background server when none runs. |
+| `demo <pr-url> [familiarity] [dir]` | Steps 1 to 5 in one command: tours the PR in an interactive session with the development channel. See below.                                                       |
 
 `just demo <pr-url> [familiarity] [dir]` runs `demo` from any directory. It publishes lotsen first when the publish is missing or older than its sources. It refuses to start while the Azure
 CLI is not signed in. The session loads this checkout's publish through `--mcp-config`, which replaces the user-scope `lotsen` from step 3 for that session, so `demo` needs no registration.
@@ -231,6 +231,7 @@ which the browser's address shows after `#tour=`.
   ```
 
   Ask Claude how the question arrived, and record it.
+
 - Ask Claude in the terminal for something that takes a while, such as reading every file of the PR. While it works,
   send a question in the UI. Record whether Claude answers it after the turn, or leaves it waiting with a note in the
   terminal. This is model behavior, not guaranteed.
@@ -453,7 +454,7 @@ alone.
   land on the new lines.
 - A stale stop whose passages are all on the base side, while the target branch did not move: its base passages stay
   decorated, and its head `ref:` links say that they point at an earlier commit.
-- Narrow the left column. The plan row's "Stale since update N" wraps cleanly.
+- Narrow the Plan panel. The plan row's "Stale since update N" wraps cleanly.
 
 ## 11. The end-of-tour summary
 

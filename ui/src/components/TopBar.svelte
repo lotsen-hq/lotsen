@@ -1,13 +1,12 @@
 <script lang="ts">
    import Hourglass from '@lucide/svelte/icons/hourglass';
    import LoaderCircle from '@lucide/svelte/icons/loader-circle';
-   import PanelLeft from '@lucide/svelte/icons/panel-left';
-   import PanelLeftDashed from '@lucide/svelte/icons/panel-left-dashed';
-   import PanelRight from '@lucide/svelte/icons/panel-right';
-   import PanelRightDashed from '@lucide/svelte/icons/panel-right-dashed';
+   import ChevronDown from '@lucide/svelte/icons/chevron-down';
+   import PanelsTopLeft from '@lucide/svelte/icons/panels-top-left';
    import Unplug from '@lucide/svelte/icons/unplug';
    import type { Snippet } from 'svelte';
-   import { Button } from '$lib/components/ui/button';
+   import { Button, buttonVariants } from '$lib/components/ui/button';
+   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
    import { announcesRefusal, idleAnswerSend, type AnswerSendState } from '../lib/answers';
    import { disabledReason, hasAnswersToSend } from '../lib/controls';
    import type { GenerationStatus } from '../lib/generationStatus';
@@ -16,11 +15,10 @@
    import type { PruneOutcome } from '../lib/viewState';
    import type { ConnectionState } from '../lib/eventStream';
    import type { Settings } from '../lib/settings.svelte';
-   import type { WorkspaceLayout } from '../lib/workspaceLayout.svelte';
+   import { panelIds, type WorkspaceLayout } from '../lib/workspaceLayout.svelte';
    import SettingsPanel from './SettingsPanel.svelte';
    import Wordmark from './Wordmark.svelte';
    import AttachmentState from './AttachmentState.svelte';
-   import IconToggle from './IconToggle.svelte';
 
    let {
       connection,
@@ -72,10 +70,8 @@
       }
    }
 
-   let leftToggle = $state<HTMLElement | null>(null);
-   let rightToggle = $state<HTMLElement | null>(null);
-   $effect(() => (leftToggle ? layout.registerToggle('left', leftToggle) : undefined));
-   $effect(() => (rightToggle ? layout.registerToggle('right', rightToggle) : undefined));
+   let panelsMenu = $state<HTMLElement | null>(null);
+   $effect(() => (panelsMenu ? layout.registerMenu(panelsMenu) : undefined));
 
    const connectionLabels: Record<ConnectionState, string> = {
       connecting: 'Connecting…',
@@ -131,16 +127,17 @@
       <AttachmentState {attachment} />
    {/if}
    <span class={['text-sm', connection === 'live' ? 'text-success' : 'text-muted-foreground']} role="status">{connectionLabels[connection]}</span>
-   <div class="flex *:not-first:border-l-0" role="group" aria-label="Columns">
-      <!-- A dashed divider shows a folded column, so the icon tells the state apart without the pressed background. -->
-      <IconToggle bind:ref={leftToggle} label="Files and plan" icon={layout.folded.left ? PanelLeftDashed : PanelLeft} pressed={!layout.folded.left} onclick={() => layout.toggleFolded('left')} />
-      <IconToggle
-         bind:ref={rightToggle}
-         label="Stop and threads"
-         icon={layout.folded.right ? PanelRightDashed : PanelRight}
-         pressed={!layout.folded.right}
-         onclick={() => layout.toggleFolded('right')}
-      />
-   </div>
+   <DropdownMenu.Root>
+      <DropdownMenu.Trigger bind:ref={panelsMenu} class="{buttonVariants({ variant: 'outline', size: 'sm' })} shrink-0">
+         <PanelsTopLeft aria-hidden="true" />
+         Panels
+         <ChevronDown aria-hidden="true" />
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end" class="w-40">
+         {#each panelIds as id (id)}
+            <DropdownMenu.CheckboxItem closeOnSelect={false} bind:checked={() => !layout.hidden[id], () => layout.toggleHidden(id)}>{layout.titles[id]}</DropdownMenu.CheckboxItem>
+         {/each}
+      </DropdownMenu.Content>
+   </DropdownMenu.Root>
    <SettingsPanel {settings} {onprune} />
 </header>

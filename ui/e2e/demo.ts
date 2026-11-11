@@ -53,6 +53,24 @@ export async function openStop(page: Page, title: string): Promise<void> {
    await expect(page.getByRole('region', { name: 'Stop', exact: true }).getByRole('heading', { name: title })).toBeVisible();
 }
 
+/** Shows a hidden panel from the Panels menu, and closes the menu. */
+export async function showPanel(page: Page, title: string): Promise<void> {
+   await page.getByRole('button', { name: 'Panels' }).click();
+   await page.getByRole('menuitemcheckbox', { name: title }).click();
+   await page.keyboard.press('Escape');
+   await expect(page.getByRole('region', { name: title, exact: true })).toBeVisible();
+}
+
+/** Drags a panel's tab with the mouse onto the middle of the target, which docks the panel there as a tab. */
+export async function dragTab(page: Page, title: string, target: Locator): Promise<void> {
+   const tab = (await page.getByRole('tab', { name: title }).boundingBox())!;
+   const drop = (await target.boundingBox())!;
+   await page.mouse.move(tab.x + tab.width / 2, tab.y + tab.height / 2);
+   await page.mouse.down();
+   await page.mouse.move(drop.x + drop.width / 2, drop.y + drop.height / 2, { steps: 15 });
+   await page.mouse.up();
+}
+
 /** The center's view of the code. */
 export const center = (page: Page): Locator => page.getByRole('main');
 

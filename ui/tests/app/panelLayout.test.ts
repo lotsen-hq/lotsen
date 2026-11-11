@@ -1,37 +1,48 @@
-import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/svelte';
-import { afterEach, describe, expect, it } from 'vitest';
+import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
+import { describe, expect, it } from 'vitest';
 import type { LotsenApp } from '../../src/lib/app.svelte';
 import type { World } from '../backend/backend';
-import { backend, prUrl, seedTour, startApp } from '../harness';
-import { hoverTooltip } from '../tooltip';
+import { backend, seedTour, startApp } from '../harness';
 import { openTourList, tourButton } from '../tourPicker';
 import { filesPanel, resetPageEachTest, worldOf } from './appPanels';
+import { inMenu, itemName, openMenu } from './threadFilter';
 
 resetPageEachTest();
 
-// Paneforge saves a layout 100 ms after it changes, so a page of one test could write its layout after the next test cleared the storage.
-afterEach(() => new Promise((resolve) => setTimeout(resolve, 150)));
+/** Returns the tabs of each group that shows, in document order, the active tab of each marked with a star. */
+function groups(): string[][] {
+   return screen.getAllByRole('tablist').map((list) =>
+      within(list)
+         .getAllByRole('tab')
+         .map((tab) => `${tab.getAttribute('aria-label')}${tab.getAttribute('aria-selected') === 'true' ? '*' : ''}`),
+   );
+}
 
-// Paneforge sizes each pane in percent of its group through the pane's flex-grow.
-const sizes = (...ids: string[]) => ids.map((id) => Number(document.getElementById(id)!.style.flexGrow));
-const columns = () => sizes('left-column', 'center-column', 'right-column');
-const rightPanels = () => sizes('stop-panel', 'threads-panel');
-const columnToggle = (name: 'Files and plan' | 'Stop and threads') => within(screen.getByRole('group', { name: 'Columns' })).getByRole('button', { name });
-const closeButtons = () => screen.queryAllByRole('button', { name: /^Close/ });
-/** Returns the names of the buttons in the header of the left column's tabs or of a right-column panel, in document order. */
-function headerButtons(region: 'Tour' | 'Stop' | 'Threads'): string[] {
-   const section = screen.getByRole('region', { name: region });
-   const header = region === 'Tour' ? section.querySelector('[role="tablist"]')!.parentElement! : section.firstElementChild!;
-   return within(header as HTMLElement)
-      .getAllByRole('button')
-      .map((button) => button.getAttribute('aria-label') ?? '');
+// Without a pinned tour, Plan is the active tab of its group.
+const defaultGroups = [['Files', 'Plan*'], ['Code*'], ['Stop*'], ['Threads*']];
+// A pinned tour opens on the Files tab.
+const pinnedGroups = [['Files*', 'Plan'], ['Code*'], ['Stop*'], ['Threads*']];
+const panelsMenu = () => screen.getByRole('button', { name: 'Panels' });
+
+/** Opens the Panels menu and returns each item's name with whether it holds the check. */
+async function panelItems(): Promise<{ name: string; checked: boolean }[]> {
+   const menu = await openMenu(panelsMenu());
+   return within(menu)
+      .getAllByRole('menuitemcheckbox', inMenu)
+      .map((item) => ({ name: itemName(item), checked: item.getAttribute('aria-checked') === 'true' }));
+}
+
+/** Toggles a panel's item in the Panels menu, which stays open. */
+async function togglePanel(name: string): Promise<void> {
+   const menu = await openMenu(panelsMenu());
+   await fireEvent.click(within(menu).getByRole('menuitemcheckbox', { ...inMenu, name }));
 }
 
 // Two pinned tours of the same pull request, so either one has the cart's changed file.
 const twoTours = backend().template('panelLayout-two-tours', async (world) => {
    await seedTour(world, { bound: false });
    const claude = await world.claude();
-   await claude.call('create_tour', { prUrl, familiarity: 'some' });
+   await claude.call('create_tour', { prUrl: 'https://platform.test/shop/pull/42', familiarity: 'some' });
    await world.idle();
    await claude.drop();
 });
@@ -42,136 +53,125 @@ async function startShell(): Promise<{ world: World; app: LotsenApp }> {
    return { world, app };
 }
 
-/** Starts the app again on the world, as the next load of the page does. */
-async function reload(world: World, app: LotsenApp): Promise<LotsenApp> {
-   cleanup();
-   app.stop();
-   return (await startApp(world)).app;
-}
-
-describe('the panel layout', () => {
-   it('restores a splitter position from the browser on the next load', async () => {
-      const { world, app } = await startShell();
-      await waitFor(() => expect(columns()).toEqual([22, 50, 28]));
-
-      fireEvent.keyDown(screen.getByRole('separator', { name: 'Resize the right column' }), { key: 'ArrowLeft' });
-      await waitFor(() => expect(columns()).toEqual([22, 40, 38]));
-      await waitFor(() => expect(localStorage.getItem('paneforge:lotsen.columns')).toContain('[22,40,38]'));
-      await reload(world, app);
-
-      await waitFor(() => expect(columns()).toEqual([22, 40, 38]));
-   });
-
-   it('keeps a folded column folded on the next load', async () => {
-      const { world, app } = await startShell();
-      fireEvent.click(columnToggle('Files and plan'));
-      await waitFor(() => expect(localStorage.getItem('paneforge:lotsen.columns')).toContain('[0,72,28]'));
-      await reload(world, app);
-
-      await waitFor(() => expect(columns()).toEqual([0, 72, 28]));
-      await waitFor(() => expect(columnToggle('Files and plan').getAttribute('aria-pressed')).toBe('false'));
-      fireEvent.click(columnToggle('Files and plan'));
-      await waitFor(() => expect(columns()).toEqual([22, 50, 28]));
-   });
-
-   it('gives a collapsed panel space to its neighbor in the same column, and takes it back when expanded', async () => {
+describe('the workspace', () => {
+   it('opens with Files and Plan as tabs of one group, and the code, the stop and the threads in a group each', async () => {
       await startShell();
-      await waitFor(() => expect(rightPanels()).toEqual([60, 40]));
 
-      fireEvent.click(screen.getByRole('button', { name: 'Collapse the stop' }));
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+      expect(screen.getAllByRole('region').map((region) => region.getAttribute('aria-label'))).toEqual(expect.arrayContaining(['Plan', 'Code', 'Stop', 'Threads']));
+   });
 
-      await waitFor(() => expect(rightPanels()).toEqual([0, 100]));
-      expect(columns()).toEqual([22, 50, 28]);
+   it('opens a tab on a click, as a screen reader sends it without a pointer press', async () => {
+      await startShell();
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Files' }));
+
+      await waitFor(() => expect(groups()[0]).toEqual(['Files*', 'Plan']));
+   });
+
+   it('keeps a panel when Delete or Backspace is pressed on its tab', async () => {
+      await startShell();
+      const tab = screen.getByRole('tab', { name: 'Files' });
+
+      fireEvent.keyDown(tab, { key: 'Delete' });
+      fireEvent.keyDown(tab, { key: 'Backspace' });
+
+      expect(groups()).toEqual(defaultGroups);
+   });
+
+   it('lists each panel in the Panels menu, checked while it shows', async () => {
+      await startShell();
+
+      expect(await panelItems()).toEqual(['Files', 'Plan', 'Code', 'Stop', 'Threads'].map((name) => ({ name, checked: true })));
+   });
+
+   it('hides a panel from the Panels menu and shows it again with the same content', async () => {
+      await startShell();
+      const stop = screen.getByRole('region', { name: 'Stop' }).querySelector('[role="tabpanel"] > *');
+
+      await togglePanel('Stop');
+
+      await waitFor(() => expect(groups()).toEqual([['Files', 'Plan*'], ['Code*'], ['Threads*']]));
       expect(screen.queryByRole('region', { name: 'Stop' })).toBeNull();
-      expect(screen.getByRole('region', { name: 'Threads' })).toBeTruthy();
+      expect((await panelItems()).find((item) => item.name === 'Stop')?.checked).toBe(false);
 
-      fireEvent.click(await screen.findByRole('button', { name: 'Expand the stop' }));
+      await togglePanel('Stop');
 
-      await waitFor(() => expect(rightPanels()).toEqual([60, 40]));
-      expect(screen.getByRole('region', { name: 'Stop' })).toBeTruthy();
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+      expect(screen.getByRole('region', { name: 'Stop' }).querySelector('[role="tabpanel"] > *')).toBe(stop);
    });
 
-   it('folds a side column from the top bar, which gives its space to the diff, and unfolds it', async () => {
+   it('shows a hidden panel back as a tab of the group it shared', async () => {
       await startShell();
-      await waitFor(() => expect(columns()).toEqual([22, 50, 28]));
-      const toggle = columnToggle('Files and plan');
-      expect(toggle.getAttribute('aria-pressed')).toBe('true');
-      expect(toggle.querySelector('svg.lucide-panel-left')).toBeTruthy();
 
-      fireEvent.click(toggle);
+      await togglePanel('Files');
+      await waitFor(() => expect(groups()).toEqual([['Plan*'], ['Code*'], ['Stop*'], ['Threads*']]));
 
-      await waitFor(() => expect(columns()).toEqual([0, 72, 28]));
-      expect(toggle.getAttribute('aria-pressed')).toBe('false');
-      await waitFor(() => expect(toggle.querySelector('svg.lucide-panel-left-dashed')).toBeTruthy());
+      await togglePanel('Files');
 
-      fireEvent.click(toggle);
-
-      await waitFor(() => expect(columns()).toEqual([22, 50, 28]));
-      expect(toggle.getAttribute('aria-pressed')).toBe('true');
+      await waitFor(() => expect(groups()[0]).toEqual(['Files*', 'Plan']));
+      expect(groups()).toHaveLength(4);
    });
 
-   it('folds the right column from the top bar and shows the folded state in its icon', async () => {
+   it('hides the active panel of a group with its Hide button, and moves focus to the Panels menu', async () => {
       await startShell();
-      await waitFor(() => expect(columns()).toEqual([22, 50, 28]));
-      const toggle = columnToggle('Stop and threads');
-      expect(toggle.getAttribute('aria-pressed')).toBe('true');
-      expect(toggle.querySelector('svg.lucide-panel-right')).toBeTruthy();
 
-      fireEvent.click(toggle);
+      fireEvent.click(screen.getByRole('button', { name: 'Hide the threads' }));
 
-      await waitFor(() => expect(columns()).toEqual([22, 78, 0]));
-      expect(toggle.getAttribute('aria-pressed')).toBe('false');
-      await waitFor(() => expect(toggle.querySelector('svg.lucide-panel-right-dashed')).toBeTruthy());
+      await waitFor(() => expect(groups()).toEqual([['Files', 'Plan*'], ['Code*'], ['Stop*']]));
+      expect(document.activeElement).toBe(panelsMenu());
    });
 
-   it('follows a column folded and unfolded with Enter on its splitter, so the top-bar toggle still works', async () => {
+   it('maximizes a group over the others, offers only Restore there, and restores them', async () => {
       await startShell();
-      await waitFor(() => expect(columns()).toEqual([22, 50, 28]));
-      const toggle = columnToggle('Files and plan');
-      const splitter = screen.getByRole('separator', { name: 'Resize the left column' });
 
-      fireEvent.keyDown(splitter, { key: 'Enter' });
+      fireEvent.click(screen.getByRole('button', { name: 'Maximize the threads' }));
 
-      await waitFor(() => expect(columns()).toEqual([0, 72, 28]));
-      await waitFor(() => expect(toggle.getAttribute('aria-pressed')).toBe('false'));
+      await waitFor(() => expect(groups()).toEqual([['Threads*']]));
+      expect(screen.queryByRole('button', { name: 'Hide the threads' })).toBeNull();
 
-      fireEvent.click(toggle);
+      fireEvent.click(screen.getByRole('button', { name: 'Restore the threads' }));
 
-      await waitFor(() => expect(columns()).toEqual([12, 60, 28]));
-      expect(toggle.getAttribute('aria-pressed')).toBe('true');
-
-      fireEvent.keyDown(splitter, { key: 'Enter' });
-      await waitFor(() => expect(toggle.getAttribute('aria-pressed')).toBe('false'));
-      fireEvent.keyDown(splitter, { key: 'Enter' });
-      await waitFor(() => expect(toggle.getAttribute('aria-pressed')).toBe('true'));
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+      expect(screen.getByRole('button', { name: 'Hide the threads' })).toBeTruthy();
    });
 
-   it('shows the header of a panel collapsed with Enter on its splitter, from which it expands again', async () => {
+   it('names the active panel of a group in its buttons', async () => {
       await startShell();
-      await waitFor(() => expect(rightPanels()).toEqual([60, 40]));
+      expect(screen.getByRole('button', { name: 'Maximize the plan' })).toBeTruthy();
 
-      fireEvent.keyDown(screen.getByRole('separator', { name: 'Resize the stop and the threads' }), { key: 'Enter' });
+      fireEvent.click(screen.getByRole('tab', { name: 'Files' }));
 
-      await waitFor(() => expect(rightPanels()).toEqual([0, 100]));
-      expect(screen.queryByRole('region', { name: 'Stop' })).toBeNull();
-      fireEvent.click(await screen.findByRole('button', { name: 'Expand the stop' }));
-
-      // Paneforge records no size to return to when Enter folds a pane, so the pane expands to its minimum size.
-      await waitFor(() => expect(rightPanels()).toEqual([15, 85]));
-      expect(screen.getByRole('region', { name: 'Stop' })).toBeTruthy();
+      expect(await screen.findByRole('button', { name: 'Maximize the files' })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Maximize the plan' })).toBeNull();
    });
 
-   it('follows a panel collapsed by resizing it below its minimum size', async () => {
+   it('restores a maximized group to hide a panel from the Panels menu', async () => {
       await startShell();
-      await waitFor(() => expect(rightPanels()).toEqual([60, 40]));
-      const splitter = screen.getByRole('separator', { name: 'Resize the stop and the threads' });
+      fireEvent.click(screen.getByRole('button', { name: 'Maximize the code' }));
+      await waitFor(() => expect(groups()).toEqual([['Code*']]));
 
-      for (let step = 0; step < 6; step++) {
-         fireEvent.keyDown(splitter, { key: 'ArrowUp' });
-      }
+      await togglePanel('Threads');
 
-      await waitFor(() => expect(rightPanels()).toEqual([0, 100]));
-      expect(await screen.findByRole('button', { name: 'Expand the stop' })).toBeTruthy();
+      await waitFor(() => expect(groups()).toEqual([['Files', 'Plan*'], ['Code*'], ['Stop*']]));
+   });
+
+   it('shows the hidden Threads panel when the reviewer asks about a file, and restores another maximized group', async () => {
+      const { world } = await worldOf(twoTours);
+      const { app } = await startApp(world);
+      const list = await openTourList();
+      fireEvent.click((await waitFor(() => list.getAllByRole('button', tourButton)))[0]!);
+      await waitFor(() => expect(app.selectedTourId).not.toBeNull());
+      fireEvent.click(await (await filesPanel()).findByText('cart.ts'));
+      await waitFor(() => expect(app.selectedFilePath).toBe('src/cart.ts'));
+      await togglePanel('Threads');
+      await waitFor(() => expect(screen.queryByRole('region', { name: 'Threads' })).toBeNull());
+      fireEvent.click(screen.getByRole('button', { name: 'Maximize the code' }));
+      await waitFor(() => expect(groups()).toEqual([['Code*']]));
+
+      fireEvent.click(screen.getByRole('button', { name: 'Ask Claude about src/cart.ts' }));
+
+      await waitFor(() => expect(groups()).toEqual(pinnedGroups));
    });
 
    it('keeps the restore button of the maximized code when another tour closes the open file', async () => {
@@ -192,7 +192,7 @@ describe('the panel layout', () => {
       fireEvent.click(await (await filesPanel()).findByText('cart.ts'));
       await waitFor(() => expect(app.selectedFilePath).toBe('src/cart.ts'));
       fireEvent.click(await screen.findByRole('button', { name: 'Maximize the code' }));
-      await waitFor(() => expect(screen.queryByRole('region', { name: 'Tour' })).toBeNull());
+      await waitFor(() => expect(groups()).toEqual([['Code*']]));
 
       const other = (await tourButtons()).find((button) => button.getAttribute('aria-current') !== 'true')!;
       fireEvent.click(other);
@@ -200,75 +200,6 @@ describe('the panel layout', () => {
       await waitFor(() => expect(app.selectedTourId).not.toBe(first));
       await waitFor(() => expect(app.selectedFilePath).toBeNull());
       fireEvent.click(await screen.findByRole('button', { name: 'Restore the code' }));
-      await waitFor(() => expect(screen.getByRole('region', { name: 'Tour' })).toBeTruthy());
-   });
-
-   it('ends the header of the left column and of the stop with a close button after Maximize, and gives the threads and the code none', async () => {
-      await startShell();
-
-      expect(headerButtons('Tour').slice(-2)).toEqual(['Maximize the files and the plan', 'Close the files and the plan']);
-      expect(headerButtons('Stop').slice(-2)).toEqual(['Maximize the stop', 'Close the stop and the threads']);
-      expect(headerButtons('Threads')).toEqual(['Collapse the threads', 'Maximize the threads']);
-      expect(closeButtons().map((button) => button.getAttribute('aria-label'))).toEqual(['Close the files and the plan', 'Close the stop and the threads']);
-      expect(await hoverTooltip(screen.getByRole('button', { name: 'Close the stop and the threads' }))).toBe('Close the stop and the threads');
-   });
-
-   it.each([
-      { button: 'Close the files and the plan', toggle: 'Files and plan', closed: [0, 72, 28] },
-      { button: 'Close the stop and the threads', toggle: 'Stop and threads', closed: [22, 78, 0] },
-   ] as const)('hides its column with "$button", and moves focus to the top-bar toggle that shows it again', async ({ button, toggle, closed }) => {
-      await startShell();
-      await waitFor(() => expect(columns()).toEqual([22, 50, 28]));
-
-      fireEvent.click(screen.getByRole('button', { name: button }));
-
-      await waitFor(() => expect(columns()).toEqual(closed));
-      await waitFor(() => expect(columnToggle(toggle).getAttribute('aria-pressed')).toBe('false'));
-      expect(document.activeElement).toBe(columnToggle(toggle));
-
-      fireEvent.click(columnToggle(toggle));
-
-      await waitFor(() => expect(columns()).toEqual([22, 50, 28]));
-   });
-
-   it.each([
-      { maximize: 'Maximize the files and the plan', region: 'Tour', restore: 'Restore the files and the plan' },
-      { maximize: 'Maximize the stop', region: 'Stop', restore: 'Restore the stop' },
-   ] as const)('offers only Restore in the header of a maximized panel, after "$maximize"', async ({ maximize, region, restore }) => {
-      await startShell();
-
-      fireEvent.click(screen.getByRole('button', { name: maximize }));
-
-      await waitFor(() => expect(screen.queryByRole('main')).toBeNull());
-      expect(headerButtons(region)).toEqual([restore]);
-      expect(closeButtons()).toEqual([]);
-   });
-
-   it('offers to maximize the code before a file is open, and to restore it', async () => {
-      await startShell();
-
-      fireEvent.click(screen.getByRole('button', { name: 'Maximize the code' }));
-
-      await waitFor(() => expect(screen.queryByRole('region', { name: 'Tour' })).toBeNull());
-      fireEvent.click(screen.getByRole('button', { name: 'Restore the code' }));
-      await waitFor(() => expect(screen.getByRole('region', { name: 'Tour' })).toBeTruthy());
-   });
-
-   it('maximizes a panel over the others and restores them', async () => {
-      await startShell();
-      const tour = screen.getByRole('region', { name: 'Tour' });
-
-      fireEvent.click(screen.getByRole('button', { name: 'Maximize the threads' }));
-
-      await waitFor(() => expect(screen.queryByRole('region', { name: 'Tour' })).toBeNull());
-      expect(screen.queryByRole('region', { name: 'Stop' })).toBeNull();
-      expect(screen.queryAllByRole('separator')).toEqual([]);
-      expect(screen.getByRole('region', { name: 'Threads' })).toBeTruthy();
-
-      fireEvent.click(screen.getByRole('button', { name: 'Restore the threads' }));
-
-      await waitFor(() => expect(screen.getByRole('region', { name: 'Tour' })).toBe(tour));
-      expect(screen.getByRole('region', { name: 'Stop' })).toBeTruthy();
-      expect(screen.getAllByRole('separator')).toHaveLength(3);
+      await waitFor(() => expect(groups()).toEqual(pinnedGroups));
    });
 });

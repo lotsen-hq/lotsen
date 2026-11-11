@@ -76,8 +76,9 @@ just ui-test
 scroll to a focused passage, the inline explanation below its anchor, the spacer that aligns the side-by-side panes,
 collapsed rows, the pane splitter and the file that the stop-files stack reports. It also loads pages of the demo
 together, each of which must get a world of its own. Playwright starts the demo on a free port that the suite picks at
-run time, so two checkouts can run the suite at once, and `LOTSEN_E2E_PORT` pins the port. Playwright stops the demo once
-the suite ends, and the demo's test host stops with it. `just ui-browser` downloads the Chromium build that the suite
+run time, so two checkouts can run the suite at once, and `LOTSEN_E2E_PORT` pins the port. The `csp` project runs
+`e2e/csp.spec.ts` against a second server, the built demo that `npm run demo:csp` serves with the server's policy, on the
+port that `LOTSEN_E2E_CSP_PORT` pins. Playwright stops both servers once the suite ends, and their test hosts stop with them. `just ui-browser` downloads the Chromium build that the suite
 needs.
 
 The components reach the editors through `EditorSurface` (`src/lib/editor/surface.ts`), and within `src/` only
@@ -157,9 +158,8 @@ editors' syntax colors for each syntax color family and theme. The build writes 
 - The page runs under `style-src 'self' 'nonce-…'` with no `'unsafe-inline'`: no `style="…"` attributes, no
   `style:` directives in markup, and any `<style>` created at run time takes the nonce from `src/lib/cspNonce.ts`.
   CodeMirror gets it through `EditorView.cspNonce`.
-- paneforge resizes the workspace's columns and panels. Its pane sizes are a spread `style` prop, which Svelte sets through the CSSOM (`style.cssText`), and the
-  policy allows that. Its drag cursor is a `<style>` it creates, and the `paneforgeCursorNonce` plugin in `vite.config.ts` gives that element the nonce at build time.
-  The build fails when paneforge no longer has the line the plugin changes.
+- Dockview lays out the workspace's panels. It sizes and places its elements through the CSSOM (`element.style`), which the policy allows, and the `<style>`
+  elements that it copies into a pop-out window take the nonce from `src/lib/cspNonce.ts`. `e2e/csp.spec.ts` loads the page and drags a panel under the policy, and fails on any violation.
 - No HTML insertion, such as `{@html}`, `innerHTML`, `outerHTML`, `insertAdjacentHTML` or `srcdoc`: code and text go in as text nodes. The one exception is
   `src/components/Prose.svelte`, which inserts its `html` prop, the prose of a stop or a reply as the server rendered it. `npm run lint` checks both rules in every component and
   module, the generated ones included.

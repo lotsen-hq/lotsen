@@ -1,95 +1,177 @@
 <script lang="ts">
-   import type { Snippet } from 'svelte';
-   import * as Resizable from '$lib/components/ui/resizable';
-   import { layoutStorage, type FoldableId, type WorkspaceLayout } from '../lib/workspaceLayout.svelte';
-   import PanelActions from './PanelActions.svelte';
+   import { createDockview, themeLight, type DockviewApi, type DockviewGroupPanel, type IHeaderActionsRenderer, type ITabRenderer } from 'dockview';
+   import { getAllContexts, mount, onMount, unmount, type Snippet } from 'svelte';
+   import { cspNonce } from '../lib/cspNonce';
+   import { panelIds, type PanelId, type WorkspaceLayout } from '../lib/workspaceLayout.svelte';
+   import GroupActions from './GroupActions.svelte';
+
+   type LeftPanel = 'files' | 'plan';
 
    let {
       layout,
-      left,
-      center,
+      tourId,
+      defaultLeft,
+      diffTitle,
+      files,
+      plan,
+      diff,
       stop,
       threads,
    }: {
       layout: WorkspaceLayout;
-      /** The left column, which renders its own header with the panel's actions. */
-      left: Snippet;
-      /** The diff, which renders its own header with the panel's actions. */
-      center: Snippet;
+      /** The selected tour, or null while none is. */
+      tourId: string | null;
+      /** The panel of Files and Plan that a tour opens on while they share a group, until the reviewer picks one for that tour. */
+      defaultLeft: LeftPanel;
+      /** The title of the diff's tab. */
+      diffTitle: string;
+      files: Snippet;
+      plan: Snippet;
+      /** The diff, which renders its own toolbar. */
+      diff: Snippet;
       stop: Snippet;
       threads: Snippet;
    } = $props();
 
-   type Pane = ReturnType<typeof Resizable.Pane>;
-   let leftPane = $state<Pane>();
-   let rightPane = $state<Pane>();
-   let stopPane = $state<Pane>();
-   let threadsPane = $state<Pane>();
+   let frame: HTMLElement;
+   let root: HTMLElement;
+   const elements = $state<Partial<Record<PanelId, HTMLElement>>>({});
+   let api = $state<DockviewApi | null>(null);
 
-   // isCollapsed reads the group's layout, so the folded state follows every way a pane folds, including Enter on a splitter, which calls no pane callback.
-   function register(id: FoldableId, pane: () => Pane | undefined) {
-      $effect(() => {
-         const mounted = pane();
-         return mounted && layout.register(id, mounted);
-      });
-      $effect(() => layout.setFolded(id, pane()?.isCollapsed() ?? false));
+   // The group headers mount their own components, which need the page's contexts, such as its tooltip delays.
+   const contexts = getAllContexts();
+
+   function groupActions(group: DockviewGroupPanel): IHeaderActionsRenderer {
+      const element = document.createElement('div');
+      element.className = 'h-full';
+      let actions: ReturnType<typeof mount> | null = null;
+      return {
+         element,
+         init: () => (actions = mount(GroupActions, { target: element, props: { layout, group }, context: contexts })),
+         dispose: () => void (actions && unmount(actions)),
+      };
    }
 
-   register('left', () => leftPane);
-   register('right', () => rightPane);
-   register('stop', () => stopPane);
-   register('threads', () => threadsPane);
+   function panelTab(): ITabRenderer {
+      const element = document.createElement('div');
+      element.className = 'dv-default-tab';
+      const title = document.createElement('div');
+      title.className = 'dv-default-tab-content';
+      element.append(title);
+      let subscription: { dispose(): void } | null = null;
+      return {
+         element,
+         init: (parameters) => {
+            title.textContent = parameters.title;
+            subscription = parameters.api.onDidTitleChange((event) => (title.textContent = event.title));
+         },
+         dispose: () => subscription?.dispose(),
+      };
+   }
 
-   const rightPanels: { id: 'stop' | 'threads'; title: string; label: string; closes: { column: 'right'; title: string } | null }[] = [
-      { id: 'stop', title: 'Stop', label: 'the stop', closes: { column: 'right', title: 'the stop and the threads' } },
-      { id: 'threads', title: 'Threads', label: 'the threads', closes: null },
-   ];
+   onMount(() => {
+      // Dockview rounds the sizes it measures to whole pixels (watchElementResize in dockview-core 8.9.0's resizable.ts and shell.ts), which lays the groups out past a
+      // container of a fractional size, so the container takes the frame's size rounded down.
+      const fit = () => {
+         const { width, height } = frame.getBoundingClientRect();
+         root.style.width = `${Math.floor(width)}px`;
+         root.style.height = `${Math.floor(height)}px`;
+      };
+      const resizes = new ResizeObserver(fit);
+      resizes.observe(frame);
+      fit();
+
+      const dock = createDockview(root, {
+         theme: themeLight,
+         disableFloatingGroups: true,
+         nonce: (document) => cspNonce(document),
+         // The panels render in the hidden holder below, inside the page's component tree, and Dockview moves each one's element into its group.
+         createComponent: (options) => ({ element: elements[options.name as PanelId]!, init: () => {} }),
+         // Dockview calls createTabComponent only for a tab with a component name (createTabComponent in dockview-core 8.9.0's dockviewPanelModel.ts).
+         defaultTabComponent: 'title',
+         createTabComponent: () => panelTab(),
+         createRightHeaderActionComponent: groupActions,
+      });
+      // Dockview's live regions announce through aria-live alone, so the page's own status and alert elements stay the only ones with those roles.
+      for (const region of root.querySelectorAll('[aria-live]')) {
+         region.removeAttribute('role');
+      }
+
+      const title = (id: PanelId) => layout.titles[id];
+      dock.addPanel({ id: 'files', component: 'files', title: title('files') });
+      dock.addPanel({ id: 'plan', component: 'plan', title: title('plan'), position: { referencePanel: 'files', direction: 'within' } });
+      dock.addPanel({ id: 'diff', component: 'diff', title: title('diff'), position: { referencePanel: 'files', direction: 'right' } });
+      dock.addPanel({ id: 'stop', component: 'stop', title: title('stop'), position: { referencePanel: 'diff', direction: 'right' } });
+      dock.addPanel({ id: 'threads', component: 'threads', title: title('threads'), position: { referencePanel: 'stop', direction: 'below' } });
+      dock.getPanel('files')!.group.api.setSize({ width: dock.width * 0.22 });
+      dock.getPanel('stop')!.group.api.setSize({ width: dock.width * 0.28, height: dock.height * 0.6 });
+
+      // Dockview hides a group by giving it no size (ViewItem.setVisible in dockview-core 8.9.0's splitview.ts), so the hidden attribute also takes the group out of
+      // the tab order and the accessibility tree.
+      const follow = (group: DockviewGroupPanel) => group.api.onDidVisibilityChange((event) => (group.element.hidden = !event.isVisible));
+      const visibility = [...dock.groups.map(follow), dock.onDidAddGroup(follow)];
+
+      // Dockview opens a tab on a pointer press, so a click without one, as from a screen reader, opens it here.
+      const openTab = (event: MouseEvent) => {
+         const id = event.target instanceof Element ? event.target.closest('[data-tab-panel-id]')?.getAttribute('data-tab-panel-id') : null;
+         if (id) {
+            dock.getPanel(id)?.api.setActive();
+         }
+      };
+      // Delete and Backspace on a tab would close its panel for good, so they do nothing. The group's Hide button hides a panel.
+      const keepPanel = (event: KeyboardEvent) => {
+         if ((event.key === 'Delete' || event.key === 'Backspace') && event.target instanceof Element && event.target.matches('[role="tab"]')) {
+            event.stopPropagation();
+         }
+      };
+      root.addEventListener('click', openTab);
+      root.addEventListener('keydown', keepPanel, true);
+
+      const detach = layout.attach(dock);
+      const choices = dock.onDidActivePanelChange((event) => {
+         if (!applying && (event.panel?.id === 'files' || event.panel?.id === 'plan')) {
+            chosen[tourId ?? ''] = event.panel.id;
+         }
+      });
+      api = dock;
+      return () => {
+         resizes.disconnect();
+         root.removeEventListener('click', openTab);
+         root.removeEventListener('keydown', keepPanel, true);
+         choices.dispose();
+         visibility.forEach((subscription) => subscription.dispose());
+         detach();
+         dock.dispose();
+      };
+   });
+
+   $effect(() => layout.setTitle('diff', diffTitle));
+
+   // A panel the reviewer picked of Files and Plan holds for that tour, and the default applies until then.
+   const chosen: Record<string, LeftPanel> = {};
+   let applying = false;
+   $effect(() => {
+      const shown = chosen[tourId ?? ''] ?? defaultLeft;
+      const panel = api?.getPanel(shown);
+      if (panel && panel.group === api?.getPanel(shown === 'files' ? 'plan' : 'files')?.group && panel.group.activePanel !== panel) {
+         applying = true;
+         panel.api.setActive();
+         applying = false;
+      }
+   });
 </script>
 
-<!-- A folded panel's pane has no height, so its header shows outside the pane group, above or below the neighbor that took its space. -->
-{#snippet header(panel: (typeof rightPanels)[number])}
-   <div class="flex shrink-0 items-center gap-2 border-b bg-card py-1 pr-2 pl-4">
-      <h2 class="flex-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">{panel.title}</h2>
-      <PanelActions {layout} panel={panel.id} title={panel.label} foldable={panel.id} closes={panel.closes} />
-   </div>
-{/snippet}
+<div bind:this={frame} class="min-h-0 flex-1 overflow-hidden">
+   <div bind:this={root}></div>
+</div>
 
-<!-- A folded panel stays mounted, so the stop keeps the sections the reviewer opened. -->
-{#snippet body(panel: (typeof rightPanels)[number])}
-   <section class="flex h-full flex-col" aria-label={panel.title} hidden={layout.folded[panel.id]}>
-      {@render header(panel)}
-      <div class="scroll-box min-h-0 flex-1">
-         {@render (panel.id === 'stop' ? stop : threads)()}
+<div hidden>
+   {#each panelIds as id (id)}
+      <div
+         bind:this={elements[id]}
+         class={['h-full', id === 'diff' ? 'flex flex-col' : 'scroll-box', (id === 'files' || id === 'plan') && 'text-base', (id === 'stop' || id === 'threads') && 'bg-card']}
+      >
+         {@render { files, plan, diff, stop, threads }[id]()}
       </div>
-   </section>
-{/snippet}
-
-<Resizable.PaneGroup direction="horizontal" autoSaveId="lotsen.columns" storage={layoutStorage} class="min-h-0 flex-1">
-   <Resizable.Pane bind:this={leftPane} id="left-column" order={1} defaultSize={22} minSize={12} collapsible collapsedSize={0} hidden={!layout.shows('tour')}>
-      {@render left()}
-   </Resizable.Pane>
-   <Resizable.Handle hidden={layout.maximized !== null} aria-label="Resize the left column" />
-   <Resizable.Pane id="center-column" order={2} defaultSize={50} minSize={20} hidden={!layout.shows('diff')}>
-      {@render center()}
-   </Resizable.Pane>
-   <Resizable.Handle hidden={layout.maximized !== null} aria-label="Resize the right column" />
-   <Resizable.Pane bind:this={rightPane} id="right-column" order={3} defaultSize={28} minSize={15} collapsible collapsedSize={0} hidden={!layout.shows('stop') && !layout.shows('threads')}>
-      <div class="flex h-full flex-col bg-card">
-         {#if layout.folded.stop && layout.shows('stop')}
-            {@render header(rightPanels[0]!)}
-         {/if}
-         <Resizable.PaneGroup direction="vertical" autoSaveId="lotsen.rightColumn" storage={layoutStorage} class="min-h-0 flex-1">
-            <Resizable.Pane bind:this={stopPane} id="stop-panel" order={1} defaultSize={60} minSize={15} collapsible collapsedSize={0} hidden={!layout.shows('stop')}>
-               {@render body(rightPanels[0]!)}
-            </Resizable.Pane>
-            <Resizable.Handle hidden={layout.maximized !== null} aria-label="Resize the stop and the threads" />
-            <Resizable.Pane bind:this={threadsPane} id="threads-panel" order={2} defaultSize={40} minSize={15} collapsible collapsedSize={0} hidden={!layout.shows('threads')}>
-               {@render body(rightPanels[1]!)}
-            </Resizable.Pane>
-         </Resizable.PaneGroup>
-         {#if layout.folded.threads && layout.shows('threads')}
-            {@render header(rightPanels[1]!)}
-         {/if}
-      </div>
-   </Resizable.Pane>
-</Resizable.PaneGroup>
+   {/each}
+</div>

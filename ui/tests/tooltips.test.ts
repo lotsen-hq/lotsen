@@ -5,17 +5,15 @@ import DiffHeading from '../src/components/DiffHeading.svelte';
 import FileHeading from '../src/components/FileHeading.svelte';
 import FileTree from '../src/components/FileTree.svelte';
 import IconToggle from '../src/components/IconToggle.svelte';
-import PanelActions from '../src/components/PanelActions.svelte';
 import SettingsPanel from '../src/components/SettingsPanel.svelte';
 import TooltipButton from '../src/components/TooltipButton.svelte';
 import { buildFileTree } from '../src/lib/fileTree';
 import { Settings } from '../src/lib/settings.svelte';
 import type { FileMark } from '../src/lib/types';
-import { WorkspaceLayout } from '../src/lib/workspaceLayout.svelte';
 import { hoverTooltip, openTooltip } from './tooltip';
 
-function renderPanelActions() {
-   render(PanelActions, { props: { layout: new WorkspaceLayout(), panel: 'diff', title: 'the code' } });
+function renderIconButton() {
+   render(TooltipButton, { props: { tooltip: 'Maximize', 'aria-label': 'Maximize the code' } });
    return screen.getByRole('button', { name: 'Maximize the code' });
 }
 
@@ -23,7 +21,7 @@ const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('an icon button tooltip', () => {
    it('opens after a delay on hover and leaves the button its accessible name', async () => {
-      const button = renderPanelActions();
+      const button = renderIconButton();
 
       await fireEvent.pointerEnter(button, { pointerType: 'mouse' });
       await pause(100);
@@ -34,7 +32,7 @@ describe('an icon button tooltip', () => {
    });
 
    it('closes when the pointer leaves', async () => {
-      const button = renderPanelActions();
+      const button = renderIconButton();
       await hoverTooltip(button);
 
       await fireEvent.pointerLeave(button, { pointerType: 'mouse' });
@@ -43,7 +41,7 @@ describe('an icon button tooltip', () => {
    });
 
    it('opens at once on keyboard focus and closes on blur', async () => {
-      const button = renderPanelActions();
+      const button = renderIconButton();
 
       button.focus();
       await pause(50);
@@ -55,7 +53,7 @@ describe('an icon button tooltip', () => {
    });
 
    it('stays closed when a pointer press focuses the button', async () => {
-      const button = renderPanelActions();
+      const button = renderIconButton();
 
       await fireEvent.pointerDown(button, { pointerType: 'mouse' });
       button.focus();

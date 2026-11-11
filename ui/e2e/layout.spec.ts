@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { waitTimeout } from '../tests/app/waitTimeout.mjs';
-import { center, checkoutTour, contrast, drawnColors, editorLine, inScrollerView, openDemoTour, openStop, over, themeColor, type Rgba } from './demo';
+import { center, checkoutTour, contrast, drawnColors, editorLine, inScrollerView, openDemoTour, openStop, over, showPanel, themeColor, type Rgba } from './demo';
 
 const cartLineStop = 'A cart line needs at least one item';
 const paymentStop = 'The new payment step';
@@ -539,10 +539,10 @@ test.describe('the Threads panel', () => {
       await expect.poll(async () => (await field(page).boundingBox())!.height).toBeGreaterThan(before * 2);
    });
 
-   test('keeps the one-line field one line tall when the panel shows again after another tour opened while it was folded', async ({ page }) => {
+   test('keeps the one-line field one line tall when the panel shows again after another tour opened while it was hidden', async ({ page }) => {
       await openDemoTour(page, checkoutTour);
       const before = (await field(page).boundingBox())!.height;
-      await page.getByRole('button', { name: 'Collapse the threads' }).click();
+      await page.getByRole('button', { name: 'Hide the threads' }).click();
 
       await page.getByRole('button', { name: /^Tour: .+, choose another$/ }).click();
       await page
@@ -550,19 +550,19 @@ test.describe('the Threads panel', () => {
          .getByRole('button', { name: /storefront #433/ })
          .first()
          .click();
-      await page.getByRole('button', { name: 'Expand the threads' }).click();
+      await showPanel(page, 'Threads');
 
       await expect(field(page)).toBeVisible();
       expect((await field(page).boundingBox())!.height).toBeCloseTo(before, 0);
    });
 
-   test('keeps the height that the words gave the one-line field while the panel folds and shows again', async ({ page }) => {
+   test('keeps the height that the words gave the one-line field while the panel hides and shows again', async ({ page }) => {
       await openDemoTour(page, checkoutTour);
       await field(page).fill('One\nTwo\nThree');
       const grown = (await field(page).boundingBox())!.height;
 
-      await page.getByRole('button', { name: 'Collapse the threads' }).click();
-      await page.getByRole('button', { name: 'Expand the threads' }).click();
+      await page.getByRole('button', { name: 'Hide the threads' }).click();
+      await showPanel(page, 'Threads');
 
       await expect(field(page)).toBeVisible();
       expect((await field(page).boundingBox())!.height).toBeCloseTo(grown, 0);
@@ -699,7 +699,8 @@ test.describe('the page height', () => {
    const panels = (page: Page) =>
       page
          .getByRole('main')
-         .or(page.getByRole('region', { name: 'Tour', exact: true }))
+         .or(page.getByRole('region', { name: 'Files', exact: true }))
+         .or(page.getByRole('region', { name: 'Plan', exact: true }))
          .or(page.getByRole('region', { name: 'Stop', exact: true }))
          .or(page.getByRole('region', { name: 'Threads', exact: true }));
 
@@ -730,7 +731,7 @@ test.describe('the page height', () => {
          await picker(page).click();
          await tourList(page).getByRole('button', { name: tour, exact: false }).first().click();
          await expect(picker(page)).toHaveAccessibleName(`Tour: ${tour}, choose another`);
-         for (const region of ['Tour', 'Stop', 'Threads']) {
+         for (const region of ['Stop', 'Threads']) {
             await expect(page.getByRole('region', { name: region, exact: true })).toBeVisible();
          }
 
