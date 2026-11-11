@@ -149,6 +149,49 @@ describe('the saved layout', () => {
    });
 });
 
+/** Applies an arrangement, or Reset layout, from the Panels menu. */
+async function arrange(name: string): Promise<void> {
+   const menu = await openMenu(panelsMenu());
+   await fireEvent.click(within(menu).getByRole('menuitem', { ...inMenu, name }));
+}
+
+describe('the arrangements', () => {
+   it.each([
+      { name: 'Columns', expected: [['Files*'], ['Plan*'], ['Code*'], ['Stop*'], ['Threads*']] },
+      { name: 'Explanation above the diff', expected: [['Files', 'Plan*'], ['Stop*'], ['Code*'], ['Threads*']] },
+      { name: 'Default', expected: defaultGroups },
+   ])('lays out the panels as $name', async ({ name, expected }) => {
+      await startShell();
+
+      await arrange(name);
+
+      await waitFor(() => expect(groups()).toEqual(expected));
+   });
+
+   it('shows every hidden panel and restores a maximized group on Reset layout', async () => {
+      await startShell();
+      await arrange('Columns');
+      await togglePanel('Plan');
+      fireEvent.click(screen.getByRole('button', { name: 'Maximize the code' }));
+      await waitFor(() => expect(groups()).toEqual([['Code*']]));
+
+      await arrange('Reset layout');
+
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+      expect((await panelItems()).every((item) => item.checked)).toBe(true);
+   });
+
+   it('keeps an applied arrangement on the next load', async () => {
+      const { world, app } = await startShell();
+      await arrange('Explanation above the diff');
+      await waitFor(() => expect(groups()).toHaveLength(4));
+
+      await reload(world, app);
+
+      await waitFor(() => expect(groups()).toEqual([['Files', 'Plan*'], ['Stop*'], ['Code*'], ['Threads*']]));
+   });
+});
+
 describe('the workspace', () => {
    it('opens with Files and Plan as tabs of one group, and the code, the stop and the threads in a group each', async () => {
       await startShell();

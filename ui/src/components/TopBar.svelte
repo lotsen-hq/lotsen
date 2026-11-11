@@ -6,6 +6,7 @@
    import Unplug from '@lucide/svelte/icons/unplug';
    import type { Snippet } from 'svelte';
    import { Button, buttonVariants } from '$lib/components/ui/button';
+   import { DropdownMenu as DropdownMenuPrimitive } from 'bits-ui';
    import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
    import { announcesRefusal, idleAnswerSend, type AnswerSendState } from '../lib/answers';
    import { disabledReason, hasAnswersToSend } from '../lib/controls';
@@ -15,7 +16,9 @@
    import type { PruneOutcome } from '../lib/viewState';
    import type { ConnectionState } from '../lib/eventStream';
    import type { Settings } from '../lib/settings.svelte';
-   import { panelIds, type WorkspaceLayout } from '../lib/workspaceLayout.svelte';
+   import { arrangements } from '../lib/arrangements';
+   import type { WorkspaceLayout } from '../lib/workspaceLayout.svelte';
+   import { panelIds } from '../lib/workspacePanels';
    import SettingsPanel from './SettingsPanel.svelte';
    import Wordmark from './Wordmark.svelte';
    import AttachmentState from './AttachmentState.svelte';
@@ -133,10 +136,19 @@
          Panels
          <ChevronDown aria-hidden="true" />
       </DropdownMenu.Trigger>
-      <DropdownMenu.Content align="end" class="w-40">
+      <DropdownMenu.Content align="end" class="w-56">
          {#each panelIds as id (id)}
             <DropdownMenu.CheckboxItem closeOnSelect={false} bind:checked={() => !layout.hidden[id], () => layout.toggleHidden(id)}>{layout.titles[id]}</DropdownMenu.CheckboxItem>
          {/each}
+         <DropdownMenu.Separator />
+         <DropdownMenuPrimitive.Group>
+            <DropdownMenu.GroupHeading>Arrange</DropdownMenu.GroupHeading>
+            {#each arrangements as arrangement (arrangement.id)}
+               <DropdownMenu.Item onSelect={() => layout.apply(arrangement.id)}>{arrangement.label}</DropdownMenu.Item>
+            {/each}
+         </DropdownMenuPrimitive.Group>
+         <DropdownMenu.Separator />
+         <DropdownMenu.Item onSelect={() => layout.apply('default')}>Reset layout</DropdownMenu.Item>
       </DropdownMenu.Content>
    </DropdownMenu.Root>
    <SettingsPanel {settings} {onprune} />

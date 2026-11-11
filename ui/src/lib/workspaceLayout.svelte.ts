@@ -1,11 +1,7 @@
 import type { DockviewApi, DockviewGroupPanel, IDockviewPanel } from 'dockview';
+import { arrangementRecord, type ArrangementId } from './arrangements';
 import { layoutVersion, type LayoutRecord, type PanelHome } from './layoutRecord';
-
-/** A panel of the workspace. */
-export type PanelId = 'files' | 'plan' | 'diff' | 'stop' | 'threads';
-
-/** The workspace's panels, in the order of the Panels menu. */
-export const panelIds: readonly PanelId[] = ['files', 'plan', 'diff', 'stop', 'threads'];
+import { panelIds, type PanelId } from './workspacePanels';
 
 /**
  * Holds which panels of the workspace are hidden and which group is maximized, for the top bar, the group headers and the workspace to share.
@@ -20,6 +16,8 @@ export class WorkspaceLayout {
    hidden = $state<Record<PanelId, boolean>>({ files: false, plan: false, diff: false, stop: false, threads: false });
    /** The id of the Dockview group that fills the workspace, or null when every group has its own place. */
    maximizedGroup = $state<string | null>(null);
+   /** The number of layouts that {@link WorkspaceLayout.load} loaded, which changes with each load. */
+   loads = $state(0);
    /** Each panel's title, which its tab shows. */
    titles = $state<Record<PanelId, string>>({ files: 'Files', plan: 'Plan', diff: 'Code', stop: 'Stop', threads: 'Threads' });
 
@@ -39,7 +37,10 @@ export class WorkspaceLayout {
       this.api = api;
       this.save = save;
       const read = () => (this.maximizedGroup = api.groups.find((group) => group.api.isMaximized())?.id ?? null);
-      const subscriptions = [api.onDidMaximizedGroupChange(read), api.onDidLayoutChange(() => this.persist())];
+      // Dockview hides a group by giving it no size (ViewItem.setVisible in dockview-core 8.9.0's splitview.ts), so the hidden attribute also takes the group out of
+      // the tab order and the accessibility tree.
+      const follow = (group: DockviewGroupPanel) => group.api.onDidVisibilityChange((event) => (group.element.hidden = !event.isVisible));
+      const subscriptions = [api.onDidMaximizedGroupChange(read), api.onDidLayoutChange(() => this.persist()), api.onDidAddGroup(follow), ...api.groups.map(follow)];
       read();
       return () => {
          subscriptions.forEach((subscription) => subscription.dispose());
@@ -92,11 +93,24 @@ export class WorkspaceLayout {
             }
          }
 
+         // A group that loads hidden fires no change of its visibility.
+         for (const group of api.groups) {
+            group.element.hidden = !group.api.isVisible;
+         }
+
+         this.loads++;
          return true;
       } catch {
          return false;
       } finally {
          this.loading = false;
+      }
+   }
+
+   /** Lays out the workspace in the arrangement, with every panel shown and each keeping its state, and saves it. */
+   apply(id: ArrangementId): void {
+      if (this.load(arrangementRecord(id, this.titles))) {
+         this.persist();
       }
    }
 

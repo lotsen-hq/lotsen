@@ -3,7 +3,8 @@
    import Maximize from '@lucide/svelte/icons/maximize';
    import Minimize from '@lucide/svelte/icons/minimize';
    import type { DockviewGroupPanel } from 'dockview';
-   import type { PanelId, WorkspaceLayout } from '../lib/workspaceLayout.svelte';
+   import type { WorkspaceLayout } from '../lib/workspaceLayout.svelte';
+   import type { PanelId } from '../lib/workspacePanels';
    import TooltipButton from './TooltipButton.svelte';
 
    let { layout, group }: { layout: WorkspaceLayout; group: DockviewGroupPanel } = $props();

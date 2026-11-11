@@ -1,6 +1,6 @@
 import type { SerializedDockview } from 'dockview';
 import { storedPreference } from './preference';
-import { panelIds, type PanelId } from './workspaceLayout.svelte';
+import { panelIds, type PanelId } from './workspacePanels';
 
 /** The version of {@link LayoutRecord}. Change it when the record's shape changes, so a page never applies a record that it cannot read. */
 export const layoutVersion = 1;
