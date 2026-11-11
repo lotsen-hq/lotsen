@@ -26,6 +26,9 @@ npm run build   # writes dist/ and checks it against the server's content securi
   would refuse. The page signs in with a one-time code of its world, as a link from `lotsen open` does, and keeps the
   address's fragment and the history entry's state, so back, forward and a reload restore the tour, the stop, the file and
   the stop-files stack. A reload starts from a new world.
+- A new world's server holds no preferences, so the page copies up the settings that the browser keeps for the demo's
+  origin, as a page does from an older lotsen. A change of a setting reaches the world's server and the browser alike, so
+  the next load starts with it.
 - The plugin also forwards `/control/*` to the host and adds the host's token, so the page holds none. The page binds
   the sample tours to two real agent sessions through it: a confirmed one and an unconfirmed one. The plugin answers
   `/control/*` and `/__demo/world` only at `localhost`, `127.0.0.1` or `[::1]`, and only to the demo's own page or to a

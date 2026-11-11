@@ -108,6 +108,26 @@ test.describe('the workspace', () => {
       expect(await widths()).toEqual(before);
    });
 
+   test('saves no layout until the reviewer changes it, through a tour that opens and a resize', async ({ page }) => {
+      const saved = () => page.evaluate(() => localStorage.getItem('lotsen.workspaceLayout'));
+      await page.goto('/');
+      await page.getByRole('button', { name: /^(Choose a tour|Tour: .+, choose another)$/ }).click();
+      await page
+         .getByRole('navigation', { name: 'Tours' })
+         .getByRole('button', { name: new RegExp(checkoutTour) })
+         .first()
+         .click();
+      // The tour opens on the Files tab, which the page selects on its own.
+      await expect(page.getByRole('tab', { name: 'Files' })).toHaveAttribute('aria-selected', 'true');
+      await page.setViewportSize({ width: 1100, height: 700 });
+      await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 300)));
+      expect(await saved()).toBeNull();
+
+      await dragTab(page, 'Threads', center(page));
+
+      await expect.poll(saved).not.toBeNull();
+   });
+
    test('keeps a dragged panel in its group and a hidden panel hidden after a reload', async ({ page }) => {
       await openDemoTour(page, checkoutTour);
       await dragTab(page, 'Threads', center(page));

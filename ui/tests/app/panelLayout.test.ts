@@ -2,7 +2,8 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/sv
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import type { LotsenApp } from '../../src/lib/app.svelte';
 import type { World } from '../backend/backend';
-import { backend, seedTour, startApp } from '../harness';
+import { arrangementRecord } from '../../src/lib/arrangements';
+import { backend, seedTour, settled, startApp } from '../harness';
 import { openTourList, tourButton } from '../tourPicker';
 import { filesPanel, resetPageEachTest, worldOf } from './appPanels';
 import { inMenu, itemName, openMenu } from './threadFilter';
@@ -53,14 +54,21 @@ async function startShell(): Promise<{ world: World; app: LotsenApp }> {
    return { world, app };
 }
 
-/** Starts the app again on the world, as the next load of the page does. */
+const savedKey = 'lotsen.workspaceLayout';
+const titles = { files: 'Files', plan: 'Plan', diff: 'Code', stop: 'Stop', threads: 'Threads' };
+
+/** Waits until the server's preferences hold the layout that the page saved last, as they do once its write lands. */
+async function layoutStored(world: World): Promise<void> {
+   await waitFor(async () => expect((await world.reviewer.call('read_preferences', {})).preferences[savedKey]).toBe(localStorage.getItem(savedKey) ?? undefined));
+}
+
+/** Starts the app again on the world, as the next load of the page does, once the server holds the saved layout. */
 async function reload(world: World, app: LotsenApp): Promise<LotsenApp> {
+   await layoutStored(world);
    cleanup();
    app.stop();
    return (await startApp(world)).app;
 }
-
-const savedKey = 'lotsen.workspaceLayout';
 
 describe('the saved layout', () => {
    it('keeps a panel that shared its group hidden on the next load, and shows it back in that group', async () => {
@@ -113,11 +121,59 @@ describe('the saved layout', () => {
       const { world, app } = await startShell();
       fireEvent.click(screen.getByRole('button', { name: 'Hide the stop' }));
       await waitFor(() => expect(JSON.parse(localStorage.getItem(savedKey)!).hidden).toEqual([{ id: 'stop', home: null }]));
-      localStorage.setItem(savedKey, JSON.stringify({ ...JSON.parse(localStorage.getItem(savedKey)!), version: 2 }));
+      await layoutStored(world);
+      const newer = JSON.stringify({ ...JSON.parse(localStorage.getItem(savedKey)!), version: 2 });
+      await world.reviewer.call('write_preference', { key: savedKey, value: newer });
+      await waitFor(() => expect(localStorage.getItem(savedKey)).toBe(newer));
 
-      await reload(world, app);
+      const loaded = await reload(world, app);
 
       await waitFor(() => expect(groups()).toEqual(defaultGroups));
+      await settled(loaded);
+      expect((await world.reviewer.call('read_preferences', {})).preferences[savedKey]).toBe(newer);
+   });
+
+   it('saves no layout on a load without a saved one until the reviewer changes the layout, though a tour opens on Files and a file opens', async () => {
+      const { world } = await worldOf(twoTours);
+      const { app, transport } = await startApp(world);
+      const layoutWrites = () => transport.requests.filter((request) => request.operation === 'write_preference' && request.input?.key === savedKey);
+      const list = await openTourList();
+      fireEvent.click((await waitFor(() => list.getAllByRole('button', tourButton)))[0]!);
+      await waitFor(() => expect(groups()).toEqual(pinnedGroups));
+      fireEvent.click(await (await filesPanel()).findByText('cart.ts'));
+      await waitFor(() => expect(app.selectedFilePath).toBe('src/cart.ts'));
+      await settled(app);
+
+      expect(layoutWrites()).toEqual([]);
+      expect(localStorage.getItem(savedKey)).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Hide the stop' }));
+      await layoutStored(world);
+      expect(JSON.parse(localStorage.getItem(savedKey)!).hidden).toEqual([{ id: 'stop', home: null }]);
+   });
+
+   it('loads the saved layout of the server without a write, over another one that browser storage holds', async () => {
+      const world = await backend().world();
+      const columns = JSON.stringify(arrangementRecord('columns', titles));
+      await world.reviewer.call('write_preference', { key: savedKey, value: columns });
+      localStorage.setItem(savedKey, JSON.stringify(arrangementRecord('explanationAbove', titles)));
+
+      const { app, transport } = await startApp(world);
+
+      await waitFor(() => expect(groups()).toEqual([['Files*'], ['Plan*'], ['Code*'], ['Stop*'], ['Threads*']]));
+      await settled(app);
+      expect(transport.requests.filter((request) => request.operation === 'write_preference')).toEqual([]);
+      expect((await world.reviewer.call('read_preferences', {})).preferences[savedKey]).toBe(columns);
+   });
+
+   it('gives the server the layout that browser storage holds when the server holds none', async () => {
+      const world = await backend().world();
+      const columns = JSON.stringify(arrangementRecord('columns', titles));
+      localStorage.setItem(savedKey, columns);
+
+      await startApp(world);
+
+      await waitFor(() => expect(groups()).toEqual([['Files*'], ['Plan*'], ['Code*'], ['Stop*'], ['Threads*']]));
+      await waitFor(async () => expect((await world.reviewer.call('read_preferences', {})).preferences[savedKey]).toBe(columns));
    });
 
    it('gives the Default layout without a saved one, and keeps working while browser storage throws', async () => {

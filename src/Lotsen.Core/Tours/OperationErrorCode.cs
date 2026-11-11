@@ -144,6 +144,9 @@ internal sealed class OperationErrorCode
    /// <summary>The operation built a tour that breaks a rule of a stored tour, a fault of the server, so nothing was stored.</summary>
    public static readonly OperationErrorCode TourRuleBroken = new("tourRuleBroken", new RefusalKind.Broken());
 
+   /// <summary>A newer lotsen wrote the stored preferences, so this one changes none of them.</summary>
+   public static readonly OperationErrorCode NewerPreferences = new("newerPreferences", new RefusalKind.Conflict());
+
    /// <summary>The request names no operation of the catalog.</summary>
    public static readonly OperationErrorCode OperationNotFound = new("operationNotFound", new RefusalKind.NotFound());
 

@@ -55,13 +55,13 @@ export type FileTreeAction = { type: 'focus'; id: string } | { type: 'expand'; i
 /** How the Files panel shows the changed files: as a directory tree, or as one list of full paths. */
 export type FileLayout = 'tree' | 'flat';
 
-/** The changed-file layout the reviewer last chose in this browser, the tree by default. */
+/** The changed-file layout the reviewer last chose, the tree by default. */
 export const fileLayoutPreference = preference<FileLayout>('lotsen.fileLayout', ['tree', 'flat'], 'tree');
-/** Whether the reviewer last chose in this browser to list the current stop's files first, off by default. */
+/** Whether the reviewer last chose to list the current stop's files first, off by default. */
 export const groupByStopPreference = preference<'true' | 'false'>('lotsen.groupFilesByStop', ['true', 'false'], 'false');
-/** Whether the reviewer last chose in this browser to dim the changed files outside the current stop, on by default. */
+/** Whether the reviewer last chose to dim the changed files outside the current stop, on by default. */
 export const dimOtherFilesPreference = preference<'true' | 'false'>('lotsen.dimOtherFiles', ['true', 'false'], 'true');
-/** Whether the reviewer last chose in this browser to show a marked file's reason under its name, off by default. */
+/** Whether the reviewer last chose to show a marked file's reason under its name, off by default. */
 export const showMarkReasonsPreference = preference<'true' | 'false'>('lotsen.showMarkReasons', ['true', 'false'], 'false');
 
 interface DraftFolder {

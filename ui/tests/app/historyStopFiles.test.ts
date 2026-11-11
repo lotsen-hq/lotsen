@@ -220,7 +220,8 @@ describe('the browser history in the stop files mode', () => {
             const { world, moneyEntry } = await moneyWorld();
             const transport = world.transport();
             await addCatalogThenMoney(await openCartTotals(world, transport), moneyEntry);
-            localStorage.setItem('lotsen.defaultViewMode', 'wholePr');
+            // The server holds the page's preferences, which the reload reads.
+            await world.reviewer.call('write_preference', { key: 'lotsen.defaultViewMode', value: 'wholePr' });
 
             const app = reload(world, transport);
             await waitFor(() => expect(app.selectedText?.path).toBe('src/money.ts'));

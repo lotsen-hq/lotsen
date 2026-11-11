@@ -219,6 +219,11 @@ internal static class ServerEvents
    /// </summary>
    public static readonly ServerEventKind<DeletedTour> TourDeleted = Declare("tourDeleted", LotsenJsonContext.Default.DeletedTour, ProseView.None, tourScoped: false);
 
+   /// <summary>
+   /// A write changed a preference of the page: its text, or its delete. The payload is an <see cref="UpdatedPreference"/>. A write of the text that the key holds publishes none.
+   /// </summary>
+   public static readonly ServerEventKind<UpdatedPreference> PreferenceChanged = Declare("preferenceChanged", LotsenJsonContext.Default.UpdatedPreference, ProseView.None, tourScoped: false);
+
    public static ServerEvent ForControlsChanged(TourControls controls) => ServerEvent.Of(ControlsChanged, controls).At(controls.Revision);
 
    public static ServerEvent ForTourCreated(TourSummary summary) => ServerEvent.Of(TourCreated, summary);
@@ -259,6 +264,8 @@ internal static class ServerEvents
 
    public static ServerEvent ForTourDeleted(DeletedTour deleted) => ServerEvent.Of(TourDeleted, deleted);
 
+   public static ServerEvent ForPreferenceChanged(UpdatedPreference updated) => ServerEvent.Of(PreferenceChanged, updated);
+
    public static ServerEvent ForSynthesisWritten(WrittenSynthesis written) => ServerEvent.Of(SynthesisWritten, written);
 
    public static ServerEvent ForFamiliarityChanged(Tour tour) => ServerEvent.Of(FamiliarityChanged, new UpdatedFamiliarity(tour.Id, tour.UpdatedAt, tour.Familiarity));
@@ -269,7 +276,7 @@ internal static class ServerEvents
 
    public static ServerEvent ForTourPinned(Tour tour) => ServerEvent.Of(TourPinned, new TourPinnedEvent(tour.Id, tour.UpdatedAt, tour.Pin));
 
-   // Every kind but the hello and the deletion of a tour is about a tour that still exists.
+   // Every kind but the hello, the deletion of a tour and a preference's change is about a tour that still exists.
    private static ServerEventKind<TPayload> Declare<TPayload>(string name, JsonTypeInfo<TPayload> payload, ProseView prose, bool tourScoped = true)
       where TPayload : class
    {

@@ -1,4 +1,4 @@
-import { getContext, hasContext, setContext } from 'svelte';
+import { getContext, hasContext, setContext, untrack } from 'svelte';
 import { numberPreference } from './preference';
 
 /** The least and the greatest share of a side-by-side diff's width that the base pane takes, in percent. */
@@ -12,13 +12,18 @@ const keyStep = 10;
 // The preference holds whole numbers, so it stores tenths of a percent, and a split from a drag reads back to a tenth of a percent.
 const stored = numberPreference('lotsen.paneSplit', { min: paneSplitBounds.min * 10, max: paneSplitBounds.max * 10 }, half * 10);
 
-/** Holds the base pane's share of a side-by-side diff's width, and keeps it in the browser, so it survives a remount and a reload. */
+/**
+ * Holds the base pane's share of a side-by-side diff's width, and keeps it in the preferences, so it survives a remount and a reload.
+ *
+ * The split reads its preference once, when a diff first asks for it, which the page shows only after it read the server's preferences. So a move in another page does not move this one's panes.
+ */
 export class PaneSplit {
-   private current = $state(stored.read() / 10);
+   private chosen = $state<number | null>(null);
+   private loaded: number | null = null;
 
    /** The base pane's share of the width in percent, within {@link paneSplitBounds}. The head pane takes the rest. */
    get percent(): number {
-      return this.current;
+      return this.chosen ?? (this.loaded ??= untrack(() => stored.read()) / 10);
    }
 
    /** Sets the base pane's share, clamped to {@link paneSplitBounds} and rounded to a tenth of a percent, and stores it. A value that is not a finite number changes nothing. */
@@ -28,7 +33,7 @@ export class PaneSplit {
       }
 
       const tenths = Math.round(Math.min(Math.max(percent, paneSplitBounds.min), paneSplitBounds.max) * 10);
-      this.current = tenths / 10;
+      this.chosen = tenths / 10;
       stored.write(tenths);
    }
 
@@ -45,7 +50,7 @@ export class PaneSplit {
     */
    key(key: string, shift = false): boolean {
       const step = shift ? 100 : keyStep;
-      const targets: Record<string, number> = { ArrowLeft: this.current - step, ArrowRight: this.current + step, Home: paneSplitBounds.min, End: paneSplitBounds.max };
+      const targets: Record<string, number> = { ArrowLeft: this.percent - step, ArrowRight: this.percent + step, Home: paneSplitBounds.min, End: paneSplitBounds.max };
       if (!Object.hasOwn(targets, key)) {
          return false;
       }

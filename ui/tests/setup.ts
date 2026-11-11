@@ -1,3 +1,6 @@
+import { beforeEach } from 'vitest';
+import { detachPreferences } from '../src/lib/preference';
+
 // jsdom has no ResizeObserver, and an open tooltip measures its arrow with one.
 if (typeof globalThis.ResizeObserver !== 'function') {
    globalThis.ResizeObserver = class {
@@ -31,3 +34,6 @@ if (typeof globalThis.IntersectionObserver !== 'function') {
       }
    };
 }
+
+// The page's preferences live in one module for the whole test file, so each test starts from browser storage alone, as a page that has not read the server's preferences does.
+beforeEach(() => detachPreferences());

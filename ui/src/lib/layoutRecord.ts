@@ -59,7 +59,7 @@ export function parseLayout(text: string): LayoutRecord | undefined {
    return value as unknown as LayoutRecord;
 }
 
-/** The layout of the workspace as the page saved it last, or null when none is saved, the saved one cannot be read, or browser storage is unavailable. */
+/** The layout of the workspace as a page saved it last, or null when none is saved or the saved one cannot be read. The workspace reads it once, as it mounts. */
 export const savedLayout = storedPreference<LayoutRecord | null>('lotsen.workspaceLayout', parseLayout, JSON.stringify, null);
 
 function isHiddenPanel(value: unknown): value is HiddenPanel {

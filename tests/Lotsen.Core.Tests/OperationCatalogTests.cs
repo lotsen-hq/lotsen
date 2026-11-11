@@ -63,6 +63,8 @@ public sealed class OperationCatalogTests
             "approve_plan",
             "check_iteration",
             "update_iteration",
+            "read_preferences",
+            "write_preference",
             "open_ui",
             "create_ui_link",
          ],
