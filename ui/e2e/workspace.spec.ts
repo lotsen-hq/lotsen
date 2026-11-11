@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { center, checkoutTour, dragTab, openDemoTour, openStop, showPanel } from './demo';
+import { center, checkoutTour, dragTab, nextWorld, openDemoTour, openSecondPage, openStop, showPanel } from './demo';
 
 const region = (page: Page, name: string) => page.getByRole('region', { name, exact: true });
 
@@ -167,5 +167,53 @@ test.describe('the workspace', () => {
       await expect(tooltip).toHaveText('Save as note');
       const [anchor, tip] = [(await save.boundingBox())!, (await tooltip.boundingBox())!];
       expect(Math.abs(tip.x + tip.width / 2 - (anchor.x + anchor.width / 2))).toBeLessThan(anchor.width);
+   });
+});
+
+/** Saves the workspace layout under the name from the Panels menu. */
+async function saveLayoutAs(page: Page, name: string): Promise<void> {
+   await page.getByRole('button', { name: 'Panels' }).click();
+   await page.getByRole('menuitem', { name: 'Save layout as…' }).click();
+   const dialog = page.getByRole('dialog', { name: 'Save layout' });
+   await dialog.getByRole('textbox', { name: 'Name' }).fill(name);
+   await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+   await expect(dialog).toBeHidden();
+}
+
+test.describe('the named layouts', () => {
+   test('lays out a dragged panel in its group again from a saved layout after Default', async ({ page }) => {
+      await openDemoTour(page, checkoutTour);
+      await dragTab(page, 'Threads', center(page));
+      await expect(region(page, 'Threads').getByRole('tab', { name: 'Code' })).toBeVisible();
+      const dragged = await groups(page);
+      await saveLayoutAs(page, 'Side by side');
+
+      await arrange(page, 'Default');
+      await expect.poll(() => groups(page)).toEqual([['Files', 'Plan'], ['Code'], ['Stop'], ['Threads']]);
+      await arrange(page, 'Side by side');
+
+      await expect.poll(() => groups(page)).toEqual(dragged);
+      await expect(region(page, 'Threads').getByRole('tab', { name: 'Code' })).toBeVisible();
+   });
+
+   test('lists a layout that one page saves in another page’s menu, and leaves that page’s workspace as it is', async ({ context, browser, baseURL }) => {
+      test.setTimeout(120_000);
+      const first = await context.newPage();
+      const world = nextWorld(first);
+      await openDemoTour(first, checkoutTour);
+
+      const { page: second, close } = await openSecondPage(browser, baseURL, await world);
+      try {
+         const before = await groups(second);
+
+         await dragTab(first, 'Threads', center(first));
+         await saveLayoutAs(first, 'Side by side');
+
+         await second.getByRole('button', { name: 'Panels' }).click();
+         await expect(second.getByRole('group', { name: 'My layouts' }).getByRole('menuitem', { name: 'Side by side' })).toBeVisible();
+         expect(await groups(second)).toEqual(before);
+      } finally {
+         await close();
+      }
    });
 });

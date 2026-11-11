@@ -28,11 +28,7 @@ export interface LayoutRecord {
    hidden: HiddenPanel[];
 }
 
-/**
- * Returns the record that the text holds, or undefined when the text is not a record of this version with exactly the workspace's panels.
- *
- * It checks the shape that the workspace relies on. Dockview checks the rest of its own layout as it loads it, and the workspace loads the Default layout when that load fails.
- */
+/** Returns the record that the text holds as JSON, or undefined when the text is not JSON or holds no record, as {@link layoutFrom} decides. */
 export function parseLayout(text: string): LayoutRecord | undefined {
    let value: unknown;
    try {
@@ -41,6 +37,15 @@ export function parseLayout(text: string): LayoutRecord | undefined {
       return undefined;
    }
 
+   return layoutFrom(value);
+}
+
+/**
+ * Returns the value as a record, or undefined when it is not a record of this version with exactly the workspace's panels.
+ *
+ * It checks the shape that the workspace relies on. Dockview checks the rest of its own layout as it loads it, and the workspace loads the Default layout when that load fails.
+ */
+export function layoutFrom(value: unknown): LayoutRecord | undefined {
    if (!isObject(value) || value.version !== layoutVersion || !isObject(value.dockview) || !isObject(value.dockview.grid) || !isObject(value.dockview.panels) || !Array.isArray(value.hidden)) {
       return undefined;
    }

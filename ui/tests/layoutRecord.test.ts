@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { layoutVersion, parseLayout } from '../src/lib/layoutRecord';
+import { layoutFrom, layoutVersion, parseLayout } from '../src/lib/layoutRecord';
 
 const panels = Object.fromEntries(['files', 'plan', 'diff', 'stop', 'threads'].map((id) => [id, { id }]));
 
@@ -44,5 +44,20 @@ describe('a saved layout record', () => {
       { why: 'a hidden panel without a home', text: record({ hidden: [{ id: 'plan' }] }) },
    ])('refuses $why', ({ text }) => {
       expect(parseLayout(text)).toBeUndefined();
+   });
+});
+
+describe('a layout record in a value', () => {
+   it('reads the record that a parsed value holds', () => {
+      const value = JSON.parse(record());
+
+      expect(layoutFrom(value)).toEqual(value);
+   });
+
+   it.each([
+      { why: 'undefined', value: undefined },
+      { why: 'a string of a record', value: record() },
+   ])('refuses $why', ({ value }) => {
+      expect(layoutFrom(value)).toBeUndefined();
    });
 });

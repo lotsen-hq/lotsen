@@ -123,11 +123,24 @@ export class WorkspaceLayout {
       }
    }
 
-   /** Lays out the workspace in the arrangement, with every panel shown and each keeping its state, and saves it. */
+   /** Lays out the workspace in the arrangement, as {@link WorkspaceLayout.applyRecord} does. */
    apply(id: ArrangementId): void {
-      if (this.load(arrangementRecord(id, this.titles))) {
+      this.applyRecord(arrangementRecord(id, this.titles));
+   }
+
+   /**
+    * Lays out the workspace as the record says, with each panel keeping its state, and saves it as the current workspace layout.
+    *
+    * @returns Whether Dockview loaded the record. When it did not, the workspace shows the Default arrangement, which stays unsaved.
+    */
+   applyRecord(record: LayoutRecord): boolean {
+      if (this.load(record)) {
          this.persist();
+         return true;
       }
+
+      this.load(arrangementRecord('default', this.titles));
+      return false;
    }
 
    /**

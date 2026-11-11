@@ -3,10 +3,11 @@ import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import type { LotsenApp } from '../../src/lib/app.svelte';
 import type { World } from '../backend/backend';
 import { arrangementRecord } from '../../src/lib/arrangements';
+import { layoutVersion } from '../../src/lib/layoutRecord';
 import { backend, seedTour, settled, startApp } from '../harness';
 import { openTourList, tourButton } from '../tourPicker';
 import { filesPanel, resetPageEachTest, worldOf } from './appPanels';
-import { inMenu, itemName, openMenu } from './threadFilter';
+import { closeMenu, inMenu, itemName, openMenu } from './threadFilter';
 
 resetPageEachTest();
 
@@ -396,5 +397,175 @@ describe('the workspace', () => {
       await waitFor(() => expect(app.selectedFilePath).toBeNull());
       fireEvent.click(await screen.findByRole('button', { name: 'Restore the code' }));
       await waitFor(() => expect(groups()).toEqual(pinnedGroups));
+   });
+});
+
+const columnsRecord = arrangementRecord('columns', titles);
+
+/** Returns the stored value of a named layout. */
+const layoutValue = (name: unknown, record: unknown) => JSON.stringify({ name, record });
+
+/** Returns the server's named layouts, each key's value parsed. */
+async function storedLayouts(world: World): Promise<Record<string, { name: string; record: unknown }>> {
+   const { preferences } = await world.reviewer.call('read_preferences', {});
+   return Object.fromEntries(
+      Object.entries(preferences)
+         .filter(([key]) => key.startsWith('workspaceLayouts/'))
+         .map(([key, text]) => [key, JSON.parse(text!)]),
+   );
+}
+
+/** Opens the Panels menu and returns the items of its My layouts group, by name. */
+async function myLayouts(): Promise<{ name: string; disabled: boolean }[]> {
+   const menu = await openMenu(panelsMenu());
+   const group = within(menu).getByRole('group', { ...inMenu, name: 'My layouts' });
+   const items = within(group)
+      .getAllByRole('menuitem', inMenu)
+      .map((item) => ({ name: itemName(item), disabled: item.getAttribute('aria-disabled') === 'true' }));
+   await closeMenu(menu);
+   return items;
+}
+
+const menuEnd = [
+   { name: 'Save layout as…', disabled: false },
+   { name: 'Manage layouts…', disabled: false },
+];
+
+/** Opens a dialog from the Panels menu's item, and returns the dialog. */
+async function openFromMenu(item: string, dialog: string): Promise<ReturnType<typeof within>> {
+   await arrange(item);
+   return within(await screen.findByRole('dialog', { name: dialog }));
+}
+
+/** Enters the name in the Save layout dialog and saves. */
+async function saveAs(name: string): Promise<ReturnType<typeof within>> {
+   const dialog = await openFromMenu('Save layout as…', 'Save layout');
+   await fireEvent.input(dialog.getByRole('textbox', { name: 'Name' }), { target: { value: name } });
+   await fireEvent.click(dialog.getByRole('button', { name: 'Save' }));
+   return dialog;
+}
+
+/** Returns the element that each panel renders in, opening each panel's tab in turn. */
+async function panelElements(): Promise<Record<string, Element | null>> {
+   const elements: Record<string, Element | null> = {};
+   for (const name of Object.values(titles)) {
+      await fireEvent.click(screen.getByRole('tab', { name }));
+      elements[name] = await waitFor(() => {
+         const element = screen.getByRole('region', { name }).querySelector('[role="tabpanel"]')?.firstElementChild ?? null;
+         expect(element, name).not.toBeNull();
+         return element;
+      });
+   }
+
+   return elements;
+}
+
+describe('the named layouts', () => {
+   it('lists a saved layout in the menu and applies it, with every panel keeping its state', async () => {
+      const { world } = await startShell();
+      await arrange('Columns');
+      await togglePanel('Plan');
+      await waitFor(() => expect(groups()).toEqual([['Files*'], ['Code*'], ['Stop*'], ['Threads*']]));
+      await saveAs('Reading');
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Save layout' })).toBeNull());
+      expect(document.activeElement).toBe(panelsMenu());
+      expect(Object.values(await storedLayouts(world))).toEqual([{ name: 'Reading', record: expect.objectContaining({ hidden: [{ id: 'plan', home: null }] }) }]);
+      await arrange('Reset layout');
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+      const before = await panelElements();
+      expect(new Set(Object.values(before)).size).toBe(5);
+
+      await arrange('Reading');
+
+      await waitFor(() => expect(groups()).toEqual([['Files*'], ['Code*'], ['Stop*'], ['Threads*']]));
+      expect((await panelItems()).find((item) => item.name === 'Plan')?.checked).toBe(false);
+      await waitFor(async () => expect(JSON.parse((await world.reviewer.call('read_preferences', {})).preferences[savedKey]!).hidden).toEqual([{ id: 'plan', home: null }]));
+      await togglePanel('Plan');
+      const after = await panelElements();
+      for (const name of Object.values(titles)) {
+         expect(after[name], name).toBe(before[name]);
+      }
+   });
+
+   it('asks before it replaces the layout that has the name, in any letter case', async () => {
+      const world = await backend().world();
+      await world.reviewer.call('write_preference', { key: 'workspaceLayouts/a', value: layoutValue('Reading', columnsRecord) });
+      await startApp(world);
+      fireEvent.click(screen.getByRole('button', { name: 'Hide the stop' }));
+      await waitFor(() => expect(groups()).toEqual([['Files', 'Plan*'], ['Code*'], ['Threads*']]));
+
+      const dialog = await saveAs('reading');
+
+      expect(await dialog.findByRole('heading', { name: 'Replace the layout Reading?' })).toBeTruthy();
+      await fireEvent.click(dialog.getByRole('button', { name: 'Cancel' }));
+      expect(dialog.getByRole('textbox', { name: 'Name' })).toBeTruthy();
+      expect(Object.values(await storedLayouts(world))).toEqual([{ name: 'Reading', record: columnsRecord }]);
+      await fireEvent.click(dialog.getByRole('button', { name: 'Save' }));
+      await fireEvent.click(await dialog.findByRole('button', { name: 'Replace' }));
+      // The dialog takes the name of its replace step, so the wait names none.
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      const stored = await storedLayouts(world);
+      expect(Object.keys(stored)).toEqual(['workspaceLayouts/a']);
+      expect(stored['workspaceLayouts/a']).toEqual({ name: 'reading', record: expect.objectContaining({ hidden: [{ id: 'stop', home: null }] }) });
+   });
+
+   it('renames and deletes a layout, which changes the menu', async () => {
+      const world = await backend().world();
+      await world.reviewer.call('write_preference', { key: 'workspaceLayouts/a', value: layoutValue('Reading', columnsRecord) });
+      await world.reviewer.call('write_preference', { key: 'workspaceLayouts/b', value: layoutValue('Wide', columnsRecord) });
+      await startApp(world);
+      expect(await myLayouts()).toEqual([{ name: 'Reading', disabled: false }, { name: 'Wide', disabled: false }, ...menuEnd]);
+      const dialog = await openFromMenu('Manage layouts…', 'Manage layouts');
+
+      await fireEvent.click(dialog.getByRole('button', { name: 'Rename Reading' }));
+      const field = dialog.getByRole('textbox', { name: 'New name of Reading' });
+      await fireEvent.input(field, { target: { value: 'wide' } });
+      expect(dialog.getByText('A layout named Wide already exists.')).toBeTruthy();
+      expect(dialog.getByRole('button', { name: 'Save name' }).hasAttribute('disabled')).toBe(true);
+      await fireEvent.input(field, { target: { value: 'Focus' } });
+      await fireEvent.click(dialog.getByRole('button', { name: 'Save name' }));
+      await dialog.findByRole('button', { name: 'Rename Focus' });
+      await fireEvent.click(dialog.getByRole('button', { name: 'Delete Wide' }));
+      await fireEvent.click(dialog.getByRole('button', { name: 'Delete' }));
+      await waitFor(() => expect(dialog.queryByText(/Wide/)).toBeNull());
+      await fireEvent.click(dialog.getByRole('button', { name: 'Close' }));
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Manage layouts' })).toBeNull());
+      await waitFor(() => expect(document.activeElement).toBe(panelsMenu()));
+
+      expect(await myLayouts()).toEqual([{ name: 'Focus', disabled: false }, ...menuEnd]);
+      expect(await storedLayouts(world)).toEqual({ 'workspaceLayouts/a': { name: 'Focus', record: columnsRecord } });
+   });
+
+   it('shows a layout of another version disabled, and still renames and deletes it', async () => {
+      const world = await backend().world();
+      const newer = { ...columnsRecord, version: layoutVersion + 1 };
+      await world.reviewer.call('write_preference', { key: 'workspaceLayouts/a', value: layoutValue('Wide', newer) });
+      await startApp(world);
+
+      expect(await myLayouts()).toEqual([{ name: 'Wide Saved by another version of lotsen', disabled: true }, ...menuEnd]);
+      const dialog = await openFromMenu('Manage layouts…', 'Manage layouts');
+      expect(dialog.getByText('Saved by another version of lotsen')).toBeTruthy();
+      await fireEvent.click(dialog.getByRole('button', { name: 'Rename Wide' }));
+      await fireEvent.input(dialog.getByRole('textbox', { name: 'New name of Wide' }), { target: { value: 'Old' } });
+      await fireEvent.click(dialog.getByRole('button', { name: 'Save name' }));
+      await dialog.findByRole('button', { name: 'Rename Old' });
+      expect(await storedLayouts(world)).toEqual({ 'workspaceLayouts/a': { name: 'Old', record: newer } });
+      await fireEvent.click(dialog.getByRole('button', { name: 'Delete Old' }));
+      await fireEvent.click(dialog.getByRole('button', { name: 'Delete' }));
+
+      await dialog.findByText('No layouts are saved.');
+      expect(await storedLayouts(world)).toEqual({});
+   });
+
+   it('lists a layout that another page saves, and leaves this page’s workspace as it is', async () => {
+      const world = await backend().world();
+      const { app } = await startApp(world);
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+
+      await world.reviewer.call('write_preference', { key: 'workspaceLayouts/a', value: layoutValue('Reading', columnsRecord) });
+
+      await waitFor(async () => expect(await myLayouts()).toEqual([{ name: 'Reading', disabled: false }, ...menuEnd]));
+      await settled(app);
+      expect(groups()).toEqual(defaultGroups);
    });
 });
