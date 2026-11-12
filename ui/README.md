@@ -57,7 +57,7 @@ npm run build   # writes dist/ and checks it against the server's content securi
 
 The dev server injects styles as `<style>` elements without a nonce, so it runs without the server's content security
 policy. `just ui-demo-csp` (`npm run demo:csp`) builds the demo into `demo-dist/` and serves it with Vite's preview, on
-the same worlds, with that policy and a fixed nonce, to check a change against the policy without the server.
+the same worlds, with that policy and a fixed nonce for each page, the main page and `popout.html`, to check a change against the policy without the server.
 `demo/vite.config.ts` holds a copy of the policy, so keep it in step with `src/Lotsen.Core/Server/ContentSecurityPolicy.cs`.
 Neither recipe writes to `dist/`, and `npm run build` never builds the demo.
 
@@ -160,7 +160,7 @@ editors' syntax colors for each syntax color family and theme. The build writes 
 
 - The page runs under `style-src 'self' 'nonce-…'` with no `'unsafe-inline'`: no `style="…"` attributes, no
   `style:` directives in markup, and any `<style>` created at run time takes the nonce from `src/lib/cspNonce.ts`.
-  CodeMirror gets it through `EditorView.cspNonce`.
+  CodeMirror's style element in the main page and in each pop-out window takes that page's nonce from `prepareStyles` in `src/lib/editor/editorWindow.ts`.
 - Dockview lays out the workspace's panels. It sizes and places its elements through the CSSOM (`element.style`), which the policy allows, and the `<style>`
   elements that it copies into a pop-out window take the nonce from `src/lib/cspNonce.ts`. `e2e/csp.spec.ts` loads the page and drags a panel under the policy, and fails on any violation.
 - No HTML insertion, such as `{@html}`, `innerHTML`, `outerHTML`, `insertAdjacentHTML` or `srcdoc`: code and text go in as text nodes. The one exception is

@@ -44,7 +44,7 @@ afterEach(() => {
 });
 
 function mount(layout: DiffLayout): DiffEditor {
-   editor = createDiffEditor({ parent, layout, diff, language: null, nonce: undefined });
+   editor = createDiffEditor({ parent, layout, diff, language: null });
    return editor;
 }
 
@@ -155,7 +155,7 @@ describe('an explanation block', () => {
    });
 
    it('shows nothing for lines at a side that the editors do not show, and says whether it shows the block', () => {
-      const file = createFileEditor({ parent, text: base, side: 'head', language: null, nonce: undefined });
+      const file = createFileEditor({ parent, text: base, side: 'head', language: null });
       editor = file;
 
       expect(file.explain(block({ side: 'base', startLine: 2, endLine: 2 }))).toBe(false);

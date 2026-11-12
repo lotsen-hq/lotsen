@@ -261,7 +261,7 @@ function holdsCode(selection: globalThis.Range, line: Element): boolean {
       return true;
    }
 
-   const part = document.createRange();
+   const part = line.ownerDocument.createRange();
    part.selectNodeContents(line);
    if (startsInside) {
       part.setStart(selection.startContainer, selection.startOffset);

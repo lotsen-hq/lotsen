@@ -74,18 +74,21 @@ export function locksScroll(place: DocumentPlace): boolean {
    return place.document === document;
 }
 
-/**
- * Calls `close` each time the calling component's panel moves to another document, such as when its popout window closes. An open overlay's listeners stay on the document that it opened in,
- * so its owner closes it then. Call it while the component initializes.
- */
-export function closeOnMove(close: () => void): void {
+/** Calls `moved` each time the calling component's panel moves to another document, as into a popout window and back. Call it while the component initializes. */
+export function onMove(moved: () => void): void {
    const place = panelDocument();
    let shown = untrack(() => place.document);
    $effect(() => {
       const current = place.document;
       if (current !== shown) {
          shown = current;
-         untrack(close);
+         untrack(moved);
       }
    });
 }
+
+/**
+ * Calls `close` each time the calling component's panel moves to another document, such as when its popout window closes. An open overlay's listeners stay on the document that it opened in,
+ * so its owner closes it then. Call it while the component initializes.
+ */
+export const closeOnMove: (close: () => void) => void = onMove;
