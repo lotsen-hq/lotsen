@@ -240,6 +240,35 @@ public sealed class CliTests : IDisposable
       Assert.False(File.Exists(_dataDirectory.StateFilePath));
    }
 
+   [Fact]
+   public async Task Open_against_a_server_that_refuses_of_another_build_names_its_reason_and_both_builds()
+   {
+      var other = Program.Version with { Build = "0.0.0 (another build)" };
+      await using var server = await RefusingServer.StartAsync(_dataDirectory, other);
+
+      var (exitCode, standardOutput, standardError) = await LotsenProcess.RunSeparatelyAsync(_dataDirectory.Path, "open", "--print-link");
+
+      Assert.Equal(1, exitCode);
+      Assert.Empty(standardOutput);
+      Assert.Contains($"The lotsen server (PID {Environment.ProcessId}) refused the request: lotsen has no operation named 'create_ui_link'.", standardError);
+      Assert.Contains($"That server runs build {other.Build}, protocol {other.Protocol}, and this executable is build {Program.Version.Build}", standardError);
+      Assert.DoesNotContain("No lotsen server is running", standardError);
+   }
+
+   [Fact]
+   public async Task Open_against_a_server_that_refuses_of_this_build_names_its_reason()
+   {
+      await using var server = await RefusingServer.StartAsync(_dataDirectory, Program.Version);
+
+      var (exitCode, standardOutput, standardError) = await LotsenProcess.RunSeparatelyAsync(_dataDirectory.Path, "open");
+
+      Assert.Equal(1, exitCode);
+      Assert.Empty(standardOutput);
+      Assert.Contains($"The lotsen server (PID {Environment.ProcessId}) refused the request: lotsen has no operation named 'open_ui'.", standardError);
+      Assert.DoesNotContain("That server runs", standardError);
+      Assert.DoesNotContain("No lotsen server is running", standardError);
+   }
+
    /// <summary>The state file names the live test process, as when a crashed server's PID was reused, and a port that refuses connections.</summary>
    [Fact]
    public async Task Open_with_a_state_file_of_a_live_process_that_is_no_server_exits_1_naming_both_ways_to_start_one()
