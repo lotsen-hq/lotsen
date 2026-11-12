@@ -23,6 +23,6 @@
 <ThreadMarkers {threads} {onopenthread} />
 {#if onask !== null}
    <TooltipButton variant="ghost" size="icon-xs" class="shrink-0" tooltip="Ask Claude about this file" aria-label="Ask Claude about {name}" onclick={onask}>
-      <MessageSquarePlus aria-hidden="true" />
+      <MessageSquarePlus class="size-4" aria-hidden="true" />
    </TooltipButton>
 {/if}
