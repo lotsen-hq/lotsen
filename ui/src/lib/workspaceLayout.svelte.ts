@@ -81,10 +81,12 @@ export class WorkspaceLayout {
          // Dockview fires it while it still returns the window's panels to the main window (disposePopoutWindow in dockview-core 8.9.0's dockviewComponent.ts), so the settling waits.
          api.onDidRemovePopoutGroup(() => queueMicrotask(() => this.api === api && this.settle())),
          // An overlay without a group is at an edge of the main window's layout, the only place where Dockview fires one (wireEdgeDropTarget in dockview-core 8.9.0's dockviewComponent.ts).
+         // A popout window holds one panel and refuses a tab from another window, so no drop inside it changes the layout, whether or not Dockview knows the tab's group.
          api.onWillShowOverlay((event) => {
+            const target = event.group === undefined ? window : windowOf(event.group);
             const source = event.getData();
             const from = source === undefined ? undefined : api.getGroup(source.groupId);
-            if (from !== undefined && windowOf(from) !== (event.group === undefined ? window : windowOf(event.group))) {
+            if (target !== window || (from !== undefined && windowOf(from) !== target)) {
                event.preventDefault();
             }
          }),
