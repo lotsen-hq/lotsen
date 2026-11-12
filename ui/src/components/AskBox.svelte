@@ -74,7 +74,7 @@
    );
    const empty = $derived(text.trim() === '');
 
-   // Each pick waits in the box, which may sit in a panel that the pick just unfolded, so the focus moves once the panel shows.
+   // Each pick waits in the box, which may sit in a panel that the pick just showed, so the focus moves once the panel shows.
    $effect(() => {
       if (picked !== null) {
          about = 'picked';

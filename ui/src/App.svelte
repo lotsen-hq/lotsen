@@ -9,9 +9,7 @@
    import IterationCheck from './components/IterationCheck.svelte';
    import IterationNotice from './components/IterationNotice.svelte';
    import IterationUpdate from './components/IterationUpdate.svelte';
-   import LeftColumn from './components/LeftColumn.svelte';
    import PlanPanel from './components/PlanPanel.svelte';
-   import PanelActions from './components/PanelActions.svelte';
    import PassageNavigation from './components/PassageNavigation.svelte';
    import StopNavigation from './components/StopNavigation.svelte';
    import StopFiles from './components/StopFiles.svelte';
@@ -215,7 +213,6 @@
       {:else}
          <span class="flex-1"></span>
       {/if}
-      <PanelActions {layout} panel="diff" title={app.showsSummary ? 'the summary' : 'the code'} />
    </div>
 {/snippet}
 
@@ -281,63 +278,56 @@
                {/key}
             {/snippet}
          </IterationNotice>
-         <Workspace {layout}>
-            {#snippet left()}
-               <LeftColumn tourId={app.selectedTourId} defaultTab={app.selectedTour?.pin.state === 'pinned' ? 'files' : 'plan'}>
-                  {#snippet files()}
-                     <!-- Each tour gets its own tree, so folders collapsed in one tour do not carry over to the next. -->
-                     {#key app.selectedTourId}
-                        {@const tourId = app.selectedTourId ?? ''}
-                        <FilesPanel
-                           tour={app.selectedTour}
-                           known={app.selectedFiles}
-                           selectedPath={app.showsStopFiles ? app.stackFilePath : app.selectedFilePath}
-                           selectedText={app.showsStopFiles ? app.stackText : app.selectedText}
-                           fileMarks={app.selectedFileMarks}
-                           reviewedPaths={app.selectedReviewedPaths}
-                           reviewError={app.reviewError}
-                           onreview={(path, reviewed) => app.setFileReviewed(path, reviewed)}
-                           currentStop={app.selectedStop}
-                           onselect={(path) => app.selectFile(path)}
-                           onopen={(side, path) => app.openRepositoryFile(side, path)}
-                           listDirectory={(side, path) => app.listDirectory(tourId, side, path)}
-                        />
-                     {/key}
-                  {/snippet}
-                  {#snippet plan()}
-                     <!-- Each tour gets its own plan actions, so words or an order made for one tour never go to the next. -->
-                     <!-- A plan-first tour takes its level with the plan approval, and the server refuses a change of the level before it. -->
-                     {#key app.selectedTourId}
-                        <PlanPanel
-                           tourSelected={app.selectedTourId !== null}
-                           known={app.selectedPlan}
-                           error={app.selectedTourError}
-                           {attachment}
-                           currentStopId={app.selectedStop?.id ?? null}
-                           onopen={(stopId) => app.openStop(stopId)}
-                           summaryShown={app.showsSummary}
-                           onopensummary={app.selectedSummaryFollows ? () => app.openSummary() : null}
-                           threads={app.selectedThreads}
-                           controls={app.selectedControls}
-                           onaction={(action, text) => app.requestAction(action, 'tour', text)}
-                           onopenthread={openThread}
-                           skipped={app.selectedSkippedStops}
-                           changed={app.selectedChangedStops}
-                           onskip={(stopId, skipped) => app.setStopSkipped(stopId, skipped)}
-                           skipsSaving={app.selectedSkipsSaving}
-                           familiarity={app.selectedFamiliarity}
-                           onfamiliarity={app.selectedTour?.planApproval === 'awaited' ? null : (level, text) => app.changeFamiliarity(level, text)}
-                           planWaits={app.selectedPlanWaits}
-                           onapprove={(stopIds, level, text) => app.approvePlan(stopIds, level, text)}
-                        />
-                     {/key}
-                  {/snippet}
-                  {#snippet actions()}
-                     <PanelActions {layout} panel="tour" title="the files and the plan" closes={{ column: 'left', title: 'the files and the plan' }} />
-                  {/snippet}
-               </LeftColumn>
+         <Workspace {layout} tourId={app.selectedTourId} defaultLeft={app.selectedTour?.pin.state === 'pinned' ? 'files' : 'plan'} diffTitle={app.showsSummary ? 'Summary' : 'Code'}>
+            {#snippet files()}
+               <!-- Each tour gets its own tree, so folders collapsed in one tour do not carry over to the next. -->
+               {#key app.selectedTourId}
+                  {@const tourId = app.selectedTourId ?? ''}
+                  <FilesPanel
+                     tour={app.selectedTour}
+                     known={app.selectedFiles}
+                     selectedPath={app.showsStopFiles ? app.stackFilePath : app.selectedFilePath}
+                     selectedText={app.showsStopFiles ? app.stackText : app.selectedText}
+                     fileMarks={app.selectedFileMarks}
+                     reviewedPaths={app.selectedReviewedPaths}
+                     reviewError={app.reviewError}
+                     onreview={(path, reviewed) => app.setFileReviewed(path, reviewed)}
+                     currentStop={app.selectedStop}
+                     onselect={(path) => app.selectFile(path)}
+                     onopen={(side, path) => app.openRepositoryFile(side, path)}
+                     listDirectory={(side, path) => app.listDirectory(tourId, side, path)}
+                  />
+               {/key}
             {/snippet}
-            {#snippet center()}
+            {#snippet plan()}
+               <!-- Each tour gets its own plan actions, so words or an order made for one tour never go to the next. -->
+               <!-- A plan-first tour takes its level with the plan approval, and the server refuses a change of the level before it. -->
+               {#key app.selectedTourId}
+                  <PlanPanel
+                     tourSelected={app.selectedTourId !== null}
+                     known={app.selectedPlan}
+                     error={app.selectedTourError}
+                     {attachment}
+                     currentStopId={app.selectedStop?.id ?? null}
+                     onopen={(stopId) => app.openStop(stopId)}
+                     summaryShown={app.showsSummary}
+                     onopensummary={app.selectedSummaryFollows ? () => app.openSummary() : null}
+                     threads={app.selectedThreads}
+                     controls={app.selectedControls}
+                     onaction={(action, text) => app.requestAction(action, 'tour', text)}
+                     onopenthread={openThread}
+                     skipped={app.selectedSkippedStops}
+                     changed={app.selectedChangedStops}
+                     onskip={(stopId, skipped) => app.setStopSkipped(stopId, skipped)}
+                     skipsSaving={app.selectedSkipsSaving}
+                     familiarity={app.selectedFamiliarity}
+                     onfamiliarity={app.selectedTour?.planApproval === 'awaited' ? null : (level, text) => app.changeFamiliarity(level, text)}
+                     planWaits={app.selectedPlanWaits}
+                     onapprove={(stopIds, level, text) => app.approvePlan(stopIds, level, text)}
+                  />
+               {/key}
+            {/snippet}
+            {#snippet diff()}
                <main class="flex h-full flex-col bg-background" aria-label={app.showsSummary ? 'Summary' : app.showsStopFiles ? 'Stop files' : app.selectedText === null ? 'Diff' : 'File'}>
                   {@render toolbar()}
                   <div class="min-h-0 flex-1">

@@ -40,8 +40,6 @@ export class PaneSplit {
    /**
     * Moves the split for a key: ArrowLeft and ArrowRight by 10 percent, or with Shift to the bound in their direction, and Home and End to the bounds.
     *
-    * The keys and the steps match the workspace's column splitters, as `getDeltaPercentage` in paneforge 1.0.2's `dist/internal/helpers.js` moves them.
-    *
     * @param shift Whether Shift is held with the key.
     * @returns Whether the key moves the split, so the caller stops the key's default action.
     */

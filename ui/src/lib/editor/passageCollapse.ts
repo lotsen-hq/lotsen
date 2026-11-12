@@ -130,7 +130,8 @@ const keptSideScroll = EditorView.scrollHandler.of((view, range) => {
       const { top, bottom: scrollerBottom } = scroller.getBoundingClientRect();
       // The whole-pixel client height can reach a fraction of a pixel past the scroller's box.
       const bottom = Math.min(scrollerBottom, top + scroller.clientHeight);
-      scroller.scrollTop += control.top < top ? control.top - top : control.bottom > bottom ? control.bottom - bottom : 0;
+      // The scroll position takes whole pixels, so the move rounds away from zero to show all of the control.
+      scroller.scrollTop += control.top < top ? Math.floor(control.top - top) : control.bottom > bottom ? Math.ceil(control.bottom - bottom) : 0;
    }
 
    return true;

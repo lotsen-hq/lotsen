@@ -184,10 +184,13 @@
       }
    }
 
-   // Each new editor and each new focus scrolls once, so a layout change keeps the focused line in view.
+   const collapsing = $derived(decorations.collapse);
+
+   // Each new editor, each new focus and each switch of the collapse to passages scrolls to the focused line once. A collapse moves the line, and nothing else scrolls back to it.
    $effect(() => {
       const current = mounted;
       const target = focus;
+      void collapsing;
       if (current === null || target === null || target.path !== current.path) {
          return;
       }

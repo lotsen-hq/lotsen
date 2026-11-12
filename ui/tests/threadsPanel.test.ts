@@ -247,7 +247,7 @@ describe('the thread list', () => {
       expect(scroller().scrollTop).toBe(120);
    });
 
-   it('takes the scroll position once a list that mounted while the panel was folded shows, since a hidden box ignores a scroll position set on it', async () => {
+   it('takes the scroll position once a list that mounted while the panel was hidden shows, since a hidden box ignores a scroll position set on it', async () => {
       // A browser's observer reports each box once when it starts observing it, whether it shows or not.
       const resized: (() => void)[] = [];
       vi.stubGlobal(
@@ -273,7 +273,7 @@ describe('the thread list', () => {
          await fireEvent.click(openButton('action'));
          await screen.findByRole('article');
 
-         // The panel folds, and the opened thread leaves the record, so the list mounts in the folded panel.
+         // The panel hides, and the opened thread leaves the record, so the list mounts in the hidden panel.
          container.hidden = true;
          record.removeThread('action', 5);
          await waitFor(() => expect(screen.queryByRole('article', { hidden: true })).toBeNull());

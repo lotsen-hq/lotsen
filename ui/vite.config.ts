@@ -1,45 +1,11 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
-import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { thirdPartyNotices } from './scripts/thirdPartyNoticesPlugin.mjs';
 
-/**
- * Gives paneforge's drag cursor `<style>` element the page's style nonce, which the CSP requires of every `<style>` created at run time.
- *
- * The build fails when paneforge's module or the line that creates the element is missing, so an upgrade cannot drop the nonce unnoticed.
- */
-function paneforgeCursorNonce(): Plugin {
-   const module = '/node_modules/paneforge/dist/internal/utils/style.js';
-   const creation = 'element = doc.createElement("style");';
-   let patched = false;
-   return {
-      name: 'lotsen-paneforge-cursor-nonce',
-      apply: 'build',
-      transform(code, id) {
-         if (!id.endsWith(module)) {
-            return null;
-         }
-
-         if (!code.includes(creation)) {
-            this.error(`${module} no longer contains ${creation}, so its cursor style would lack the CSP nonce.`);
-         }
-
-         patched = true;
-         const withNonce = `${creation} const nonce = cspNonce(doc); if (nonce) element.nonce = nonce;`;
-         return `import { cspNonce } from '/src/lib/cspNonce.ts';\n${code.replace(creation, withNonce)}`;
-      },
-      buildEnd(error) {
-         if (!error && !patched) {
-            this.error(`The build did not include ${module}, so paneforge's cursor style was not given the CSP nonce.`);
-         }
-      },
-   };
-}
-
 export default defineConfig({
-   plugins: [tailwindcss(), svelte(), svelteTesting(), paneforgeCursorNonce(), thirdPartyNotices()],
+   plugins: [tailwindcss(), svelte(), svelteTesting(), thirdPartyNotices()],
    resolve: {
       alias: { $lib: '/src/lib' },
    },

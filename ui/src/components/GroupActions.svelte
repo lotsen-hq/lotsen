@@ -1,0 +1,46 @@
+<script lang="ts">
+   import EyeOff from '@lucide/svelte/icons/eye-off';
+   import Maximize from '@lucide/svelte/icons/maximize';
+   import Minimize from '@lucide/svelte/icons/minimize';
+   import type { DockviewGroupPanel } from 'dockview';
+   import type { PanelId, WorkspaceLayout } from '../lib/workspaceLayout.svelte';
+   import TooltipButton from './TooltipButton.svelte';
+
+   let { layout, group }: { layout: WorkspaceLayout; group: DockviewGroupPanel } = $props();
+
+   let active = $state<PanelId | null>(null);
+   $effect(() => {
+      active = layout.activeIn(group);
+      const subscription = group.api.onDidActivePanelChange(() => (active = layout.activeIn(group)));
+      return () => subscription.dispose();
+   });
+
+   const maximized = $derived(layout.maximizedGroup === group.id);
+</script>
+
+<!-- The buttons act on the group's active panel, the one that its tab row shows. -->
+{#if active !== null}
+   {@const panel = active}
+   {@const title = layout.label(panel)}
+   <div class="flex h-full items-center pr-1">
+      <TooltipButton
+         tooltip={maximized ? 'Restore' : 'Maximize'}
+         variant="ghost"
+         size="icon-xs"
+         aria-label={maximized ? `Restore ${title}` : `Maximize ${title}`}
+         onclick={() => layout.toggleMaximized(panel)}
+      >
+         {#if maximized}
+            <Minimize />
+         {:else}
+            <Maximize />
+         {/if}
+      </TooltipButton>
+      {#if !maximized}
+         {@const label = `Hide ${title}`}
+         <TooltipButton tooltip={label} variant="ghost" size="icon-xs" aria-label={label} onclick={() => layout.hide(panel, true)}>
+            <EyeOff />
+         </TooltipButton>
+      {/if}
+   </div>
+{/if}

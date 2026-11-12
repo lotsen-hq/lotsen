@@ -2,6 +2,7 @@
 @import 'tw-animate-css';
 @import 'shadcn-svelte/tailwind.css';
 @import './syntax-colors.css';
+@import 'dockview/dist/styles/dockview.css';
 
 /* src/lib/colorScheme.ts sets the dark class on <html> from the reviewer's theme. */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -192,6 +193,34 @@
    @apply font-semibold text-muted-foreground uppercase;
    font-size: 12px;
    letter-spacing: 0.06em;
+}
+
+/* Dockview's light theme with its colors taken from the app's theme, so the workspace follows the light and dark palettes. `:root` outranks Dockview's own rule. */
+:root .dockview-theme-light {
+   color-scheme: inherit;
+   --dv-tabs-and-actions-container-font-size: var(--text-sm);
+   --dv-group-view-background-color: var(--background);
+   --dv-tabs-and-actions-container-background-color: var(--card);
+   --dv-activegroup-visiblepanel-tab-background-color: var(--background);
+   --dv-activegroup-hiddenpanel-tab-background-color: var(--card);
+   --dv-inactivegroup-visiblepanel-tab-background-color: var(--background);
+   --dv-inactivegroup-hiddenpanel-tab-background-color: var(--card);
+   --dv-tab-divider-color: var(--border);
+   --dv-activegroup-visiblepanel-tab-color: var(--foreground);
+   --dv-activegroup-hiddenpanel-tab-color: var(--muted-foreground);
+   --dv-inactivegroup-visiblepanel-tab-color: var(--foreground);
+   --dv-inactivegroup-hiddenpanel-tab-color: var(--muted-foreground);
+   --dv-separator-border: var(--border);
+   --dv-paneview-header-border-color: var(--border);
+   --dv-drag-over-background-color: color-mix(in oklab, var(--primary) 20%, transparent);
+   --dv-drag-over-border-color: var(--primary);
+   --dv-icon-hover-background-color: var(--accent);
+   --dv-scrollbar-background-color: var(--muted-foreground);
+   --dv-tabs-container-scrollbar-color: var(--muted-foreground);
+}
+
+:root .dockview-theme-light .dv-tabs-and-actions-container {
+   border-bottom: 1px solid var(--border);
 }
 
 /* A panel's scroll box. It is positioned, so it holds and clips the absolutely positioned content inside it, such as `sr-only` text, which would otherwise extend the page. */
