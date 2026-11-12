@@ -64,11 +64,13 @@ internal sealed class ServerClient : IDisposable
    }
 
    /// <summary>Asks the server to open the UI in the user's browser.</summary>
-   /// <exception cref="HttpRequestException">The server cannot be reached or refused the request.</exception>
+   /// <exception cref="RefusedRequestException">The server refused the request.</exception>
+   /// <exception cref="HttpRequestException">The server cannot be reached.</exception>
    public Task<OpenUiResult> OpenUiAsync(CancellationToken cancellationToken) => CallAsync(OperationCatalog.OpenUi, new OpenUiInput(), cancellationToken);
 
    /// <summary>Asks the server for a fresh link to the UI, and launches no browser.</summary>
-   /// <exception cref="HttpRequestException">The server cannot be reached or refused the request.</exception>
+   /// <exception cref="RefusedRequestException">The server refused the request.</exception>
+   /// <exception cref="HttpRequestException">The server cannot be reached.</exception>
    public Task<UiLinkResult> CreateUiLinkAsync(CancellationToken cancellationToken) => CallAsync(OperationCatalog.CreateUiLink, new NoInput(), cancellationToken);
 
    /// <summary>Returns whether the listener on the server's port answers the version request as a lotsen server does, asked without the server token.</summary>
@@ -194,9 +196,9 @@ internal sealed class ServerClient : IDisposable
       return await SendAsync(operation, request, cancellationToken) switch
       {
          WireAnswer<string>.Output output => JsonSerializer.Deserialize(output.Value, operation.TypedOutput) ?? throw new HttpRequestException("The server returned no result."),
-         WireAnswer<string>.Refused refused => throw new HttpRequestException(refused.Error.Reason),
-         WireAnswer<string>.CredentialsRefused => throw new HttpRequestException(CredentialsRefusedReason, inner: null, HttpStatusCode.Unauthorized),
-         WireAnswer<string>.Unexpected unexpected => throw new HttpRequestException(unexpected.Description),
+         WireAnswer<string>.Refused refused => throw new RefusedRequestException(refused.Error.Reason),
+         WireAnswer<string>.CredentialsRefused => throw new RefusedRequestException(CredentialsRefusedReason, HttpStatusCode.Unauthorized),
+         WireAnswer<string>.Unexpected unexpected => throw new RefusedRequestException(unexpected.Description),
       };
    }
 

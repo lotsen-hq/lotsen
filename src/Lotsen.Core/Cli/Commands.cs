@@ -3,6 +3,7 @@ using System.CommandLine.Invocation;
 using System.CommandLine.Parsing;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using Lotsen.Adapter;
 using Lotsen.Client;
 using Lotsen.Hosting;
@@ -74,7 +75,7 @@ public static class Commands
          Description = "Launch no browser, and print a fresh link to the UI that works once.",
       };
       open.Options.Add(printLink);
-      open.SetAction(parseResult => OpenAsync(parseResult.GetValue(printLink)));
+      open.SetAction(parseResult => OpenAsync(version, parseResult.GetValue(printLink)));
       var mcp = new Command("mcp", "Serve MCP over stdin and stdout for Claude Code, forwarding to the running server, which it starts in the background when none runs.");
       mcp.SetAction(_ => McpAsync(version));
       var stop = new Command("stop", "Stop the running lotsen server, in the foreground or the background, and wait until it has exited.");
@@ -356,7 +357,7 @@ public static class Commands
 
    private static string LinkNotice => $"Open this link within {(int)SessionCodes.Lifetime.TotalMinutes} minutes; it works once:";
 
-   private static async Task<int> OpenAsync(bool printLink)
+   private static async Task<int> OpenAsync(VersionInfo version, bool printLink)
    {
       const string noServer = "No lotsen server is running. Start one with `lotsen serve`, or start a Claude Code session with the lotsen channel.";
       var state = await new ServerDiscovery(DataDirectory.Resolve()).FindAsync(CancellationToken.None) switch
@@ -383,6 +384,11 @@ public static class Commands
             ReportOpened(await client.OpenUiAsync(CancellationToken.None));
          }
       }
+      catch (RefusedRequestException refused)
+      {
+         await Console.Error.WriteLineAsync(await OpenRefusalAsync(client, version, refused.Message));
+         return 1;
+      }
       catch (HttpRequestException)
       {
          await Console.Error.WriteLineAsync(noServer);
@@ -390,6 +396,29 @@ public static class Commands
       }
 
       return 0;
+   }
+
+   // The page comes from the server, so it matches the server whatever the server's build. A server of another build opens as this build's does, and only its refusal names the builds.
+   private static async Task<string> OpenRefusalAsync(ServerClient client, VersionInfo version, string reason)
+   {
+      var refused = $"The lotsen server (PID {client.State.Pid}) refused the request: {reason}";
+      VersionInfo? server;
+      try
+      {
+         server = await client.GetVersionAsync(CancellationToken.None);
+      }
+      catch (Exception exception) when (exception is HttpRequestException or JsonException or TaskCanceledException)
+      {
+         server = null;
+      }
+
+      if (server == version)
+      {
+         return refused;
+      }
+
+      var other = server is { } versions ? $"build {versions.Build}, protocol {versions.Protocol}" : "a build whose versions could not be read";
+      return $"{refused}{Environment.NewLine}That server runs {other}, and this executable is build {version.Build}, protocol {version.Protocol}. Run `lotsen open` from that server's install. To use this build, stop that server with `lotsen stop`, which stops it for every session that uses it, or give this build another data directory with {DataDirectory.OverrideVariable}.";
    }
 
    // Standard output holds only the link, so a shell can pass the output to a browser.
