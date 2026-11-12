@@ -24,6 +24,38 @@ const arbitrarySyntax = { pattern: '[\\[(]', message: 'Use a value or variant fr
 
 const cspBreakingImports = { name: 'bits-ui', importNames: ['Command', 'PinInput'], message: "It breaks the page's CSP: Command renders a style attribute and PinInput a <style> without the nonce." };
 
+// A popped-out panel lives in a popout window's document, so code that can run in a panel takes its document and window from panelDocument(), or from mainPage when it means the main page.
+const panelPlace = "A popped-out panel runs in another window. Use panelDocument() for the panel's document and window, or mainPage for the main page.";
+const mainPageGlobals = [
+   'document',
+   'window',
+   'requestAnimationFrame',
+   'cancelAnimationFrame',
+   'ResizeObserver',
+   'IntersectionObserver',
+   'MutationObserver',
+   'getComputedStyle',
+   'getSelection',
+   'matchMedia',
+   'navigator',
+   'addEventListener',
+   'removeEventListener',
+   'innerWidth',
+   'innerHeight',
+   'devicePixelRatio',
+   'scrollX',
+   'scrollY',
+   'visualViewport',
+].map((name) => ({ name, message: panelPlace }));
+const mainPageSyntax = [
+   { selector: "SvelteElement[kind='special'][name.name=/^svelte:(window|document|body)$/]", message: panelPlace },
+   // Svelte observes these with the main page's ResizeObserver (bindings/size.js in svelte 5.57.2), which misses resizes in a popout window.
+   {
+      selector: "SvelteDirective[kind='Binding'][key.name.name=/^(clientWidth|clientHeight|offsetWidth|offsetHeight|contentRect|contentBoxSize|borderBoxSize|devicePixelContentBoxSize)$/]",
+      message: `${panelPlace} Observe the size with the panel window's ResizeObserver.`,
+   },
+];
+
 // The pin rules, the explanation model and the components stay apart from editor geometry, so only src/lib/editor/ talks to CodeMirror.
 const editorImports = { group: ['@codemirror/*'], message: 'Only src/lib/editor/ imports CodeMirror. Ask the editor through its EditorSurface.' };
 
@@ -64,6 +96,16 @@ export default defineConfig(
       ignores: ['src/lib/editor/**'],
       rules: { 'no-restricted-imports': ['error', { paths: [cspBreakingImports], patterns: [editorImports] }] },
    },
+   // Every file but the ones that run only on the main page, so a new panel file is covered without a change here.
+   {
+      files: ['src/**/*.ts', 'src/**/*.svelte'],
+      ignores: ['src/main.ts', 'src/App.svelte', 'src/components/Workspace.svelte', 'src/lib/workspaceLayout.svelte.ts', 'src/lib/panelDocument.svelte.ts'],
+      rules: {
+         'no-restricted-globals': ['error', ...mainPageGlobals],
+         'no-restricted-properties': ['error', ...['document', 'window'].map((property) => ({ object: 'globalThis', property, message: panelPlace }))],
+         'no-restricted-syntax': ['error', ...htmlAndStyleInsertion, ...mainPageSyntax],
+      },
+   },
    // The contract's schema gives an operation without input the empty object, which json-schema-to-typescript writes as an empty interface.
    {
       files: ['src/lib/contract.generated.ts'],
@@ -78,6 +120,7 @@ export default defineConfig(
          'no-restricted-syntax': [
             'error',
             ...htmlAndStyleInsertion,
+            ...mainPageSyntax,
             {
                selector: "SvelteMustacheTag[kind='raw']:not(Program > SvelteElement > SvelteMustacheTag[expression.type='Identifier'][expression.name='html'])",
                message: 'Prose inserts only its html prop as HTML, directly in its root element.',

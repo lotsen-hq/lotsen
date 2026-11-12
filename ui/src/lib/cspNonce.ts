@@ -1,3 +1,5 @@
+import { mainPage } from './panelDocument.svelte';
+
 const placeholder = '__LOTSEN_CSP_NONCE__';
 
 /**
@@ -7,7 +9,7 @@ const placeholder = '__LOTSEN_CSP_NONCE__';
  *
  * @returns The nonce, or undefined when the page was not served by lotsen and so has no nonce.
  */
-export function cspNonce(document: Document = globalThis.document): string | undefined {
+export function cspNonce(document: Document = mainPage.document): string | undefined {
    const content = document.querySelector('meta[name="csp-nonce"]')?.getAttribute('content');
    return content && content !== placeholder ? content : undefined;
 }

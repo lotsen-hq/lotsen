@@ -19,6 +19,7 @@ import {
    type PassageLabel,
 } from './editorLines';
 import type { FileSide, PassageRole } from '../types';
+import { mainPage } from '../panelDocument.svelte';
 
 /** The texts of a file that one editor shows, as the server sent them: one side's text, or inline the head's text with the base's deleted lines. */
 export type PassageSource = { side: FileSide; text: string } | { inline: { baseText: string | null; headText: string } };
@@ -83,10 +84,10 @@ function gutterMarker(className: string): LineClassMarker {
 
 /** Returns the element that shows the labels of the passages that start on a line. */
 function labelsElement(labels: readonly PassageLabel[]): HTMLElement {
-   const element = document.createElement('span');
+   const element = mainPage.document.createElement('span');
    element.className = 'lotsen-passageLabels';
    for (const label of labels) {
-      const item = element.appendChild(document.createElement('span'));
+      const item = element.appendChild(mainPage.document.createElement('span'));
       item.className = `lotsen-passageLabel lotsen-passageLabel-${label.role}`;
       item.textContent = label.text;
    }
@@ -113,7 +114,7 @@ class LabelsWidget extends WidgetType {
 
 /** Returns the element that holds the markers of the threads asked about lines that start on a line. Each is a button whose `data-thread-id` names its thread. */
 function threadMarkersElement(threads: readonly ThreadSpot[]): HTMLElement {
-   const element = document.createElement('span');
+   const element = mainPage.document.createElement('span');
    element.className = 'lotsen-threadMarkers';
    for (const thread of threads) {
       element.appendChild(threadMarkerButton(thread.id, thread.label));
@@ -126,12 +127,12 @@ const svgNamespace = 'http://www.w3.org/2000/svg';
 
 /** Returns a thread's marker: a button with Lucide's message-square icon and the label as text, which the editor's parent component opens by its `data-thread-id`. */
 export function threadMarkerButton(id: string, label: string): HTMLButtonElement {
-   const button = document.createElement('button');
+   const button = mainPage.document.createElement('button');
    button.type = 'button';
    button.className = 'thread-marker';
    button.dataset.threadId = id;
    button.setAttribute('aria-label', `Open the thread: ${label}`);
-   const icon = button.appendChild(document.createElementNS(svgNamespace, 'svg'));
+   const icon = button.appendChild(mainPage.document.createElementNS(svgNamespace, 'svg'));
    for (const [name, value] of Object.entries({
       viewBox: '0 0 24 24',
       fill: 'none',
@@ -144,8 +145,8 @@ export function threadMarkerButton(id: string, label: string): HTMLButtonElement
       icon.setAttribute(name, value);
    }
 
-   icon.appendChild(document.createElementNS(svgNamespace, 'path')).setAttribute('d', 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z');
-   button.appendChild(document.createElement('span')).textContent = label;
+   icon.appendChild(mainPage.document.createElementNS(svgNamespace, 'path')).setAttribute('d', 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z');
+   button.appendChild(mainPage.document.createElement('span')).textContent = label;
    return button;
 }
 

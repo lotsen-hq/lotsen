@@ -1,6 +1,7 @@
 import { StateEffect, StateField, type Extension } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import { editorWindow } from './editorWindow';
+import { mainPage } from '../panelDocument.svelte';
 
 /** Where a block sits in an editor: after the line that ends at `pos`, or with `before`, above the line at `pos` and below the deleted lines that the inline view draws there. */
 export interface BlockPosition {
@@ -59,7 +60,7 @@ class BlockWidget extends WidgetType {
    }
 
    override toDOM(view: EditorView): HTMLElement {
-      const host = document.createElement('div');
+      const host = mainPage.document.createElement('div');
       host.className = blockClass;
       const remove = this.block.render(host);
       const unwatch = view.plugin(editorWindow)?.watch(host, () => this.block.resized(view, host.getBoundingClientRect().height));
@@ -100,7 +101,7 @@ class SpacerWidget extends WidgetType {
    }
 
    override toDOM(): HTMLElement {
-      const element = document.createElement('div');
+      const element = mainPage.document.createElement('div');
       element.className = spacerClass;
       element.setAttribute('aria-hidden', 'true');
       this.updateDOM(element);

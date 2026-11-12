@@ -52,7 +52,13 @@ export class PanelDocument {
 
 const [panelContext, providePanel, inPanel] = createContext<PanelDocument>();
 
-const mainPage: DocumentPlace = {
+/**
+ * The main page's document and window, for code that means the main page wherever it runs.
+ *
+ * Code in a panel creates its elements in the main page's document, as Svelte does, because an element that a popout window's document creates fails `instanceof Element` in the
+ * main page's code, as the {@link PanelDocument} constructor says.
+ */
+export const mainPage: DocumentPlace = {
    get document() {
       return document;
    },
