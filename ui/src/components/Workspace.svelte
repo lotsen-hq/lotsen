@@ -2,6 +2,7 @@
    import { createDockview, themeLight, type DockviewApi, type DockviewGroupPanel, type IHeaderActionsRenderer, type ITabRenderer } from 'dockview';
    import { getAllContexts, mount, onMount, unmount, type Snippet } from 'svelte';
    import { cspNonce } from '../lib/cspNonce';
+   import { savedLayout } from '../lib/layoutRecord';
    import { panelIds, type PanelId, type WorkspaceLayout } from '../lib/workspaceLayout.svelte';
    import GroupActions from './GroupActions.svelte';
 
@@ -69,6 +70,19 @@
       };
    }
 
+   /** Lays out the Default layout: Files and Plan as tabs on the left, the code in the center, and the stop above the threads on the right. */
+   function defaultLayout(dock: DockviewApi): void {
+      dock.clear();
+      const title = (id: PanelId) => layout.titles[id];
+      dock.addPanel({ id: 'files', component: 'files', title: title('files') });
+      dock.addPanel({ id: 'plan', component: 'plan', title: title('plan'), position: { referencePanel: 'files', direction: 'within' } });
+      dock.addPanel({ id: 'diff', component: 'diff', title: title('diff'), position: { referencePanel: 'files', direction: 'right' } });
+      dock.addPanel({ id: 'stop', component: 'stop', title: title('stop'), position: { referencePanel: 'diff', direction: 'right' } });
+      dock.addPanel({ id: 'threads', component: 'threads', title: title('threads'), position: { referencePanel: 'stop', direction: 'below' } });
+      dock.getPanel('files')!.group.api.setSize({ width: dock.width * 0.22 });
+      dock.getPanel('stop')!.group.api.setSize({ width: dock.width * 0.28, height: dock.height * 0.6 });
+   }
+
    onMount(() => {
       // Dockview rounds the sizes it measures to whole pixels (watchElementResize in dockview-core 8.9.0's resizable.ts and shell.ts), which lays the groups out past a
       // container of a fractional size, so the container takes the frame's size rounded down.
@@ -97,19 +111,21 @@
          region.removeAttribute('role');
       }
 
-      const title = (id: PanelId) => layout.titles[id];
-      dock.addPanel({ id: 'files', component: 'files', title: title('files') });
-      dock.addPanel({ id: 'plan', component: 'plan', title: title('plan'), position: { referencePanel: 'files', direction: 'within' } });
-      dock.addPanel({ id: 'diff', component: 'diff', title: title('diff'), position: { referencePanel: 'files', direction: 'right' } });
-      dock.addPanel({ id: 'stop', component: 'stop', title: title('stop'), position: { referencePanel: 'diff', direction: 'right' } });
-      dock.addPanel({ id: 'threads', component: 'threads', title: title('threads'), position: { referencePanel: 'stop', direction: 'below' } });
-      dock.getPanel('files')!.group.api.setSize({ width: dock.width * 0.22 });
-      dock.getPanel('stop')!.group.api.setSize({ width: dock.width * 0.28, height: dock.height * 0.6 });
-
       // Dockview hides a group by giving it no size (ViewItem.setVisible in dockview-core 8.9.0's splitview.ts), so the hidden attribute also takes the group out of
       // the tab order and the accessibility tree.
       const follow = (group: DockviewGroupPanel) => group.api.onDidVisibilityChange((event) => (group.element.hidden = !event.isVisible));
-      const visibility = [...dock.groups.map(follow), dock.onDidAddGroup(follow)];
+      const visibility = [dock.onDidAddGroup(follow)];
+
+      const detach = layout.attach(dock, (record) => savedLayout.write(record));
+      const saved = savedLayout.read();
+      if (saved === null || !layout.load(saved)) {
+         defaultLayout(dock);
+      }
+
+      visibility.push(...dock.groups.map(follow));
+      for (const group of dock.groups) {
+         group.element.hidden = !group.api.isVisible;
+      }
 
       // Dockview opens a tab on a pointer press, so a click without one, as from a screen reader, opens it here.
       const openTab = (event: MouseEvent) => {
@@ -127,7 +143,6 @@
       root.addEventListener('click', openTab);
       root.addEventListener('keydown', keepPanel, true);
 
-      const detach = layout.attach(dock);
       const choices = dock.onDidActivePanelChange((event) => {
          if (!applying && (event.panel?.id === 'files' || event.panel?.id === 'plan')) {
             chosen[tourId ?? ''] = event.panel.id;

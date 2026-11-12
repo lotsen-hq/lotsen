@@ -1,5 +1,5 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/svelte';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import type { LotsenApp } from '../../src/lib/app.svelte';
 import type { World } from '../backend/backend';
 import { backend, seedTour, startApp } from '../harness';
@@ -52,6 +52,102 @@ async function startShell(): Promise<{ world: World; app: LotsenApp }> {
    const { app } = await startApp(world);
    return { world, app };
 }
+
+/** Starts the app again on the world, as the next load of the page does. */
+async function reload(world: World, app: LotsenApp): Promise<LotsenApp> {
+   cleanup();
+   app.stop();
+   return (await startApp(world)).app;
+}
+
+const savedKey = 'lotsen.workspaceLayout';
+
+describe('the saved layout', () => {
+   it('keeps a panel that shared its group hidden on the next load, and shows it back in that group', async () => {
+      const { world, app } = await startShell();
+      await togglePanel('Files');
+      await waitFor(() => expect(groups()).toEqual([['Plan*'], ['Code*'], ['Stop*'], ['Threads*']]));
+
+      await reload(world, app);
+
+      await waitFor(() => expect(groups()).toEqual([['Plan*'], ['Code*'], ['Stop*'], ['Threads*']]));
+      expect((await panelItems()).find((item) => item.name === 'Files')?.checked).toBe(false);
+      await togglePanel('Files');
+      await waitFor(() => expect(groups()).toEqual([['Files*', 'Plan'], ['Code*'], ['Stop*'], ['Threads*']]));
+   });
+
+   it('keeps a panel with a group of its own hidden on the next load, and shows it again', async () => {
+      const { world, app } = await startShell();
+      fireEvent.click(screen.getByRole('button', { name: 'Hide the stop' }));
+      await waitFor(() => expect(groups()).toEqual([['Files', 'Plan*'], ['Code*'], ['Threads*']]));
+
+      await reload(world, app);
+
+      await waitFor(() => expect(groups()).toEqual([['Files', 'Plan*'], ['Code*'], ['Threads*']]));
+      await togglePanel('Stop');
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+   });
+
+   it('loads every group in its place after a load while a group was maximized', async () => {
+      const { world, app } = await startShell();
+      fireEvent.click(screen.getByRole('button', { name: 'Maximize the threads' }));
+      await waitFor(() => expect(groups()).toEqual([['Threads*']]));
+
+      await reload(world, app);
+
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+   });
+
+   it.each([
+      { saved: 'not a layout', why: 'unreadable' },
+      { saved: '{"version":1,"dockview":{"grid":{},"panels":{}},"hidden":[]}', why: 'without the workspace panels' },
+   ])('gives the Default layout for a saved layout that is $why', async ({ saved }) => {
+      localStorage.setItem(savedKey, saved);
+
+      await startShell();
+
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+   });
+
+   it('gives the Default layout for a saved layout of another version', async () => {
+      const { world, app } = await startShell();
+      fireEvent.click(screen.getByRole('button', { name: 'Hide the stop' }));
+      await waitFor(() => expect(JSON.parse(localStorage.getItem(savedKey)!).hidden).toEqual([{ id: 'stop', home: null }]));
+      localStorage.setItem(savedKey, JSON.stringify({ ...JSON.parse(localStorage.getItem(savedKey)!), version: 2 }));
+
+      await reload(world, app);
+
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+   });
+
+   it('gives the Default layout without a saved one, and keeps working while browser storage throws', async () => {
+      // The page's credential stays in session storage, which keeps working.
+      const { getItem, setItem } = Storage.prototype;
+      const refuse = (storage: Storage) => {
+         if (storage === localStorage) {
+            throw new DOMException('The storage is not available.', 'SecurityError');
+         }
+      };
+      const reads = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key) {
+         refuse(this);
+         return getItem.call(this, key);
+      });
+      const writes = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+         refuse(this);
+         setItem.call(this, key, value);
+      });
+      onTestFinished(() => {
+         reads.mockRestore();
+         writes.mockRestore();
+      });
+
+      await startShell();
+
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+      fireEvent.click(screen.getByRole('button', { name: 'Hide the stop' }));
+      await waitFor(() => expect(groups()).toEqual([['Files', 'Plan*'], ['Code*'], ['Threads*']]));
+   });
+});
 
 describe('the workspace', () => {
    it('opens with Files and Plan as tabs of one group, and the code, the stop and the threads in a group each', async () => {

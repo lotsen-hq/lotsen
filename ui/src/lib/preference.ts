@@ -36,7 +36,14 @@ export function booleanPreference(key: string, fallback: boolean): Preference<bo
    return storedPreference(key, (stored) => (stored === 'true' ? true : stored === 'false' ? false : undefined), String, fallback);
 }
 
-function storedPreference<T>(key: string, parse: (stored: string) => T | undefined, format: (value: T) => string, fallback: T): Preference<T> {
+/**
+ * Returns a preference for a value that `parse` reads from the stored text, read and written as {@link preference} does.
+ *
+ * @param parse Returns the value that the stored text holds, or undefined when the text holds none.
+ * @param format Returns the text that stores the value.
+ * @param fallback The value that `read` returns when no valid value is stored.
+ */
+export function storedPreference<T>(key: string, parse: (stored: string) => T | undefined, format: (value: T) => string, fallback: T): Preference<T> {
    return {
       read() {
          try {

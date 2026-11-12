@@ -1,4 +1,5 @@
 import type { DockviewApi, DockviewGroupPanel, IDockviewPanel } from 'dockview';
+import { layoutVersion, type LayoutRecord, type PanelHome } from './layoutRecord';
 
 /** A panel of the workspace. */
 export type PanelId = 'files' | 'plan' | 'diff' | 'stop' | 'threads';
@@ -6,17 +7,13 @@ export type PanelId = 'files' | 'plan' | 'diff' | 'stop' | 'threads';
 /** The workspace's panels, in the order of the Panels menu. */
 export const panelIds: readonly PanelId[] = ['files', 'plan', 'diff', 'stop', 'threads'];
 
-/** Where a hidden panel sat, so that showing it puts it back as a tab of the group it shared. */
-interface Origin {
-   groupId: string;
-   index: number;
-}
-
 /**
  * Holds which panels of the workspace are hidden and which group is maximized, for the top bar, the group headers and the workspace to share.
  *
  * Dockview holds the workspace layout, and this class changes it only through Dockview's API. A hidden panel sits alone in a group that Dockview hides, so the panel
  * stays mounted and keeps its state. That group is the panel's own grid group, or a floating group when the panel shared its group with others.
+ *
+ * It saves the workspace layout as a {@link LayoutRecord} after each change, and loads one.
  */
 export class WorkspaceLayout {
    /** Whether each panel is hidden from the Panels menu or its group's Hide button. A maximized group hides the others without hiding their panels. */
@@ -28,24 +25,79 @@ export class WorkspaceLayout {
 
    private api: DockviewApi | null = null;
    private menu: HTMLElement | null = null;
-   private readonly origins: Partial<Record<PanelId, Origin>> = {};
+   private save: ((record: LayoutRecord) => void) | null = null;
+   private loading = false;
+   private origins: Partial<Record<PanelId, PanelHome>> = {};
 
    /**
     * Lets this class read and change the workspace layout that Dockview holds.
     *
+    * @param save Keeps the workspace layout after each change, other than one that {@link WorkspaceLayout.load} makes.
     * @returns A function that detaches this class again, for when the workspace unmounts.
     */
-   attach(api: DockviewApi): () => void {
+   attach(api: DockviewApi, save: (record: LayoutRecord) => void): () => void {
       this.api = api;
+      this.save = save;
       const read = () => (this.maximizedGroup = api.groups.find((group) => group.api.isMaximized())?.id ?? null);
-      const subscription = api.onDidMaximizedGroupChange(read);
+      const subscriptions = [api.onDidMaximizedGroupChange(read), api.onDidLayoutChange(() => this.persist())];
       read();
       return () => {
-         subscription.dispose();
+         subscriptions.forEach((subscription) => subscription.dispose());
          if (this.api === api) {
             this.api = null;
+            this.save = null;
          }
       };
+   }
+
+   /** Returns the workspace layout as a record. It omits which group is maximized, so a load shows every group in its place. */
+   snapshot(): LayoutRecord | null {
+      if (!this.api) {
+         return null;
+      }
+
+      const dockview = this.api.toJSON();
+      // The grid holds the maximized group's place too, which SerializedDockview's type omits (Gridview.serialize in dockview-core 8.9.0's gridview.ts).
+      delete (dockview.grid as typeof dockview.grid & { maximizedNode?: unknown }).maximizedNode;
+      const hidden = panelIds.filter((id) => this.hidden[id]).map((id) => ({ id, home: this.origins[id] ?? null }));
+      return { version: layoutVersion, dockview, hidden };
+   }
+
+   /**
+    * Lays out the workspace as the record says, and hides its hidden panels again.
+    *
+    * The panels that the workspace holds stay mounted, so each keeps its state.
+    *
+    * @returns Whether Dockview loaded the record. When it did not, the workspace's layout is undefined, and the caller lays out another one.
+    */
+   load(record: LayoutRecord): boolean {
+      const api = this.api;
+      if (!api) {
+         return false;
+      }
+
+      this.loading = true;
+      try {
+         api.fromJSON(record.dockview, { reuseExistingPanels: true });
+         this.origins = {};
+         for (const id of panelIds) {
+            this.hidden[id] = false;
+         }
+
+         for (const { id, home } of record.hidden) {
+            api.getPanel(id)?.group.api.setVisible(false);
+            this.hidden[id] = true;
+            if (home !== null) {
+               this.origins[id] = home;
+            }
+         }
+
+         return true;
+      } catch {
+         return false;
+      } finally {
+         this.loading = false;
+      }
    }
 
    /**
@@ -94,7 +146,7 @@ export class WorkspaceLayout {
          return;
       }
 
-      this.restore();
+      this.exitMaximized();
       const group = panel.group;
       if (group.panels.length > 1) {
          // A floating group sits over the grid, so the panel leaves without a split that would resize the groups around it.
@@ -104,6 +156,7 @@ export class WorkspaceLayout {
 
       panel.group.api.setVisible(false);
       this.hidden[id] = true;
+      this.persist();
       if (focusMenu) {
          this.menu?.focus();
       }
@@ -150,7 +203,7 @@ export class WorkspaceLayout {
          return;
       }
 
-      this.restore();
+      this.exitMaximized();
       const origin = this.origins[id];
       delete this.origins[id];
       const home = origin === undefined ? undefined : api.groups.find((group) => group.id === origin.groupId);
@@ -164,9 +217,17 @@ export class WorkspaceLayout {
       }
 
       this.hidden[id] = false;
+      this.persist();
    }
 
-   private restore(): void {
+   private persist(): void {
+      const record = this.loading ? null : this.snapshot();
+      if (record !== null) {
+         this.save?.(record);
+      }
+   }
+
+   private exitMaximized(): void {
       if (this.api?.hasMaximizedGroup()) {
          this.api.exitMaximizedGroup();
       }
