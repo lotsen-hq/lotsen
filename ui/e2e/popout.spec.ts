@@ -79,8 +79,6 @@ interface PoppedPanel {
    menu: { trigger: (panel: Locator) => Locator; item: string } | null;
    /** Returns the element that shows a tooltip on hover, and the tooltip's text. */
    tooltip: { trigger: (panel: Locator) => Promise<Locator>; text: string | RegExp };
-   /** The tabs of each group once the window has returned the panel, when they differ from the workspace's default. */
-   returned?: string[][];
 }
 
 // Files, Code and Stop offer no menu of their own: the only dropdown and context menus inside the panels are the Plan actions and those of Threads.
@@ -95,8 +93,6 @@ const poppedPanels: PoppedPanel[] = [
       },
       menu: null,
       tooltip: { trigger: async (panel) => panel.getByRole('treeitem', { name: /^payment\.ts,/ }).locator('.row'), text: /^src\/checkout\/payment\.ts/ },
-      // Dockview reopens a returned panel at the end of the group that it left (moveGroupWithoutDestroying in dockview-core 8.9.0).
-      returned: [['Plan', 'Files'], ['Code'], ['Stop'], ['Threads']],
    },
    {
       name: 'Plan',
@@ -201,7 +197,7 @@ test.describe('a popout window', () => {
          await panel.click.shown(held);
 
          await popout.close({ runBeforeUnload: true });
-         await expect.poll(() => groups(page)).toEqual(panel.returned ?? [['Files', 'Plan'], ['Code'], ['Stop'], ['Threads']]);
+         await expect.poll(() => groups(page)).toEqual([['Files', 'Plan'], ['Code'], ['Stop'], ['Threads']]);
          await page.getByRole('tab', { name: panel.name }).click();
          await panel.click.shown(region(page, panel.name));
       });

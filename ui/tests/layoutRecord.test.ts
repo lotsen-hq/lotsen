@@ -118,6 +118,20 @@ describe('a layout without popouts', () => {
       expect(withoutPopouts(dockview).grid.root.data).toEqual([{ type: 'leaf', data: { views: ['files', 'plan'], activeView: 'plan', id: '1' }, size: 100 }]);
    });
 
+   it("puts a panel that left a shared group back at its tab's place there, which the places give", () => {
+      const dockview = layout([leaf('1', ['plan', 'diff'])], [{ gridReferenceGroup: '1', position: null, data: { views: ['files'], activeView: 'files', id: '2' } }]);
+
+      expect(withoutPopouts(dockview, { files: { groupId: '1', index: 0 } }).grid.root.data).toEqual([
+         { type: 'leaf', data: { views: ['files', 'plan', 'diff'], activeView: 'files', id: '1' }, size: 100 },
+      ]);
+      expect(withoutPopouts(dockview, { files: { groupId: '1', index: 5 } }).grid.root.data).toEqual([
+         { type: 'leaf', data: { views: ['plan', 'diff', 'files'], activeView: 'files', id: '1' }, size: 100 },
+      ]);
+      expect(withoutPopouts(dockview, { files: { groupId: '3', index: 0 } }).grid.root.data).toEqual([
+         { type: 'leaf', data: { views: ['plan', 'diff', 'files'], activeView: 'files', id: '1' }, size: 100 },
+      ]);
+   });
+
    it('gives the panels of a popout whose group is gone a group of their own at the start of the grid', () => {
       const dockview = layout(
          [leaf('1', ['files']), leaf('2', ['diff'], { size: 300 })],
