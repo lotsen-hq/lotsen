@@ -354,14 +354,15 @@ suggested answers, and one check to another stop.
 
 Keep the tour attached and open in the browser.
 
-**Explain and revise a stop.** Open a stop. Its "Tour actions" are "Explain deeper" and "Revise".
+**Explain and revise a stop.** Open a stop. The toolbar under its title has an "Ask Claude" menu with "Explain
+deeper…" and "Revise…".
 
-- Click "Explain deeper", leave the box empty and click "Send to Claude". The Stop panel says "Claude is explaining
+- Choose "Explain deeper…", leave the box empty and click "Send to Claude". The Stop panel says "Claude is explaining
   this stop deeper." In the terminal the request arrives as a tour action. Claude rewrites the stop with `put_stop`
   and resolves the request with a short reply. The deeper explanation is in the stop, not only in the reply.
 - Select a few words in the stop's text and ask to explain them from the selection. The request names the selected
   words, and Claude does the same.
-- Click "Revise", write what should change and send it. Claude rewrites the stop the same way.
+- Choose "Revise…", write what should change and send it. Claude rewrites the stop the same way.
 
 **The version banner.** A revision that you asked for from the UI replaces the stop at once. The banner is for one
 that you did not ask for there.
@@ -394,13 +395,16 @@ until you press "Send to Claude".
 - Claude rewrites each stop after the one you view at the new level, each as a new version. The stops you read keep
   their version. Words that you write in the optional box reach Claude with the change.
 
-**Skips.** Click "Skip stop" on a stop.
+**Skips and done marks.** The right end of a stop's toolbar has a check, a skip button with a forward arrow, and a
+"⋯" menu. Click the skip button.
 
 - The stop shows "Skipped" in the plan and in the stop navigation. End the tour's session, skip another stop, and
   reload the page. Both skips remain. Reattach the tour.
+- On a revised stop, click the check. It turns green, and the Plan panel counts the stop as done. Open "Version 1"
+  from the "⋯" menu. The check stays in its place but is disabled.
 
 **A busy session.** Ask Claude in the terminal for a task that takes a while, such as reading every file of the PR.
-While it works, ask for "Explain deeper" on a stop.
+While it works, choose "Explain deeper…" from a stop's "Ask Claude" menu.
 
 - The Stop panel shows the request as pending. Claude declines it with a reply that says it is busy, and tells you in
   the terminal. Record whether it declined at once or finished its task first. This is model behavior, not

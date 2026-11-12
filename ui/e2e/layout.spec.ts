@@ -219,7 +219,8 @@ for (const theme of ['light', 'dark'] as const) {
       await expectWarningStyle(center(page).getByRole('note').filter({ hasText: 'predates changes to the summary' }), 'the outdated synthesis');
 
       await openStop(page, paymentStop);
-      await page.getByRole('combobox', { name: 'Stop version' }).selectOption({ label: 'Version 1' });
+      await page.getByRole('region', { name: 'Stop', exact: true }).getByRole('button', { name: 'More stop actions' }).click();
+      await page.getByRole('menuitemradio', { name: 'Version 1', exact: true }).click();
       const version = page.getByRole('status', { name: 'Stop version' });
       await expect(version).toHaveCSS('border-left-color', await themeColor(version, '--primary'));
       await version.getByRole('button', { name: 'Show the current version' }).click();
@@ -336,7 +337,7 @@ test('the splitter follows a drag across the side-by-side row until the release,
    await expect(splitter).toHaveAttribute('aria-valuenow', '50');
 });
 
-test('the stop bar shows once the full header has scrolled away, moves nothing, holds the stale notice on one line and leaves room for an opened check', async ({ page }) => {
+test('the stop bar shows once the header and the stop toolbar have scrolled away, moves nothing, holds the stale notice on one line and leaves room for an opened check', async ({ page }) => {
    await page.setViewportSize({ width: 1280, height: 800 });
    await openDemoTour(page, checkoutTour, { placement: 'side' });
    const panel = page.getByRole('region', { name: 'Stop', exact: true });
@@ -352,7 +353,7 @@ test('the stop bar shows once the full header has scrolled away, moves nothing, 
    expect(await scroller.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
 
    // The first read is in the same task as the scroll, before the observer can show the bar.
-   const headerEnd = (await edges(panel.locator('header').first())).bottom - (await edges(scroller)).top;
+   const headerEnd = (await edges(panel.locator('.stop-toolbar'))).bottom - (await edges(scroller)).top;
    const headlineBeforeBar = await scroller.evaluate((element, top) => {
       element.scrollTop = top;
       return element.querySelector('.headline')!.getBoundingClientRect().top;

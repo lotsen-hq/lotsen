@@ -116,7 +116,7 @@ interface PoppedPanel {
    tooltip: { trigger: (panel: Locator) => Promise<Locator>; text: string | RegExp };
 }
 
-// Files, Code and Stop offer no menu of their own: the only dropdown and context menus inside the panels are the Plan actions and those of Threads.
+// Files and Code offer no menu of their own, and the Stop panel's two menus have a test of their own below.
 const poppedPanels: PoppedPanel[] = [
    {
       name: 'Files',
@@ -357,6 +357,28 @@ test.describe('a popout window', () => {
       await region(popout, 'Stop').locator('[data-stop-field]').first().selectText();
 
       await expect(region(popout, 'Stop').getByRole('button', { name: /^Ask Claude about/ })).toBeVisible();
+   });
+
+   test('shows the Ask Claude and ⋯ menus of the Stop panel that it holds in its own window', async ({ page }) => {
+      await openDemoTour(page, checkoutTour, { placement: 'mixed' });
+      await openStop(page, 'The new payment step');
+      const popout = await popOut(page, 'Stop', 'Pop out the stop');
+      const held = region(popout, 'Stop');
+
+      for (const [trigger, item] of [
+         ['Ask Claude', 'Explain deeper…'],
+         ['More stop actions', 'Show inline'],
+      ] as const) {
+         await held.getByRole('button', { name: trigger, exact: true }).click();
+         await expect(popout.getByRole('menuitem', { name: item })).toBeInViewport();
+         await expect(page.getByRole('menu')).toHaveCount(0);
+         await popout.keyboard.press('Escape');
+         await expect(popout.getByRole('menu')).toHaveCount(0);
+      }
+
+      await held.getByRole('button', { name: 'More stop actions' }).click();
+      await expect(popout.getByRole('menuitemradio', { name: 'Version 2, current' })).toHaveAttribute('aria-checked', 'true');
+      await popout.keyboard.press('Escape');
    });
 
    test('lays out, scrolls and selects the diff of the Code panel that it holds, asks about the selected lines, and does the same once the panel returns', async ({ page }) => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { doneClick } from '../src/lib/doneClick';
-import { doneCheckboxLabel, doneRowLabel, doneTooltip, markDoneTooltip } from '../src/lib/labels';
+import { doneCheckboxLabel, doneRowLabel, doneTooltip, stopDoneCheckboxLabel, stopDoneTooltip } from '../src/lib/labels';
 import type { DoneState } from '../src/lib/tourRecord.svelte';
 
 const none: DoneState = { state: 'none' };
@@ -30,15 +30,15 @@ describe('the done labels', () => {
       expect(doneCheckboxLabel(4, earlier, click)).toBe('Stop 4 done. Done on version 2. Claude revised it since. Mark the current version done.');
       expect(doneRowLabel(earlier)).toBe('done on version 2');
       expect(doneTooltip(earlier, click)).toBe('Done on version 2. Claude revised it since. Mark the current version done.');
-      expect(markDoneTooltip(earlier)).toBe('Done on version 2. Claude revised it since. Mark this version done.');
+      expect(stopDoneCheckboxLabel(earlier, click)).toBe('Done. Done on version 2. Claude revised it since. Mark the current version done.');
    });
 
    it('name no version for a click on the current version of a stop that is done or not done', () => {
       expect([doneCheckboxLabel(4, done, doneClick(done, 3, null)), doneCheckboxLabel(4, none, doneClick(none, 3, null))]).toEqual(['Stop 4 done', 'Stop 4 done']);
       expect([doneRowLabel(done), doneRowLabel(none)]).toEqual(['done', null]);
-      expect([doneTooltip(done, doneClick(done, 3, null)), markDoneTooltip(done)]).toEqual(['Done. Take the mark back.', 'Take the done mark back.']);
+      expect([stopDoneCheckboxLabel(done, doneClick(done, 3, 3)), stopDoneCheckboxLabel(none, doneClick(none, 3, 3))]).toEqual(['Done', 'Done']);
+      expect([doneTooltip(done, doneClick(done, 3, null)), stopDoneTooltip(done, doneClick(done, 3, 3))]).toEqual(['Done. Take the mark back.', 'Done. Take the mark back.']);
       expect(doneTooltip(none, doneClick(none, 3, null))).not.toMatch(/version \d/);
-      expect(markDoneTooltip(none)).not.toMatch(/version \d/);
    });
 
    it('say that a click marks the earlier version that the page shows', () => {
@@ -55,5 +55,12 @@ describe('the done labels', () => {
 
       expect(doneTooltip(earlier, click)).toBe('Done on version 2. Claude revised it since. Take the mark back.');
       expect(doneCheckboxLabel(4, earlier, click)).toBe('Stop 4 done. Done on version 2. Claude revised it since. Take the mark back.');
+   });
+
+   it("say in the Stop panel that an earlier version that it shows takes no mark, and name the stop's done state", () => {
+      expect(stopDoneTooltip(none, doneClick(none, 3, 1))).toBe('Open the current version to mark the stop done.');
+      expect(stopDoneTooltip(earlier, doneClick(earlier, 3, 2))).toBe('Done on version 2. Claude revised it since. Open the current version to mark the stop done.');
+      expect(stopDoneTooltip(done, doneClick(done, 3, 1))).toBe('Done. Open the current version to take the mark back.');
+      expect(stopDoneCheckboxLabel(none, doneClick(none, 3, 1))).toBe('Done. Open the current version to mark the stop done.');
    });
 });

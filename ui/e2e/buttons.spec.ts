@@ -16,7 +16,7 @@ const stopPanel = (page: Page) => page.getByRole('region', { name: 'Stop', exact
 const threadsPanel = (page: Page) => page.getByRole('region', { name: 'Threads', exact: true });
 // The Plan panel's icon toggles are named "Skip stop N", so the exact name finds the Stop panel's button alone.
 const skipStop = (page: Page) => stopPanel(page).getByRole('button', { name: 'Skip stop', exact: true });
-const explainDeeper = (page: Page) => stopPanel(page).getByRole('region', { name: 'Tour actions' }).getByRole('button', { name: 'Explain deeper' });
+const askClaude = (page: Page) => stopPanel(page).getByRole('button', { name: 'Ask Claude', exact: true });
 
 /** Returns the button's colors as the page draws them, in sRGB. */
 async function colorsOf(button: Locator): Promise<ButtonColors> {
@@ -71,11 +71,8 @@ for (const theme of ['light', 'dark'] as const) {
          expect.soft(await edgeContrast(update), 'Move to update against the notice').toBeGreaterThanOrEqual(noticeEdgeFloor);
 
          await openStop(page, 'The new payment step');
-         await expect(explainDeeper(page)).toBeEnabled();
-         const stopButtons = { 'Skip stop': skipStop(page), 'Show inline': stopPanel(page).getByRole('button', { name: 'Show inline' }), 'Explain deeper': explainDeeper(page) };
-         for (const [name, button] of Object.entries(stopButtons)) {
-            expect.soft(await edgeContrast(button), `${name} against the card`).toBeGreaterThanOrEqual(edgeFloor);
-         }
+         await expect(askClaude(page)).toBeEnabled();
+         expect.soft(await edgeContrast(askClaude(page)), 'Ask Claude against the card').toBeGreaterThanOrEqual(edgeFloor);
 
          await threadsPanel(page)
             .getByRole('button', { name: /coupons apply before or after rounding/ })
@@ -98,14 +95,14 @@ for (const theme of ['light', 'dark'] as const) {
 
       test('changes the fill clearly on hover, of a text-label button and of an icon-only ghost button', async ({ page }) => {
          await openStop(page, 'The new payment step');
-         await expect(explainDeeper(page)).toBeEnabled();
+         await expect(askClaude(page)).toBeEnabled();
 
+         await expectHoverChange(page, askClaude(page), 'Ask Claude');
          await expectHoverChange(page, skipStop(page), 'Skip stop');
-         await expectHoverChange(page, explainDeeper(page), 'Explain deeper');
          await expectHoverChange(page, page.getByRole('button', { name: 'Maximize the stop' }), 'Maximize');
       });
 
-      test('marks a pressed Skip stop with the primary border and a fill of its own', async ({ page }) => {
+      test('marks a pressed Skip stop with the secondary fill, as the Plan panel marks a skipped stop', async ({ page }) => {
          await openStop(page, 'The new payment step');
          await expect(skipStop(page)).toHaveAttribute('aria-pressed', 'false');
          const unpressed = await shownFill(skipStop(page));
@@ -113,8 +110,8 @@ for (const theme of ['light', 'dark'] as const) {
          await openStop(page, 'The product data file');
          await expect(skipStop(page)).toHaveAttribute('aria-pressed', 'true');
          await page.mouse.move(0, 0);
-         const [border, primary] = await Promise.all([skipStop(page).evaluate((node) => getComputedStyle(node).borderTopColor), themeColor(skipStop(page), '--primary')]);
-         expect(border).toBe(primary);
+         const [fill, secondary] = await Promise.all([skipStop(page).evaluate((node) => getComputedStyle(node).backgroundColor), themeColor(skipStop(page), '--secondary')]);
+         expect(fill).toBe(secondary);
          expect(await shownFill(skipStop(page))).not.toEqual(unpressed);
       });
    });

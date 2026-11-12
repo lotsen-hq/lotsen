@@ -6,6 +6,7 @@ import type { WrittenStop } from '../../src/lib/types';
 import type { ClaudeSession, World } from '../backend/backend';
 import { attachClaude, backend, openStop, openTour, prLabel, readTour, seedTour, startApp, withEventHolds, withHolds } from '../harness';
 import { openTourList, tourButton } from '../tourPicker';
+import { chooseFromStopMenu, stopVersionItems } from './stopToolbar';
 
 beforeEach(() => {
    sessionStorage.clear();
@@ -280,9 +281,7 @@ describe('the stop under view', () => {
       expect(within(banner()!).getByText(/Claude revised this stop/)).toBeDefined();
       expect(stopPanel().getByText('Decide the rounding.')).toBeDefined();
       expect(app.stepPassages.map((known) => known.startLine)).toEqual([3]);
-      const picker = stopPanel().getByRole('combobox', { name: 'Stop version' }) as HTMLSelectElement;
-      expect(picker.value).toBe('1');
-      expect([...picker.options].map((option) => option.textContent)).toEqual(['Version 1', 'Version 2, current']);
+      expect(await stopVersionItems()).toEqual({ names: ['Version 1', 'Version 2, current'], checked: 'Version 1' });
 
       await waitFor(() => expect(app.connection).toBe('live'), { timeout: 10_000 });
       releaseConnects = transport.holdEvents();
@@ -409,9 +408,8 @@ describe('the stop under view', () => {
       expect(app.unsentAnswers).toBe(1);
       expect(stopPanel().queryByText('Dropped words.')).toBeNull();
 
-      const picker = stopPanel().getByRole('combobox', { name: 'Stop version' }) as HTMLSelectElement;
-      expect([...picker.options].map((option) => option.textContent)).toEqual(['Version 1', 'Version 2, current']);
-      await fireEvent.change(picker, { target: { value: '1' } });
+      expect(await stopVersionItems()).toEqual({ names: ['Version 1', 'Version 2, current'], checked: 'Version 2, current' });
+      await chooseFromStopMenu('More stop actions', 'Version 1', 'menuitemradio');
 
       await stopPanel().findByText('Decide the rounding.');
       expect(within(banner()!).getByText(/version 1 of 2/)).toBeDefined();

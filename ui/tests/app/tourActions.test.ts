@@ -7,6 +7,8 @@ import type { QuestionThread, RequestTourActionInput, Tour } from '../../src/lib
 import type { ClaudeSession, Transport, World } from '../backend/backend';
 import { attachClaude, backend, cartContent, openStop, openTour, prUrl, readTour, seedTour, settled, startApp } from '../harness';
 import { openTourList, tourButton } from '../tourPicker';
+import { reasonOf } from './planMenu';
+import { chooseStopAction, stopMenuButton } from './stopToolbar';
 import { toggleShown } from './threadFilter';
 
 beforeEach(() => {
@@ -61,11 +63,10 @@ async function open(world: World, stopId: string, transport?: Transport): Promis
 
 const stopPanel = () => within(screen.getByRole('region', { name: 'Stop' }));
 
-async function sendFromPanel(button: 'Explain deeper' | 'Revise', words: string) {
-   await waitFor(() => expect(stopPanel().getByRole('button', { name: button }).hasAttribute('disabled')).toBe(false));
-   await fireEvent.click(stopPanel().getByRole('button', { name: button }));
+async function sendFromPanel(action: 'Explain deeper' | 'Revise', words: string) {
+   await chooseStopAction(action);
    if (words !== '') {
-      const prompt = button === 'Revise' ? 'What should change?' : 'What should Claude explain? Optional';
+      const prompt = action === 'Revise' ? 'What should change?' : 'What should Claude explain? Optional';
       await fireEvent.input(stopPanel().getByRole('textbox', { name: prompt }), { target: { value: words } });
    }
 
@@ -195,9 +196,8 @@ describe("the Stop panel's tour actions", () => {
       const { world, stopIds } = await cartWorld(false);
       await open(world, stopIds[0]);
 
-      await waitFor(() => expect((stopPanel().getByRole('button', { name: 'Explain deeper' }) as HTMLButtonElement).disabled).toBe(true));
-      expect((stopPanel().getByRole('button', { name: 'Revise' }) as HTMLButtonElement).disabled).toBe(true);
-      expect(stopPanel().getByText(/is attached to no Claude Code session/)).toBeTruthy();
+      await waitFor(() => expect((stopMenuButton('Ask Claude') as HTMLButtonElement).disabled).toBe(true));
+      expect(reasonOf(stopMenuButton('Ask Claude')!)).toMatch(/is attached to no Claude Code session/);
    });
 
    it("shows the server's refusal of an action, and keeps the reviewer's words", async () => {
@@ -212,31 +212,65 @@ describe("the Stop panel's tour actions", () => {
       expect((stopPanel().getByRole('textbox') as HTMLTextAreaElement).value).toBe(words);
    });
 
+   it('shows a refusal only until the reviewer picks another action, goes back to the refused one, or cancels', async () => {
+      const { world, stopIds } = await cartWorld();
+      await open(world, stopIds[0]);
+      const refuse = async () => {
+         await sendFromPanel('Explain deeper', 'x'.repeat(10_001));
+         await stopPanel().findByRole('alert');
+      };
+
+      await refuse();
+      await chooseStopAction('Revise');
+      expect(stopPanel().queryByRole('alert')).toBeNull();
+      await chooseStopAction('Explain deeper');
+      expect(stopPanel().queryByRole('alert')).toBeNull();
+
+      await fireEvent.click(stopPanel().getByRole('button', { name: 'Send to Claude' }));
+      await stopPanel().findByRole('alert');
+      await chooseStopAction('Explain deeper');
+      expect(stopPanel().queryByRole('alert')).toBeNull();
+
+      await fireEvent.click(stopPanel().getByRole('button', { name: 'Send to Claude' }));
+      await stopPanel().findByRole('alert');
+      await fireEvent.click(stopPanel().getByRole('button', { name: 'Cancel' }));
+      await chooseStopAction('Explain deeper');
+      expect(stopPanel().queryByRole('alert')).toBeNull();
+   });
+
+   it('holds Ask Claude back while an action is on its way to the server, so the answer reaches the form that sent it', async () => {
+      const { world, stopIds } = await cartWorld();
+      const { transport } = await open(world, stopIds[0]);
+      const release = transport.hold('request_tour_action', 'request');
+
+      await sendFromPanel('Explain deeper', 'x'.repeat(10_001));
+
+      await waitFor(() => expect((stopMenuButton('Ask Claude') as HTMLButtonElement).disabled).toBe(true));
+      release();
+      expect((await stopPanel().findByRole('alert')).textContent).toMatch(/holds at most 10000 characters/);
+      expect((stopMenuButton('Ask Claude') as HTMLButtonElement).disabled).toBe(false);
+   });
+
    it('offers no action on a stop without content', async () => {
       const { world, stopIds } = await cartWorld();
       await open(world, stopIds[2]);
 
-      expect(stopPanel().queryByRole('button', { name: 'Explain deeper' })).toBeNull();
+      expect(stopMenuButton('Ask Claude')).toBeNull();
    });
 
    it('offers no action on an earlier version of the stop', async () => {
       const { world, tourId, stopIds, claude } = await cartWorld();
       await reviseOverview(claude!, tourId, stopIds[0]);
       const { app } = await open(world, stopIds[0]);
-      expect(stopPanel().getByRole('button', { name: 'Revise' })).toBeTruthy();
+      expect(stopMenuButton('Ask Claude')).toBeTruthy();
 
       app.openVersion(1);
 
-      await waitFor(() => expect(stopPanel().queryByRole('button', { name: 'Revise' })).toBeNull());
-      expect(stopPanel().queryByRole('button', { name: 'Explain deeper' })).toBeNull();
+      await waitFor(() => expect(stopMenuButton('Ask Claude')).toBeNull());
    });
 });
 
 describe("the words box of the Stop panel's actions", () => {
-   const chooseAction = async (action: 'Explain deeper' | 'Revise') => {
-      await waitFor(() => expect(stopPanel().getByRole('button', { name: action }).hasAttribute('disabled')).toBe(false));
-      await fireEvent.click(stopPanel().getByRole('button', { name: action }));
-   };
    const reviseBox = () => stopPanel().getByRole('textbox', { name: 'What should change?' }) as HTMLTextAreaElement;
    const sendButton = () => stopPanel().getByRole('button', { name: 'Send to Claude' }) as HTMLButtonElement;
 
@@ -244,7 +278,7 @@ describe("the words box of the Stop panel's actions", () => {
       const { world, stopIds } = await cartWorld();
       await open(world, stopIds[0]);
 
-      await chooseAction('Explain deeper');
+      await chooseStopAction('Explain deeper');
 
       const box = stopPanel().getByRole('textbox', { name: 'What should Claude explain? Optional' }) as HTMLTextAreaElement;
       expect(box.placeholder).toBe('Leave it empty and Claude explains the whole stop deeper.');
@@ -256,7 +290,7 @@ describe("the words box of the Stop panel's actions", () => {
       const { world, stopIds } = await cartWorld();
       await open(world, stopIds[0]);
 
-      await chooseAction('Revise');
+      await chooseStopAction('Revise');
 
       expect(reviseBox().hasAttribute('placeholder')).toBe(false);
       await waitFor(() => expect(document.activeElement).toBe(reviseBox()));
@@ -266,7 +300,7 @@ describe("the words box of the Stop panel's actions", () => {
       const { world, stopIds } = await cartWorld();
       await open(world, stopIds[0]);
 
-      await chooseAction('Revise');
+      await chooseStopAction('Revise');
       expect(sendButton().disabled).toBe(true);
 
       await fireEvent.input(reviseBox(), { target: { value: '   ' } });
@@ -279,7 +313,7 @@ describe("the words box of the Stop panel's actions", () => {
    it('sends no Revise without words on Ctrl+Enter, and sends one with words', async () => {
       const { world, tourId, stopIds } = await cartWorld();
       const { transport } = await open(world, stopIds[0]);
-      await chooseAction('Revise');
+      await chooseStopAction('Revise');
 
       await fireEvent.keyDown(reviseBox(), { key: 'Enter', ctrlKey: true });
       await fireEvent.input(reviseBox(), { target: { value: 'Shorter.' } });

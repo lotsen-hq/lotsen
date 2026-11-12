@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { attachClaude, backend, cartContent, openStop, openTour, readTour, seedTour, startApp, type SeededTour } from '../harness';
 import type { World } from '../backend/backend';
+import { stopMenuButton } from './stopToolbar';
 import { openThreadView } from './threadView';
 
 const threadsPanel = () => within(screen.getByRole('region', { name: 'Threads' }));
@@ -65,14 +66,14 @@ describe('the app on a real server', () => {
       const { app } = await startApp(world);
       await openTour(app);
       await openStop(app, stopIds[0]!);
-      await waitFor(() => expect(stopPanel().getByRole('button', { name: 'Explain deeper' }).hasAttribute('disabled')).toBe(false));
+      await waitFor(() => expect(stopMenuButton('Ask Claude')?.hasAttribute('disabled')).toBe(false));
 
       await claude.drop();
 
-      await waitFor(() => expect(stopPanel().getByRole('button', { name: 'Explain deeper' }).hasAttribute('disabled')).toBe(true));
+      await waitFor(() => expect(stopMenuButton('Ask Claude')?.hasAttribute('disabled')).toBe(true));
       expect(stopPanel().getByText(/is attached to no Claude Code session/)).toBeTruthy();
       await attachClaude(world, tourId);
-      await waitFor(() => expect(stopPanel().getByRole('button', { name: 'Explain deeper' }).hasAttribute('disabled')).toBe(false));
+      await waitFor(() => expect(stopMenuButton('Ask Claude')?.hasAttribute('disabled')).toBe(false));
    });
 
    it("keeps a question that waits while the server's answer to the ask is held, and applies the answer once released", async () => {

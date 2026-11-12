@@ -148,23 +148,24 @@ describe('marking a stop done', () => {
       expect(planPanel().getAllByRole('checkbox')).toHaveLength(3);
    });
 
-   it('offers Mark done in the Stop panel on the current version alone, and marks that version', async () => {
+   it('offers the done checkbox in the Stop panel, disabled on an earlier version, and marks the current version', async () => {
       const { world, tourId, stopIds } = await planWorld();
       await revise(world, tourId, stopIds[1]!);
       const { app, transport } = await open(world, stopIds[1]!);
-      const markDone = () => stopPanel().queryByRole('button', { name: 'Mark done' });
-      expect(markDone()!.getAttribute('aria-pressed')).toBe('false');
+      const doneCheck = () => stopPanel().queryByRole('checkbox', { name: /^Done/ }) as HTMLButtonElement | null;
+      expect([doneCheck()!.getAttribute('aria-checked'), doneCheck()!.getAttribute('aria-label')]).toEqual(['false', 'Done']);
 
       app.openVersion(1);
 
-      await waitFor(() => expect(markDone()).toBeNull());
+      await waitFor(() => expect(doneCheck()!.disabled).toBe(true));
+      expect(doneCheck()!.getAttribute('aria-label')).toBe('Done. Open the current version to mark the stop done.');
       app.openVersion(2);
-      await waitFor(() => expect(markDone()).not.toBeNull());
-      await fireEvent.click(markDone()!);
-      await waitFor(() => expect(markDone()!.getAttribute('aria-pressed')).toBe('true'));
+      await waitFor(() => expect(doneCheck()!.disabled).toBe(false));
+      await fireEvent.click(doneCheck()!);
+      await waitFor(() => expect(doneCheck()!.getAttribute('aria-checked')).toBe('true'));
       expect(doneWrites(transport)).toEqual([{ stopId: stopIds[1], version: 2 }]);
       await openStop(app, stopIds[3]!);
-      expect(markDone()).toBeNull();
+      expect(doneCheck()).toBeNull();
    });
 
    it("shows the server's reason when it refuses a mark of a stop that Claude dropped meanwhile", async () => {

@@ -6,6 +6,7 @@ import type { DiffLayout } from '../../src/lib/diffLayout';
 import { backend, startApp } from '../harness';
 import type { Template, Transport } from '../backend/backend';
 import { planPanel, resetPageEachTest, worldOf } from './appPanels';
+import { chooseFromStopMenu, expectNoStopMenuItem, expectStopMenuItem } from './stopToolbar';
 import { glance, numbered, openPinnedTour, passage, planStop, rounding, scrolledTo, seedStops, spyOnScrolls, stopNavigation, stopPanel, type PlannedStop, type StopsSeed } from './stopProseWorld';
 
 resetPageEachTest();
@@ -250,7 +251,7 @@ describe('the placement of the explanation', () => {
          const { release, checkId } = await goToCheck(inlineHint, 'mixed');
          expect(await stopPanel().findByText(fallbackNote)).toBeTruthy();
 
-         fireEvent.click(stopPanel().getByRole('button', { name: 'Keep here' }));
+         await chooseFromStopMenu('More stop actions', 'Keep here');
 
          await waitFor(() => expect(focusedCheck()?.dataset.checkId).toBe(checkId));
          const check = focusedCheck();
@@ -317,13 +318,13 @@ describe('the placement of the explanation', () => {
       fireEvent.click(stopNavigation().getByRole('button', { name: 'Previous stop' }));
       await stopPanel().findByRole('heading', { name: 'The change at a glance' });
 
-      fireEvent.click(stopPanel().getByRole('button', { name: 'Show inline' }));
+      await chooseFromStopMenu('More stop actions', 'Show inline');
 
       await waitFor(() => expect(lineAboveBlock()).toBe('cart line 7'));
       expect(stopPanel().getByText(note)).toBeTruthy();
       fireEvent.click(stopNavigation().getByRole('button', { name: 'Next stop' }));
       expect(await stopPanel().findByText(/Totals round to/)).toBeTruthy();
-      fireEvent.click(stopPanel().getByRole('button', { name: 'Show inline' }));
+      await chooseFromStopMenu('More stop actions', 'Show inline');
       await waitFor(() => expect(lineAboveBlock()).toBe('pay line 22'));
    });
 
@@ -333,52 +334,52 @@ describe('the placement of the explanation', () => {
       fireEvent.click(within(stopPanel().getByRole('list', { name: 'Code' })).getByRole('button', { name: /caller/ }));
       await scrolledTo(spies, 'Diff', 'src/pay.ts', 'head', 30);
 
-      fireEvent.click(stopPanel().getByRole('button', { name: 'Show inline' }));
+      await chooseFromStopMenu('More stop actions', 'Show inline');
 
       await scrolledTo(spies, 'Diff', 'src/cart.ts', 'head', 5);
       await waitFor(() => expect(lineAboveBlock()).toBe('cart line 7'));
       expect(await stopPanel().findByText(note)).toBeTruthy();
-      fireEvent.click(stopPanel().getByRole('button', { name: 'Show here' }));
+      await chooseFromStopMenu('More stop actions', 'Show here');
       await waitFor(() => expect(blocks()).toHaveLength(0));
-      expect(stopPanel().getByRole('button', { name: 'Show inline' })).toBeTruthy();
+      await expectStopMenuItem('More stop actions', 'Show inline');
    });
 
    it('lets the reviewer keep an inline stop in the Stop panel while its diff cannot show the block, and move it back', async () => {
       const { app, transport } = await openPlacedStop('Cart totals', { arrange: (network) => network.fail('diff_file', { status: 500 }) });
       await waitFor(() => expect(diffRequested(transport)).toBe(true));
 
-      fireEvent.click(await stopPanel().findByRole('button', { name: 'Keep here' }));
+      await chooseFromStopMenu('More stop actions', 'Keep here');
 
-      expect(await stopPanel().findByRole('button', { name: 'Show inline' })).toBeTruthy();
+      await expectStopMenuItem('More stop actions', 'Show inline');
       expect(app.placementOverride).toBe('side');
       expect(stopPanel().getByText(/Totals round to/)).toBeTruthy();
       expect(stopPanel().queryByText(fallbackNote)).toBeNull();
-      fireEvent.click(stopPanel().getByRole('button', { name: 'Show inline' }));
-      expect(await stopPanel().findByRole('button', { name: 'Keep here' })).toBeTruthy();
+      await chooseFromStopMenu('More stop actions', 'Show inline');
+      await expectStopMenuItem('More stop actions', 'Keep here');
       expect(app.placementOverride).toBe('inline');
    });
 
-   it('names the move button Keep here while the Stop panel shows an inline stop whose primary passage no editor shows, and keeps the stop there for good', async () => {
+   it('names the move item Keep here while the Stop panel shows an inline stop whose primary passage no editor shows, and keeps the stop there for good', async () => {
       const { app } = await openPlacedStop('Cart totals');
       await waitFor(() => expect(blocks()).toHaveLength(1));
-      expect(stopPanel().getByRole('button', { name: 'Show here' })).toBeTruthy();
+      await expectStopMenuItem('More stop actions', 'Show here');
       fireEvent.click(block().getByRole('link', { name: 'the cart' }));
       await scrolledTo(spies, 'Diff', 'src/cart.ts', 'head', 20);
       await waitFor(() => expect(blocks()).toHaveLength(0));
 
       expect(await stopPanel().findByText(/Totals round to/)).toBeTruthy();
       expect(stopPanel().getByText(fallbackNote)).toBeTruthy();
-      expect(stopPanel().queryByRole('button', { name: 'Show here' })).toBeNull();
+      await expectNoStopMenuItem('More stop actions', 'Show here');
       fireEvent.click(stopPanel().getByRole('button', { name: 'Go to the explanation' }));
       await waitFor(() => expect(lineAboveBlock()).toBe('pay line 22'));
-      expect(stopPanel().getByRole('button', { name: 'Show here' })).toBeTruthy();
+      await expectStopMenuItem('More stop actions', 'Show here');
       expect(stopPanel().queryByText(fallbackNote)).toBeNull();
 
       fireEvent.click(block().getByRole('link', { name: 'the cart' }));
       await waitFor(() => expect(blocks()).toHaveLength(0));
-      fireEvent.click(await stopPanel().findByRole('button', { name: 'Keep here' }));
+      await chooseFromStopMenu('More stop actions', 'Keep here');
 
-      expect(await stopPanel().findByRole('button', { name: 'Show inline' })).toBeTruthy();
+      await expectStopMenuItem('More stop actions', 'Show inline');
       expect(app.placementOverride).toBe('side');
       expect(stopPanel().queryByText(fallbackNote)).toBeNull();
       fireEvent.click(within(stopPanel().getByRole('list', { name: 'Code' })).getByRole('button', { name: /src\/pay\.ts/ }));

@@ -1,3 +1,4 @@
+import type { StopActionKind } from './tourActions';
 import type { Offer, PendingWork, QuestionOutcome, QuestionThread, StopOffers, ThreadOffers, TourControls } from './types';
 
 /** Why the page cannot use a control before the tour's controls arrive with its load. */
@@ -32,6 +33,12 @@ export function isOpen(offer: Offer | undefined): boolean {
 /** Returns the controls of the stop's tour actions, or undefined while the page has none for the stop. */
 export function stopOffers(controls: TourControls | null, stopId: string): StopOffers | undefined {
    return controls?.offers.stops[stopId];
+}
+
+/** Returns why each tour action of the stop is disabled, as `disabledReason` says, or null for an action that is enabled. */
+export function stopActionReasons(controls: TourControls | null, stopId: string): Record<StopActionKind, string | null> {
+   const offers = stopOffers(controls, stopId);
+   return { explain: disabledReason(offers?.explain), revise: disabledReason(offers?.revise) };
 }
 
 /** Returns the controls of the thread, or undefined while the page has none for it. */

@@ -99,22 +99,33 @@ export function doneTooltip(done: DoneState, click: DoneClick): string {
  * the mark is on an earlier version or the click targets one.
  */
 export function doneCheckboxLabel(number: number, done: DoneState, click: DoneClick): string {
-   return done.state !== 'earlier' && !click.earlier ? `Stop ${number} done` : `Stop ${number} done. ${doneTooltip(done, click)}`;
+   return checkboxLabel(`Stop ${number} done`, done, click, doneTooltip(done, click));
+}
+
+/**
+ * Returns the tooltip of the Stop panel's done checkbox: the plan's tooltip on the current version. While the panel shows an earlier version, which a mark there would not cover, the checkbox
+ * is disabled, and the tooltip says the done state and that the current version takes the mark.
+ */
+export function stopDoneTooltip(done: DoneState, click: DoneClick): string {
+   if (!click.earlier) {
+      return doneTooltip(done, click);
+   }
+
+   return done.state === 'done' ? 'Done. Open the current version to take the mark back.' : `${earlierDoneText(done) ?? ''} Open the current version to mark the stop done.`.trimStart();
+}
+
+/** Returns the accessible label of the Stop panel's done checkbox, which adds the tooltip as `doneCheckboxLabel` does. */
+export function stopDoneCheckboxLabel(done: DoneState, click: DoneClick): string {
+   return checkboxLabel('Done', done, click, stopDoneTooltip(done, click));
+}
+
+function checkboxLabel(name: string, done: DoneState, click: DoneClick, tooltip: string): string {
+   return done.state !== 'earlier' && !click.earlier ? name : `${name}. ${tooltip}`;
 }
 
 /** Returns what a plan row's label adds for a done state, or null when the stop is not done. */
 export function doneRowLabel(done: DoneState): string | null {
    return done.state === 'done' ? 'done' : done.state === 'earlier' ? `done on version ${done.version}` : null;
-}
-
-/** Returns the tooltip of the stop header's Mark done button, which says what a click does. */
-export function markDoneTooltip(done: DoneState): string {
-   const earlier = earlierDoneText(done);
-   if (earlier !== null) {
-      return `${earlier} Mark this version done.`;
-   }
-
-   return done.state === 'done' ? 'Take the done mark back.' : 'Mark this version of the stop done. If Claude revises the stop, the plan shows that you read an earlier version.';
 }
 
 /** What the plan approval form says about a stop that the reviewer skips before the approval. */

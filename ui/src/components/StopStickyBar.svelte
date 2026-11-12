@@ -1,6 +1,6 @@
 <!--
-   A one-line repeat of a stop's title and notices at the top of the Stop panel, which the panel shows once the full header has scrolled away.
-   The bar overlays the content, so showing it moves nothing. It repeats the full header, so it holds no controls and assistive technology skips it.
+   A one-line repeat of a stop's title and notices at the top of the Stop panel, which the panel shows once the header, the stop toolbar and the notices have scrolled away.
+   The bar overlays the content, so showing it moves nothing. It repeats the header, so it holds no controls and assistive technology skips it.
 -->
 <script lang="ts">
    import TriangleAlert from '@lucide/svelte/icons/triangle-alert';

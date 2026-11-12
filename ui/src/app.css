@@ -434,7 +434,7 @@
       @apply hover:bg-card;
    }
 
-   :is(.plan .stop-item, .stop-order-row) .skip-toggle {
+   :is(.plan .stop-item, .stop-order-row, .stop-toolbar) .skip-toggle {
       @apply shrink-0 text-muted-foreground;
    }
 
@@ -452,7 +452,7 @@
    }
 
    /* A done stop's check takes the success color. A stop done on an earlier version keeps the muted color and has its own icon. */
-   .plan .stop-item .done-toggle {
+   :is(.plan .stop-item, .stop-toolbar) .done-toggle {
       @apply shrink-0 text-muted-foreground hover:text-foreground;
 
       &.checked {

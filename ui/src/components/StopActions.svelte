@@ -1,25 +1,27 @@
 <!--
-   The tour actions of the open stop in the Stop panel: Explain deeper with the reviewer's optional words, Revise with the words it needs, and the actions of the stop that wait for Claude, each with a link
-   to its thread. Each button is disabled with the server's reason while the tour's controls close it, and absent where the page offers no action.
+   The tour actions of the open stop in the Stop panel below the stop toolbar: the form of the action that the reviewer chose from Ask Claude, Explain deeper with the reviewer's optional words or
+   Revise with the words it needs, and the actions of the stop that wait for Claude, each with a link to its thread.
 -->
 <script lang="ts">
    import LoaderCircle from '@lucide/svelte/icons/loader-circle';
-   import { tick } from 'svelte';
    import { Button } from '$lib/components/ui/button';
-   import { disabledReason, stopOffers, threadsOf } from '../lib/controls';
+   import { stopActionReasons, threadsOf } from '../lib/controls';
    import { actionOf } from '../lib/threadView';
-   import { tourActionLabels, tourActionPending, tourActionPlaceholders, tourActionPrompts, type StopActionKind } from '../lib/tourActions';
+   import { tourActionPending, tourActionPlaceholders, tourActionPrompts, type StopActionKind } from '../lib/tourActions';
    import type { QuestionThread, TourControls } from '../lib/types';
    import ActionWords from './ActionWords.svelte';
 
    let {
       stopId,
+      sending = $bindable(false),
       threads,
       controls,
       onaction,
       onopenthread,
    }: {
       stopId: string;
+      /** Whether an action of the form is on its way to the server. */
+      sending?: boolean;
       /** The tour's threads, among which the stop's waiting actions are. */
       threads: readonly QuestionThread[];
       /** The tour's controls, which say whether each action can go and which threads of the stop wait, or null while the page has none. */
@@ -29,26 +31,29 @@
       onopenthread: (threadId: string) => void;
    } = $props();
 
-   const id = $props.id();
-   const kinds: readonly StopActionKind[] = ['explain', 'revise'];
    let chosen = $state<StopActionKind | null>(null);
    let text = $state('');
-   let sending = $state(false);
    let refusal = $state<string | null>(null);
    let box = $state<ActionWords>();
 
-   const offers = $derived(stopOffers(controls, stopId));
-   const reasons = $derived({ explain: disabledReason(offers?.explain), revise: disabledReason(offers?.revise) });
-   // Both actions usually share their reason, such as an unattached session, so the panel shows each reason once.
-   const shownReasons = $derived([...new Set(kinds.map((kind) => reasons[kind]).filter((reason) => reason !== null))]);
+   const reasons = $derived(stopActionReasons(controls, stopId));
    const waiting = $derived(threadsOf(threads, controls?.offers.pending.stops[stopId]));
    const ready = $derived(chosen !== 'revise' || text.trim() !== '');
 
-   async function choose(kind: StopActionKind): Promise<void> {
-      chosen = chosen === kind ? null : kind;
+   /** Shows the form of the action with no refusal. */
+   export function open(kind: StopActionKind): void {
+      chosen = kind;
       refusal = null;
-      await tick();
+   }
+
+   /** Moves the focus to the box of the chosen action's form. */
+   export function focus(): void {
       box?.focus();
+   }
+
+   function close(): void {
+      chosen = null;
+      refusal = null;
    }
 
    async function send(event: SubmitEvent): Promise<void> {
@@ -69,21 +74,6 @@
 
 <section class="mt-3 flex flex-col gap-2" aria-label="Tour actions">
    {#if onaction !== null}
-      <div class="flex flex-wrap items-center gap-2">
-         {#each kinds as kind (kind)}
-            <Button
-               variant={chosen === kind ? 'secondary' : 'outline'}
-               size="sm"
-               disabled={reasons[kind] !== null}
-               aria-expanded={chosen === kind}
-               aria-describedby={reasons[kind] === null ? undefined : `${id}-unavailable-${shownReasons.indexOf(reasons[kind])}`}
-               onclick={() => choose(kind)}>{tourActionLabels[kind]}</Button
-            >
-         {/each}
-      </div>
-      {#each shownReasons as reason, index (reason)}
-         <p id="{id}-unavailable-{index}" class="text-xs text-muted-foreground">{reason}</p>
-      {/each}
       {#if chosen !== null && reasons[chosen] === null}
          <form class="flex flex-col gap-2" onsubmit={send}>
             <ActionWords bind:this={box} bind:text question={tourActionPrompts[chosen]} placeholder={tourActionPlaceholders[chosen]} />
@@ -91,7 +81,7 @@
                <p class="text-sm text-destructive" role="alert">{refusal}</p>
             {/if}
             <div class="flex justify-end gap-2">
-               <Button type="button" variant="outline" size="sm" onclick={() => (chosen = null)}>Cancel</Button>
+               <Button type="button" variant="outline" size="sm" onclick={close}>Cancel</Button>
                <Button type="submit" size="sm" disabled={!ready} aria-disabled={sending}>Send to Claude</Button>
             </div>
          </form>

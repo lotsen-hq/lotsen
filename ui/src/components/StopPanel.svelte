@@ -1,16 +1,10 @@
 <script lang="ts">
-   import CopyCheck from '@lucide/svelte/icons/copy-check';
-   import SkipForward from '@lucide/svelte/icons/skip-forward';
-   import Square from '@lucide/svelte/icons/square';
-   import SquareCheck from '@lucide/svelte/icons/square-check';
    import { Button } from '$lib/components/ui/button';
    import type { ExplanationView } from '../lib/explanationView.svelte';
-   import { markDoneTooltip, skipTooltip } from '../lib/labels';
    import { panelDocument } from '../lib/panelDocument.svelte';
    import { primaryPassage } from '../lib/placement';
    import { stopThreads } from '../lib/threadView';
    import type { StopActionKind } from '../lib/tourActions';
-   import { versionOf } from '../lib/stops';
    import { staleNoticeText, versionNoticeText } from '../lib/stopNotices';
    import type { CodeReference, Stop, TourControls } from '../lib/types';
    import type { DoneState } from '../lib/tourRecord.svelte';
@@ -21,10 +15,9 @@
    import StopPassages from './StopPassages.svelte';
    import StopStaleNotice from './StopStaleNotice.svelte';
    import StopStickyBar from './StopStickyBar.svelte';
+   import StopToolbar from './StopToolbar.svelte';
    import StopVersionBanner from './StopVersionBanner.svelte';
-   import StopVersionPicker from './StopVersionPicker.svelte';
    import ThreadMarkers from './ThreadMarkers.svelte';
-   import TooltipButton from './TooltipButton.svelte';
 
    let {
       stop,
@@ -61,7 +54,7 @@
       skipped?: boolean;
       /** Skips the stop or takes its skip back, and returns null once the server stored it or its reason for a refusal, or null when the page offers no skip. */
       onskip?: ((skipped: boolean) => Promise<string | null>) | null;
-      /** Whether the reviewer marked the stop done, as the stop's current version gives it. */
+      /** The stop's done state, which compares the reviewer's done mark with the stop's current version. */
       done?: DoneState;
       /** Marks a version of the stop done, or takes the mark back for null, and returns null once the server stored it or its reason for a refusal, or null when the page offers no done mark. */
       onsetdone?: ((version: number | null) => Promise<string | null>) | null;
@@ -69,34 +62,8 @@
       planWaits?: boolean;
    } = $props();
 
-   let skipping = $state(false);
-   let skipRefusal = $state<string | null>(null);
-
-   async function toggleSkip(): Promise<void> {
-      if (onskip === null || skipping) {
-         return;
-      }
-
-      skipping = true;
-      skipRefusal = await onskip(!skipped);
-      skipping = false;
-   }
-
-   let marking = $state(false);
-   let doneRefusal = $state<string | null>(null);
-
-   // A done mark covers the version that the reviewer read, so the button shows only on the current version.
-   const markable = $derived(onsetdone !== null && stop.stage === 'written' && current !== undefined && (versionOf(stop) ?? current) === current);
-
-   async function toggleDone(): Promise<void> {
-      if (onsetdone === null || current === undefined || marking) {
-         return;
-      }
-
-      marking = true;
-      doneRefusal = await onsetdone(done.state === 'done' ? null : current);
-      marking = false;
-   }
+   let actions = $state<StopActions>();
+   let sending = $state(false);
 
    const primary = $derived(primaryPassage(stop));
    const inline = $derived(view.host === 'inline');
@@ -140,28 +107,23 @@
             <StopKindPill kind={stop.kind} />
             <h3 class="min-w-40 flex-1 text-lg font-semibold">{stop.title}</h3>
             <ThreadMarkers threads={stopThreads(view.threads, stop.id)} onopenthread={(threadId) => view.openThread(threadId)} />
-            {#if versions.length > 0 && current !== undefined}
-               <StopVersionPicker {versions} {current} shown={versionOf(stop) ?? current} {onopenversion} />
-            {/if}
-            {#if onskip !== null}
-               <!-- A skip belongs to the stop, not to a version, so an earlier version offers it too. -->
-               <TooltipButton tooltip={skipTooltip(skipped)} variant="outline" size="sm" aria-pressed={skipped} disabled={skipping} onclick={toggleSkip}><SkipForward />Skip stop</TooltipButton>
-            {/if}
-            {#if markable}
-               <TooltipButton tooltip={markDoneTooltip(done)} variant="outline" size="sm" aria-pressed={done.state === 'done'} disabled={marking} onclick={toggleDone}>
-                  {#if done.state === 'done'}<SquareCheck />{:else if done.state === 'earlier'}<CopyCheck />{:else}<Square />{/if}Mark done
-               </TooltipButton>
-            {/if}
-            {#if view.movable && stop.stage === 'written'}
-               <Button variant="outline" size="sm" class="ml-auto" onclick={() => view.move(move.to)}>{move.label}</Button>
-            {/if}
          </header>
-         {#if skipRefusal !== null}
-            <p class="mt-1 text-xs text-destructive" role="alert">{skipRefusal}</p>
-         {/if}
-         {#if doneRefusal !== null}
-            <p class="mt-1 text-xs text-destructive" role="alert">{doneRefusal}</p>
-         {/if}
+         <StopToolbar
+            {stop}
+            move={view.movable && stop.stage === 'written' ? { ...move, run: () => view.move(move.to) } : null}
+            onchoose={(kind) => actions?.open(kind)}
+            onfocusform={() => actions?.focus()}
+            offersActions={onaction !== null}
+            {sending}
+            {controls}
+            {versions}
+            {current}
+            {onopenversion}
+            {skipped}
+            {onskip}
+            {done}
+            {onsetdone}
+         />
          {#if shownVersion !== null}
             {@const current = shownVersion.current}
             <StopVersionBanner shown={shownVersion} onshowcurrent={() => onopenversion(current)} />
@@ -173,7 +135,7 @@
       {#if stop.stage === 'pending'}
          <p class="mt-2 text-muted-foreground">{planWaits ? 'Claude writes this stop once you approve the plan in the Plan panel.' : 'Claude has not written this stop yet.'}</p>
       {:else}
-         <StopActions stopId={stop.id} threads={view.threads} {controls} {onaction} onopenthread={(threadId) => view.openThread(threadId)} />
+         <StopActions bind:this={actions} bind:sending stopId={stop.id} threads={view.threads} {controls} {onaction} onopenthread={(threadId) => view.openThread(threadId)} />
          {#if inline}
             <p class="mt-2 text-muted-foreground">The explanation shows in the code, below the primary passage.</p>
             {#if primary !== null}

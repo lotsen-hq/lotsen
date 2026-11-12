@@ -164,8 +164,8 @@ describe('the stops of a tour', () => {
       await openPinnedTour(app);
       fireEvent.click(planStop('The change at a glance'));
       await stopPanel().findByText('The cart checks its quantities.');
-      // The tour actions open their words with buttons of their own, which are no sections.
-      const outsideActions = (buttons: HTMLElement[]) => buttons.filter((button) => button.closest('[aria-label="Tour actions"]') === null);
+      // The stop toolbar's menu buttons are no sections.
+      const outsideActions = (buttons: HTMLElement[]) => buttons.filter((button) => button.closest('.stop-toolbar') === null);
       const sections = () =>
          outsideActions(
             stopPanel()
