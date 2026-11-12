@@ -168,6 +168,32 @@ test.describe('the workspace', () => {
       const [anchor, tip] = [(await save.boundingBox())!, (await tooltip.boundingBox())!];
       expect(Math.abs(tip.x + tip.width / 2 - (anchor.x + anchor.width / 2))).toBeLessThan(anchor.width);
    });
+
+   /** A modal would turn off the pointer on the page behind it, so only a popover shows whether a sash stacks above an overlay. */
+   test('keeps the tour picker above the sash between the Plan and Code groups, where the pointer reaches the picker', async ({ page }) => {
+      await page.setViewportSize({ width: 1440, height: 600 });
+      await openDemoTour(page, checkoutTour);
+
+      await page.getByRole('button', { name: /^Tour: .+, choose another$/ }).click();
+      const tours = page.getByRole('navigation', { name: 'Tours' });
+      await expect(tours).toBeVisible();
+
+      const covered = await tours.evaluate((list) => {
+         const area = list.getBoundingClientRect();
+         return [...document.querySelectorAll('.dv-sash')].flatMap((sash) => {
+            const box = sash.getBoundingClientRect();
+            const x = box.x + box.width / 2;
+            if (box.width === 0 || x <= area.left || x >= area.right || box.top >= area.bottom || box.bottom <= area.top) {
+               return [];
+            }
+
+            const y = (Math.max(box.top, area.top) + Math.min(box.bottom, area.bottom)) / 2;
+            return [{ x, y, inPicker: list.contains(document.elementFromPoint(x, y)) }];
+         });
+      });
+      expect(covered.length).toBeGreaterThan(0);
+      expect(covered.filter((point) => !point.inPicker)).toEqual([]);
+   });
 });
 
 /** Saves the workspace layout under the name from the Panels menu. */
