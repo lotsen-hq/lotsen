@@ -17,18 +17,11 @@
       return () => subscription.dispose();
    });
 
-   let popout = $state(false);
-   $effect(() => {
-      popout = group.api.location.type === 'popout';
-      const subscription = group.api.onDidLocationChange((event) => (popout = event.location.type === 'popout'));
-      return () => subscription.dispose();
-   });
-
    const maximized = $derived(layout.maximizedGroup === group.id);
 </script>
 
-<!-- The buttons act on the group's active panel, the one that its tab row shows. A popout window holds no buttons, because closing the window returns its panel. -->
-{#if active !== null && !popout}
+<!-- The buttons act on the group's active panel, the one that its tab row shows. A popout window holds no buttons, because closing the window returns its panel, and a panel whose window opens has none either. -->
+{#if active !== null && !layout.poppedOut[active] && !layout.opening[active]}
    {@const panel = active}
    {@const title = layout.label(panel)}
    <div class="flex h-full items-center pr-1">
@@ -45,7 +38,7 @@
             <Maximize />
          {/if}
       </TooltipButton>
-      <TooltipButton tooltip="Pop out" variant="ghost" size="icon-xs" aria-label={`Pop out ${title}`} onclick={() => layout.popOut(panel)}>
+      <TooltipButton tooltip="Pop out" variant="ghost" size="icon-xs" aria-label={`Pop out ${title}`} onclick={() => void layout.popOut(panel)}>
          <PopOut />
       </TooltipButton>
       {#if !maximized}

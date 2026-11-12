@@ -1,6 +1,6 @@
-import type { DockviewApi, DockviewGroupPanel, IDockviewPanel } from 'dockview';
+import type { DockviewApi, DockviewGroupPanel, IDockviewGroupPanel, IDockviewPanel } from 'dockview';
 import { arrangementRecord, type ArrangementId } from './arrangements';
-import { layoutVersion, type LayoutRecord, type PanelHome } from './layoutRecord';
+import { layoutVersion, withoutPopouts, type LayoutRecord, type PanelHome } from './layoutRecord';
 import { panelIds, type PanelId } from './workspacePanels';
 
 /**
@@ -11,10 +11,16 @@ import { panelIds, type PanelId } from './workspacePanels';
  *
  * It saves the workspace layout as a {@link LayoutRecord} after each change but the page's own, and loads one. A load is the page's own change, so a layout that the workspace
  * falls back to stays unsaved until the reviewer changes it.
+ *
+ * It also holds which panels show in a popout window. A popout window holds one panel, because Dockview's Pop out takes one and the workspace refuses a drop from another window.
  */
 export class WorkspaceLayout {
    /** Whether each panel is hidden from the Panels menu or its group's Hide button. A maximized group hides the others without hiding their panels. */
    hidden = $state<Record<PanelId, boolean>>({ files: false, plan: false, diff: false, stop: false, threads: false });
+   /** Whether each panel shows in a popout window. Such a panel shows, so it is not hidden. */
+   poppedOut = $state<Record<PanelId, boolean>>({ files: false, plan: false, diff: false, stop: false, threads: false });
+   /** Whether each panel's popout window is opening, from the Pop out click until Dockview's open of the window has settled, opened or not. */
+   opening = $state<Record<PanelId, boolean>>({ files: false, plan: false, diff: false, stop: false, threads: false });
    /** The id of the Dockview group that fills the workspace, or null when every group has its own place. */
    maximizedGroup = $state<string | null>(null);
    /** The number of layouts that {@link WorkspaceLayout.load} loaded, which changes with each load. */
@@ -28,24 +34,62 @@ export class WorkspaceLayout {
    // The number of the page's own changes whose report from Dockview has not arrived yet, as quietly says.
    private quiet = 0;
    private origins: Partial<Record<PanelId, PanelHome>> = {};
+   // The panels to hide once their popout window has opened or failed to, and has returned them to the main window.
+   private closing: Partial<Record<PanelId, true>> = {};
+   private popouts: { window: Window; teardown: () => void }[] = [];
 
    /**
     * Lets this class read and change the workspace layout that Dockview holds.
     *
     * @param save Keeps the workspace layout after each change, other than one that {@link WorkspaceLayout.quietly} makes.
+    * @param preparePopout Sets up the page of a popout window that opens, and returns a function that undoes it as the window closes.
     * @returns A function that detaches this class again, for when the workspace unmounts.
     */
-   attach(api: DockviewApi, save: (record: LayoutRecord) => void): () => void {
+   attach(api: DockviewApi, save: (record: LayoutRecord) => void, preparePopout: (popout: Window) => () => void = () => () => {}): () => void {
       this.api = api;
       this.save = save;
       const read = () => (this.maximizedGroup = api.groups.find((group) => group.api.isMaximized())?.id ?? null);
       // Dockview hides a group by giving it no size (ViewItem.setVisible in dockview-core 8.9.0's splitview.ts), so the hidden attribute also takes the group out of
       // the tab order and the accessibility tree.
       const follow = (group: DockviewGroupPanel) => group.api.onDidVisibilityChange((event) => (group.element.hidden = !event.isVisible));
-      const subscriptions = [api.onDidMaximizedGroupChange(read), api.onDidLayoutChange(() => this.quiet === 0 && this.persist()), api.onDidAddGroup(follow), ...api.groups.map(follow)];
+      const locate = () => {
+         for (const id of panelIds) {
+            this.poppedOut[id] = api.getPanel(id)?.api.location.type === 'popout';
+         }
+      };
+      // Each teardown goes with its window, because a popout's group id can change while it is open, and the removal event reports a closed window as null.
+      const release = (popout: Window | null) => {
+         this.popouts.filter((entry) => entry.window === popout).forEach((entry) => entry.teardown());
+         this.popouts = this.popouts.filter((entry) => entry.window !== popout);
+      };
+      const subscriptions = [
+         api.onDidMaximizedGroupChange(read),
+         api.onDidLayoutChange(() => this.quiet === 0 && this.persist()),
+         api.onDidAddGroup(follow),
+         ...api.groups.map(follow),
+         // Dockview fires it for each panel that a popout window takes or returns, also when a load closes the window, once the panel's element is in its new group and document
+         // (fireDidMovePanel in dockview-core 8.9.0's dockviewComponent.ts), as popout.spec.ts checks.
+         api.onDidMovePanel(locate),
+         api.onDidLayoutFromJSON(locate),
+         api.onDidAddPopoutGroup(({ window }) => window && this.popouts.push({ window, teardown: preparePopout(window) })),
+         api.onWillClosePopoutWindow(({ window }) => release(window)),
+         // Dockview fires it while it still returns the window's panels to the main window (disposePopoutWindow in dockview-core 8.9.0's dockviewComponent.ts), so the settling waits.
+         api.onDidRemovePopoutGroup(() => queueMicrotask(() => this.api === api && this.settle())),
+         // An overlay without a group is at an edge of the main window's layout, the only place where Dockview fires one (wireEdgeDropTarget in dockview-core 8.9.0's dockviewComponent.ts).
+         api.onWillShowOverlay((event) => {
+            const source = event.getData();
+            const from = source === undefined ? undefined : api.getGroup(source.groupId);
+            if (from !== undefined && windowOf(from) !== (event.group === undefined ? window : windowOf(event.group))) {
+               event.preventDefault();
+            }
+         }),
+      ];
       read();
+      locate();
       return () => {
          subscriptions.forEach((subscription) => subscription.dispose());
+         this.popouts.forEach((entry) => entry.teardown());
+         this.popouts = [];
          if (this.api === api) {
             this.api = null;
             this.save = null;
@@ -59,7 +103,7 @@ export class WorkspaceLayout {
          return null;
       }
 
-      const dockview = this.api.toJSON();
+      const dockview = withoutPopouts(this.api.toJSON());
       // The grid holds the maximized group's place too, which SerializedDockview's type omits (Gridview.serialize in dockview-core 8.9.0's gridview.ts).
       delete (dockview.grid as typeof dockview.grid & { maximizedNode?: unknown }).maximizedNode;
       const hidden = panelIds.filter((id) => this.hidden[id]).map((id) => ({ id, home: this.origins[id] ?? null }));
@@ -69,7 +113,8 @@ export class WorkspaceLayout {
    /**
     * Lays out the workspace as the record says, and hides its hidden panels again, as a change of the page's own that saves nothing.
     *
-    * The panels that the workspace holds stay mounted, so each keeps its state.
+    * The panels that the workspace holds stay mounted, so each keeps its state. Each popout window closes, and its panel goes where the record says. A window that is still
+    * opening closes once it has opened, as {@link WorkspaceLayout.popOut} does.
     *
     * @returns Whether Dockview loaded the record. When it did not, the workspace's layout is undefined, and the caller lays out another one.
     */
@@ -81,18 +126,30 @@ export class WorkspaceLayout {
 
       return this.quietly(() => {
          try {
+            // A load while every group of a column hides lays the groups out at no width, as popout.spec.ts shows, so the workspace keeps the size that it had.
+            const { width, height } = api;
             api.fromJSON(record.dockview, { reuseExistingPanels: true });
+            if (width > 0 && height > 0 && (api.width !== width || api.height !== height)) {
+               api.layout(width, height, true);
+            }
             this.origins = {};
+            this.closing = {};
             for (const id of panelIds) {
                this.hidden[id] = false;
             }
 
             for (const { id, home } of record.hidden) {
-               api.getPanel(id)?.group.api.setVisible(false);
-               this.hidden[id] = true;
+               const panel = api.getPanel(id);
+               if (panel === undefined) {
+                  continue;
+               }
+
                if (home !== null) {
                   this.origins[id] = home;
                }
+
+               this.conceal(id, panel);
+               this.hidden[id] = true;
             }
 
             // A group that loads hidden fires no change of its visibility.
@@ -180,6 +237,9 @@ export class WorkspaceLayout {
    /**
     * Hides the panel and restores a maximized group first, so the change shows.
     *
+    * A panel in a popout window hides once its window has closed and returned it to its place in the main window. A panel whose window is opening hides once the window has
+    * opened and closed again, or failed to open.
+    *
     * @param focusMenu Whether to move focus to the Panels menu, because the button that hid the panel hides with it.
     */
    hide(id: PanelId, focusMenu = false): void {
@@ -189,15 +249,17 @@ export class WorkspaceLayout {
          return;
       }
 
-      this.exitMaximized();
-      const group = panel.group;
-      if (group.panels.length > 1) {
-         // A floating group sits over the grid, so the panel leaves without a split that would resize the groups around it.
-         this.origins[id] = { groupId: group.id, index: group.panels.indexOf(panel) };
-         api.addFloatingGroup(panel);
+      if (this.poppedOut[id] || this.opening[id]) {
+         this.closing[id] = true;
+         if (this.poppedOut[id]) {
+            windowOf(panel.group).close();
+         }
+
+         return;
       }
 
-      panel.group.api.setVisible(false);
+      this.exitMaximized();
+      this.conceal(id, panel);
       this.hidden[id] = true;
       this.persist();
       if (focusMenu) {
@@ -205,10 +267,19 @@ export class WorkspaceLayout {
       }
    }
 
-   /** Shows a hidden panel as the active tab of its group, back in the group it shared when that group still shows, and restores another maximized group first. */
+   /**
+    * Shows a hidden panel as the active tab of its group, back in the group it shared when that group still shows, and restores another maximized group first.
+    *
+    * A panel in a popout window only becomes the active tab there, and the main window stays as it is.
+    */
    reveal(id: PanelId): void {
       const panel = this.api?.getPanel(id);
       if (!panel) {
+         return;
+      }
+
+      if (this.poppedOut[id]) {
+         panel.api.setActive();
          return;
       }
 
@@ -220,10 +291,10 @@ export class WorkspaceLayout {
       panel.api.setActive();
    }
 
-   /** Maximizes the panel's group, or restores it when it is the maximized one. */
+   /** Maximizes the panel's group, or restores it when it is the maximized one. A panel in a popout window fills its window already, so this leaves it as it is. */
    toggleMaximized(id: PanelId): void {
       const panel = this.api?.getPanel(id);
-      if (!panel) {
+      if (!panel || this.poppedOut[id]) {
          return;
       }
 
@@ -237,16 +308,37 @@ export class WorkspaceLayout {
    /**
     * Moves the panel into a popout window of its own and restores a maximized group first. Closing the window returns the panel to its group.
     *
-    * Call it from the reviewer's click, because the browser blocks a window that opens without one.
+    * Call it from the reviewer's click, because the browser blocks a window that opens without one. When the window does not open, the panel stays in its group, and the group
+    * that was maximized is maximized again. When a layout loads while the window opens, the window closes again once it has opened.
     */
-   popOut(id: PanelId): void {
-      const panel = this.api?.getPanel(id);
-      if (!panel) {
+   async popOut(id: PanelId): Promise<void> {
+      const api = this.api;
+      const panel = api?.getPanel(id);
+      if (!api || !panel || this.poppedOut[id] || this.opening[id]) {
          return;
       }
 
+      const maximized = api.groups.find((group) => group.api.isMaximized());
       this.exitMaximized();
-      void this.api?.addPopoutGroup(panel);
+      this.opening[id] = true;
+      const loads = this.loads;
+      const before = api.getPopouts().map((popout) => popout.window);
+      const opened = await api.addPopoutGroup(panel).finally(() => (this.opening[id] = false));
+      if (this.api !== api) {
+         return;
+      }
+
+      if (this.loads !== loads) {
+         // Dockview opens the window even after a load that came during the open, with the panel or with a group that the load removed. Closing it returns the panel to where
+         // the load put it, as panelLayout.test.ts checks.
+         delete this.closing[id];
+         api.getPopouts().forEach(({ window }) => window !== null && !before.includes(window) && window.close());
+      } else if (this.closing[id]) {
+         delete this.closing[id];
+         this.hide(id);
+      } else if (!opened && maximized !== undefined && api.groups.includes(maximized) && !api.hasMaximizedGroup()) {
+         maximized.api.maximize();
+      }
    }
 
    /** Returns the workspace's panel of a Dockview group's active panel, or null when the group shows none. */
@@ -267,8 +359,10 @@ export class WorkspaceLayout {
       const home = origin === undefined ? undefined : api.groups.find((group) => group.id === origin.groupId);
       if (panel.group.api.location.type === 'grid') {
          panel.group.api.setVisible(true);
-      } else if (origin && home?.api.isVisible) {
+      } else if (origin && home && (home.api.isVisible || home.panels.length === 0)) {
+         // A hidden group without panels is the place of a popout window's panel, which comes back to it beside this one.
          panel.api.moveTo({ group: home, index: Math.min(origin.index, home.panels.length) });
+         home.api.setVisible(true);
       } else {
          // The group it shared is gone or hidden, so the panel takes a group of its own beside it, or at the right edge.
          panel.api.moveTo({ group: api.addGroup(home ? { referenceGroup: home, direction: 'right' } : { direction: 'right' }) });
@@ -276,6 +370,41 @@ export class WorkspaceLayout {
 
       this.hidden[id] = false;
       this.persist();
+   }
+
+   // Puts a panel alone in a group and hides that group. A floating group sits over the grid, so a panel that shares its group leaves without a split that would resize the groups
+   // around it, and the group it leaves becomes its home.
+   private conceal(id: PanelId, panel: IDockviewPanel): void {
+      const group = panel.group;
+      if (group.panels.length > 1) {
+         this.origins[id] = { groupId: group.id, index: group.panels.indexOf(panel) };
+         this.api?.addFloatingGroup(panel);
+      }
+
+      panel.group.api.setVisible(false);
+   }
+
+   // Hides each panel that a closed popout window returned to the main window for a hide, and again each hidden panel that the window's panel joined in its group.
+   private settle(): void {
+      const api = this.api;
+      if (!api) {
+         return;
+      }
+
+      for (const id of panelIds) {
+         const panel = api.getPanel(id);
+         if (panel === undefined || panel.api.location.type === 'popout') {
+            continue;
+         }
+
+         if (this.closing[id]) {
+            delete this.closing[id];
+            this.hide(id);
+         } else if (this.hidden[id] && (panel.group.panels.length > 1 || panel.group.api.isVisible)) {
+            this.conceal(id, panel);
+            this.persist();
+         }
+      }
    }
 
    private persist(): void {
@@ -290,6 +419,11 @@ export class WorkspaceLayout {
          this.api.exitMaximizedGroup();
       }
    }
+}
+
+// The window that shows the group: its popout window's, or the main page's.
+function windowOf(group: IDockviewGroupPanel): Window {
+   return group.api.location.type === 'popout' ? group.api.location.getWindow() : window;
 }
 
 function panelOf(panel: IDockviewPanel | undefined): PanelId | null {
