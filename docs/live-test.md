@@ -32,12 +32,14 @@ The steps below write `<lotsen>` for the absolute path of this repository's chec
 | `claude [dir]`                      | Step 4: an interactive session in `dir` with the development channel.                                                                                              |
 | `pin <pr-url> [familiarity]`        | Creates a tour in a headless `claude -p` session and prints its pin section. It needs the registration from step 3, and starts a background server when none runs. |
 | `demo <pr-url> [familiarity] [dir]` | Steps 1 to 5 in one command: tours the PR in an interactive session with the development channel. See below.                                                       |
+| `demo-link`                         | Prints a new link to the UI of the demo's server, which works once. `just demo-print-link` runs it.                                                                |
 
 `just demo <pr-url> [familiarity] [dir]` runs `demo` from any directory. It publishes lotsen first when the publish is missing or older than its sources. It refuses to start while the Azure
 CLI is not signed in. The session loads this checkout's publish through `--mcp-config`, which replaces the user-scope `lotsen` from step 3 for that session, so `demo` needs no registration.
 Its server keeps its tours, clones and the UI's preferences in a data directory of its own, `~/.local/share/lotsen-demo` (under `$XDG_DATA_HOME` when that is set), and never touches your other tours. Delete that
 directory to start the next demo with no tours. Claude runs in `dir`, by default a new empty directory, and starts with `/lotsen:tour <pr-url> <familiarity>`, `familiar` when you give none.
-Pass a checkout of the PR's repository as `dir` to let Claude read the code with git. For a new link to the UI, run `LOTSEN_DATA_DIR=~/.local/share/lotsen-demo lotsen open`.
+Pass a checkout of the PR's repository as `dir` to let Claude read the code with git. For a new link to the UI, run `just demo-print-link`, which prints one that works once, or
+`LOTSEN_DATA_DIR=~/.local/share/lotsen-demo lotsen open` to open it in the browser.
 
 `pin` checks the MCP tools and the pinning without a person at the keyboard: compare `head` and `mergeBase` with the pull request, and run it again after `az logout` and a server restart for the failure path. It does not check the channel, because the channels documentation says that Claude Code ignores
 `--dangerously-load-development-channels` with `-p` ([Unverified] on 2.1.310), and it does not check the browser. Use `claude` and step 5 for those.

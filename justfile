@@ -178,6 +178,11 @@ live *ARGS:
 demo url familiarity='familiar' dir='':
    "{{justfile_directory()}}/scripts/live-test.sh" demo "{{url}}" "{{familiarity}}" "{{dir}}"
 
+# Print a new link to the UI of the server that `just demo` runs, for a browser that this shell does not start, such as Edge on the Windows side of WSL.
+[unix]
+demo-print-link:
+   scripts/live-test.sh demo-link
+
 # --- Gate ----------------------------------------------------------------
 
 # Everything CI runs: the static checks at once, then one after another the UI's tests, the layout suite, the suite, the publish and the npm packages. Both UI suites run on the one test host that this builds.
