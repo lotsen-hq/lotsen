@@ -49,7 +49,8 @@ export const islandSelection = ViewPlugin.define((view) => {
       selection?.collapse(anchor.node, anchor.offset);
       const move = (moved: MouseEvent) => {
          const focus = caretAt(document, moved.clientX, moved.clientY);
-         if (focus !== null) {
+         // A drag that starts in the editor selects only the editor's content, whatever else lies under the pointer.
+         if (focus !== null && view.contentDOM.contains(focus.node)) {
             selection?.setBaseAndExtent(anchor.node, anchor.offset, focus.node, focus.offset);
          }
       };

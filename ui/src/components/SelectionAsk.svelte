@@ -7,7 +7,7 @@
    import MessageSquarePlus from '@lucide/svelte/icons/message-square-plus';
    import { untrack } from 'svelte';
    import { Button } from '$lib/components/ui/button';
-   import { isHTMLElement } from '../lib/dom';
+   import { isElement, isHTMLElement } from '../lib/dom';
    import { panelDocument } from '../lib/panelDocument.svelte';
    import type { PickedAnchor, PickHandler } from '../lib/viewState';
    import type { SelectionExplain, SelectionTarget } from '../lib/selectionAsk';
@@ -35,6 +35,8 @@
    let explaining = $state(false);
    let selected: Range | null = null;
    let element = $state<HTMLElement>();
+   /** Whether the primary button is down after a press outside the affordance, as in a drag that selects. */
+   let selecting = $state(false);
    const home = panelDocument();
 
    // Each document has its own selection, so the listeners follow the panel into a popout window and back.
@@ -63,6 +65,24 @@
          window.removeEventListener('scroll', place, { capture: true });
          target = null;
          selected = null;
+      };
+   });
+
+   // The affordance sits below the selection's end, on the lines that a drag downward reaches next, so it lets the pointer through to them during the drag.
+   $effect(() => {
+      const { document } = home;
+      const press = (event: MouseEvent) => {
+         selecting = event.button === 0 && !(isElement(event.target) && element?.contains(event.target));
+      };
+      const release = () => {
+         selecting = false;
+      };
+      document.addEventListener('mousedown', press, true);
+      document.addEventListener('mouseup', release, true);
+      return () => {
+         document.removeEventListener('mousedown', press, true);
+         document.removeEventListener('mouseup', release, true);
+         selecting = false;
       };
    });
 
@@ -113,7 +133,7 @@
 </script>
 
 {#if target !== null}
-   <div bind:this={element} class="absolute top-0 left-0 z-20">
+   <div bind:this={element} class={['absolute top-0 left-0 z-20', selecting && 'pointer-events-none']}>
       {#if 'refusal' in target}
          <p class="rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md">{target.refusal}</p>
       {:else}

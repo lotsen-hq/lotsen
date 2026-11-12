@@ -47,6 +47,32 @@ test('opening a base passage that the inline diff shows as deleted scrolls its f
    await expect.poll(belowScrollerTop).toBeCloseTo(32, -1);
 });
 
+test('a drag over deleted lines of the inline diff selects the line that the ask of its selection lies on', async ({ page }) => {
+   await openDemoTour(page, checkoutTour, { placement: 'side', layout: 'inline' });
+   await openStop(page, paymentStop);
+   await page
+      .getByRole('region', { name: 'Stop', exact: true })
+      .getByRole('button', { name: /shipping/ })
+      .click();
+   const deleted = (text: string) => editors(page).locator('.cm-deletedLine', { hasText: text });
+   await expect.poll(() => inScrollerView(deleted("'region-053'"))).toBe(true);
+   const [start, end] = [(await deleted("'region-052'").boundingBox())!, (await deleted("'region-053'").boundingBox())!];
+   const ask = center(page).getByRole('button', { name: /^Ask Claude about src\/checkout\/shipping\.ts, lines/ });
+
+   await page.mouse.move(start.x + 40, start.y + start.height / 2);
+   await page.mouse.down();
+   await page.mouse.move(end.x + 60, end.y + end.height / 2, { steps: 3 });
+   await expect(ask).toHaveAccessibleName('Ask Claude about src/checkout/shipping.ts, lines 54–55 at the base');
+   const [button, next] = [(await ask.boundingBox())!, (await deleted("'region-054'").boundingBox())!];
+   const y = next.y + next.height / 2;
+   expect(y).toBeGreaterThan(button.y);
+   expect(y).toBeLessThan(button.y + button.height);
+   await page.mouse.move(button.x + button.width / 2, y);
+   await page.mouse.up();
+
+   await expect(ask).toHaveAccessibleName('Ask Claude about src/checkout/shipping.ts, lines 54–56 at the base');
+});
+
 test('an inline explanation sits below its primary passage, and follows a revision that writes the stop', async ({ page }) => {
    await openDemoTour(page, checkoutTour, { placement: 'inline', layout: 'inline' });
    await openStop(page, cartLineStop);
