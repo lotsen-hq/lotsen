@@ -628,6 +628,22 @@ internal static class OperationCatalog
          new Access.ReviewerToSession("update a tour to a new iteration", "The update is the reviewer's own.", "the move to the new update"),
          ProseView.Html<UpdatedIteration>(ProseHtml.Of),
          (services, pass, input, cancellationToken) => From<ReviewerDecisions>(services).UpdateIterationAsync(pass, input, cancellationToken)),
+      Operation.Define(
+         "read_preferences",
+         "Returns every preference that the UI stored, each key with its text. The store holds none when it is missing or cannot be read, or when a newer lotsen wrote it.",
+         LotsenJsonContext.Default.NoInput,
+         LotsenJsonContext.Default.PreferenceList,
+         new Access.Open(CallerKinds.Ui, "read the preferences"),
+         ProseView.None,
+         (services, _, _, _) => Task.FromResult(OperationResult<PreferenceList>.Of(From<PreferenceStore>(services).Read()))),
+      Operation.Define(
+         "write_preference",
+         $"Stores a preference's text under its key, or deletes the key when value is null, and returns the key with its stored text. lotsen stores the text without reading it. Every open page gets a preferenceChanged event for a change, and writing the text that the key holds changes nothing. A key is 1 to {PreferenceStore.MaxKeyLength} letters, digits, '.', '_' or '-', with at most one '/' between two of them. A text holds at most {PreferenceStore.MaxValueLength} characters, and the store holds at most {PreferenceStore.MaxKeys} keys, so a new key beyond that is refused. While a newer lotsen's preferences are stored, every write is refused.",
+         LotsenJsonContext.Default.WritePreferenceInput,
+         LotsenJsonContext.Default.UpdatedPreference,
+         new Access.Reviewer("write a preference", "A preference is the reviewer's own choice."),
+         ProseView.None,
+         (services, _, input, _) => Task.FromResult(From<PreferenceStore>(services).Write(input))),
       OpenUi,
       CreateUiLink,
    ];

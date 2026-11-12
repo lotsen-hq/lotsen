@@ -81,11 +81,11 @@ describe('starting a session', () => {
       const transport = world.transport();
       sessionStorage.setItem(credentialKey, world.uiCredential);
       const stopped = newApp(transport.fetch);
-      const starting = stopped.start('wholePr');
+      const starting = stopped.start(() => 'wholePr');
       stopped.stop();
       const app = newApp(transport.fetch);
-      const replaced = app.start('wholePr');
-      const current = app.start('wholePr');
+      const replaced = app.start(() => 'wholePr');
+      const current = app.start(() => 'wholePr');
 
       await Promise.all([starting, replaced, current]);
 
@@ -102,10 +102,10 @@ describe('starting a session', () => {
       const fetch: typeof window.fetch = (input, init) => (input === '/api/ui-credential' ? new Promise((_, reject) => (rejectExchange = reject)) : transport.fetch(input, init));
       history.replaceState(null, '', `/#code=${await world.uiCode()}`);
       const app = newApp(fetch);
-      const replaced = app.start('wholePr');
+      const replaced = app.start(() => 'wholePr');
       app.stop();
       sessionStorage.setItem(credentialKey, world.uiCredential);
-      await app.start('wholePr');
+      await app.start(() => 'wholePr');
       expect(app.phase).toBe('ready');
 
       rejectExchange(new TypeError('Failed to fetch'));

@@ -101,6 +101,8 @@ internal static class ContractSamples
 
    private static readonly TourBinding Binding = new("session1", AttachmentLevel.Confirmed);
 
+   private static readonly UpdatedPreference Preference = new("lotsen.diffLayout", "inline");
+
    private static readonly Tour Tour = Sample();
 
    private static readonly TourSummary Summary = new(Id, Tour.Target, Tour.Familiarity, At, Later, Pin, Plan.Stops.Count, "contoso/shop/web #42", TourState.InProgress, PullRequestState.Active, Tour.Revision, Binding, PlanApproval.Given);
@@ -132,6 +134,7 @@ internal static class ContractSamples
          ServerEvents.ForSynthesisWritten(new WrittenSynthesis(Id, Later, Later)),
          ServerEvents.ForControlsChanged(Controls()),
          ServerEvents.ForTourDeleted(new DeletedTour(Id)),
+         ServerEvents.ForPreferenceChanged(Preference),
       ];
       var stamped = events.Select(serverEvent => serverEvent.IsTourScoped && serverEvent.Revision is null ? serverEvent.At(Tour.Revision) : serverEvent);
       return stamped.ToDictionary(serverEvent => serverEvent.Type, serverEvent => JsonNode.Parse(serverEvent.Data)!);
@@ -187,6 +190,8 @@ internal static class ContractSamples
          new ApprovedPlan(Id, Later, PlanApproval.Given, Familiarity.Some, ["s6"], ApprovalThread),
          new CheckedIteration(Id, Later, Tour.AvailableIteration, "The platform could not be reached. Check again."),
          new UpdatedIteration(Id, Later, NextPin, ["s4"], IterationThread),
+         new PreferenceList(new Dictionary<string, string> { ["lotsen.theme"] = "dark", [Preference.Key] = Preference.Value! }),
+         Preference,
       ];
 
    /// <summary>Returns the controls of the sample tour while a session holds it, as a response and a <c>controlsChanged</c> event carry them.</summary>

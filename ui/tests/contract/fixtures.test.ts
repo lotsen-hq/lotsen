@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import App from '../../src/App.svelte';
 import { createApi, operationPath, type Api } from '../../src/lib/api';
 import { LotsenApp } from '../../src/lib/app.svelte';
+import { diffLayoutPreference } from '../../src/lib/diffLayout';
 import type { EventName, OperationName, Operations, Stop, Tour } from '../../src/lib/types';
 import { tourSwitcherName } from '../tourPicker';
 import { eventFixtures, outputFixtures } from './fixtures.generated';
@@ -257,6 +258,15 @@ describe('the event fixtures, through the handler of each event', () => {
       server.emit('tourDeleted');
       await waitFor(() => expect(opened.tours.map((tour) => tour.id)).not.toContain(tourId));
    });
+
+   it('preferenceChanged stores the preference', async () => {
+      // The earlier tests' reads leave their preferences in browser storage, which the page keeps for a key that the server lacks.
+      localStorage.clear();
+      await startWith({ read_preferences: { preferences: { 'lotsen.theme': 'dark' } } });
+      expect(diffLayoutPreference.read()).toBe('sideBySide');
+      server.emit('preferenceChanged');
+      await waitFor(() => expect(diffLayoutPreference.read()).toBe(eventFixtures.preferenceChanged.value));
+   });
 });
 
 describe('the output fixtures', () => {
@@ -295,6 +305,8 @@ describe('the output fixtures', () => {
       approve_plan: (api) => api.approvePlan(tourId, { stopIds: ['s1'], skippedStops: [], familiarity: 'some' }),
       check_iteration: (api) => api.checkIteration(tourId),
       update_iteration: (api) => api.updateIteration(tourId, { mergeBase: 'a'.repeat(40), head: 'b'.repeat(40), iteration: 2, remoteUrl: 'https://example.test/repo.git' }),
+      read_preferences: (api) => api.readPreferences(),
+      write_preference: (api) => api.writePreference('lotsen.diffLayout', 'inline'),
    } satisfies { [N in OperationName]: (api: Api) => Promise<unknown> };
 
    // The API returns nothing of a review mark write, whose output only the call's success matters for.

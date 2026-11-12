@@ -10,7 +10,7 @@ export const syntaxColorChoices: readonly { value: SyntaxColors; label: string }
    { value: 'visualStudio', label: 'Visual Studio' },
 ];
 
-/** The family the reviewer last chose in this browser, Lotsen's own by default. */
+/** The family the reviewer last chose, Lotsen's own by default. */
 export const syntaxColorsPreference = preference<SyntaxColors>(
    'lotsen.syntaxColors',
    syntaxColorChoices.map((choice) => choice.value),

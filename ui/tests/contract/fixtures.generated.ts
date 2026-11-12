@@ -963,6 +963,10 @@ export const eventFixtures = {
    },
    "tourDeleted": {
       "tourId": "abcdefghijklmnop"
+   },
+   "preferenceChanged": {
+      "key": "lotsen.diffLayout",
+      "value": "inline"
    }
 } satisfies EventPayloads;
 
@@ -2631,5 +2635,15 @@ export const outputFixtures = {
             ]
          }
       }
+   },
+   "read_preferences": {
+      "preferences": {
+         "lotsen.theme": "dark",
+         "lotsen.diffLayout": "inline"
+      }
+   },
+   "write_preference": {
+      "key": "lotsen.diffLayout",
+      "value": "inline"
    }
 } satisfies { [N in keyof Operations]: Operations[N]['output'] };

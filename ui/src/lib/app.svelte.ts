@@ -2,11 +2,11 @@ import { untrack } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import { idleAnswerSend, stopAnswers, unsentAnswerCount, type AnswerSendControl, type AnswerSendState } from './answers';
 import { ApiError, createApi, refusalReason, UnauthorizedError, type Api, type Revised } from './api';
-import { readIgnoreWhitespace, writeIgnoreWhitespace } from './diffWhitespace';
+import { ignoreWhitespacePreference } from './diffWhitespace';
 import { availableOn, iterationCheckState, type IterationCheck, type IterationCheckState } from './iterations';
 import { connectEventStream, logEventFailure, type ConnectionState, type EventStreamConnection, type helloEvent, type Schedule } from './eventStream';
 import { historyWrite, navigationFragment, navigationState, noNavigation, readNavigation, recordedNavigation, type LineSpan, type Navigation } from './navigation';
-import { booleanPreference } from './preference';
+import { applyPreference, booleanPreference, detachPreferences, syncPreferences } from './preference';
 import { changedFilePaths, inFile, pinIteration, referenceAtPin, type FilePaths, type PinCommits, pinCommits } from './pin';
 import { filePassageDecorations, noPassageDecorations, withHoveredReference, withThreads, type CodeThread, type DecorationSwitches, type PassageDecorations } from './passageMarks';
 import { changedFilesAt } from './repositoryTree';
@@ -148,10 +148,12 @@ export class LotsenApp {
       this.lastFocus = { target, focus };
       return focus;
    });
-   /** Whether diffs leave out lines that differ only in whitespace or line endings, as the reviewer last chose in this browser. */
-   ignoreWhitespace = $state(readIgnoreWhitespace());
-   /** The reviewer's switches for the passage decorations of the open file and the stacked files, as last chosen in this browser. */
-   decorationSwitches = $state.raw<DecorationSwitches>({ dim: dimmingPreference.read(), highlight: highlightPreference.read() });
+   /** Whether diffs leave out lines that differ only in whitespace or line endings, as the reviewer last chose in any page. */
+   get ignoreWhitespace(): boolean {
+      return ignoreWhitespacePreference.read();
+   }
+   /** The reviewer's switches for the passage decorations of the open file and the stacked files, as last chosen in any page. */
+   decorationSwitches = $derived<DecorationSwitches>({ dim: dimmingPreference.read(), highlight: highlightPreference.read() });
    /** Whether the diff collapses the regions away from the open stop's passages. The page does not remember it, and it turns off when the view mode changes or another tour opens. */
    collapseToPassages = $state(false);
    /** The view mode that stops open in, which {@link LotsenApp.selectTour} sets to the default each time a tour opens. */
@@ -512,10 +514,14 @@ export class LotsenApp {
       this.options = options;
    }
 
-   /** Starts the session, and restores what the current history entry names, opening its tour in the default view mode. */
-   async start(defaultViewMode: ViewMode): Promise<void> {
+   /**
+    * Starts the session, and restores what the current history entry names, opening its tour in the default view mode.
+    *
+    * @param defaultViewMode Returns the default view mode, which the page reads again once it holds the server's preferences.
+    */
+   async start(defaultViewMode: () => ViewMode): Promise<void> {
       const { environment } = this.options;
-      this.pendingNavigation = { navigation: readNavigation(environment.location.hash, environment.history.state), defaultViewMode, resume: true };
+      this.pendingNavigation = { navigation: readNavigation(environment.location.hash, environment.history.state), defaultViewMode: defaultViewMode(), resume: true };
       const run = ++this.runs;
       let credential: string | null;
       try {
@@ -538,7 +544,28 @@ export class LotsenApp {
          return;
       }
 
-      this.api = createApi(environment.fetch, credential, (controls) => this.applyControls(controls));
+      const api = createApi(environment.fetch, credential, (controls) => this.applyControls(controls));
+      this.api = api;
+      // The workspace reads its layout once, as it mounts, so the page shows only once it holds the server's preferences, and a failed read leaves it unreachable.
+      try {
+         await this.settlePreferences(api, run);
+      } catch (error) {
+         if (run === this.runs) {
+            this.handleError(error, () => (this.phase = 'unreachable'));
+         }
+
+         return;
+      }
+
+      if (run !== this.runs) {
+         return;
+      }
+
+      // The default view mode is a preference, so a tour that the address names opens in the server's default.
+      if (this.pendingNavigation !== null) {
+         this.pendingNavigation = { ...this.pendingNavigation, defaultViewMode: defaultViewMode() };
+      }
+
       this.phase = 'ready';
       this.disposeHistoryEffect?.();
       this.disposeHistoryEffect = $effect.root(() => {
@@ -568,6 +595,8 @@ export class LotsenApp {
          silenceTimer: this.options.silenceTimer,
          onOpen: () => {
             this.streamOpens++;
+            // The stream carries no change from while it was closed, so the page reads the preferences again. A failed read keeps the page's choices until the next open.
+            this.settlePreferences(api, run).catch(() => {});
             for (const record of this.records.values()) {
                record.streamOpened();
             }
@@ -590,6 +619,7 @@ export class LotsenApp {
 
    stop(): void {
       this.runs++;
+      detachPreferences();
       this.reloadAfterListLoad = false;
       this.stream?.close();
       this.stream = null;
@@ -1775,12 +1805,10 @@ export class LotsenApp {
    }
 
    setDimming(dim: boolean): void {
-      this.decorationSwitches = { ...this.decorationSwitches, dim };
       dimmingPreference.write(dim);
    }
 
    setHighlight(highlight: boolean): void {
-      this.decorationSwitches = { ...this.decorationSwitches, highlight };
       highlightPreference.write(highlight);
    }
 
@@ -1790,10 +1818,36 @@ export class LotsenApp {
 
    /** Stores the reviewer's whitespace choice and loads the selected file's diff again with it, with a large file's texts when the reviewer loaded them. */
    setIgnoreWhitespace(ignore: boolean): void {
-      this.ignoreWhitespace = ignore;
-      writeIgnoreWhitespace(ignore);
+      this.changePreferences(() => ignoreWhitespacePreference.write(ignore));
+   }
+
+   // Settles the preferences with the server's, as syncPreferences says, and throws what the read throws.
+   private async settlePreferences(api: Api, run: number): Promise<void> {
+      const ignored = this.ignoreWhitespace;
+      try {
+         await syncPreferences(
+            async () => {
+               const { preferences } = await api.readPreferences();
+               return run === this.runs ? preferences : null;
+            },
+            (key, text) => api.writePreference(key, text),
+         );
+      } finally {
+         this.whitespaceChanged(ignored);
+      }
+   }
+
+   // Makes the change to the preferences, and loads the selected file's diff again when the change turned whitespace on or off.
+   private changePreferences(change: () => void): void {
+      const ignored = this.ignoreWhitespace;
+      change();
+      this.whitespaceChanged(ignored);
+   }
+
+   // Loads the selected file's diff again when ignoring whitespace changed from the value given, with a large file's texts when the reviewer loaded them.
+   private whitespaceChanged(ignored: boolean): void {
       const known = this.selectedDiff;
-      if (this.selectedTourId !== null && known !== null && known.path === this.selectedFilePath) {
+      if (this.ignoreWhitespace !== ignored && this.selectedTourId !== null && known !== null && known.path === this.selectedFilePath) {
          this.loadDiff(this.selectedTourId, known.path, this.diffIncludesLarge);
       }
    }
@@ -2112,6 +2166,7 @@ export class LotsenApp {
       synthesisWritten: { apply: () => {}, refreshesSummary: true },
       controlsChanged: { apply: (app, controls) => app.applyControls(controls), refreshesSummary: false },
       tourDeleted: { apply: (app, { tourId }) => app.dropTour(tourId), refreshesSummary: false },
+      preferenceChanged: { apply: (app, { key, value }) => app.changePreferences(() => applyPreference(key, value)), refreshesSummary: false },
    };
 
    /**

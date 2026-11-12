@@ -20,6 +20,7 @@ import type {
    Operations,
    PinInput,
    PlanApprovalInput,
+   PreferenceList,
    PrunedClones,
    QuestionInput,
    QuestionThread,
@@ -35,6 +36,7 @@ import type {
    UpdatedAnswer,
    UpdatedBatch,
    UpdatedIteration,
+   UpdatedPreference,
    UpdatedSkips,
    UpdatedThread,
    UpdatedTourState,
@@ -141,6 +143,14 @@ export interface Api {
    deleteTour(tourId: string): Promise<DeletedTour>;
    /** Removes the repository clones that no tour refers to, and the temporary clones that an interrupted clone left, and returns how many it removed. */
    pruneClones(): Promise<PrunedClones>;
+   /** Returns every preference that the server stores, each key with its text. */
+   readPreferences(): Promise<PreferenceList>;
+   /**
+    * Stores the preference's text under its key, or deletes the key for null, and returns the key with its stored text. Every page receives the `preferenceChanged` event of a change.
+    *
+    * @throws ApiError with status 400 for a key or a text that breaks the server's limits, and with status 409 and code `newerPreferences` while a newer lotsen's preferences are stored.
+    */
+   writePreference(key: string, value: string | null): Promise<UpdatedPreference>;
    /**
     * Changes the tour's familiarity level and returns the new level with the decided thread of the familiarity change that the same write sent to the tour's bound session.
     *
@@ -350,6 +360,8 @@ export function createApi(fetchFn: typeof fetch, credential: string, onControls:
       setTourArchived: (tourId, archived) => call('set_tour_archived', { tourId, archived }),
       deleteTour: (tourId) => call('delete_tour', { tourId }),
       pruneClones: () => call('prune_clones', {}),
+      readPreferences: () => call('read_preferences', {}),
+      writePreference: (key, value) => call('write_preference', { key, value }),
       changeFamiliarity: (tourId, familiarity, stopId, text) => revised('change_familiarity', { tourId, familiarity, ...(stopId === null ? {} : { stopId }), ...(text === undefined ? {} : { text }) }),
       approvePlan: (tourId, input) => revised('approve_plan', { tourId, ...input }),
       checkIteration: (tourId) => call('check_iteration', { tourId }),

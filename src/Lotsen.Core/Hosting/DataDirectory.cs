@@ -1,7 +1,7 @@
 namespace Lotsen.Hosting;
 
 /// <summary>
-/// The user's lotsen data directory, which holds the state file, the lock file, the log file, the tours and the clones.
+/// The user's lotsen data directory, which holds the state file, the lock file, the log file, the preference file, the tours and the clones.
 /// </summary>
 /// <remarks>
 /// On Unix the directory is user-only (0700) because the state file in it holds the server's token.
@@ -27,6 +27,9 @@ internal sealed class DataDirectory
 
    /// <summary>The absolute path of the background server's log file.</summary>
    public string LogFilePath => System.IO.Path.Combine(Path, "server.log");
+
+   /// <summary>The absolute path of the file that holds the page's preferences.</summary>
+   public string PreferencesFilePath => System.IO.Path.Combine(Path, "preferences.json");
 
    /// <summary>
    /// Returns the data directory for this user: the override variable when set, otherwise <c>%LOCALAPPDATA%\lotsen</c> on Windows and <c>$XDG_DATA_HOME/lotsen</c> (by default

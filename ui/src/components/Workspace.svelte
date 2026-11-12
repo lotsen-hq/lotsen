@@ -1,6 +1,7 @@
 <script lang="ts">
    import { createDockview, themeLight, type DockviewApi, type DockviewGroupPanel, type IHeaderActionsRenderer, type ITabRenderer } from 'dockview';
    import { getAllContexts, mount, onMount, unmount, type Snippet } from 'svelte';
+   import { arrangementRecord } from '../lib/arrangements';
    import { cspNonce } from '../lib/cspNonce';
    import { savedLayout } from '../lib/layoutRecord';
    import type { WorkspaceLayout } from '../lib/workspaceLayout.svelte';
@@ -101,8 +102,9 @@
 
       const detach = layout.attach(dock, (record) => savedLayout.write(record));
       const saved = savedLayout.read();
+      // The Default layout stays unsaved, so it never takes the server's key from a saved layout that the browser storage of another origin holds.
       if (saved === null || !layout.load(saved)) {
-         layout.apply('default');
+         layout.load(arrangementRecord('default', layout.titles));
       }
 
       // Dockview opens a tab on a pointer press, so a click without one, as from a screen reader, opens it here.
@@ -148,7 +150,7 @@
       const panel = api?.getPanel(shown);
       if (panel && panel.group === api?.getPanel(shown === 'files' ? 'plan' : 'files')?.group && panel.group.activePanel !== panel) {
          applying = true;
-         panel.api.setActive();
+         layout.quietly(() => panel.api.setActive());
          applying = false;
       }
    });

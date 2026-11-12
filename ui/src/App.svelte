@@ -141,7 +141,7 @@
    );
 
    onMount(() => {
-      void app.start(settings.defaultViewMode);
+      void app.start(() => settings.defaultViewMode);
       const restore = () => app.restoreNavigation(settings.defaultViewMode);
       window.addEventListener('popstate', restore);
       return () => {

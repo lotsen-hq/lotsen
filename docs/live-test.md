@@ -35,7 +35,7 @@ The steps below write `<lotsen>` for the absolute path of this repository's chec
 
 `just demo <pr-url> [familiarity] [dir]` runs `demo` from any directory. It publishes lotsen first when the publish is missing or older than its sources. It refuses to start while the Azure
 CLI is not signed in. The session loads this checkout's publish through `--mcp-config`, which replaces the user-scope `lotsen` from step 3 for that session, so `demo` needs no registration.
-Its server keeps its tours and clones in a data directory of its own, `~/.local/share/lotsen-demo` (under `$XDG_DATA_HOME` when that is set), and never touches your other tours. Delete that
+Its server keeps its tours, clones and the UI's preferences in a data directory of its own, `~/.local/share/lotsen-demo` (under `$XDG_DATA_HOME` when that is set), and never touches your other tours. Delete that
 directory to start the next demo with no tours. Claude runs in `dir`, by default a new empty directory, and starts with `/lotsen:tour <pr-url> <familiarity>`, `familiar` when you give none.
 Pass a checkout of the PR's repository as `dir` to let Claude read the code with git. For a new link to the UI, run `LOTSEN_DATA_DIR=~/.local/share/lotsen-demo lotsen open`.
 
@@ -72,7 +72,7 @@ lotsen serve --log-level Information
 Leave it running in its own terminal. It prints its port and stops on Ctrl-C or `lotsen stop`. It never stops for lack
 of sessions.
 
-The port is one that the OS assigns, unless `--port <n>` or the `LOTSEN_PORT` environment variable sets it. The option wins over the variable. One server runs per data directory, so a second `lotsen serve` exits 1. Once the first server has started, the message names its PID and `lotsen stop`.
+The port is one that the OS assigns, unless `--port <n>` or the `LOTSEN_PORT` environment variable sets it. The option wins over the variable. One server runs per data directory, so a second `lotsen serve` exits 1. Once the first server has started, the message names its PID and `lotsen stop`. The UI's settings, the Files panel's choices and the workspace layout live in `preferences.json` in the data directory, so they survive a start on another port. A change in one browser tab shows in every other tab of the server at once, except the layout and the split of a side-by-side diff, which a tab reads only when it loads. A tab that cannot read the preferences as it loads shows that the server could not be reached, and a reload tries again.
 
 The server keeps what it read from git in memory, in a git fact cache of 64 MiB by its own estimate of the sizes. `--fact-cache-mb <n>` or the `LOTSEN_FACT_CACHE_MB` environment variable sets another size, a whole number of MiB from 1 to 2147483647. The option wins over the variable, and an empty variable counts as unset. Any other value makes `lotsen serve` exit 2 for the option, and a non-empty variable that is not such a size makes it exit 1. With `--log-level Information`, `lotsen serve` prints the size at its start: "The git fact cache keeps up to 64 MiB."
 

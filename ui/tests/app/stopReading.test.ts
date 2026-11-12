@@ -28,7 +28,8 @@ const stopNavigation = () => within(screen.getByRole('navigation', { name: 'Stop
 const planStop = (title: string) => planPanel().getByRole('button', { name: new RegExp(title) });
 /** The status that the plan shows after a stop's title, or null when it shows none, as for a ready stop. */
 const planStatus = (title: string) => planStop(title).querySelector('.status')?.textContent.trim() ?? null;
-const readOperations = new Set(['list_tours', 'read_state', 'read_summary', 'list_changed_files', 'read_file_text', 'diff_file', 'list_directory']);
+// The operations that write nothing of the tour: the reads, and the page's preferences.
+const noTourWrites = new Set(['list_tours', 'read_state', 'read_summary', 'list_changed_files', 'read_file_text', 'diff_file', 'list_directory', 'read_preferences', 'write_preference']);
 
 async function openFour() {
    const { world, seed } = await worldOf(four);
@@ -72,7 +73,7 @@ describe('the stops of a tour', () => {
       expect(await stopPanel().findByText('Totals round to cents.')).toBeTruthy();
       expect(await scrolledTo(spies, 'Diff', 'src/pay.ts', 'head', 20)).toBe('pay line 20');
 
-      const writes = transport.requests.filter((request) => request.operation !== null && !readOperations.has(request.operation));
+      const writes = transport.requests.filter((request) => request.operation !== null && !noTourWrites.has(request.operation));
       expect(writes.map((request) => `${request.operation} ${String(request.input?.tourId)}`)).toEqual(writes.map(() => `record_reading_progress ${seed.tourId}`));
       await waitFor(async () => expect((await readTour(world, seed.tourId)).progress?.lastStop).toBe(app.selectedStopId));
    });

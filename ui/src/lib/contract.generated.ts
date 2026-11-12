@@ -53,6 +53,7 @@ export type OperationErrorCode =
    | 'iterationNotAvailable'
    | 'tourChanged'
    | 'tourRuleBroken'
+   | 'newerPreferences'
    | 'operationNotFound'
    | 'buildMismatch'
    | 'serverExiting'
@@ -86,7 +87,8 @@ export type EventName =
    | 'tourStateChanged'
    | 'synthesisWritten'
    | 'controlsChanged'
-   | 'tourDeleted';
+   | 'tourDeleted'
+   | 'preferenceChanged';
 export type FileDiff = TextDiff | FileDiffBinary | FileDiffLarge;
 export type FileText = Decoded | FileTextBinary | FileTextLarge;
 export type OperationName =
@@ -122,7 +124,9 @@ export type OperationName =
    | 'change_familiarity'
    | 'approve_plan'
    | 'check_iteration'
-   | 'update_iteration';
+   | 'update_iteration'
+   | 'read_preferences'
+   | 'write_preference';
 export type ReviewerThreadState = 'open' | 'resolved';
 
 export interface EventPayloads {
@@ -248,6 +252,7 @@ export interface EventPayloads {
       revision: number;
    };
    tourDeleted: DeletedTour;
+   preferenceChanged: UpdatedPreference;
 }
 export interface HelloEvent {
    keepAliveMs: number;
@@ -747,6 +752,10 @@ export interface PendingWork {
 }
 export interface DeletedTour {
    tourId: string;
+}
+export interface UpdatedPreference {
+   key: string;
+   value: string | null;
 }
 export interface ExplainRequest {
    kind: 'explain';
@@ -1330,6 +1339,14 @@ export interface Operations {
       input: UpdateIterationInput;
       output: UpdatedIteration;
    };
+   read_preferences: {
+      input: NoInput;
+      output: PreferenceList;
+   };
+   write_preference: {
+      input: WritePreferenceInput;
+      output: UpdatedPreference;
+   };
 }
 export interface ReadStateInput {
    /**
@@ -1652,4 +1669,19 @@ export interface UpdatedIteration {
    pin: TourPin;
    staleStops: string[];
    thread?: QuestionThread;
+}
+export interface PreferenceList {
+   preferences: {
+      [k: string]: string | undefined;
+   };
+}
+export interface WritePreferenceInput {
+   /**
+    * The preference's key: 1 to 100 letters, digits, '.', '_' or '-', with at most one '/' between two of them.
+    */
+   key: string;
+   /**
+    * The preference's new text, of at most 65536 characters, or null to delete the preference.
+    */
+   value: string | null;
 }

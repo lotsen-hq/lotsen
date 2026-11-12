@@ -258,12 +258,14 @@ describe('answering a check in the Stop panel', () => {
       await answer(world, seed, seed.checks.rounding, 'Round per line.', { fromSuggestion: true, type: 'openQuestion' });
       const { transport } = await open(world, seed);
       await waitFor(() => expect(typeChip(1).value).toBe('openQuestion'));
-      const requests = transport.requests.length;
+      // The page writes its preferences on its own, so only the requests on the tour count.
+      const tourRequests = () => transport.requests.filter((request) => request.input?.tourId !== undefined).length;
+      const requests = tourRequests();
       await edit(1);
 
       await fireEvent.click(answerGroup(1).getByRole('button', { name: 'Round per line.' }));
 
-      expect(transport.requests.length).toBe(requests);
+      expect(tourRequests()).toBe(requests);
       expect(typeChip(1).value).toBe('openQuestion');
    });
 

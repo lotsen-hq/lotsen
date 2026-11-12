@@ -386,6 +386,9 @@
     },
     "tourDeleted": {
       "$ref": "#/definitions/DeletedTour"
+    },
+    "preferenceChanged": {
+      "$ref": "#/definitions/UpdatedPreference"
     }
   },
   "required": [
@@ -410,7 +413,8 @@
     "tourStateChanged",
     "synthesisWritten",
     "controlsChanged",
-    "tourDeleted"
+    "tourDeleted",
+    "preferenceChanged"
   ],
   "additionalProperties": false,
   "title": "EventPayloads",
@@ -1596,7 +1600,8 @@
         "tourStateChanged",
         "synthesisWritten",
         "controlsChanged",
-        "tourDeleted"
+        "tourDeleted",
+        "preferenceChanged"
       ]
     },
     "ExplainAction": {
@@ -2166,6 +2171,7 @@
         "iterationNotAvailable",
         "tourChanged",
         "tourRuleBroken",
+        "newerPreferences",
         "operationNotFound",
         "buildMismatch",
         "serverExiting",
@@ -2208,7 +2214,9 @@
         "change_familiarity",
         "approve_plan",
         "check_iteration",
-        "update_iteration"
+        "update_iteration",
+        "read_preferences",
+        "write_preference"
       ]
     },
     "OperationResponseBody": {
@@ -2758,6 +2766,38 @@
             "output"
           ],
           "additionalProperties": false
+        },
+        "read_preferences": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/NoInput"
+            },
+            "output": {
+              "$ref": "#/definitions/PreferenceList"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "write_preference": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/WritePreferenceInput"
+            },
+            "output": {
+              "$ref": "#/definitions/UpdatedPreference"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -2793,7 +2833,9 @@
         "change_familiarity",
         "approve_plan",
         "check_iteration",
-        "update_iteration"
+        "update_iteration",
+        "read_preferences",
+        "write_preference"
       ],
       "additionalProperties": false
     },
@@ -3077,6 +3119,21 @@
         "tourId",
         "updatedAt",
         "plan"
+      ]
+    },
+    "PreferenceList": {
+      "title": "PreferenceList",
+      "type": "object",
+      "properties": {
+        "preferences": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "preferences"
       ]
     },
     "PrunedClones": {
@@ -5396,6 +5453,25 @@
         "planApproval"
       ]
     },
+    "UpdatedPreference": {
+      "title": "UpdatedPreference",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ]
+    },
     "UpdatedSeenVersion": {
       "title": "UpdatedSeenVersion",
       "type": "object",
@@ -5675,6 +5751,28 @@
       "required": [
         "kind"
       ]
+    },
+    "WritePreferenceInput": {
+      "title": "WritePreferenceInput",
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "The preference's key: 1 to 100 letters, digits, '.', '_' or '-', with at most one '/' between two of them.",
+          "type": "string"
+        },
+        "value": {
+          "description": "The preference's new text, of at most 65536 characters, or null to delete the preference.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ],
+      "additionalProperties": false
     },
     "WrittenStop": {
       "title": "WrittenStop",

@@ -83,10 +83,11 @@
    ];
 
    let view = $state<View>('changed');
-   let layout = $state(fileLayoutPreference.read());
-   let grouped = $state(groupByStopPreference.read() === 'true');
-   let dimOthers = $state(dimOtherFilesPreference.read() === 'true');
-   let showReasons = $state(showMarkReasonsPreference.read() === 'true');
+   // The panel's choices read their preferences, so a change in another page shows here too.
+   const layout = $derived(fileLayoutPreference.read());
+   const grouped = $derived(groupByStopPreference.read() === 'true');
+   const dimOthers = $derived(dimOtherFilesPreference.read() === 'true');
+   const showReasons = $derived(showMarkReasonsPreference.read() === 'true');
    let side = $state<FileSide>('head');
    // The repository tree lists the root when it mounts, so it mounts the first time the reviewer opens its view and then stays.
    let repositoryOpened = $state(false);
@@ -121,23 +122,19 @@
    const nodesOf = (list: readonly ChangedFile[]): FileTreeNode[] => (layout === 'flat' ? buildFileList(list, fileMarks) : buildFileTree(list, fileMarks));
 
    function chooseLayout(next: FileLayout) {
-      layout = next;
       fileLayoutPreference.write(next);
    }
 
    function toggleGrouped() {
-      grouped = !grouped;
-      groupByStopPreference.write(grouped ? 'true' : 'false');
+      groupByStopPreference.write(grouped ? 'false' : 'true');
    }
 
    function toggleDimOthers() {
-      dimOthers = !dimOthers;
-      dimOtherFilesPreference.write(dimOthers ? 'true' : 'false');
+      dimOtherFilesPreference.write(dimOthers ? 'false' : 'true');
    }
 
    function toggleShowReasons() {
-      showReasons = !showReasons;
-      showMarkReasonsPreference.write(showReasons ? 'true' : 'false');
+      showMarkReasonsPreference.write(showReasons ? 'false' : 'true');
    }
 
    let changedView = $state<HTMLElement | null>(null);

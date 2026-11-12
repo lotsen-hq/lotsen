@@ -35,6 +35,11 @@ internal sealed record OperationError(
       OperationErrorCode.TourRuleBroken,
       $"{operation} would have stored tour {tourId} with a broken rule, so lotsen stored nothing. {(fault.Path.IsRoot ? "" : $"{fault.Path}: ")}{fault.Problem} This is a fault in lotsen: report it with the server log.");
 
+   /// <summary>Returns the refusal of a preference write while a newer lotsen's preferences are stored.</summary>
+   public static OperationError NewerPreferences() => new(
+      OperationErrorCode.NewerPreferences,
+      "a newer version of lotsen stored the preferences, so this version changes none of them. Run the newer lotsen to change a preference.");
+
    /// <summary>Returns the refusal of a request whose path names no operation.</summary>
    public static OperationError OperationNotFound(string name) => new(OperationErrorCode.OperationNotFound, $"lotsen has no operation named '{name}'. Name an operation that GET /api/operations lists.");
 

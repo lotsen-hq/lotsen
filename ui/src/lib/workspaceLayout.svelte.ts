@@ -9,7 +9,8 @@ import { panelIds, type PanelId } from './workspacePanels';
  * Dockview holds the workspace layout, and this class changes it only through Dockview's API. A hidden panel sits alone in a group that Dockview hides, so the panel
  * stays mounted and keeps its state. That group is the panel's own grid group, or a floating group when the panel shared its group with others.
  *
- * It saves the workspace layout as a {@link LayoutRecord} after each change, and loads one.
+ * It saves the workspace layout as a {@link LayoutRecord} after each change but the page's own, and loads one. A load is the page's own change, so a layout that the workspace
+ * falls back to stays unsaved until the reviewer changes it.
  */
 export class WorkspaceLayout {
    /** Whether each panel is hidden from the Panels menu or its group's Hide button. A maximized group hides the others without hiding their panels. */
@@ -24,13 +25,14 @@ export class WorkspaceLayout {
    private api: DockviewApi | null = null;
    private menu: HTMLElement | null = null;
    private save: ((record: LayoutRecord) => void) | null = null;
-   private loading = false;
+   // The number of the page's own changes whose report from Dockview has not arrived yet, as quietly says.
+   private quiet = 0;
    private origins: Partial<Record<PanelId, PanelHome>> = {};
 
    /**
     * Lets this class read and change the workspace layout that Dockview holds.
     *
-    * @param save Keeps the workspace layout after each change, other than one that {@link WorkspaceLayout.load} makes.
+    * @param save Keeps the workspace layout after each change, other than one that {@link WorkspaceLayout.quietly} makes.
     * @returns A function that detaches this class again, for when the workspace unmounts.
     */
    attach(api: DockviewApi, save: (record: LayoutRecord) => void): () => void {
@@ -40,7 +42,7 @@ export class WorkspaceLayout {
       // Dockview hides a group by giving it no size (ViewItem.setVisible in dockview-core 8.9.0's splitview.ts), so the hidden attribute also takes the group out of
       // the tab order and the accessibility tree.
       const follow = (group: DockviewGroupPanel) => group.api.onDidVisibilityChange((event) => (group.element.hidden = !event.isVisible));
-      const subscriptions = [api.onDidMaximizedGroupChange(read), api.onDidLayoutChange(() => this.persist()), api.onDidAddGroup(follow), ...api.groups.map(follow)];
+      const subscriptions = [api.onDidMaximizedGroupChange(read), api.onDidLayoutChange(() => this.quiet === 0 && this.persist()), api.onDidAddGroup(follow), ...api.groups.map(follow)];
       read();
       return () => {
          subscriptions.forEach((subscription) => subscription.dispose());
@@ -65,7 +67,7 @@ export class WorkspaceLayout {
    }
 
    /**
-    * Lays out the workspace as the record says, and hides its hidden panels again.
+    * Lays out the workspace as the record says, and hides its hidden panels again, as a change of the page's own that saves nothing.
     *
     * The panels that the workspace holds stay mounted, so each keeps its state.
     *
@@ -77,33 +79,47 @@ export class WorkspaceLayout {
          return false;
       }
 
-      this.loading = true;
-      try {
-         api.fromJSON(record.dockview, { reuseExistingPanels: true });
-         this.origins = {};
-         for (const id of panelIds) {
-            this.hidden[id] = false;
-         }
-
-         for (const { id, home } of record.hidden) {
-            api.getPanel(id)?.group.api.setVisible(false);
-            this.hidden[id] = true;
-            if (home !== null) {
-               this.origins[id] = home;
+      return this.quietly(() => {
+         try {
+            api.fromJSON(record.dockview, { reuseExistingPanels: true });
+            this.origins = {};
+            for (const id of panelIds) {
+               this.hidden[id] = false;
             }
-         }
 
-         // A group that loads hidden fires no change of its visibility.
-         for (const group of api.groups) {
-            group.element.hidden = !group.api.isVisible;
-         }
+            for (const { id, home } of record.hidden) {
+               api.getPanel(id)?.group.api.setVisible(false);
+               this.hidden[id] = true;
+               if (home !== null) {
+                  this.origins[id] = home;
+               }
+            }
 
-         this.loads++;
-         return true;
-      } catch {
-         return false;
+            // A group that loads hidden fires no change of its visibility.
+            for (const group of api.groups) {
+               group.element.hidden = !group.api.isVisible;
+            }
+
+            this.loads++;
+            return true;
+         } catch {
+            return false;
+         }
+      });
+   }
+
+   /**
+    * Makes a change of the page's own to the workspace layout, which saves nothing, such as a load or a tab that the page opens.
+    *
+    * Dockview reports a layout change in a microtask that its first change queues (AsapEvent in dockview-core 8.9.0's events.ts), so the change stays the page's own until a microtask
+    * queued after it.
+    */
+   quietly<T>(change: () => T): T {
+      this.quiet++;
+      try {
+         return change();
       } finally {
-         this.loading = false;
+         queueMicrotask(() => this.quiet--);
       }
    }
 
@@ -136,7 +152,7 @@ export class WorkspaceLayout {
    /** Sets the title that the panel's tab shows. */
    setTitle(id: PanelId, title: string): void {
       this.titles[id] = title;
-      this.api?.getPanel(id)?.api.setTitle(title);
+      this.quietly(() => this.api?.getPanel(id)?.api.setTitle(title));
    }
 
    /** Hides the panel, or shows it when it is hidden. */
@@ -235,7 +251,7 @@ export class WorkspaceLayout {
    }
 
    private persist(): void {
-      const record = this.loading ? null : this.snapshot();
+      const record = this.snapshot();
       if (record !== null) {
          this.save?.(record);
       }

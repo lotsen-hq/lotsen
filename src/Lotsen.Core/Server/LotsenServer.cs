@@ -248,6 +248,7 @@ internal sealed class LotsenServer : IAsyncDisposable
       builder.Services.AddSingleton<IterationLifecycle>();
       builder.Services.AddSingleton<IterationScheduler>();
       builder.Services.AddSingleton<FileOperations>();
+      builder.Services.AddSingleton<PreferenceStore>();
       builder.Services.AddSingleton<BackgroundJobs>();
       builder.Services.AddHostedService(services => services.GetRequiredService<BackgroundJobs>());
 
