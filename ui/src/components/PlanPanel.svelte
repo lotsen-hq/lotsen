@@ -1,17 +1,18 @@
 <script lang="ts">
+   import Check from '@lucide/svelte/icons/check';
+   import ChevronDown from '@lucide/svelte/icons/chevron-down';
+   import ChevronRight from '@lucide/svelte/icons/chevron-right';
    import ClipboardList from '@lucide/svelte/icons/clipboard-list';
    import ClockAlert from '@lucide/svelte/icons/clock-alert';
    import CopyCheck from '@lucide/svelte/icons/copy-check';
    import LoaderCircle from '@lucide/svelte/icons/loader-circle';
    import SkipForward from '@lucide/svelte/icons/skip-forward';
-   import Square from '@lucide/svelte/icons/square';
-   import SquareCheck from '@lucide/svelte/icons/square-check';
    import { doneClick, type DoneClick } from '../lib/doneClick';
    import type { DoneState, KnownPlan } from '../lib/tourRecord.svelte';
    import { staleOnOf } from '../lib/stops';
    import { doneCheckboxLabel, doneRowLabel, doneTooltip, revisedTooltip, skipTooltip, stopKindLabels, stopStatusLabels, unwrittenStopLabel, type Attachment } from '../lib/labels';
    import type { PlanActionKind } from '../lib/tourActions';
-   import type { Familiarity, QuestionThread, RequestedTourAction, Stop, TourControls } from '../lib/types';
+   import type { Chapter, Familiarity, QuestionThread, RequestedTourAction, Stop, TourControls } from '../lib/types';
    import PlanActions from './PlanActions.svelte';
    import PlanProposal from './PlanProposal.svelte';
    import StopKindPill from './StopKindPill.svelte';
@@ -43,6 +44,8 @@
       onfamiliarity = null,
       planWaits = false,
       onapprove = null,
+      folded = new Set(),
+      onfold = null,
    }: {
       tourSelected: boolean;
       known: KnownPlan | undefined;
@@ -87,6 +90,10 @@
       planWaits?: boolean;
       /** Approves the waiting plan with the proposed order, level and words, and returns null once the server stored the approval or its reason for a refusal, or null when the page offers no approval. */
       onapprove?: ((stopIds: readonly string[], familiarity: Familiarity, text: string) => Promise<string | null>) | null;
+      /** The IDs of the plan's parts that the reviewer folded, which show only their headings. */
+      folded?: ReadonlySet<string>;
+      /** Folds a part by its ID, or unfolds it, or null when the page offers no folds, which shows every part unfolded with a plain heading. */
+      onfold?: ((partId: string, folded: boolean) => void) | null;
    } = $props();
 
    // Skips of different stops may save at the same time: the server stores them in turn, and the page keeps the newest skips by the tour's update time.
@@ -124,8 +131,10 @@
       }
    }
 
-   // Stops are numbered across the whole tour, so each chapter's list starts after the stops of the chapters above it.
-   const chapters = $derived.by(() => {
+   type NumberedChapter = Chapter & { first: number; stops: Stop[] };
+
+   // Stops are numbered across the whole tour, so each chapter's list starts after the stops of the chapters above it, those of folded parts included.
+   const chapters = $derived.by((): NumberedChapter[] => {
       const plan = known?.plan;
       if (!plan) {
          return [];
@@ -139,6 +148,9 @@
          return numbered;
       });
    });
+
+   // Each part with its chapters, or null for a plan without parts.
+   const parts = $derived(known?.plan?.parts?.map((part) => ({ ...part, chapters: chapters.filter((chapter) => chapter.part === part.id) })) ?? null);
 </script>
 
 {#snippet skipToggle(stopId: string, number: number)}
@@ -148,13 +160,14 @@
          tooltip={skipTooltip(isSkipped)}
          variant={isSkipped ? 'secondary' : 'ghost'}
          size="icon-xs"
-         class="skip-toggle"
+         class="skip-toggle text-base"
          aria-label={`Skip stop ${number}`}
          aria-pressed={isSkipped}
          disabled={skipping.has(stopId)}
          onclick={() => toggleSkip(stopId)}
       >
-         <SkipForward />
+         <!-- The skip and done buttons take the title's text size, and their icons scale with it, so the two match. -->
+         <SkipForward class="size-glyph" />
       </TooltipButton>
    {/if}
 {/snippet}
@@ -168,16 +181,83 @@
          tooltip={doneTooltip(doneState, click)}
          variant="ghost"
          size="icon-xs"
-         class={doneState.state === 'done' ? 'done-toggle checked' : doneState.state === 'earlier' ? 'done-toggle earlier' : 'done-toggle'}
+         class={`done-toggle text-base ${doneState.state === 'done' ? 'checked' : doneState.state === 'earlier' ? 'earlier' : ''}`}
          role="checkbox"
          aria-label={doneCheckboxLabel(number, doneState, click)}
          aria-checked={doneState.state === 'done'}
          disabled={marking.has(stop.id)}
          onclick={() => toggleDone(stop.id, click)}
       >
-         {#if doneState.state === 'done'}<SquareCheck class="size-5" />{:else if doneState.state === 'earlier'}<CopyCheck class="size-5" />{:else}<Square class="size-5" />{/if}
+         {#if doneState.state === 'earlier'}<CopyCheck class="size-glyph" />{:else}<Check class="size-glyph" />{/if}
       </TooltipButton>
    {/if}
+{/snippet}
+
+<!-- A chapter of the plan with its stops. In a plan with parts, its heading sits one level below its part's heading. -->
+{#snippet chapterItem(chapter: NumberedChapter, heading: 'h3' | 'h4')}
+   <li>
+      <svelte:element this={heading} class="mt-2 mb-1 px-4 caps-label">{chapter.title}</svelte:element>
+      <ol class="mb-2 px-2">
+         {#each chapter.stops as stop, index (stop.id)}
+            {@const current = stop.id === currentStopId}
+            {@const writing = stop.status === 'pending'}
+            <!-- With no session attached, no one writes a pending stop. -->
+            {@const spinning = writing && attachment !== 'none'}
+            {@const status = writing && !spinning ? unwrittenStopLabel : stop.status === 'revised' && !changed.has(stop.id) ? null : (stopStatusLabels[stop.status] ?? null)}
+            {@const kind = stopKindLabels[stop.kind] ?? stop.kind}
+            {@const number = chapter.first + index}
+            {@const isSkipped = skipped.has(stop.id)}
+            {@const doneLabel = doneRowLabel(done.get(stop.id) ?? { state: 'none' })}
+            <!-- The row keeps room only for the controls that show without the pointer: a skip, and a done mark on any version. -->
+            {@const kept = (onskip !== null && isSkipped ? 1 : 0) + (onsetdone !== null && doneLabel !== null ? 1 : 0)}
+            <li class="stop-item">
+               <button
+                  type="button"
+                  class={['stop-row', current && 'current', isSkipped && 'skipped-row', kept === 1 && 'keeps-one', kept === 2 && 'keeps-two']}
+                  aria-current={current ? 'step' : undefined}
+                  aria-label={[
+                     `${number} ${kind}: ${stop.title}`,
+                     ...(status === null ? [] : [status]),
+                     ...(staleOnOf(stop) === undefined ? [] : [`stale since update ${staleOnOf(stop)}`]),
+                     ...(isSkipped ? ['skipped'] : []),
+                     ...(doneLabel === null ? [] : [doneLabel]),
+                  ].join(', ')}
+                  onclick={() => onopen(stop.id)}
+               >
+                  <span class="number" data-cell>{number}</span>
+                  <span>
+                     <!-- No space between the pill and the title: the pill's margin is the gap, and the button's label keeps the two apart. -->
+                     <StopKindPill kind={stop.kind} data-cell /><span class={['title', writing && 'writing']} data-cell>{stop.title}</span>
+                     {#if status !== null}
+                        <WithTooltip text={stop.status === 'revised' ? revisedTooltip : null}>
+                           {#snippet trigger({ props })}
+                              <span {...props} class="status" data-cell>
+                                 {#if spinning}
+                                    <LoaderCircle class="spinner" aria-hidden="true" />
+                                 {:else if stop.status === 'revised'}
+                                    <span class="dot" aria-hidden="true"></span>
+                                 {/if}
+                                 {status}
+                              </span>
+                           {/snippet}
+                        </WithTooltip>
+                     {/if}
+                     {#if staleOnOf(stop) !== undefined}
+                        <span class="status stale" data-cell><ClockAlert aria-hidden="true" />Stale since update {staleOnOf(stop)}</span>
+                     {/if}
+                     {#if isSkipped}
+                        <span class="status skipped" data-cell><SkipForward aria-hidden="true" />Skipped</span>
+                     {/if}
+                  </span>
+               </button>
+               <span class="stop-actions">
+                  {@render doneToggle(stop, number)}
+                  {@render skipToggle(stop.id, number)}
+               </span>
+            </li>
+         {/each}
+      </ol>
+   </li>
 {/snippet}
 
 {#snippet planList()}
@@ -188,67 +268,34 @@
       <p class="px-4 py-1 text-xs text-destructive" role="alert">{refusal}</p>
    {/if}
    <ol class="plan">
-      {#each chapters as chapter (chapter.id)}
-         <li>
-            <h3 class="mt-2 mb-1 px-4 caps-label">{chapter.title}</h3>
-            <ol class="mb-2 px-2">
-               {#each chapter.stops as stop, index (stop.id)}
-                  {@const current = stop.id === currentStopId}
-                  {@const writing = stop.status === 'pending'}
-                  <!-- With no session attached, no one writes a pending stop. -->
-                  {@const spinning = writing && attachment !== 'none'}
-                  {@const status = writing && !spinning ? unwrittenStopLabel : stop.status === 'revised' && !changed.has(stop.id) ? null : (stopStatusLabels[stop.status] ?? null)}
-                  {@const kind = stopKindLabels[stop.kind] ?? stop.kind}
-                  {@const number = chapter.first + index}
-                  {@const isSkipped = skipped.has(stop.id)}
-                  {@const doneLabel = doneRowLabel(done.get(stop.id) ?? { state: 'none' })}
-                  <li class="stop-item">
-                     <button
-                        type="button"
-                        class={['stop-row', current && 'current', isSkipped && 'skipped-row']}
-                        aria-current={current ? 'step' : undefined}
-                        aria-label={[
-                           `${number} ${kind}: ${stop.title}`,
-                           ...(status === null ? [] : [status]),
-                           ...(staleOnOf(stop) === undefined ? [] : [`stale since update ${staleOnOf(stop)}`]),
-                           ...(isSkipped ? ['skipped'] : []),
-                           ...(doneLabel === null ? [] : [doneLabel]),
-                        ].join(', ')}
-                        onclick={() => onopen(stop.id)}
-                     >
-                        <span class="number" data-cell>{number}</span>
-                        <span>
-                           <!-- No space between the pill and the title: the pill's margin is the gap, and the button's label keeps the two apart. -->
-                           <StopKindPill kind={stop.kind} data-cell /><span class={['title', writing && 'writing']} data-cell>{stop.title}</span>
-                           {#if status !== null}
-                              <WithTooltip text={stop.status === 'revised' ? revisedTooltip : null}>
-                                 {#snippet trigger({ props })}
-                                    <span {...props} class="status" data-cell>
-                                       {#if spinning}
-                                          <LoaderCircle class="spinner" aria-hidden="true" />
-                                       {:else if stop.status === 'revised'}
-                                          <span class="dot" aria-hidden="true"></span>
-                                       {/if}
-                                       {status}
-                                    </span>
-                                 {/snippet}
-                              </WithTooltip>
-                           {/if}
-                           {#if staleOnOf(stop) !== undefined}
-                              <span class="status stale" data-cell><ClockAlert aria-hidden="true" />Stale since update {staleOnOf(stop)}</span>
-                           {/if}
-                           {#if isSkipped}
-                              <span class="status skipped" data-cell><SkipForward aria-hidden="true" />Skipped</span>
-                           {/if}
-                        </span>
+      {#if parts === null}
+         {#each chapters as chapter (chapter.id)}
+            {@render chapterItem(chapter, 'h3')}
+         {/each}
+      {:else}
+         {#each parts as part (part.id)}
+            {@const isFolded = onfold !== null && folded.has(part.id)}
+            <li>
+               {#if onfold === null}
+                  <h3 class="part-heading">{part.title}</h3>
+               {:else}
+                  <h3>
+                     <button type="button" class="part-heading" aria-expanded={!isFolded} onclick={() => onfold(part.id, !isFolded)}>
+                        {#if isFolded}<ChevronRight aria-hidden="true" />{:else}<ChevronDown aria-hidden="true" />{/if}
+                        {part.title}
                      </button>
-                     {@render doneToggle(stop, number)}
-                     {@render skipToggle(stop.id, number)}
-                  </li>
-               {/each}
-            </ol>
-         </li>
-      {/each}
+                  </h3>
+               {/if}
+               {#if !isFolded}
+                  <ol>
+                     {#each part.chapters as chapter (chapter.id)}
+                        {@render chapterItem(chapter, 'h4')}
+                     {/each}
+                  </ol>
+               {/if}
+            </li>
+         {/each}
+      {/if}
       {#if onopensummary !== null && chapters.length > 0}
          <li class="px-2">
             <button type="button" class={['stop-row', summaryShown && 'current']} aria-current={summaryShown ? 'step' : undefined} onclick={onopensummary}>

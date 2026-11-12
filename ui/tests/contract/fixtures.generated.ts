@@ -41,11 +41,13 @@ export const eventFixtures = {
          "chapters": [
             {
                "id": "a",
-               "title": "The writer"
+               "title": "The writer",
+               "part": "p1"
             },
             {
                "id": "b",
-               "title": "Its risks"
+               "title": "Its risks",
+               "part": "p2"
             }
          ],
          "stops": [
@@ -257,6 +259,16 @@ export const eventFixtures = {
                "path": "src/a.g.cs",
                "mark": "generated",
                "reason": "The build writes it."
+            }
+         ],
+         "parts": [
+            {
+               "id": "p1",
+               "title": "The code"
+            },
+            {
+               "id": "p2",
+               "title": "The review"
             }
          ]
       },
@@ -1001,11 +1013,13 @@ export const outputFixtures = {
          "chapters": [
             {
                "id": "a",
-               "title": "The writer"
+               "title": "The writer",
+               "part": "p1"
             },
             {
                "id": "b",
-               "title": "Its risks"
+               "title": "Its risks",
+               "part": "p2"
             }
          ],
          "stops": [
@@ -1217,6 +1231,16 @@ export const outputFixtures = {
                "path": "src/a.g.cs",
                "mark": "generated",
                "reason": "The build writes it."
+            }
+         ],
+         "parts": [
+            {
+               "id": "p1",
+               "title": "The code"
+            },
+            {
+               "id": "p2",
+               "title": "The review"
             }
          ]
       },

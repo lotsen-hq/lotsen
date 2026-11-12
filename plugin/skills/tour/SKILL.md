@@ -130,6 +130,9 @@ Order the tour so each stop builds only on stops before it:
   overview.
 - Size the plan to the change: about 4–8 stops for a small PR, 8–15 for a typical one, up to about 30 for a large
   one. Never pad.
+- Parts are optional. A part is a named group of consecutive chapters, which the reviewer can fold in the browser.
+  Group the chapters into a few parts when the plan has more than six chapters that fall into clear areas, such as
+  "The data model", "The API" and "Deployment". A plan of six chapters or fewer has no parts.
 
 Familiarity shapes the plan:
 
@@ -175,17 +178,23 @@ Call `set_plan` with the `tourId`, the `chapters` and the `stops`, both in tour 
 }
 ```
 
+A plan with parts gives them beside the chapters, as `"parts": [{ "id": "data", "title": "The data model" }, …]`, and
+each chapter names its part, as `{ "id": "orders", "title": "The order records", "part": "data" }`.
+
 The server checks these rules and stores nothing when one breaks:
 
 - Every chapter has a unique `id`, a `title`, and at least one stop.
+- `parts` is optional. With parts, every part has a unique `id`, a `title` and at least one chapter, every chapter
+  names its part in `part`, and chapters come part by part in the order of `parts`. Without parts, no chapter has a
+  `part`. Each `set_plan` replaces the parts, so give them again when you revise the plan.
 - Stops come chapter by chapter in the order of `chapters`. The overview, too, belongs to the first chapter.
 - Every stop has a `title`, a `kind` and a `chapter`.
 - `anchorHint` is optional: where the stop will mostly point. Its `path` is relative to the repository root, with
   forward slashes and no `.` or `..` segments. Its optional `line` starts at 1. Leave it out when the stop has no
   single place, as an overview usually has none.
-- Leave out a stop's `id` in a new plan. To revise a plan, call `set_plan` again with the whole plan, and give each
-  stop you keep the `id` that `read_state` shows. A kept stop keeps its content. `set_plan` refuses to change the
-  `kind` of a stop that has content; change it with `put_stop`.
+- Leave out a stop's `id` in a new plan. To revise a plan, call `set_plan` again with the whole plan, its parts and
+  file marks included, and give each stop you keep the `id` that `read_state` shows. A kept stop keeps its content.
+  `set_plan` refuses to change the `kind` of a stop that has content; change it with `put_stop`.
 
 The tour that `set_plan` returns holds each stop's `id`. Tell the reviewer in one line that the plan is in the
 browser, then write the stops. Don't wait for the reviewer to approve the plan, unless the tour is plan first.

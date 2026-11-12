@@ -193,6 +193,26 @@ public sealed class TourFileFormatTests : IDisposable
       Assert.False(file["tour"]!["plan"]!["stops"]![1]!.AsObject().ContainsKey("seenVersion"));
    }
 
+   [Fact]
+   public void Parts_of_a_plan_are_stored_and_read_back_and_left_out_without_parts()
+   {
+      var store = NewStore();
+      var parted = store.Create(PullRequest, Familiarity.Some);
+      var plain = store.Create(PullRequest, Familiarity.Some);
+      var plan = SamplePlan();
+      store.Change(parted.Id, current => current with { Plan = plan with { Chapters = [.. plan.Chapters.Select(chapter => chapter with { Part = "why" })], Parts = [new Part("why", "Why")] } });
+      store.Change(plain.Id, current => current with { Plan = plan });
+
+      var read = NewStore().Get(parted.Id)!.Plan!;
+
+      Assert.Equal([new Part("why", "Why")], read.Parts);
+      Assert.All(read.Chapters, chapter => Assert.Equal("why", chapter.Part));
+      Assert.Null(NewStore().Get(plain.Id)!.Plan!.Parts);
+      var file = JsonNode.Parse(File.ReadAllText(PathOf(plain.Id)))!["tour"]!["plan"]!;
+      Assert.False(file.AsObject().ContainsKey("parts"));
+      Assert.All(file["chapters"]!.AsArray(), chapter => Assert.False(chapter!.AsObject().ContainsKey("part")));
+   }
+
    /// <summary>The serializer reads a null element of a collection, so the store refuses one in a stop's content as it does in the plan.</summary>
    [Theory]
    [InlineData("\"checks\":[", "\"checks\":[null,")]

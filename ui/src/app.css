@@ -223,6 +223,12 @@
    border-bottom: 1px solid var(--border);
 }
 
+/* An icon as large as the text around it. Its name holds "size-", so a button's default icon size leaves it alone. */
+@utility size-glyph {
+   width: 1.1em;
+   height: 1.1em;
+}
+
 /* A panel's scroll box. It is positioned, so it holds and clips the absolutely positioned content inside it, such as `sr-only` text, which would otherwise extend the page. */
 @utility scroll-box {
    position: relative;
@@ -365,26 +371,81 @@
       }
    }
 
+   /* A stop's done checkbox and skip toggle lie over the right end of its row, so a control that shows only under the pointer or the focus takes no room from the
+      title. The row keeps room for the controls that always show. */
    .plan .stop-item {
-      @apply flex items-center gap-1;
+      @apply relative;
 
-      & .stop-row {
-         @apply min-w-0 flex-1;
+      & .stop-row.keeps-one {
+         padding-right: 2.25rem;
+      }
+
+      & .stop-row.keeps-two {
+         padding-right: 4rem;
+      }
+
+      & .stop-actions {
+         @apply absolute inset-y-0 right-1 flex items-center gap-1;
+      }
+
+      /* Important, because the button's display is a utility, which wins over this layer. */
+      &:not(:hover, :focus-within) :is(.skip-toggle[aria-pressed='false'], .done-toggle:not(.checked, .earlier)) {
+         @apply hidden!;
+      }
+
+      /* Under the pointer or the focus, the controls cover the end of the title with the row's background. */
+      &:is(:hover, :focus-within) .stop-actions {
+         @apply rounded-md bg-card;
+      }
+
+      &:has(.stop-row.current) .stop-actions {
+         @apply bg-accent;
+      }
+
+      /* Without a pointer that hovers, every control always shows, beside the row. */
+      @media (hover: none) {
+         @apply flex items-center gap-1;
+
+         & .stop-row {
+            @apply min-w-0 flex-1 pr-2;
+         }
+
+         & .stop-actions {
+            @apply static;
+         }
+
+         &:not(:hover, :focus-within) :is(.skip-toggle[aria-pressed='false'], .done-toggle:not(.checked, .earlier)) {
+            @apply inline-flex!;
+         }
       }
    }
 
-   /* A stop's skip toggle and done checkbox, which show while the pointer or the focus is in the row, or while the stop is skipped or done on any version. */
-   :is(.plan .stop-item, .stop-order-row) {
-      & .skip-toggle {
-         @apply shrink-0 text-muted-foreground;
-      }
+   /* A part's heading in the plan, one level above its chapters' headings: the fold's chevron, when the part folds, then the title in the foreground color. */
+   .plan .part-heading {
+      @apply mt-4 flex w-full scroll-my-1 items-center gap-1 px-2 py-1 text-left text-base font-semibold text-foreground focus-visible:ring-inset;
+      border-radius: 6px;
 
-      &:not(:hover, :focus-within) :is(.skip-toggle[aria-pressed='false'], .done-toggle:not(.checked, .earlier)) {
+      & svg {
+         @apply size-4 shrink-0 text-muted-foreground;
+      }
+   }
+
+   .plan button.part-heading {
+      @apply hover:bg-card;
+   }
+
+   :is(.plan .stop-item, .stop-order-row) .skip-toggle {
+      @apply shrink-0 text-muted-foreground;
+   }
+
+   /* In the stop order editor, a skip toggle shows while the pointer or the focus is in the row, or while the stop is skipped. */
+   .stop-order-row {
+      &:not(:hover, :focus-within) .skip-toggle[aria-pressed='false'] {
          @apply opacity-0;
       }
 
       @media (hover: none) {
-         &:not(:hover, :focus-within) :is(.skip-toggle[aria-pressed='false'], .done-toggle:not(.checked, .earlier)) {
+         &:not(:hover, :focus-within) .skip-toggle[aria-pressed='false'] {
             @apply opacity-100;
          }
       }

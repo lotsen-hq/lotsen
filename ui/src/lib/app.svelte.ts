@@ -78,6 +78,7 @@ type EventHandlers = { [K in AppEventName]: { apply(app: LotsenApp, payload: Eve
 const dimmingPreference = booleanPreference('lotsen.dimming', true);
 const highlightPreference = booleanPreference('lotsen.highlight', true);
 const noDoneStates: ReadonlyMap<string, DoneState> = new Map();
+const noFoldedParts: ReadonlySet<string> = new Set();
 
 /** What the page needs from the browser: what a session needs, and the history that the page adds its entries to. */
 export interface AppEnvironment extends SessionEnvironment {
@@ -205,6 +206,8 @@ export class LotsenApp {
    selectedDoneStates = $derived<ReadonlyMap<string, DoneState>>(this.selectedRecord?.doneStates ?? noDoneStates);
    /** The number of the selected tour's stops whose done mark covers their current version, 0 while no tour is selected. */
    selectedDoneCount = $derived(this.selectedRecord?.doneCount ?? 0);
+   /** The IDs of the selected tour's parts that the reviewer folded, as {@link TourRecord.foldedParts} holds them, empty while no tour is selected. */
+   selectedFoldedParts = $derived<ReadonlySet<string>>(this.selectedRecord?.foldedParts ?? noFoldedParts);
    /** The newer iteration of the selected tour's pull request that the server found against the tour's pin, or null when it knows of none or no tour is selected. */
    selectedAvailableIteration = $derived<AvailableIteration | null>(availableOn(this.selectedRecord?.availableIteration, this.selectedTour?.pin));
    /** The state of the reviewer's iteration check of the selected tour. {@link iterationCheckState} says when a change to the available iteration hides its failure. */
@@ -795,7 +798,11 @@ export class LotsenApp {
       }
    }
 
-   /** Makes a stop the open one, with no passage of it focused yet. A new stop's stack opens with no file, so the single-file view closes too and the navigation names none until one opens. */
+   /**
+    * Makes a stop the open one, with no passage of it focused yet. A new stop's stack opens with no file, so the single-file view closes too and the navigation names none until one opens.
+    *
+    * Every way of opening a stop passes here, so here the Plan panel unfolds the part that holds the stop.
+    */
    private enterStop(stopId: string | null): void {
       const changed = stopId !== this.selectedStopId;
       if (changed) {
@@ -806,6 +813,10 @@ export class LotsenApp {
 
       this.showsSummary = false;
       this.selectedOpenStop?.open(stopId);
+      if (stopId !== null) {
+         this.selectedRecord?.unfoldPartOf(stopId);
+      }
+
       this.pendingOpen = null;
       if (changed && this.showsStopFiles) {
          this.closeFile();
@@ -1042,6 +1053,11 @@ export class LotsenApp {
    private currentEntry(): Navigation {
       const { location, history } = this.options.environment;
       return readNavigation(location.hash, history.state);
+   }
+
+   /** Folds a part of the selected tour's plan by its ID, or unfolds it. */
+   setPartFolded(partId: string, folded: boolean): void {
+      this.selectedRecord?.setPartFolded(partId, folded);
    }
 
    /**
@@ -2414,7 +2430,8 @@ export class LotsenApp {
     * Makes a change to a tour's plan in its record, which keeps it unless the record holds newer messages, and clears the selected tour's load error, because the page now holds a plan for it.
     *
     * When the open stop gets its content, its primary passage opens, as if the reviewer opened the stop then. A plan without the open stop closes it, with any passage of it that waits to open.
-    * A newer version of the stop under view keeps the version that the reviewer read on screen, as {@link OpenStop.applyPlan} says.
+    * A newer version of the stop under view keeps the version that the reviewer read on screen, as {@link OpenStop.applyPlan} says. A change that moves the open stop to another part unfolds
+    * that part, so the Plan panel shows the open stop.
     *
     * @param change - Stores the plan's message in the record, and returns whether the plan that the record shows changed.
     * @param updatedAt - The tour's update time of the message, which a held stop version keeps as the time it was replaced.
@@ -2424,7 +2441,13 @@ export class LotsenApp {
       const record = this.recordOf(tourId);
       const openStop = this.threadSides.get(tourId)?.openStop;
       const written = tourId === this.selectedTourId && this.selectedStop?.stage === 'pending';
+      const openId = openStop?.stopId ?? null;
+      const partBefore = openId === null ? undefined : record?.partOf(openId);
       if (record !== undefined && (openStop?.applyPlan(() => change(record), updatedAt, source) ?? change(record))) {
+         if (openId !== null && record.partOf(openId) !== partBefore) {
+            record.unfoldPartOf(openId);
+         }
+
          const stop = this.selectedStop;
          if (tourId === this.selectedTourId && this.selectedStopId !== null && stop === null) {
             openStop?.open(null);

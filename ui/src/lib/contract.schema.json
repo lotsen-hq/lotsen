@@ -1003,6 +1003,9 @@
         },
         "title": {
           "type": "string"
+        },
+        "part": {
+          "type": "string"
         }
       },
       "required": [
@@ -2878,6 +2881,22 @@
       ],
       "additionalProperties": false
     },
+    "Part": {
+      "title": "Part",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ]
+    },
     "PassageRole": {
       "title": "PassageRole",
       "type": "string",
@@ -3090,6 +3109,12 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/FileMark"
+          }
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Part"
           }
         }
       },

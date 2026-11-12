@@ -115,11 +115,10 @@ test('the side-by-side diff keeps both panes aligned past an inline explanation'
 });
 
 test("the stop kind label is 70% of its title's size, never below 10.5 pixels, and leaves a one-line Plan row as tall as before", async ({ page }) => {
-   // A wider window widens the Plan panel, so the title of this row fits on one line beside the row's skip toggle and done checkbox.
-   await page.setViewportSize({ width: 1920, height: 1000 });
    await openDemoTour(page, checkoutTour, { placement: 'inline', layout: 'inline' });
    const fontSize = async (element: Locator) => parseFloat(await element.evaluate((node) => getComputedStyle(node).fontSize));
    const height = async (element: Locator) => (await element.boundingBox())!.height;
+   // The title of this row fits on one line.
    const row = page.getByRole('tabpanel', { name: 'Plan' }).locator('button.stop-row', { hasText: 'Where totals come from' });
 
    const inPlan = row.locator('.kind-pill');
@@ -143,14 +142,17 @@ test("a stop's done checkbox shows while the pointer is in its row, and stays on
    const item = page.getByRole('tabpanel', { name: 'Plan' }).locator('.stop-item', { hasText: 'Where totals come from' });
    const checkbox = item.getByRole('checkbox', { name: /^Stop 2 done/ });
    await page.mouse.move(0, 0);
-   await expect(checkbox).toHaveCSS('opacity', '0');
+   await expect(checkbox).toBeHidden();
+   // A control that shows only under the pointer leaves the whole width to the row.
+   const right = async (element: Locator) => ((box) => box.x + box.width)((await element.boundingBox())!);
+   expect(await right(item.locator('.stop-row'))).toBeCloseTo(await right(item), 0);
 
    await item.locator('.stop-row').hover();
-   await expect(checkbox).toHaveCSS('opacity', '1');
+   await expect(checkbox).toBeVisible();
    await checkbox.click();
    await expect(checkbox).toHaveAttribute('aria-checked', 'true');
    await page.mouse.move(0, 0);
-   await expect(checkbox).toHaveCSS('opacity', '1');
+   await expect(checkbox).toBeVisible();
 });
 
 /** Returns a color's hue in degrees on the HSL wheel. */

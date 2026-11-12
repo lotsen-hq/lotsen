@@ -177,10 +177,17 @@ async function createTour(world: World, claude: ClaudeSession, spec: SampleTour)
       return seeded;
    }
 
-   const chapters = spec.chapters.map((chapter, index) => ({ id: `c${index + 1}`, title: chapter.title }));
+   const partTitles = [...new Set(spec.chapters.flatMap((chapter) => (chapter.part === undefined ? [] : [chapter.part])))];
+   const parts = partTitles.map((title, index) => ({ id: `p${index + 1}`, title }));
+   const chapters = spec.chapters.map((chapter, index) => ({
+      id: `c${index + 1}`,
+      title: chapter.title,
+      ...(chapter.part === undefined ? {} : { part: parts[partTitles.indexOf(chapter.part)]!.id }),
+   }));
    const stops = spec.chapters.flatMap((chapter, index) => chapter.stops.map((stop) => ({ stop, chapter: chapters[index]!.id })));
    const planned = (await claude.call('set_plan', {
       tourId: tour.id,
+      ...(parts.length === 0 ? {} : { parts }),
       chapters,
       stops: stops.map(({ stop, chapter }) => ({ title: stop.title, kind: stop.kind, chapter, ...(stop.anchorHint === undefined ? {} : { anchorHint: stop.anchorHint }) })),
       ...(spec.fileMarks === undefined ? {} : { fileMarks: spec.fileMarks }),

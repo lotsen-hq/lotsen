@@ -32,11 +32,11 @@ public sealed partial class HowToActTests : IAsyncLifetime
       [TourAction.ReplanKind] = (
          """{ "kind": "replan" }""",
          "set_plan on the whole plan",
-         ["such as add, drop, merge or split stops", "Carry out replan with set_plan on the whole plan", "give every stop that stays the id it has, so it keeps its content, its versions and the reviewer's answers and threads", "such as an overview that lists the stops", "Write the plan's new stops after the reply", "a skip says that the reviewer does not need that stop", "Keep a skipped stop unless the reviewer's words drop it, because the reviewer can take the skip back"]),
+         ["such as add, drop, merge or split stops", "Carry out replan with set_plan on the whole plan", "its parts and file marks included, because set_plan replaces them", "give every stop that stays the id it has, so it keeps its content, its versions and the reviewer's answers and threads", "such as an overview that lists the stops", "Write the plan's new stops after the reply", "a skip says that the reviewer does not need that stop", "Keep a skipped stop unless the reviewer's words drop it, because the reviewer can take the skip back"]),
       [TourAction.ReorderKind] = (
          """{ "kind": "reorder", "stopIds": [] }""",
          "set_plan on the whole plan",
-         ["the action's stopIds, which name every stop of the plan once", "Carry out reorder with set_plan on the whole plan", "give every stop that stays the id it has", "A proposed order is a request", "say in the reply where your order differs from the proposal and why", "Write the plan's new stops after the reply"]),
+         ["the action's stopIds, which name every stop of the plan once", "Carry out reorder with set_plan on the whole plan", "its parts and file marks included", "give the chapters, and the parts if the plan has any, to the new order", "give every stop that stays the id it has", "A proposed order is a request", "say in the reply where your order differs from the proposal and why", "Write the plan's new stops after the reply"]),
       [TourAction.SummarizeKind] = (
          """{ "kind": "summarize" }""",
          "write_synthesis",

@@ -99,7 +99,8 @@ export interface SampleTour {
    pin: 'pinned' | 'firstHead' | 'pinning' | { failed: string };
    /** The pull request's state that an iteration check learns once the tour is pinned, or none for an active pull request. */
    pullRequestState?: Exclude<PullRequestState, 'active'>;
-   chapters?: { title: string; stops: SampleStop[] }[];
+   /** The chapters in plan order. A chapter's part is the title of the part that it belongs to, and the plan's parts are those titles in the order of their first chapter. */
+   chapters?: { title: string; part?: string; stops: SampleStop[] }[];
    fileMarks?: { path: string; mark: FileMarkKind; reason: string }[];
    /** The attachment level of the session that each world binds to the tour, or none for a tour without a session. */
    session?: 'confirmed' | 'unconfirmed';
@@ -564,6 +565,7 @@ export function sampleTours(): SampleTour[] {
          pin: { failed: 'The platform refused the access token. Sign in to the platform again, then create the tour again.' },
       },
       { key: 'cart-badge', number: 401, ageMinutes: 60 * 5, familiarity: 'some', pin: 'pinned', chapters: overviewOnly('The cart badge counts items, not lines.'), steps: [{ progress: 'overview' }] },
+      orderServiceTour(),
       checkoutTour(),
       {
          key: 'search-filters',
@@ -628,6 +630,89 @@ export function sampleTours(): SampleTour[] {
          ],
       },
    ];
+}
+
+/**
+ * A large tour whose plan groups eight chapters into three parts, so the Plan panel shows part headings. Some stops of each part have content, which shows in the side panel, and no session writes the others.
+ */
+function orderServiceTour(): SampleTour {
+   const pending = (key: string, title: string, kind: StopKind, path: string): SampleStop => ({ key, title, kind, anchorHint: { path } });
+   return {
+      key: 'order-service',
+      number: 418,
+      ageMinutes: 60 * 3,
+      familiarity: 'some',
+      pin: 'pinned',
+      chapters: [
+         {
+            title: 'Orientation',
+            part: 'The data model',
+            stops: [
+               {
+                  key: 'overview',
+                  title: 'The order service at a glance',
+                  kind: 'overview',
+                  content: { headline: 'Orders move from the storefront into a service of their own, with its own data, API and deployment.' },
+               },
+            ],
+         },
+         {
+            title: 'The order records',
+            part: 'The data model',
+            stops: [
+               {
+                  key: 'product',
+                  title: 'What an order line points at',
+                  kind: 'context',
+                  content: {
+                     placement: 'side',
+                     headline: 'An order line keeps the product ID, so the product type stays as it was.',
+                     passages: [['head', 'src/lib/catalog.ts', 1, 5]],
+                  },
+               },
+               pending('totals', 'The stored total of an order', 'inspect', 'services/orders/OrderService.cs'),
+            ],
+         },
+         { title: 'The product data', part: 'The data model', stops: [pending('products', 'The new product IDs', 'inspect', 'data/products.json')] },
+         {
+            title: 'The order endpoints',
+            part: 'The API',
+            stops: [
+               {
+                  key: 'query',
+                  title: 'How the storefront asks for orders',
+                  kind: 'context',
+                  content: {
+                     placement: 'side',
+                     headline: 'The storefront builds its query strings as search does.',
+                     passages: [['head', 'src/search/filters.ts', 7, 13]],
+                  },
+               },
+               pending('create', 'Creating an order', 'inspect', 'services/orders/OrderService.cs'),
+            ],
+         },
+         { title: 'Errors', part: 'The API', stops: [pending('errors', 'Errors reach the storefront as messages', 'risk', 'src/checkout/payment.ts')] },
+         { title: 'The confirmation email', part: 'The API', stops: [pending('email', 'The new email subject', 'inspect', 'src/email/orderConfirmation.ts')] },
+         {
+            title: 'The deploy script',
+            part: 'Deployment',
+            stops: [
+               {
+                  key: 'deploy',
+                  title: 'How the shop deploys today',
+                  kind: 'context',
+                  content: {
+                     placement: 'side',
+                     headline: 'The deploy script builds the shop and copies it to one server.',
+                     passages: [['head', 'scripts/deploy.sh', 1, 5]],
+                  },
+               },
+               pending('service-deploy', 'Deploying the service beside the shop', 'inspect', 'scripts/deploy.sh'),
+            ],
+         },
+         { title: 'Open points', part: 'Deployment', stops: [pending('rollback', 'Can the shop roll back without the service?', 'question', 'scripts/deploy.sh')] },
+      ],
+   };
 }
 
 /**

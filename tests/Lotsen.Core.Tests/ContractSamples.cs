@@ -69,9 +69,10 @@ internal static class ContractSamples
    private static readonly Stop.Pending Docs = new("s6", "The docs", StopKind.Context, "b", Skipped: true);
 
    private static readonly Plan Plan = new(
-      [new Chapter("a", "The writer"), new Chapter("b", "Its risks")],
+      [new Chapter("a", "The writer", "p1"), new Chapter("b", "Its risks", "p2")],
       [Overview, Writer, Question, Risk, Tests, Docs],
-      [new FileMark("src/a.g.cs", FileMarkKind.Generated, "The build writes it.")]);
+      [new FileMark("src/a.g.cs", FileMarkKind.Generated, "The build writes it.")],
+      [new Part("p1", "The code"), new Part("p2", "The review")]);
 
    private static readonly AnswerBatch Batch = new("b1", "session1", At);
 

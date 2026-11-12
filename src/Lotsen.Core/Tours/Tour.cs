@@ -205,13 +205,18 @@ internal enum Familiarity
 }
 
 /// <summary>
-/// The outline of a tour: its chapters and stops, each in tour order, and its file marks.
+/// The outline of a tour: its parts, chapters and stops, each in tour order, and its file marks.
 /// </summary>
 /// <param name="Chapters">The chapters in tour order.</param>
 /// <param name="Stops">The stops in tour order.</param>
 /// <param name="FileMarks">The file marks in the order Claude gave them, each on a different path, or an empty list for none.</param>
+/// <param name="Parts">The parts in tour order, or null for a plan without parts. JSON leaves it out when null.</param>
 /// <remarks><see cref="PlanRules"/> holds the rules that every stored plan follows.</remarks>
-internal sealed record Plan(IReadOnlyList<Chapter> Chapters, IReadOnlyList<Stop> Stops, IReadOnlyList<FileMark> FileMarks)
+internal sealed record Plan(
+   IReadOnlyList<Chapter> Chapters,
+   IReadOnlyList<Stop> Stops,
+   IReadOnlyList<FileMark> FileMarks,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<Part>? Parts = null)
 {
    /// <summary>The IDs of the stops that the reviewer skipped, in plan order.</summary>
    [JsonIgnore]
@@ -255,7 +260,15 @@ internal sealed record ReviewMark(string Path, string? HeadObjectId);
 /// </summary>
 /// <param name="Id">The chapter's ID, unique within the plan, which stops refer to.</param>
 /// <param name="Title">The chapter's title.</param>
-internal sealed record Chapter(string Id, string Title);
+/// <param name="Part">The <see cref="Lotsen.Tours.Part.Id"/> of the part the chapter belongs to, or null in a plan without parts. JSON leaves it out when null.</param>
+internal sealed record Chapter(string Id, string Title, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Part = null);
+
+/// <summary>
+/// A named group of consecutive chapters, which the Plan panel folds.
+/// </summary>
+/// <param name="Id">The part's ID, unique within the plan, which chapters refer to.</param>
+/// <param name="Title">The part's title.</param>
+internal sealed record Part(string Id, string Title);
 
 /// <summary>
 /// One step of a tour, as the plan announces it: a pending stop without content, or a written stop with its content and its earlier versions. The <c>stage</c> property in JSON names the

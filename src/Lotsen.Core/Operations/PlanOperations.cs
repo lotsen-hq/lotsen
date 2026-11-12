@@ -16,7 +16,9 @@ internal sealed record SetPlanInput(
    [property: Description("The stops in tour order, chapter by chapter in the order of chapters. At most one stop is an overview, and it must be the first stop.")]
    IReadOnlyList<StopInput> Stops,
    [property: Description("Marks on changed files that need little review, each path at most once. The UI shows a marked file collapsed, with its mark and reason. The plan's marks replace any earlier ones, so give them again with each plan. Omit it for a plan without marks.")]
-   IReadOnlyList<FileMarkInput>? FileMarks = null);
+   IReadOnlyList<FileMarkInput>? FileMarks = null,
+   [property: Description("The parts in tour order, each a named group of consecutive chapters, which the reviewer can fold in the UI. Every part needs at least one chapter, and with parts every chapter names its part, chapters coming part by part in the order of parts. The plan's parts replace any earlier ones, so give them again with each plan. Omit it, or give an empty list, for a plan without parts.")]
+   IReadOnlyList<PartInput>? Parts = null);
 
 /// <summary>A chapter in the input of <c>set_plan</c>.</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -24,6 +26,16 @@ internal sealed record ChapterInput(
    [property: Description("The chapter's ID, unique within the plan, which stops name in their chapter field.")]
    string Id,
    [property: Description("The chapter's title.")]
+   string Title,
+   [property: Description("The ID of the part the chapter belongs to. Give it for every chapter of a plan with parts, and omit it in a plan without parts.")]
+   string? Part = null);
+
+/// <summary>A part in the input of <c>set_plan</c>.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+internal sealed record PartInput(
+   [property: Description("The part's ID, unique within the plan, which chapters name in their part field.")]
+   string Id,
+   [property: Description("The part's title, which names the area of the change that its chapters cover.")]
    string Title);
 
 /// <summary>A stop in the input of <c>set_plan</c>.</summary>
@@ -247,7 +259,7 @@ internal static class PlanDrafts
    /// <summary>Returns the plan that the input sets: kept stops keep their content, and each new stop gets an ID that the tour does not name.</summary>
    /// <remarks>
    /// The input's own limits and its kept stops come first, then <see cref="PlanRules"/> on the built plan, whose fault paths are the input's, because the plan keeps the input's order. A null
-   /// element of the input stays null in the plan, so the plan rules name it.
+   /// element of the input stays null in the plan, so the plan rules name it. An empty list of parts builds a plan without parts.
    /// </remarks>
    /// <param name="input">The input.</param>
    /// <param name="latest">The latest stored tour, whose plan holds the stops that the input keeps.</param>
@@ -311,9 +323,10 @@ internal static class PlanDrafts
       }
 
       var plan = new Plan(
-         [.. input.Chapters.Select(chapter => chapter is null ? null! : new Chapter(chapter.Id, chapter.Title))],
+         [.. input.Chapters.Select(chapter => chapter is null ? null! : new Chapter(chapter.Id, chapter.Title, chapter.Part))],
          stops,
-         [.. marks.Select(mark => mark is null ? null! : new FileMark(mark.Path, mark.Mark, mark.Reason))]);
+         [.. marks.Select(mark => mark is null ? null! : new FileMark(mark.Path, mark.Mark, mark.Reason))],
+         input.Parts is { Count: > 0 } parts ? [.. parts.Select(part => part is null ? null! : new Part(part.Id, part.Title))] : null);
       return PlanRules.Check(plan) is { } fault ? OperationError.Invalid(fault) : plan;
    }
 }

@@ -75,6 +75,7 @@ export interface ProgressWrite {
 
 /** The parts of a plan that a stop write leaves as they are. */
 interface PlanShape {
+   parts: Plan['parts'];
    chapters: Plan['chapters'];
    stopIds: readonly string[];
    fileMarks: Plan['fileMarks'];
@@ -109,7 +110,8 @@ export class TourRecord {
          return shape;
       }
 
-      return { chapters: shape.chapters, stops: shape.stopIds.flatMap((id) => this.stops.get(id) ?? []), fileMarks: shape.fileMarks };
+      const stops = shape.stopIds.flatMap((id) => this.stops.get(id) ?? []);
+      return { ...(shape.parts === undefined ? {} : { parts: shape.parts }), chapters: shape.chapters, stops, fileMarks: shape.fileMarks };
    });
 
    /** The done state of each of the plan's stops with a done mark, by stop ID. A stop that it lacks is not done. */
@@ -149,6 +151,9 @@ export class TourRecord {
    reviewChanges = $state<Record<string, ReviewChange>>({});
    /** Where the reviewer moved each stop's explanation in mixed placement, by stop ID. The page does not remember it across page loads. */
    placements = $state<Record<string, StopPlacement>>({});
+   /** The IDs of the plan's parts that the reviewer folded in the Plan panel. The page does not remember them across page loads. */
+   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a new set for each fold, which nothing changes.
+   foldedParts = $state.raw<ReadonlySet<string>>(new Set());
 
    /** The request counter of the changed files' loads, so only the last request's answer counts. */
    fileLoad = 0;
@@ -227,6 +232,38 @@ export class TourRecord {
       return marked >= stop.version ? { state: 'done' } : { state: 'earlier', version: marked };
    }
 
+   /** Folds a part of the plan by its ID, or unfolds it. */
+   setPartFolded(partId: string, folded: boolean): void {
+      if (this.foldedParts.has(partId) !== folded) {
+         // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a new set for each fold, which nothing changes.
+         this.foldedParts = new Set(folded ? [...this.foldedParts, partId] : [...this.foldedParts].filter((id) => id !== partId));
+      }
+   }
+
+   /** Unfolds the part that holds the stop, so the Plan panel shows the stop. A stop that the plan lacks, or a stop in a plan without parts, changes nothing. */
+   unfoldPartOf(stopId: string): void {
+      const part = this.partOf(stopId);
+      if (part !== undefined) {
+         this.setPartFolded(part, false);
+      }
+   }
+
+   /** Returns the ID of the part that holds the stop, or undefined for a stop that the plan lacks or a stop in a plan without parts. */
+   partOf(stopId: string): string | undefined {
+      const chapter = this.stops.get(stopId)?.chapter;
+      return this.plan?.chapters.find((candidate) => candidate.id === chapter)?.part;
+   }
+
+   // A fold belongs to the plan that holds its part, so a later plan that brings back the part's ID shows the part unfolded.
+   private keepFoldsOf(plan: Plan | null): void {
+      const partIds = (plan?.parts ?? []).map((part) => part.id);
+      const kept = [...this.foldedParts].filter((id) => partIds.includes(id));
+      if (kept.length < this.foldedParts.size) {
+         // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a new set for each fold, which nothing changes.
+         this.foldedParts = new Set(kept);
+      }
+   }
+
    /** Returns the thread with the ID, or undefined when the record holds none or a removal. */
    thread(threadId: string): QuestionThread | undefined {
       return this.threadEntries.get(threadId);
@@ -263,13 +300,17 @@ export class TourRecord {
    }
 
    /**
-    * Stores a plan at a revision: its chapters, order and file marks as one entity, and its stops as a snapshot of the stops, as {@link Revisioned.replaceAll} does.
+    * Stores a plan at a revision: its parts, chapters, order and file marks as one entity, and its stops as a snapshot of the stops, as {@link Revisioned.replaceAll} does.
     *
     * @returns Whether the plan that the record shows changed.
     */
    putPlan(plan: Plan | null, revision: number): boolean {
-      const shape = plan === null ? null : { chapters: plan.chapters, stopIds: plan.stops.map((stop) => stop.id), fileMarks: plan.fileMarks };
+      const shape = plan === null ? null : { parts: plan.parts, chapters: plan.chapters, stopIds: plan.stops.map((stop) => stop.id), fileMarks: plan.fileMarks };
       const shaped = this.shape.put(shape, revision);
+      if (shaped) {
+         this.keepFoldsOf(plan);
+      }
+
       const stopped = this.stops.replaceAll(
          (plan?.stops ?? []).map((stop) => [stop.id, stop]),
          revision,

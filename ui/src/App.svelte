@@ -328,6 +328,8 @@
                      onfamiliarity={app.selectedTour?.planApproval === 'awaited' ? null : (level, text) => app.changeFamiliarity(level, text)}
                      planWaits={app.selectedPlanWaits}
                      onapprove={(stopIds, level, text) => app.approvePlan(stopIds, level, text)}
+                     folded={app.selectedFoldedParts}
+                     onfold={(partId, folded) => app.setPartFolded(partId, folded)}
                   />
                {/key}
             {/snippet}

@@ -106,3 +106,94 @@ describe('the plan list', () => {
       expect(onopen).toHaveBeenCalledExactlyOnceWith('s3');
    });
 });
+
+describe('a plan with parts', () => {
+   const parted: Plan = {
+      parts: [
+         { id: 'p1', title: 'The data model' },
+         { id: 'p2', title: 'The API' },
+      ],
+      chapters: [
+         { id: 'a', title: 'The tables', part: 'p1' },
+         { id: 'b', title: 'The migrations', part: 'p1' },
+         { id: 'c', title: 'The endpoints', part: 'p2' },
+      ],
+      stops: [
+         stop('s1', 'The orders table', 'inspect', 'ready', 'a'),
+         stop('s2', 'The new index', 'inspect', 'ready', 'b'),
+         stop('s3', 'The backfill', 'risk', 'ready', 'b'),
+         stop('s4', 'The order endpoint', 'inspect', 'ready', 'c'),
+      ],
+      fileMarks: [],
+   };
+
+   function renderParted(folded: ReadonlySet<string> = new Set()) {
+      const onfold = vi.fn();
+      const result = render(PlanPanel, { props: { tourSelected: true, known: { plan: parted }, error: null, attachment: 'confirmed' as const, folded, onfold } });
+      const partButton = (title: string) => screen.getByRole('button', { name: title });
+      const stopNames = () => screen.queryAllByRole('button', { name: /^\d+ / }).map((row) => row.getAttribute('aria-label'));
+      return { ...result, onfold, partButton, stopNames };
+   }
+
+   it('puts each part’s heading above its chapters’ headings, one level higher', () => {
+      renderParted();
+
+      expect(screen.getAllByRole('heading').map((heading) => [heading.tagName, heading.textContent.trim()])).toEqual([
+         ['H3', 'The data model'],
+         ['H4', 'The tables'],
+         ['H4', 'The migrations'],
+         ['H3', 'The API'],
+         ['H4', 'The endpoints'],
+      ]);
+   });
+
+   it('shows a plain heading for each part, and every part unfolded, while the page offers no folds', () => {
+      render(PlanPanel, { props: { tourSelected: true, known: { plan: parted }, error: null, attachment: 'confirmed' as const, folded: new Set(['p1']) } });
+
+      expect(screen.queryByRole('button', { name: 'The data model' })).toBeNull();
+      expect(screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent.trim())).toEqual(['The data model', 'The API']);
+      expect(screen.getByRole('button', { name: /^1 Inspect: The orders table/ })).toBeTruthy();
+   });
+
+   it('shows every part unfolded at first, with every stop', () => {
+      const { partButton, stopNames } = renderParted();
+
+      expect(partButton('The data model').getAttribute('aria-expanded')).toBe('true');
+      expect(partButton('The API').getAttribute('aria-expanded')).toBe('true');
+      expect(stopNames()).toEqual(['1 Inspect: The orders table', '2 Inspect: The new index', '3 Risk: The backfill', '4 Inspect: The order endpoint']);
+   });
+
+   it('folds an unfolded part on a click, and unfolds a folded one', async () => {
+      const { partButton, onfold, rerender } = renderParted();
+
+      await fireEvent.click(partButton('The data model'));
+      expect(onfold).toHaveBeenLastCalledWith('p1', true);
+
+      await rerender({ folded: new Set(['p1']) });
+      await fireEvent.click(partButton('The data model'));
+      expect(onfold).toHaveBeenLastCalledWith('p1', false);
+   });
+
+   it('shows only the heading of a folded part, without its chapters and stops', () => {
+      const { partButton } = renderParted(new Set(['p1']));
+
+      expect(partButton('The data model').getAttribute('aria-expanded')).toBe('false');
+      expect(screen.getAllByRole('heading').map((heading) => heading.textContent.trim())).toEqual(['The data model', 'The API', 'The endpoints']);
+   });
+
+   it('numbers the stops across the whole tour, those of a folded part included', () => {
+      const { stopNames } = renderParted(new Set(['p1']));
+
+      expect(stopNames()).toEqual(['4 Inspect: The order endpoint']);
+   });
+});
+
+describe('a plan without parts', () => {
+   it('renders as before: chapter headings at the top level and no fold buttons', () => {
+      const { container } = renderPlan();
+
+      expect(screen.getAllByRole('heading').map((heading) => heading.tagName)).toEqual(['H3', 'H3']);
+      expect(container.querySelector('[aria-expanded]')).toBeNull();
+      expect([...container.querySelectorAll('ol.plan > li > h3')].map((heading) => heading.textContent.trim())).toEqual(['What the change does', 'Before you approve']);
+   });
+});

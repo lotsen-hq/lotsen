@@ -208,6 +208,52 @@ public sealed class TourApiTests : IAsyncLifetime
       Assert.Empty(planned["plan"]!["fileMarks"]!.AsArray());
    }
 
+   [Fact]
+   public async Task Plan_with_parts_is_stored_and_returned_by_read_state()
+   {
+      var id = (string)(await CreateTourAsync())["id"]!;
+      var parted = ValidPlan
+         .Replace("\"chapters\":", """ "parts": [{ "id": "why", "title": "Why" }, { "id": "how", "title": "How" }], "chapters": """, StringComparison.Ordinal)
+         .Replace("\"title\": \"Orientation\" }", "\"title\": \"Orientation\", \"part\": \"why\" }", StringComparison.Ordinal)
+         .Replace("\"title\": \"Pricing\" }", "\"title\": \"Pricing\", \"part\": \"how\" }", StringComparison.Ordinal);
+
+      var planned = await _harness.AgentCallAsync(On("set_plan", id), parted);
+      var read = await _harness.CallAsync(On("read_state", id));
+
+      Assert.True(JsonNode.DeepEquals(planned, read), $"read_state differs from set_plan's result: {read}");
+      Assert.True(
+         JsonNode.DeepEquals(JsonNode.Parse("""[{ "id": "why", "title": "Why" }, { "id": "how", "title": "How" }]"""), read["plan"]!["parts"]),
+         $"The stored parts differ: {read["plan"]!["parts"]}");
+      Assert.Equal(["why", "how"], read["plan"]!["chapters"]!.AsArray().Select(chapter => (string)chapter!["part"]!));
+   }
+
+   [Theory]
+   [InlineData("")]
+   [InlineData(""" "parts": null, """)]
+   [InlineData(""" "parts": [], """)]
+   public async Task Plan_without_parts_leaves_them_out(string parts)
+   {
+      var id = (string)(await CreateTourAsync())["id"]!;
+
+      var planned = await _harness.AgentCallAsync(On("set_plan", id), ValidPlan.Replace("\"stops\":", $"{parts}\"stops\":", StringComparison.Ordinal));
+
+      Assert.False(planned["plan"]!.AsObject().ContainsKey("parts"));
+      Assert.All(planned["plan"]!["chapters"]!.AsArray(), chapter => Assert.False(chapter!.AsObject().ContainsKey("part")));
+   }
+
+   [Fact]
+   public async Task Chapter_in_a_part_that_the_plan_lacks_is_rejected_with_its_field()
+   {
+      var id = (string)(await CreateTourAsync())["id"]!;
+
+      using var response = await _harness.AgentSendJsonAsync(On("set_plan", id), """
+         { "parts": [{ "id": "p", "title": "P" }], "chapters": [{ "id": "a", "title": "A", "part": "q" }], "stops": [{ "kind": "inspect", "title": "S", "chapter": "a" }] }
+         """);
+
+      var error = await ReadErrorAsync(response, HttpStatusCode.BadRequest, "invalidInput");
+      Assert.Equal("chapters[0].part", (string)error["field"]!);
+   }
+
    /// <summary>Each replan starts from a tour whose plan has marks, so a replan that kept them would show.</summary>
    [Theory]
    [InlineData("", new string[0])]

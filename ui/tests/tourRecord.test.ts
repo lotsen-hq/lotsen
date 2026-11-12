@@ -349,6 +349,99 @@ describe('a tour record', () => {
       expect(record.progress).toEqual({ lastStop: 's2', finished: false });
    });
 
+   describe('with parts in its plan', () => {
+      // The fixture's plan has the parts p1 and p2, with the first stop in p1 and the last in p2.
+      const firstStop = tour.plan!.stops[0]!.id;
+      const lastStop = tour.plan!.stops.at(-1)!.id;
+
+      it('keeps the parts of the plan and of each chapter', () => {
+         expect(loaded().plan!.parts).toEqual(tour.plan!.parts);
+         expect(loaded().plan!.chapters).toEqual(tour.plan!.chapters);
+         expect(tour.plan!.parts).toHaveLength(2);
+      });
+
+      it('starts with every part unfolded, and folds and unfolds a part', () => {
+         const record = loaded();
+         expect([...record.foldedParts]).toEqual([]);
+
+         record.setPartFolded('p1', true);
+         record.setPartFolded('p2', true);
+         record.setPartFolded('p2', false);
+
+         expect([...record.foldedParts]).toEqual(['p1']);
+      });
+
+      it('unfolds the part that holds a stop, and only that part', () => {
+         const record = loaded();
+         record.setPartFolded('p1', true);
+         record.setPartFolded('p2', true);
+
+         record.unfoldPartOf(lastStop);
+
+         expect([...record.foldedParts]).toEqual(['p1']);
+         record.unfoldPartOf(firstStop);
+         expect([...record.foldedParts]).toEqual([]);
+      });
+
+      it('keeps the folds of the parts that a replan keeps', () => {
+         const record = loaded();
+         record.setPartFolded('p1', true);
+
+         record.putPlan({ ...tour.plan!, stops: tour.plan!.stops.slice(0, -1) }, at + 1);
+
+         expect([...record.foldedParts]).toEqual(['p1']);
+      });
+
+      it('forgets the fold of a part that a replan drops, so a later plan that brings the part back shows it unfolded', () => {
+         const record = loaded();
+         record.setPartFolded('p1', true);
+         record.setPartFolded('p2', true);
+         const plan = tour.plan!;
+
+         record.putPlan({ ...plan, parts: [plan.parts![1]!], chapters: plan.chapters.map((chapter) => ({ ...chapter, part: 'p2' })) }, at + 1);
+         expect([...record.foldedParts]).toEqual(['p2']);
+
+         record.putPlan(plan, at + 2);
+         expect([...record.foldedParts]).toEqual(['p2']);
+      });
+
+      it('forgets every fold when a replan removes the parts', () => {
+         const record = loaded();
+         record.setPartFolded('p1', true);
+         const { chapters, stops, fileMarks } = tour.plan!;
+
+         record.putPlan({ chapters: chapters.map((chapter) => ({ id: chapter.id, title: chapter.title })), stops, fileMarks }, at + 1);
+
+         expect([...record.foldedParts]).toEqual([]);
+      });
+
+      it('keeps the folds when an older plan arrives, which the record does not store', () => {
+         const record = loaded();
+         record.setPartFolded('p1', true);
+
+         record.putPlan({ ...tour.plan!, parts: [] }, at - 1);
+
+         expect([...record.foldedParts]).toEqual(['p1']);
+      });
+
+      it('names the part that holds a stop', () => {
+         const record = loaded();
+
+         expect(record.partOf(firstStop)).toBe('p1');
+         expect(record.partOf(lastStop)).toBe('p2');
+         expect(record.partOf('no-such-stop')).toBeUndefined();
+      });
+
+      it('changes nothing for a stop that the plan lacks', () => {
+         const record = loaded();
+         record.setPartFolded('p1', true);
+
+         record.unfoldPartOf('no-such-stop');
+
+         expect([...record.foldedParts]).toEqual(['p1']);
+      });
+   });
+
    describe('with done marks', () => {
       const pending = tour.plan!.stops.find((stop) => stop.stage === 'pending')!.id;
 

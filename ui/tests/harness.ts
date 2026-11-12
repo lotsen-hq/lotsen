@@ -56,8 +56,11 @@ export interface TourSpec {
    head?: Record<string, string | null>;
    familiarity?: Familiarity;
    planFirst?: boolean;
-   /** The chapters of the plan, each with its stops, or undefined for a tour without a plan. */
-   chapters?: { title: string; stops: SeededStop[] }[];
+   /**
+    * The chapters of the plan, each with its stops, or undefined for a tour without a plan. A chapter's part is the title of the part that it belongs to, and the plan's parts are those titles in
+    * the order of their first chapter.
+    */
+   chapters?: { title: string; part?: string; stops: SeededStop[] }[];
    /** Whether the session that creates the tour stays open and bound, which it does unless this is false. */
    bound?: boolean;
 }
@@ -92,9 +95,16 @@ export async function seedTour(world: World, spec: TourSpec = {}): Promise<Seede
    await world.idle();
    const stopIds: string[] = [];
    if (spec.chapters !== undefined) {
-      const chapters = spec.chapters.map((chapter, index) => ({ id: `c${index + 1}`, title: chapter.title }));
+      const partTitles = [...new Set(spec.chapters.flatMap((chapter) => (chapter.part === undefined ? [] : [chapter.part])))];
+      const parts = partTitles.map((title, index) => ({ id: `p${index + 1}`, title }));
+      const chapters = spec.chapters.map((chapter, index) => ({
+         id: `c${index + 1}`,
+         title: chapter.title,
+         ...(chapter.part === undefined ? {} : { part: parts[partTitles.indexOf(chapter.part)]!.id }),
+      }));
       const planned = (await claude.call('set_plan', {
          tourId: tour.id,
+         ...(parts.length === 0 ? {} : { parts }),
          chapters,
          stops: spec.chapters.flatMap((chapter, index) => chapter.stops.map((stop) => ({ title: stop.title, kind: stop.kind, chapter: chapters[index]!.id }))),
       })) as Tour;

@@ -313,10 +313,12 @@ export interface Plan {
    chapters: Chapter[];
    stops: Stop[];
    fileMarks: FileMark[];
+   parts?: Part[];
 }
 export interface Chapter {
    id: string;
    title: string;
+   part?: string;
 }
 export interface PendingStop {
    stage: 'pending';
@@ -403,6 +405,10 @@ export interface FileMark {
    path: string;
    mark: FileMarkKind;
    reason: string;
+}
+export interface Part {
+   id: string;
+   title: string;
 }
 export interface StopPutEvent {
    tourId: string;

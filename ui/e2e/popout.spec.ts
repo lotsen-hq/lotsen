@@ -137,7 +137,14 @@ const poppedPanels: PoppedPanel[] = [
          shown: (panel) => expect(panel.getByRole('button', { name: /The new payment step/ })).toHaveAttribute('aria-current', 'step'),
       },
       menu: { trigger: (panel) => panel.getByRole('button', { name: 'Plan actions' }), item: 'Re-plan…' },
-      tooltip: { trigger: async (panel) => panel.getByRole('button', { name: 'Skip stop 1', exact: true }), text: /^Next and Back pass over this stop/ },
+      tooltip: {
+         // A skip toggle shows only while the pointer is in its row.
+         trigger: async (panel) => {
+            await panel.getByRole('button', { name: /^1 Overview: / }).hover();
+            return panel.getByRole('button', { name: 'Skip stop 1', exact: true });
+         },
+         text: /^Next and Back pass over this stop/,
+      },
    },
    {
       name: 'Code',
