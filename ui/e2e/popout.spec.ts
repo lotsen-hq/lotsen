@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { center, checkoutTour, editorLine, inScrollerView, openDemoTour, openStop } from './demo';
+import { center, checkoutTour, editorLine, inScrollerView, openDemoTour, openStop, showPanel } from './demo';
 
 const region = (page: Page, name: string) => page.getByRole('region', { name, exact: true });
 
@@ -333,5 +333,120 @@ test.describe('a popout window', () => {
       await expect(discountRow(page)).toHaveCount(1);
       await page.keyboard.press('Escape');
       await expect(dialog).toBeHidden();
+   });
+});
+
+/** Opens the Panels menu and picks an arrangement, a named layout or Reset layout. */
+async function arrange(page: Page, name: string): Promise<void> {
+   await page.getByRole('button', { name: 'Panels' }).click();
+   await page.getByRole('menuitem', { name }).click();
+}
+
+/** Returns the saved layout that the page holds in browser storage, as JSON. */
+const savedLayout = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('lotsen.workspaceLayout') ?? 'null'));
+
+test.describe('the workspace with a popout window', () => {
+   test('closes the popout window of Threads on Default and lays out Threads in its Default group, at its size though its column hid as a whole', async ({ page }) => {
+      await openDemoTour(page, checkoutTour);
+      const popout = await popOut(page, 'Threads', 'Pop out the threads');
+      await page.getByRole('button', { name: 'Hide the stop' }).click();
+      await expect.poll(() => groups(page)).toEqual([['Files', 'Plan'], ['Code']]);
+
+      await arrange(page, 'Default');
+
+      await expect.poll(() => popout.isClosed()).toBe(true);
+      await expect.poll(() => groups(page)).toEqual([['Files', 'Plan'], ['Code'], ['Stop'], ['Threads']]);
+      const [stop, threads] = [(await region(page, 'Stop').boundingBox())!, (await region(page, 'Threads').boundingBox())!];
+      // The Default layout gives the column of Stop and Threads 0.28 of the workspace, which spans the window (arrangements.ts).
+      expect(threads.width).toBeCloseTo(0.28 * page.viewportSize()!.width, -1);
+      expect(threads.x).toBeCloseTo(stop.x, 0);
+      expect(threads.y).toBeGreaterThan(stop.y);
+      await discountRow(page).getByRole('button', { name: 'Thread actions' }).click();
+      await expect(page.getByRole('menu')).toHaveCount(1);
+   });
+
+   test('saves the layout with a popped-out panel in its place, which a reload shows there without a popout window', async ({ page }) => {
+      await openDemoTour(page, checkoutTour);
+      await popOut(page, 'Stop', 'Pop out the stop');
+      await expect.poll(() => savedLayout(page)).not.toBeNull();
+      const saved = await savedLayout(page);
+      expect(saved.dockview.popoutGroups).toBeUndefined();
+      let popups = 0;
+      page.on('popup', () => popups++);
+
+      await page.reload();
+
+      await expect.poll(() => groups(page)).toEqual([['Files', 'Plan'], ['Code'], ['Stop'], ['Threads']]);
+      await expect(region(page, 'Stop')).toBeVisible();
+      expect(popups).toBe(0);
+   });
+
+   test('keeps the panel hidden that stayed behind in a group a panel popped out of, once the window closes and after a reload', async ({ page }) => {
+      await openDemoTour(page, checkoutTour);
+      const popout = await popOut(page, 'Plan', 'Pop out the plan');
+      await page.getByRole('button', { name: 'Hide the files' }).click();
+      await expect.poll(() => groups(page)).toEqual([['Code'], ['Stop'], ['Threads']]);
+
+      await popout.close({ runBeforeUnload: true });
+
+      await expect.poll(() => groups(page)).toEqual([['Plan'], ['Code'], ['Stop'], ['Threads']]);
+      await page.reload();
+      await expect.poll(() => groups(page)).toEqual([['Plan'], ['Code'], ['Stop'], ['Threads']]);
+      await showPanel(page, 'Files');
+      await expect.poll(() => groups(page)).toEqual([['Files', 'Plan'], ['Code'], ['Stop'], ['Threads']]);
+   });
+
+   test('shows a popped-out panel as shown in the Panels menu, and hides it from there in the main window, closing its window', async ({ page }) => {
+      await openDemoTour(page, checkoutTour);
+      const popout = await popOut(page, 'Threads', 'Pop out the threads');
+      await page.getByRole('button', { name: 'Panels' }).click();
+      const item = page.getByRole('menuitemcheckbox', { name: 'Threads' });
+      await expect(item).toHaveAttribute('aria-checked', 'true');
+
+      await item.click();
+
+      await expect.poll(() => popout.isClosed()).toBe(true);
+      await expect(item).toHaveAttribute('aria-checked', 'false');
+      await page.keyboard.press('Escape');
+      await expect.poll(() => groups(page)).toEqual([['Files', 'Plan'], ['Code'], ['Stop']]);
+      await showPanel(page, 'Threads');
+      await expect.poll(() => groups(page)).toEqual([['Files', 'Plan'], ['Code'], ['Stop'], ['Threads']]);
+   });
+
+   test('keeps a maximized group maximized when the browser blocks the popout window', async ({ page }) => {
+      await openDemoTour(page, checkoutTour);
+      await page.getByRole('button', { name: 'Maximize the threads' }).click();
+      await expect.poll(() => groups(page)).toEqual([['Threads']]);
+      await page.evaluate(() => (window.open = () => null));
+
+      await page.getByRole('button', { name: 'Pop out the threads' }).click();
+
+      await expect(page.getByRole('button', { name: 'Restore the threads' })).toBeVisible();
+      await expect.poll(() => groups(page)).toEqual([['Threads']]);
+   });
+
+   test('refuses a tab that is dragged from the main window into a popout window', async ({ page }) => {
+      await openDemoTour(page, checkoutTour);
+      const popout = await popOut(page, 'Threads', 'Pop out the threads');
+      const stop = page.getByRole('tab', { name: 'Stop' });
+
+      // Playwright drags only within one page, so the test dispatches the events of an HTML5 drag between windows itself.
+      await stop.evaluate((tab) => tab.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() })));
+      const overlays = await region(popout, 'Threads').evaluate((threads) => {
+         const view = threads.ownerDocument.defaultView!;
+         const box = threads.getBoundingClientRect();
+         const content = threads.ownerDocument.querySelector('.dv-content-container')!;
+         const init = { bubbles: true, cancelable: true, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2, dataTransfer: new view.DataTransfer(), view };
+         content.dispatchEvent(new view.DragEvent('dragenter', init));
+         content.dispatchEvent(new view.DragEvent('dragover', init));
+         const shown = threads.ownerDocument.querySelectorAll('.dv-drop-target-dropzone').length;
+         content.dispatchEvent(new view.DragEvent('drop', init));
+         return shown;
+      });
+      await stop.evaluate((tab) => tab.dispatchEvent(new DragEvent('dragend', { bubbles: true })));
+
+      expect(overlays).toBe(0);
+      expect(await groups(page)).toEqual([['Files', 'Plan'], ['Code'], ['Stop']]);
+      expect(await groups(popout)).toEqual([['Threads']]);
    });
 });

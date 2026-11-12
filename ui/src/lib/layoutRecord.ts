@@ -1,4 +1,4 @@
-import type { SerializedDockview } from 'dockview';
+import type { SerializedDockview, SerializedPopoutGroup } from 'dockview';
 import { storedPreference } from './preference';
 import { panelIds, type PanelId } from './workspacePanels';
 
@@ -17,6 +17,9 @@ export interface HiddenPanel {
    home: PanelHome | null;
 }
 
+/** Dockview's serialized layout without popout windows, as {@link withoutPopouts} gives it. A layout with popout groups, as `toJSON` gives it, does not compile as one. */
+export type LayoutDockview = Omit<SerializedDockview, 'popoutGroups'> & { popoutGroups?: never };
+
 /**
  * A workspace layout as the page keeps it: Dockview's serialized layout with the hidden panels, which Dockview does not record.
  *
@@ -24,7 +27,7 @@ export interface HiddenPanel {
  */
 export interface LayoutRecord {
    version: typeof layoutVersion;
-   dockview: SerializedDockview;
+   dockview: LayoutDockview;
    hidden: HiddenPanel[];
 }
 
@@ -44,6 +47,7 @@ export function parseLayout(text: string): LayoutRecord | undefined {
  * Returns the value as a record, or undefined when it is not a record of this version with exactly the workspace's panels.
  *
  * It checks the shape that the workspace relies on. Dockview checks the rest of its own layout as it loads it, and the workspace loads the Default layout when that load fails.
+ * A record that holds popout windows comes back with their panels in their place, as {@link withoutPopouts} puts them.
  */
 export function layoutFrom(value: unknown): LayoutRecord | undefined {
    if (!isObject(value) || value.version !== layoutVersion || !isObject(value.dockview) || !isObject(value.dockview.grid) || !isObject(value.dockview.panels) || !Array.isArray(value.hidden)) {
@@ -61,11 +65,85 @@ export function layoutFrom(value: unknown): LayoutRecord | undefined {
       return undefined;
    }
 
-   return value as unknown as LayoutRecord;
+   try {
+      return { ...(value as unknown as LayoutRecord), dockview: withoutPopouts(value.dockview as unknown as SerializedDockview) };
+   } catch {
+      return undefined;
+   }
 }
 
 /** The layout of the workspace as a page saved it last, or null when none is saved or the saved one cannot be read. The workspace reads it once, as it mounts. */
 export const savedLayout = storedPreference<LayoutRecord | null>('lotsen.workspaceLayout', parseLayout, JSON.stringify, null);
+
+type GridNode = SerializedDockview['grid']['root'];
+type GroupState = NonNullable<SerializedPopoutGroup['data']>;
+
+/**
+ * Returns Dockview's serialized layout with the panels of each popout window back in the main window, and no popout window.
+ *
+ * Each popout's panels go where closing its window puts them (disposePopoutWindow in dockview-core 8.9.0's dockviewComponent.ts): to the end of the group that the popout left,
+ * which shows again, or to a group of their own at the start of the grid when that group is gone. A layout record holds no popout window, because the browser blocks a window that
+ * a load opens without the reviewer's click.
+ */
+export function withoutPopouts(dockview: SerializedDockview): LayoutDockview {
+   const { popoutGroups, ...layout } = dockview;
+   if (popoutGroups === undefined) {
+      return layout;
+   }
+
+   const grid = structuredClone(layout.grid);
+   let activeGroup = layout.activeGroup;
+   for (const popout of popoutGroups) {
+      const groups = popout.data !== undefined ? [popout.data] : popout.grid !== undefined ? leaves(popout.grid.root) : [];
+      const views = groups.flatMap((group) => group.views);
+      if (views.length === 0) {
+         continue;
+      }
+
+      const active = groups.find((group) => group.activeView !== undefined)?.activeView;
+      const path = popout.gridReferenceGroup === undefined ? [] : pathTo(grid.root, popout.gridReferenceGroup);
+      let home: GroupState;
+      if (path.length > 0) {
+         home = path.at(-1)!.data as GroupState;
+         home.views = [...home.views, ...views];
+         // A hidden node of the path is the group that the popout left, or a branch that hid with it.
+         path.forEach((node) => delete node.visible);
+      } else {
+         // Dockview serializes the grid's root as a branch (Gridview.serialize in dockview-core 8.9.0's gridview.ts), and it scales the sizes to the workspace as it loads them.
+         home = { views, id: groups[0]!.id };
+         const siblings = grid.root.data as GridNode[];
+         const size = siblings.reduce((sum, node) => sum + (node.size ?? 0), 0) / Math.max(siblings.length, 1);
+         siblings.unshift({ type: 'leaf', data: home, size });
+      }
+
+      home.activeView = active ?? home.activeView;
+      if (groups.some((group) => group.id === activeGroup)) {
+         activeGroup = home.id;
+      }
+   }
+
+   return { ...layout, grid, activeGroup };
+}
+
+function leaves(node: GridNode): GroupState[] {
+   return node.type === 'leaf' ? [node.data as GroupState] : (node.data as GridNode[]).flatMap(leaves);
+}
+
+// Returns the nodes from the root to the leaf of the group, or an empty path when no leaf holds the group.
+function pathTo(node: GridNode, groupId: string): GridNode[] {
+   if (node.type === 'leaf') {
+      return (node.data as GroupState).id === groupId ? [node] : [];
+   }
+
+   for (const child of node.data as GridNode[]) {
+      const path = pathTo(child, groupId);
+      if (path.length > 0) {
+         return [node, ...path];
+      }
+   }
+
+   return [];
+}
 
 function isHiddenPanel(value: unknown): value is HiddenPanel {
    if (!isObject(value) || !(panelIds as readonly unknown[]).includes(value.id)) {

@@ -129,13 +129,6 @@
          region.removeAttribute('role');
       }
 
-      const detach = layout.attach(dock, (record) => savedLayout.write(record));
-      const saved = savedLayout.read();
-      // The Default layout stays unsaved, so it never takes the server's key from a saved layout that the browser storage of another origin holds.
-      if (saved === null || !layout.load(saved)) {
-         layout.load(arrangementRecord('default', layout.titles));
-      }
-
       // Dockview opens a tab on a pointer press, so a click without one, as from a screen reader, opens it here.
       const openTab = (event: MouseEvent) => {
          const id = event.target instanceof Element ? event.target.closest('[data-tab-panel-id]')?.getAttribute('data-tab-panel-id') : null;
@@ -149,7 +142,6 @@
             event.stopPropagation();
          }
       };
-      // A popout window's tabs sit in its own document, outside the root, so its document gets the same handlers.
       const handleTabs = (target: GlobalEventHandlers) => {
          target.addEventListener('click', openTab);
          target.addEventListener('keydown', keepPanel, true);
@@ -160,24 +152,24 @@
       };
       const unhandleRoot = handleTabs(root);
 
-      // Each teardown goes with its window, because a popout's group id can change while it is open, and the removal event reports a closed window as null.
-      let popoutTeardowns: { window: Window; teardown: () => void }[] = [];
-      const popouts = [
-         dock.onDidAddPopoutGroup(({ window }) => {
-            if (window) {
-               const unfollow = followTheme(window);
-               const unhandle = handleTabs(window.document);
-               popoutTeardowns.push({ window, teardown: () => (unfollow(), unhandle()) });
-            }
-         }),
-         dock.onWillClosePopoutWindow(({ window }) => {
-            popoutTeardowns.filter((entry) => entry.window === window).forEach((entry) => entry.teardown());
-            popoutTeardowns = popoutTeardowns.filter((entry) => entry.window !== window);
-         }),
-         // Dockview fires it for each panel that a popout window takes or returns, once the panel's element is in its new document (fireDidMovePanel in dockview-core 8.9.0's
-         // dockviewComponent.ts), as popout.spec.ts checks.
-         dock.onDidMovePanel(({ panel }) => panels[panel.id as PanelId]?.follow()),
-      ];
+      // A popout window's tabs sit in its own document, outside the root, so its document gets the same tab handlers.
+      const detach = layout.attach(
+         dock,
+         (record) => savedLayout.write(record),
+         (popout) => {
+            const unfollow = followTheme(popout);
+            const unhandle = handleTabs(popout.document);
+            return () => (unfollow(), unhandle());
+         },
+      );
+      const saved = savedLayout.read();
+      // The Default layout stays unsaved, so it never takes the server's key from a saved layout that the browser storage of another origin holds.
+      if (saved === null || !layout.load(saved)) {
+         layout.load(arrangementRecord('default', layout.titles));
+      }
+
+      // Each panel's document follows its element on the onDidMovePanel that WorkspaceLayout.attach describes.
+      const moves = dock.onDidMovePanel(({ panel }) => panels[panel.id as PanelId]?.follow());
 
       const choices = dock.onDidActivePanelChange((event) => {
          if (!applying && (event.panel?.id === 'files' || event.panel?.id === 'plan')) {
@@ -189,8 +181,7 @@
          resizes.disconnect();
          unhandleRoot();
          choices.dispose();
-         popouts.forEach((subscription) => subscription.dispose());
-         popoutTeardowns.forEach((entry) => entry.teardown());
+         moves.dispose();
          detach();
          dock.dispose();
          contents.forEach((content) => unmount(content));

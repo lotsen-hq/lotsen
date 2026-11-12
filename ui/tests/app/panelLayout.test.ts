@@ -1,9 +1,9 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/svelte';
-import { describe, expect, it, onTestFinished, vi } from 'vitest';
+import { describe, expect, it, onTestFinished, vi, type MockInstance } from 'vitest';
 import type { LotsenApp } from '../../src/lib/app.svelte';
 import type { World } from '../backend/backend';
 import { arrangementRecord } from '../../src/lib/arrangements';
-import { layoutVersion } from '../../src/lib/layoutRecord';
+import { layoutVersion, type LayoutRecord } from '../../src/lib/layoutRecord';
 import { backend, seedTour, settled, startApp } from '../harness';
 import { openTourList, tourButton } from '../tourPicker';
 import { filesPanel, resetPageEachTest, worldOf } from './appPanels';
@@ -572,5 +572,221 @@ describe('the named layouts', () => {
       await waitFor(async () => expect(await myLayouts()).toEqual([{ name: 'Reading', disabled: false }, ...menuEnd]));
       await settled(app);
       expect(groups()).toEqual(defaultGroups);
+   });
+});
+
+/**
+ * Makes `window.open` give a window that an iframe stands in for, because jsdom opens no window. Closing the window returns its panel, as a browser's close does.
+ *
+ * @returns The window, the spy on `window.open`, the spy on the window's `close`, and a function that fires the window's load event, once which Dockview fills the window.
+ */
+function stubPopout(): { popout: Window; open: MockInstance<typeof window.open>; close: MockInstance<() => void>; load: () => void } {
+   const frame = document.createElement('iframe');
+   document.body.append(frame);
+   onTestFinished(() => frame.remove());
+   const popout = frame.contentWindow!;
+   const close = vi.fn(() => void popout.dispatchEvent(new Event('beforeunload')));
+   popout.close = close;
+   const open = vi.spyOn(window, 'open').mockImplementation(() => popout);
+   onTestFinished(() => open.mockRestore());
+   return { popout, open, close, load: () => popout.dispatchEvent(new Event('load')) };
+}
+
+/** Returns whether the window shows a tab. */
+const showsTab = (popout: Window) => popout.document.querySelector('[role="tab"]') !== null;
+
+/**
+ * Pops the panel out from its group header into a window that {@link stubPopout} gives.
+ *
+ * @returns The window, once the panel's tab shows there.
+ */
+async function popOut(button: string): Promise<Window> {
+   const { popout, load } = stubPopout();
+   fireEvent.click(screen.getByRole('button', { name: button }));
+   load();
+   await waitFor(() => expect(showsTab(popout)).toBe(true));
+   return popout;
+}
+
+/** Returns the views of each group of a layout record's grid, in order, without the groups that hide. */
+function shownGroups(record: LayoutRecord): string[][] {
+   type Node = LayoutRecord['dockview']['grid']['root'];
+   const walk = (node: Node): string[][] => (node.visible === false ? [] : node.type === 'leaf' ? [(node.data as { views: string[] }).views] : (node.data as Node[]).flatMap(walk));
+   return walk(record.dockview.grid.root);
+}
+
+describe('a popout window', () => {
+   it('leaves the saved layout without a popout and with the panel in its place, where the next load shows it', async () => {
+      const { world, app } = await startShell();
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+
+      await popOut('Pop out the threads');
+
+      await waitFor(() => expect(groups()).toEqual([['Files', 'Plan*'], ['Code*'], ['Stop*']]));
+      await waitFor(() => expect(localStorage.getItem(savedKey)).not.toBeNull());
+      const saved = JSON.parse(localStorage.getItem(savedKey)!) as LayoutRecord;
+      expect(saved.dockview).not.toHaveProperty('popoutGroups');
+      expect(shownGroups(saved)).toEqual([['files', 'plan'], ['diff'], ['stop'], ['threads']]);
+      const open = vi.spyOn(window, 'open');
+      open.mockClear();
+
+      await reload(world, app);
+
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+      expect(open).not.toHaveBeenCalled();
+   });
+
+   it('loads a saved layout that holds a popout window with the panel in its place, and opens no window', async () => {
+      const world = await backend().world();
+      const record = arrangementRecord('default', titles);
+      // Dockview leaves the group of a popped-out panel empty and hidden in the grid. Default's Threads group is its fourth.
+      const column = (record.dockview.grid.root.data as { data: unknown }[])[2]!.data as { data: { views: string[] }; visible?: boolean }[];
+      column[1]!.data.views = [];
+      column[1]!.visible = false;
+      const saved = { ...record, dockview: { ...record.dockview, popoutGroups: [{ gridReferenceGroup: '4', position: null, data: { views: ['threads'], activeView: 'threads', id: '6' } }] } };
+      localStorage.setItem(savedKey, JSON.stringify(saved));
+      const open = vi.spyOn(window, 'open');
+      onTestFinished(() => open.mockRestore());
+
+      await startApp(world);
+
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+      expect(open).not.toHaveBeenCalled();
+   });
+
+   it('saves a named layout without a popout and with the panel in its place', async () => {
+      const { world } = await startShell();
+      await popOut('Pop out the stop');
+
+      await saveAs('Reading');
+
+      await waitFor(async () => expect(Object.values(await storedLayouts(world))).toHaveLength(1));
+      const record = Object.values(await storedLayouts(world))[0]!.record as LayoutRecord;
+      expect(record.dockview).not.toHaveProperty('popoutGroups');
+      expect(shownGroups(record)).toEqual([['files', 'plan'], ['diff'], ['stop'], ['threads']]);
+   });
+
+   it('shows its panel as shown in the Panels menu, and hides the panel back in the main window from there', async () => {
+      await startShell();
+      const popout = await popOut('Pop out the threads');
+
+      expect(await panelItems()).toEqual(['Files', 'Plan', 'Code', 'Stop', 'Threads'].map((name) => ({ name, checked: true })));
+      await togglePanel('Threads');
+
+      await waitFor(() => expect(showsTab(popout)).toBe(false));
+      await waitFor(() => expect(groups()).toEqual([['Files', 'Plan*'], ['Code*'], ['Stop*']]));
+      expect((await panelItems()).find((item) => item.name === 'Threads')?.checked).toBe(false);
+      await togglePanel('Threads');
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+   });
+
+   it('shows a hidden panel back in the group whose last panel popped out, which that panel joins again as its window closes', async () => {
+      await startShell();
+      await togglePanel('Files');
+      await waitFor(() => expect(groups()).toEqual([['Plan*'], ['Code*'], ['Stop*'], ['Threads*']]));
+      const popout = await popOut('Pop out the plan');
+      await waitFor(() => expect(groups()).toEqual([['Code*'], ['Stop*'], ['Threads*']]));
+
+      await togglePanel('Files');
+
+      await waitFor(() => expect(groups()).toEqual([['Files*'], ['Code*'], ['Stop*'], ['Threads*']]));
+      popout.close();
+      await waitFor(() => expect(groups()).toEqual([['Files', 'Plan*'], ['Code*'], ['Stop*'], ['Threads*']]));
+   });
+
+   it('hides the Pop out button while the window opens, so a second click opens no second window, and saves the panel in its group', async () => {
+      await startShell();
+      const { popout, open, load } = stubPopout();
+      const button = screen.getByRole('button', { name: 'Pop out the threads' });
+
+      void fireEvent.click(button);
+      await fireEvent.click(button);
+      load();
+
+      await waitFor(() => expect(showsTab(popout)).toBe(true));
+      expect(open).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(groups()).toEqual([['Files', 'Plan*'], ['Code*'], ['Stop*']]));
+      expect(shownGroups(JSON.parse(localStorage.getItem(savedKey)!) as LayoutRecord)).toEqual([['files', 'plan'], ['diff'], ['stop'], ['threads']]);
+   });
+
+   it('hides a panel that the Panels menu hides while its window opens, once the window has opened and closed again', async () => {
+      await startShell();
+      const { popout, open, close, load } = stubPopout();
+      await fireEvent.click(screen.getByRole('button', { name: 'Pop out the threads' }));
+      expect(screen.queryByRole('button', { name: 'Hide the threads' })).toBeNull();
+
+      await togglePanel('Threads');
+      expect(close).not.toHaveBeenCalled();
+      load();
+
+      await waitFor(() => expect(close).toHaveBeenCalled());
+      expect(open).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect({ tab: showsTab(popout), groups: groups() }).toEqual({ tab: false, groups: [['Files', 'Plan*'], ['Code*'], ['Stop*']] }));
+      expect((await panelItems()).find((item) => item.name === 'Threads')?.checked).toBe(false);
+      await togglePanel('Threads');
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+   });
+
+   it.each(['threads', 'plan'])('closes the window of the %s that opens after a layout applied, and leaves the panels where that layout put them', async (panel) => {
+      await startShell();
+      const { popout, close, load } = stubPopout();
+      await fireEvent.click(screen.getByRole('button', { name: `Pop out the ${panel}` }));
+      await arrange('Columns');
+      await waitFor(() => expect(groups()).toEqual([['Files*'], ['Plan*'], ['Code*'], ['Stop*'], ['Threads*']]));
+
+      load();
+
+      await waitFor(() => expect(close).toHaveBeenCalled());
+      await waitFor(() => expect({ tab: showsTab(popout), groups: groups() }).toEqual({ tab: false, groups: [['Files*'], ['Plan*'], ['Code*'], ['Stop*'], ['Threads*']] }));
+      await waitFor(() => expect(shownGroups(JSON.parse(localStorage.getItem(savedKey)!) as LayoutRecord)).toEqual([['files'], ['plan'], ['diff'], ['stop'], ['threads']]));
+      expect((await panelItems()).every((item) => item.checked)).toBe(true);
+   });
+
+   it('pops the panel out on a second click once the browser blocked the first window', async () => {
+      await startShell();
+      const { popout, open, load } = stubPopout();
+      open.mockReturnValueOnce(null);
+      await fireEvent.click(screen.getByRole('button', { name: 'Pop out the threads' }));
+      await waitFor(() => expect(open).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+
+      await fireEvent.click(await screen.findByRole('button', { name: 'Pop out the threads' }));
+      load();
+
+      await waitFor(() => expect(showsTab(popout)).toBe(true));
+      await waitFor(() => expect(groups()).toEqual([['Files', 'Plan*'], ['Code*'], ['Stop*']]));
+   });
+
+   it('hides a panel in the main window that the Panels menu hides while its window opens, when the window closes before it loads', async () => {
+      await startShell();
+      const { popout } = stubPopout();
+      let closed = false;
+      // Dockview notices a closed window that never loaded from its closed property.
+      Object.defineProperty(popout, 'closed', { get: () => closed });
+      await fireEvent.click(screen.getByRole('button', { name: 'Pop out the threads' }));
+
+      await togglePanel('Threads');
+      closed = true;
+
+      await waitFor(() => expect(groups()).toEqual([['Files', 'Plan*'], ['Code*'], ['Stop*']]));
+      expect((await panelItems()).find((item) => item.name === 'Threads')?.checked).toBe(false);
+      await togglePanel('Threads');
+      await waitFor(() => expect(groups()).toEqual(defaultGroups));
+   });
+
+   it('keeps the panel hidden that stayed in the group a panel popped out of, once the window returns that panel', async () => {
+      const { world, app } = await startShell();
+      const popout = await popOut('Pop out the plan');
+      fireEvent.click(screen.getByRole('button', { name: 'Hide the files' }));
+      await waitFor(() => expect(groups()).toEqual([['Code*'], ['Stop*'], ['Threads*']]));
+
+      popout.close();
+
+      await waitFor(() => expect(groups()).toEqual([['Plan*'], ['Code*'], ['Stop*'], ['Threads*']]));
+      expect((await panelItems()).find((item) => item.name === 'Files')?.checked).toBe(false);
+      await reload(world, app);
+      await waitFor(() => expect(groups()).toEqual([['Plan*'], ['Code*'], ['Stop*'], ['Threads*']]));
+      await togglePanel('Files');
+      await waitFor(() => expect(groups()[0]).toEqual(['Files*', 'Plan']));
    });
 });
