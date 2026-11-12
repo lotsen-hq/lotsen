@@ -102,7 +102,7 @@ test.describe('the workspace', () => {
    test('saves no layout until the reviewer changes it, through a tour that opens and a resize', async ({ page }) => {
       const saved = () => page.evaluate(() => localStorage.getItem('lotsen.workspaceLayout'));
       await page.goto('/');
-      await page.getByRole('button', { name: /^(Choose a tour|Tour: .+, choose another)$/ }).click();
+      await page.getByRole('button', { name: /^(Choose a tour|Choose another tour)$/ }).click();
       await page
          .getByRole('navigation', { name: 'Tours' })
          .getByRole('button', { name: new RegExp(checkoutTour) })

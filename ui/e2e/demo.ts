@@ -70,7 +70,7 @@ export async function openSecondPage(browser: Browser, baseURL: string | undefin
       });
       await page.goto('/');
       // The page waits for a world of its own and binds its sample tours before it shows.
-      await expect(page.getByRole('button', { name: /^(Choose a tour|Tour: .+, choose another)$/ })).toBeVisible({ timeout: 90_000 });
+      await expect(page.getByRole('button', { name: /^(Choose a tour|Choose another tour)$/ })).toBeVisible({ timeout: 90_000 });
       return { page, close: () => context.close() };
    } catch (error) {
       await context.close();
