@@ -65,6 +65,89 @@ async function farEdges(element: Locator): Promise<{ right: number; bottom: numb
    return { right: Math.round(box.x + box.width), bottom: Math.round(box.y + box.height) };
 }
 
+/** A panel of the workspace to pop out, with the controls of its region that a test uses in the popout window. */
+interface PoppedPanel {
+   /** The name of the panel's region and of its tab. */
+   name: string;
+   /** The name of the Pop out button in the panel's group header. */
+   button: string;
+   /** Shows what the panel needs in the main window, and makes it the active panel of its group. */
+   open?: (page: Page) => Promise<void>;
+   /** A click in the panel, and the check of its effect, which holds in any window that shows the panel. */
+   click: { run: (panel: Locator) => Promise<void>; shown: (panel: Locator) => Promise<void> };
+   /** The button that opens a menu of the panel, and an item of the menu, or null when the panel offers no menu. */
+   menu: { trigger: (panel: Locator) => Locator; item: string } | null;
+   /** Returns the element that shows a tooltip on hover, and the tooltip's text. */
+   tooltip: { trigger: (panel: Locator) => Promise<Locator>; text: string | RegExp };
+   /** The tabs of each group once the window has returned the panel, when they differ from the workspace's default. */
+   returned?: string[][];
+}
+
+// Files, Code and Stop offer no menu of their own: the only dropdown and context menus inside the panels are the Plan actions and those of Threads.
+const poppedPanels: PoppedPanel[] = [
+   {
+      name: 'Files',
+      button: 'Pop out the files',
+      open: (page) => page.getByRole('tab', { name: 'Files' }).click(),
+      click: {
+         run: (panel) => panel.getByRole('treeitem', { name: 'checkout', exact: true }).locator('.row').first().click(),
+         shown: (panel) => expect(panel.getByRole('treeitem', { name: 'checkout', exact: true })).toHaveAttribute('aria-expanded', 'false'),
+      },
+      menu: null,
+      tooltip: { trigger: async (panel) => panel.getByRole('treeitem', { name: /^payment\.ts,/ }).locator('.row'), text: /^src\/checkout\/payment\.ts/ },
+      // Dockview reopens a returned panel at the end of the group that it left (moveGroupWithoutDestroying in dockview-core 8.9.0).
+      returned: [['Plan', 'Files'], ['Code'], ['Stop'], ['Threads']],
+   },
+   {
+      name: 'Plan',
+      button: 'Pop out the plan',
+      click: {
+         run: (panel) => panel.getByRole('button', { name: /The new payment step/ }).click(),
+         shown: (panel) => expect(panel.getByRole('button', { name: /The new payment step/ })).toHaveAttribute('aria-current', 'step'),
+      },
+      menu: { trigger: (panel) => panel.getByRole('button', { name: 'Plan actions' }), item: 'Re-plan…' },
+      tooltip: { trigger: async (panel) => panel.getByRole('button', { name: 'Skip stop 1', exact: true }), text: /^Next and Back pass over this stop/ },
+   },
+   {
+      name: 'Code',
+      button: 'Pop out the code',
+      open: openShippingRates,
+      click: {
+         run: (panel) => panel.getByRole('button', { name: 'Side by side' }).click(),
+         shown: (panel) => expect(panel.locator('.cm-mergeView')).toBeVisible(),
+      },
+      menu: null,
+      tooltip: { trigger: async (panel) => panel.getByRole('button', { name: 'Highlight the passages' }), text: 'Highlight the passages' },
+   },
+   {
+      name: 'Stop',
+      button: 'Pop out the stop',
+      open: (page) => openStop(page, 'The new payment step'),
+      click: {
+         run: (panel) => panel.getByRole('button', { name: 'Skip stop' }).click(),
+         shown: (panel) => expect(panel.getByRole('button', { name: 'Skip stop' })).toHaveAttribute('aria-pressed', 'true'),
+      },
+      menu: null,
+      tooltip: { trigger: async (panel) => panel.getByRole('list', { name: 'Code' }).locator('.file').first(), text: /^src\// },
+   },
+   {
+      name: 'Threads',
+      button: 'Pop out the threads',
+      click: {
+         run: (panel) => discountRow(panel.page()).getByRole('button').first().click(),
+         shown: (panel) => expect(panel.getByRole('button', { name: 'Back to all threads' })).toBeVisible(),
+      },
+      menu: { trigger: (panel) => discountRow(panel.page()).getByRole('button', { name: 'Thread actions' }), item: 'Delete thread…' },
+      tooltip: {
+         trigger: async (panel) => {
+            await panel.getByRole('textbox', { name: 'Question for Claude' }).fill('A note to read later.');
+            return panel.getByRole('button', { name: 'Save as note' });
+         },
+         text: 'Save as note',
+      },
+   },
+];
+
 test.describe('a popout window', () => {
    test('runs a click in the Threads panel that it holds, and returns the panel to its group once the window closes', async ({ page }) => {
       await openDemoTour(page, checkoutTour, { theme: 'dark' });
@@ -88,6 +171,41 @@ test.describe('a popout window', () => {
       await expect.poll(() => groups(page)).toEqual([['Files', 'Plan'], ['Code'], ['Stop'], ['Threads']]);
       await expect(region(page, 'Threads').getByRole('button', { name: 'Back to all threads' })).toBeVisible();
    });
+
+   for (const panel of poppedPanels) {
+      test(`runs a click${panel.menu === null ? '' : ', a menu'} and a tooltip in the ${panel.name} panel that it holds, and returns it to its group once the window closes`, async ({ page }) => {
+         await openDemoTour(page, checkoutTour, { placement: 'side', layout: 'inline' });
+         await panel.open?.(page);
+         const popout = await popOut(page, panel.name, panel.button);
+         const held = region(popout, panel.name);
+
+         if (panel.menu !== null) {
+            await panel.menu.trigger(held).click();
+            await expect(popout.getByRole('menu')).toHaveCount(1);
+            await expect(popout.getByRole('menuitem', { name: panel.menu.item })).toBeInViewport();
+            await expect(page.getByRole('menu')).toHaveCount(0);
+            await popout.keyboard.press('Escape');
+            await expect(popout.getByRole('menu')).toHaveCount(0);
+         }
+
+         const trigger = await panel.tooltip.trigger(held);
+         await trigger.hover();
+         await expect(trigger).toHaveAttribute('aria-describedby', /.+/);
+         const id = (await trigger.getAttribute('aria-describedby'))!;
+         await expect(popout.locator(`[id="${id}"]`)).toHaveText(panel.tooltip.text);
+         await expect(page.locator(`[id="${id}"]`)).toHaveCount(0);
+         await popout.keyboard.press('Escape');
+         await expect(popout.locator(`[id="${id}"]`)).toBeHidden();
+
+         await panel.click.run(held);
+         await panel.click.shown(held);
+
+         await popout.close({ runBeforeUnload: true });
+         await expect.poll(() => groups(page)).toEqual(panel.returned ?? [['Files', 'Plan'], ['Code'], ['Stop'], ['Threads']]);
+         await page.getByRole('tab', { name: panel.name }).click();
+         await panel.click.shown(region(page, panel.name));
+      });
+   }
 
    test('keeps the panel on Delete or Backspace on its tab, in the popout window and back in the main window', async ({ page }) => {
       await openDemoTour(page, checkoutTour);
