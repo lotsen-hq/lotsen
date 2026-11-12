@@ -59,10 +59,10 @@ jobs:
       - name: Check C# formatting
         run: dotnet format --verify-no-changes --severity info
 
-      # The layout suite runs in Playwright's Chromium. The runner's user is not root, so Playwright installs the browser's system libraries through sudo.
-      - name: Install the browser for the layout suite
+      # The layout suite runs in Playwright's Chromium, and its popout specs in Firefox too. The runner's user is not root, so Playwright installs the browsers' system libraries through sudo.
+      - name: Install the browsers for the layout suite
         working-directory: ui
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium firefox
 
       # The UI's flow tests run real servers in the test host, so it builds first, and the tests use that build.
       - name: Build the test host
@@ -150,9 +150,9 @@ jobs:
         working-directory: ui
         run: npm ci
 
-      - name: Install the browser for the layout suite
+      - name: Install the browsers for the layout suite
         working-directory: ui
-        run: npx playwright install chromium
+        run: npx playwright install chromium firefox
 
       - name: Build the test host
         run: dotnet build tests/Lotsen.TestHost

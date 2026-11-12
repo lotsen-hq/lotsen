@@ -38,6 +38,27 @@ async function dragOver(page: Page, from: Locator, to: Locator): Promise<void> {
    await page.mouse.up();
 }
 
+/**
+ * Turns the mouse wheel over an editor until the element that scrolls its lines reaches the end that the wheel's direction points to.
+ *
+ * Firefox 157 scrolls less than the scroller's height for one wheel event, however large its delta, so one event does not reach the end of a long diff.
+ */
+async function wheelToEnd(page: Page, editor: Locator, deltaY: number): Promise<void> {
+   await editor.hover();
+   await expect(async () => {
+      await page.mouse.wheel(0, deltaY);
+      const atEnd = await editor.evaluate((node, down) => {
+         let scroller = node.querySelector<HTMLElement>('.cm-scroller');
+         while (scroller !== null && !(scroller.scrollHeight > scroller.clientHeight && ['auto', 'scroll'].includes(getComputedStyle(scroller).overflowY))) {
+            scroller = scroller.parentElement;
+         }
+
+         return scroller !== null && (down ? scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1 : scroller.scrollTop <= 0);
+      }, deltaY > 0);
+      expect(atEnd).toBe(true);
+   }).toPass({ timeout: 10_000 });
+}
+
 /** Returns the right and the bottom edge of an element in its window, in pixels. */
 async function farEdges(element: Locator): Promise<{ right: number; bottom: number }> {
    const box = (await element.boundingBox())!;
@@ -202,8 +223,7 @@ test.describe('a popout window', () => {
       }
 
       await popout.setViewportSize({ width: 900, height: 500 });
-      await base.hover();
-      await popout.mouse.wheel(0, 10_000);
+      await wheelToEnd(popout, base, 10_000);
       await expect.poll(() => inScrollerView(editorLine(base, "'region-130'"))).toBe(true);
 
       await dragOver(popout, editorLine(base, "'region-120'"), editorLine(base, "'region-124'"));
@@ -216,8 +236,7 @@ test.describe('a popout window', () => {
       await popout.close({ runBeforeUnload: true });
       await expect.poll(() => groups(page)).toEqual([['Files', 'Plan'], ['Code'], ['Stop'], ['Threads']]);
       const returned = center(page).locator('.cm-editor').first();
-      await returned.hover();
-      await page.mouse.wheel(0, -10_000);
+      await wheelToEnd(page, returned, -10_000);
       await expect.poll(() => inScrollerView(editorLine(returned, "'region-003'"))).toBe(true);
       await dragOver(page, editorLine(returned, "'region-003'"), editorLine(returned, "'region-005'"));
       await expect(center(page).getByRole('button', { name: 'Ask Claude about src/checkout/shipping.ts, lines 5–7 at the base' })).toBeVisible();
@@ -237,8 +256,7 @@ test.describe('a popout window', () => {
          await expect.poll(() => inScrollerView(deleted("'region-052'"))).toBe(true);
          await dragOver(popout, deleted("'region-052'"), deleted("'region-054'"));
          await expect(center(popout).getByRole('button', { name: 'Ask Claude about src/checkout/shipping.ts, lines 54–56 at the base' })).toBeVisible();
-         await editor.hover();
-         await popout.mouse.wheel(0, 10_000);
+         await wheelToEnd(popout, editor, 10_000);
          await expect.poll(() => inScrollerView(editorLine(editor, "'region-130'"))).toBe(true);
       });
    }

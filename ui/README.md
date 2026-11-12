@@ -81,8 +81,9 @@ collapsed rows, the pane splitter and the file that the stop-files stack reports
 together, each of which must get a world of its own. Playwright starts the demo on a free port that the suite picks at
 run time, so two checkouts can run the suite at once, and `LOTSEN_E2E_PORT` pins the port. The `csp` project runs
 `e2e/csp.spec.ts` against a second server, the built demo that `npm run demo:csp` serves with the server's policy, on the
-port that `LOTSEN_E2E_CSP_PORT` pins. Playwright stops both servers once the suite ends, and their test hosts stop with them. `just ui-browser` downloads the Chromium build that the suite
-needs.
+port that `LOTSEN_E2E_CSP_PORT` pins. The `firefox` and `csp-firefox` projects run `e2e/popout.spec.ts` and the
+popout window's tests in `e2e/csp.spec.ts` in Playwright's Firefox, on the same servers. Playwright stops both servers once the suite ends, and their test hosts stop
+with them. `just ui-browser` downloads the Chromium and Firefox builds that the suite needs.
 
 The components reach the editors through `EditorSurface` (`src/lib/editor/surface.ts`), and within `src/` only
 `src/lib/editor/` imports CodeMirror, which the lint rule enforces. `tests/editorSurfaceCalls.test.ts` checks the
