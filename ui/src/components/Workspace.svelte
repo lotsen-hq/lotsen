@@ -7,8 +7,11 @@
    import type { WorkspaceLayout } from '../lib/workspaceLayout.svelte';
    import { panelIds, type PanelId } from '../lib/workspacePanels';
    import GroupActions from './GroupActions.svelte';
+   import PanelContent from './PanelContent.svelte';
 
    type LeftPanel = 'files' | 'plan';
+
+   const themeAttributes = ['class', 'data-color-scheme'];
 
    let {
       layout,
@@ -41,8 +44,27 @@
    const elements = $state<Partial<Record<PanelId, HTMLElement>>>({});
    let api = $state<DockviewApi | null>(null);
 
-   // The group headers mount their own components, which need the page's contexts, such as its tooltip delays.
+   // The group headers and the panels mount their own components, which need the page's contexts, such as its tooltip delays.
    const contexts = getAllContexts();
+
+   /** Keeps the root element of a popout window's page in step with the theme class and color scheme of this page's root, which the palettes in `app.css` key on. */
+   function followTheme(popout: Window): () => void {
+      const source = document.documentElement;
+      const copy = () => {
+         for (const name of themeAttributes) {
+            const value = source.getAttribute(name);
+            if (value === null) {
+               popout.document.documentElement.removeAttribute(name);
+            } else {
+               popout.document.documentElement.setAttribute(name, value);
+            }
+         }
+      };
+      const changes = new MutationObserver(copy);
+      changes.observe(source, { attributes: true, attributeFilter: themeAttributes });
+      copy();
+      return () => changes.disconnect();
+   }
 
    function groupActions(group: DockviewGroupPanel): IHeaderActionsRenderer {
       const element = document.createElement('div');
@@ -73,6 +95,11 @@
    }
 
    onMount(() => {
+      // Svelte listens for delegated events at a root's mount target and the main document (mount in svelte 5.57.2's render.js), so each panel is a root of its own, whose
+      // handlers still run in a popout window, as popout.spec.ts checks.
+      const snippets = { files, plan, diff, stop, threads };
+      const contents = panelIds.map((id) => mount(PanelContent, { target: elements[id]!, props: { content: snippets[id] }, context: contexts }));
+
       // Dockview rounds the sizes it measures to whole pixels (watchElementResize in dockview-core 8.9.0's resizable.ts and shell.ts), which lays the groups out past a
       // container of a fractional size, so the container takes the frame's size rounded down.
       const fit = () => {
@@ -88,7 +115,7 @@
          theme: themeLight,
          disableFloatingGroups: true,
          nonce: (document) => cspNonce(document),
-         // The panels render in the hidden holder below, inside the page's component tree, and Dockview moves each one's element into its group.
+         // The panels render in the hidden holder below, and Dockview moves each one's element into its group.
          createComponent: (options) => ({ element: elements[options.name as PanelId]!, init: () => {} }),
          // Dockview calls createTabComponent only for a tab with a component name (createTabComponent in dockview-core 8.9.0's dockviewPanelModel.ts).
          defaultTabComponent: 'title',
@@ -120,8 +147,32 @@
             event.stopPropagation();
          }
       };
-      root.addEventListener('click', openTab);
-      root.addEventListener('keydown', keepPanel, true);
+      // A popout window's tabs sit in its own document, outside the root, so its document gets the same handlers.
+      const handleTabs = (target: GlobalEventHandlers) => {
+         target.addEventListener('click', openTab);
+         target.addEventListener('keydown', keepPanel, true);
+         return () => {
+            target.removeEventListener('click', openTab);
+            target.removeEventListener('keydown', keepPanel, true);
+         };
+      };
+      const unhandleRoot = handleTabs(root);
+
+      // Each teardown goes with its window, because a popout's group id can change while it is open, and the removal event reports a closed window as null.
+      let popoutTeardowns: { window: Window; teardown: () => void }[] = [];
+      const popouts = [
+         dock.onDidAddPopoutGroup(({ window }) => {
+            if (window) {
+               const unfollow = followTheme(window);
+               const unhandle = handleTabs(window.document);
+               popoutTeardowns.push({ window, teardown: () => (unfollow(), unhandle()) });
+            }
+         }),
+         dock.onWillClosePopoutWindow(({ window }) => {
+            popoutTeardowns.filter((entry) => entry.window === window).forEach((entry) => entry.teardown());
+            popoutTeardowns = popoutTeardowns.filter((entry) => entry.window !== window);
+         }),
+      ];
 
       const choices = dock.onDidActivePanelChange((event) => {
          if (!applying && (event.panel?.id === 'files' || event.panel?.id === 'plan')) {
@@ -131,11 +182,13 @@
       api = dock;
       return () => {
          resizes.disconnect();
-         root.removeEventListener('click', openTab);
-         root.removeEventListener('keydown', keepPanel, true);
+         unhandleRoot();
          choices.dispose();
+         popouts.forEach((subscription) => subscription.dispose());
+         popoutTeardowns.forEach((entry) => entry.teardown());
          detach();
          dock.dispose();
+         contents.forEach((content) => unmount(content));
       };
    });
 
@@ -165,8 +218,6 @@
       <div
          bind:this={elements[id]}
          class={['h-full', id === 'diff' ? 'flex flex-col' : 'scroll-box', (id === 'files' || id === 'plan') && 'text-base', (id === 'stop' || id === 'threads') && 'bg-card']}
-      >
-         {@render { files, plan, diff, stop, threads }[id]()}
-      </div>
+      ></div>
    {/each}
 </div>

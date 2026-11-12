@@ -1,5 +1,6 @@
 import { mergeConfig, type Plugin } from 'vite';
 import base from '../vite.config.ts';
+import { popoutNonce } from './popoutNonce.mjs';
 import { demoWorlds } from './worlds.mjs';
 
 // A fixed nonce, so the built demo can be served with the server's policy without a server to make a nonce per load.
@@ -36,7 +37,7 @@ const demo: Plugin = {
 
 // The demo builds to demo-dist, apart from the dist that the server embeds.
 export default mergeConfig(base, {
-   plugins: [demo, demoWorlds()],
+   plugins: [demo, demoWorlds(), popoutNonce(nonce)],
    build: { outDir: 'demo-dist', rolldownOptions: { input: 'demo/index.html' } },
    preview: { headers: { 'Content-Security-Policy': contentSecurityPolicy } },
 });

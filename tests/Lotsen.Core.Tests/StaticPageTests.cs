@@ -16,6 +16,7 @@ public sealed partial class StaticPageTests : IAsyncLifetime
    [Theory]
    [InlineData("", "text/html")]
    [InlineData("index.html", "text/html")]
+   [InlineData("popout.html", "text/html")]
    [InlineData("app.js", "text/javascript")]
    [InlineData("app.css", "text/css")]
    public async Task Ui_files_are_served_without_the_token(string path, string mediaType)
@@ -35,11 +36,13 @@ public sealed partial class StaticPageTests : IAsyncLifetime
       Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
    }
 
-   [Fact]
-   public async Task Each_page_load_gets_a_new_style_nonce_in_the_header_and_the_page()
+   [Theory]
+   [InlineData("")]
+   [InlineData("popout.html")]
+   public async Task Each_page_load_gets_a_new_style_nonce_in_the_header_and_the_page(string path)
    {
-      var (firstPolicy, firstHtml) = await LoadPageAsync();
-      var (secondPolicy, secondHtml) = await LoadPageAsync();
+      var (firstPolicy, firstHtml) = await LoadPageAsync(path);
+      var (secondPolicy, secondHtml) = await LoadPageAsync(path);
 
       var firstNonce = StyleNonce(firstPolicy);
       var secondNonce = StyleNonce(secondPolicy);
@@ -74,9 +77,9 @@ public sealed partial class StaticPageTests : IAsyncLifetime
       Assert.Equal("no-referrer", Assert.Single(response.Headers.GetValues("Referrer-Policy")));
    }
 
-   private async Task<(string Policy, string Html)> LoadPageAsync()
+   private async Task<(string Policy, string Html)> LoadPageAsync(string path = "")
    {
-      using var response = await _harness.SendAsync(_harness.Request(HttpMethod.Get, ""));
+      using var response = await _harness.SendAsync(_harness.Request(HttpMethod.Get, path));
       Assert.Equal(HttpStatusCode.OK, response.StatusCode);
       var policy = Assert.Single(response.Headers.GetValues("Content-Security-Policy"));
       return (policy, await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));

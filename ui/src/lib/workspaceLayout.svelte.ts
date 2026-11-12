@@ -234,6 +234,21 @@ export class WorkspaceLayout {
       }
    }
 
+   /**
+    * Moves the panel into a popout window of its own and restores a maximized group first. Closing the window returns the panel to its group.
+    *
+    * Call it from the reviewer's click, because the browser blocks a window that opens without one.
+    */
+   popOut(id: PanelId): void {
+      const panel = this.api?.getPanel(id);
+      if (!panel) {
+         return;
+      }
+
+      this.exitMaximized();
+      void this.api?.addPopoutGroup(panel);
+   }
+
    /** Returns the workspace's panel of a Dockview group's active panel, or null when the group shows none. */
    activeIn(group: DockviewGroupPanel): PanelId | null {
       return panelOf(group.activePanel);

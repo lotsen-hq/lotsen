@@ -24,3 +24,28 @@ test('records no securitypolicyviolation while the page loads and a panel is dra
    expect(await policy).toContain("style-src 'self' 'nonce-");
    expect(await page.evaluate(() => window.violations)).toEqual([]);
 });
+
+test('applies app.css and each style element that a popout window copies from the main page', async ({ page }) => {
+   await openDemoTour(page, checkoutTour);
+   // The diff's editor adds a <style> element to the main page, which the popout window's page copies.
+   await openStop(page, 'A cart line needs at least one item');
+   await expect(center(page).locator('.cm-editor').first()).toBeVisible();
+   const opened = page.waitForEvent('popup');
+
+   await page.getByRole('button', { name: 'Pop out the threads' }).click();
+
+   const popout = await opened;
+   const list = popout.getByRole('region', { name: 'Threads', exact: true }).getByRole('list', { name: 'Threads' });
+   await expect(list).toBeVisible();
+   // A row's button is a flex box only while app.css applies.
+   expect(
+      await list
+         .getByRole('button')
+         .first()
+         .evaluate((button) => getComputedStyle(button).display),
+   ).toBe('flex');
+   // The policy leaves a <style> element without the page's nonce with no style sheet.
+   const styles = await popout.evaluate(() => [...document.querySelectorAll('style')].map((style) => style.sheet !== null));
+   expect(styles.length).toBeGreaterThan(0);
+   expect(styles.every(Boolean)).toBe(true);
+});
