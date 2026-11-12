@@ -311,9 +311,12 @@ test.describe('a popout window', () => {
       await threads.getByRole('textbox', { name: 'Question for Claude' }).fill('A note to read later.');
       const save = threads.getByRole('button', { name: 'Save as note' });
 
-      await save.hover();
-
-      await expect(save).toHaveAttribute('aria-describedby', /.+/);
+      // On Windows CI a hover right after the fill can land while the new window's layout still shifts, and the tooltip then stays closed, so the hover repeats until it opens.
+      await expect(async () => {
+         await popout.mouse.move(0, 0);
+         await save.hover();
+         await expect(save).toHaveAttribute('aria-describedby', /.+/, { timeout: 2_000 });
+      }).toPass({ timeout: 15_000 });
       const id = (await save.getAttribute('aria-describedby'))!;
       const tooltip = popout.locator(`[id="${id}"]`);
       await expect(tooltip).toHaveText('Save as note');
