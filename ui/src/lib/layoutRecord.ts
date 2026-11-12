@@ -5,7 +5,7 @@ import { panelIds, type PanelId } from './workspacePanels';
 /** The version of {@link LayoutRecord}. Change it when the record's shape changes, so a page never applies a record that it cannot read. */
 export const layoutVersion = 1;
 
-/** The group that a hidden panel shared, and its tab's place there, to which the panel goes back when it shows. */
+/** The group that a hidden or popped-out panel shared, and its tab's place there, to which the panel goes back when it shows or its window closes. */
 export interface PanelHome {
    groupId: string;
    index: number;
@@ -81,11 +81,14 @@ type GroupState = NonNullable<SerializedPopoutGroup['data']>;
 /**
  * Returns Dockview's serialized layout with the panels of each popout window back in the main window, and no popout window.
  *
- * Each popout's panels go where closing its window puts them (disposePopoutWindow in dockview-core 8.9.0's dockviewComponent.ts): to the end of the group that the popout left,
- * which shows again, or to a group of their own at the start of the grid when that group is gone. A layout record holds no popout window, because the browser blocks a window that
- * a load opens without the reviewer's click.
+ * Each popout's panels go where closing its window puts them (disposePopoutWindow in dockview-core 8.9.0's dockviewComponent.ts): to the group that the popout left, which shows
+ * again, or to a group of their own at the start of the grid when that group is gone. A panel goes back to its tab's place in that group when `places` holds it, as
+ * `WorkspaceLayout` moves it once its window closes, and to the group's end otherwise. A layout record holds no popout window, because the browser blocks a window that a load
+ * opens without the reviewer's click.
+ *
+ * @param places The group that each popped-out panel shared and its tab's place there, by the panel's id.
  */
-export function withoutPopouts(dockview: SerializedDockview): LayoutDockview {
+export function withoutPopouts(dockview: SerializedDockview, places: Partial<Record<string, PanelHome>> = {}): LayoutDockview {
    const { popoutGroups, ...layout } = dockview;
    if (popoutGroups === undefined) {
       return layout;
@@ -105,7 +108,13 @@ export function withoutPopouts(dockview: SerializedDockview): LayoutDockview {
       let home: GroupState;
       if (path.length > 0) {
          home = path.at(-1)!.data as GroupState;
-         home.views = [...home.views, ...views];
+         const joined = [...home.views];
+         for (const view of views) {
+            const place = places[view];
+            joined.splice(place?.groupId === home.id ? Math.min(place.index, joined.length) : joined.length, 0, view);
+         }
+
+         home.views = joined;
          // A hidden node of the path is the group that the popout left, or a branch that hid with it.
          path.forEach((node) => delete node.visible);
       } else {

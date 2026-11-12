@@ -757,6 +757,32 @@ describe('a popout window', () => {
       await waitFor(() => expect(groups()).toEqual([['Files', 'Plan*'], ['Code*'], ['Stop*']]));
    });
 
+   it("puts a panel that left a shared group back at its tab's place there, in the saved layout and once its window closes", async () => {
+      await startShell();
+      fireEvent.click(screen.getByRole('tab', { name: 'Files' }));
+      await waitFor(() => expect(groups()).toEqual(pinnedGroups));
+      const popout = await popOut('Pop out the files');
+      await waitFor(() => expect(groups()).toEqual([['Plan*'], ['Code*'], ['Stop*'], ['Threads*']]));
+      await waitFor(() => expect(shownGroups(JSON.parse(localStorage.getItem(savedKey)!) as LayoutRecord)).toEqual([['files', 'plan'], ['diff'], ['stop'], ['threads']]));
+
+      popout.close();
+
+      await waitFor(() => expect(groups()).toEqual(pinnedGroups));
+   });
+
+   it("keeps a panel of a shared group at its tab's place when the browser blocks its window", async () => {
+      await startShell();
+      fireEvent.click(screen.getByRole('tab', { name: 'Files' }));
+      await waitFor(() => expect(groups()).toEqual(pinnedGroups));
+      const { open } = stubPopout();
+      open.mockReturnValueOnce(null);
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Pop out the files' }));
+
+      await waitFor(() => expect(open).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(groups()).toEqual(pinnedGroups));
+   });
+
    it('hides a panel in the main window that the Panels menu hides while its window opens, when the window closes before it loads', async () => {
       await startShell();
       const { popout } = stubPopout();

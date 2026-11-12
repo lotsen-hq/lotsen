@@ -36,6 +36,8 @@ export class WorkspaceLayout {
    // The number of the page's own changes whose report from Dockview has not arrived yet, as quietly says.
    private quiet = 0;
    private origins: Partial<Record<PanelId, PanelHome>> = {};
+   // The group that each popped-out panel shared and its tab's place there, for the panel's return from its window.
+   private returns: Partial<Record<PanelId, PanelHome>> = {};
    // The panels to hide once their popout window has opened or failed to, and has returned them to the main window.
    private closing: Partial<Record<PanelId, true>> = {};
    private popouts: { window: Window; teardown: () => void }[] = [];
@@ -106,7 +108,7 @@ export class WorkspaceLayout {
          return null;
       }
 
-      const dockview = withoutPopouts(this.api.toJSON());
+      const dockview = withoutPopouts(this.api.toJSON(), this.returns);
       // The grid holds the maximized group's place too, which SerializedDockview's type omits (Gridview.serialize in dockview-core 8.9.0's gridview.ts).
       delete (dockview.grid as typeof dockview.grid & { maximizedNode?: unknown }).maximizedNode;
       const hidden = panelIds.filter((id) => this.hidden[id]).map((id) => ({ id, home: this.origins[id] ?? null }));
@@ -136,6 +138,7 @@ export class WorkspaceLayout {
                api.layout(width, height, true);
             }
             this.origins = {};
+            this.returns = {};
             this.closing = {};
             for (const id of panelIds) {
                this.hidden[id] = false;
@@ -327,6 +330,10 @@ export class WorkspaceLayout {
       this.opening[id] = true;
       const loads = this.loads;
       const before = api.getPopouts().map((popout) => popout.window);
+      if (panel.group.panels.length > 1) {
+         this.returns[id] = { groupId: panel.group.id, index: panel.group.panels.indexOf(panel) };
+      }
+
       const opened = await api.addPopoutGroup(panel).finally(() => (this.opening[id] = false));
       if (this.api !== api) {
          return;
@@ -337,7 +344,15 @@ export class WorkspaceLayout {
          // the load put it, as panelLayout.test.ts checks.
          delete this.closing[id];
          api.getPopouts().forEach(({ window }) => window !== null && !before.includes(window) && window.close());
-      } else if (this.closing[id]) {
+         return;
+      }
+
+      if (!opened) {
+         // Dockview moves the panel only once the window has opened, so the panel kept its place.
+         delete this.returns[id];
+      }
+
+      if (this.closing[id]) {
          delete this.closing[id];
          this.hide(id);
       } else if (!opened && maximized !== undefined && api.groups.includes(maximized) && !api.hasMaximizedGroup()) {
@@ -401,6 +416,7 @@ export class WorkspaceLayout {
             continue;
          }
 
+         this.returnHome(id);
          if (this.closing[id]) {
             delete this.closing[id];
             this.hide(id);
@@ -408,6 +424,23 @@ export class WorkspaceLayout {
             this.conceal(id, panel);
             this.persist();
          }
+      }
+   }
+
+   // Moves a panel that left a shared group for a popout window back to its tab's place there, because Dockview returns it as the group's last tab
+   // (moveGroupWithoutDestroying in dockview-core 8.9.0's dockviewComponent.ts).
+   private returnHome(id: PanelId): void {
+      const home = this.returns[id];
+      const panel = this.api?.getPanel(id);
+      if (home === undefined || panel === undefined || panel.api.location.type === 'popout') {
+         return;
+      }
+
+      delete this.returns[id];
+      const group = panel.group;
+      const index = Math.min(home.index, group.panels.length - 1);
+      if (group.id === home.groupId && group.panels.indexOf(panel) !== index) {
+         panel.api.moveTo({ group, index });
       }
    }
 

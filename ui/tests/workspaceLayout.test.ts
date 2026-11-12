@@ -2,23 +2,40 @@ import type { DockviewApi, PopoutWindowFailure } from 'dockview';
 import { describe, expect, it, vi } from 'vitest';
 import { popoutFailureNotice, WorkspaceLayout } from '../src/lib/workspaceLayout.svelte';
 
+/** A fake Dockview API, with the test's handles on it. */
+interface FakeApi {
+   api: DockviewApi;
+   addPopoutGroup: ReturnType<typeof vi.fn>;
+   /** The panel that pops out. */
+   panel: { api: { location: { type: string }; moveTo: ReturnType<typeof vi.fn> }; group: { id: string; panels: unknown[] } };
+   /** Settles the pop-out, with whether its window opened. */
+   settle: (opened: boolean) => void;
+   /** Settles the pop-out as a window that did not open, and fires the failure that Dockview fires then. */
+   fail: (failure: PopoutWindowFailure) => void;
+   /** Fires a Dockview event that the layout listens to, with no argument. */
+   fire: (event: string) => void;
+}
+
 /**
- * Returns a Dockview API with one panel in the main window and a pop-out that waits until the test settles it. Of its events, only the failure of a popout window fires, when
- * the test fails the pop-out.
+ * Returns a Dockview API with one panel in a group of the main window, and a pop-out that waits until the test settles it. Its events fire only when the test fires them.
+ *
+ * @param shared The number of other panels that share the panel's group, after the panel.
  */
-function fakeApi(): { api: DockviewApi; addPopoutGroup: ReturnType<typeof vi.fn>; settle: (opened: boolean) => void; fail: (failure: PopoutWindowFailure) => void } {
+function fakeApi(shared = 0): FakeApi {
    let settle: (opened: boolean) => void = () => {};
-   let failed: (failure: PopoutWindowFailure) => void = () => {};
+   const listeners: Record<string, (argument?: unknown) => void> = {};
    const addPopoutGroup = vi.fn(() => new Promise<boolean>((resolve) => (settle = resolve)));
-   const panel = { api: { location: { type: 'grid' } } };
-   const onDidOpenPopoutWindowFail = (listener: (failure: PopoutWindowFailure) => void) => ((failed = listener), { dispose: () => {} });
-   const known: Record<string, unknown> = { groups: [], getPanel: () => panel, getPopouts: () => [], hasMaximizedGroup: () => false, addPopoutGroup, onDidOpenPopoutWindowFail };
-   const api = new Proxy(known, { get: (target, key: string) => (key in target ? target[key] : () => ({ dispose: () => {} })) });
+   const panel: FakeApi['panel'] = { api: { location: { type: 'grid' }, moveTo: vi.fn() }, group: { id: '1', panels: [] } };
+   panel.group.panels.push(panel, ...Array.from({ length: shared }, () => ({})));
+   const known: Record<string, unknown> = { groups: [], getPanel: () => panel, getPopouts: () => [], hasMaximizedGroup: () => false, addPopoutGroup };
+   const api = new Proxy(known, {
+      get: (target, key: string) => (key in target ? target[key] : (listener: (argument?: unknown) => void) => ((listeners[key] = listener), { dispose: () => {} })),
+   });
    const fail = (failure: PopoutWindowFailure) => {
-      failed(failure);
+      listeners.onDidOpenPopoutWindowFail?.(failure);
       settle(false);
    };
-   return { api: api as unknown as DockviewApi, addPopoutGroup, settle: (opened) => settle(opened), fail };
+   return { api: api as unknown as DockviewApi, addPopoutGroup, panel, settle: (opened) => settle(opened), fail, fire: (event) => listeners[event]?.() };
 }
 
 describe('a pop-out', () => {
@@ -54,6 +71,38 @@ describe('a pop-out', () => {
       settle(true);
       await next;
       expect(layout.popoutFailure).toBeNull();
+   });
+});
+
+describe("a popped-out panel's tab place", () => {
+   it('is forgotten when the window did not open, so a later return of another window leaves the panel where the reviewer moved it', async () => {
+      const layout = new WorkspaceLayout();
+      const { api, panel, fail, fire } = fakeApi(1);
+      layout.attach(api, () => {});
+      const blocked = layout.popOut('threads');
+      fail({ reason: 'blocked' });
+      await blocked;
+      panel.group.panels.reverse();
+
+      fire('onDidRemovePopoutGroup');
+      await Promise.resolve();
+
+      expect(panel.api.moveTo).not.toHaveBeenCalled();
+   });
+
+   it('moves the panel back to it once the window returns the panel as the last tab of its group', async () => {
+      const layout = new WorkspaceLayout();
+      const { api, panel, settle, fire } = fakeApi(1);
+      layout.attach(api, () => {});
+      const opened = layout.popOut('threads');
+      settle(true);
+      await opened;
+      panel.group.panels.reverse();
+
+      fire('onDidRemovePopoutGroup');
+      await Promise.resolve();
+
+      expect(panel.api.moveTo).toHaveBeenCalledWith({ group: panel.group, index: 0 });
    });
 });
 
