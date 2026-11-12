@@ -28,12 +28,28 @@ const dispatchDrag = (target: Locator, type: string, x = 0.5, y = 0.5) =>
 
 const groups = (page: Page) => page.getByRole('tablist').evaluateAll((lists) => lists.map((list) => [...list.querySelectorAll('[role="tab"]')].map((tab) => tab.getAttribute('aria-label'))));
 
-/** Pops the panel out from its group header, and returns its popout window once the panel shows there. */
+// An unhandled error in the page, such as one that Svelte throws, leaves a test that reads only the page passing, so each test fails on one, in the main page or a popout window.
+let pageErrors: string[] = [];
+test.beforeEach(({ page }) => {
+   pageErrors = [];
+   const record = (source: Page) => source.on('pageerror', (error) => pageErrors.push(`${error.name}: ${error.message}`));
+   record(page);
+   page.on('popup', record);
+});
+test.afterEach(() => expect(pageErrors).toEqual([]));
+
+/**
+ * Pops the panel out from its group header, and returns its popout window once the panel shows there.
+ *
+ * The main page's pointer then leaves the header, as a person's leaves the main window. Otherwise the button that moves under it opens its tooltip, whose escape layer bits-ui puts above
+ * the popout's overlays, so an Escape in the popout window would close nothing (isResponsibleEscapeLayer in bits-ui 2.20.2's use-escape-layer.svelte.js).
+ */
 async function popOut(page: Page, name: string, button: string): Promise<Page> {
    const opened = page.waitForEvent('popup');
    await page.getByRole('button', { name: button }).click();
    const popout = await opened;
    await expect(region(popout, name)).toBeVisible();
+   await page.mouse.move(0, 0);
    return popout;
 }
 
