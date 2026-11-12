@@ -1,9 +1,10 @@
 import { EditorView, ViewPlugin } from '@codemirror/view';
 import { cspNonce } from '../cspNonce';
+import { mainPage } from '../panelDocument.svelte';
 
 /** Returns the window of the document that holds a node now: the main page's, or a popout window's while the node's panel is popped out. */
 export function windowOf(node: Node): Window & typeof globalThis {
-   return node.ownerDocument?.defaultView ?? window;
+   return node.ownerDocument?.defaultView ?? mainPage.window;
 }
 
 /** The documents that hold CodeMirror's style element with their own nonce. */
@@ -17,7 +18,7 @@ const styledDocuments = new WeakSet<Document>();
  * of the first editor that mounts its styles in the document, and an editor without a nonce leaves the element's nonce as it is (StyleModule.mount in style-mod 4.1.4).
  */
 export function prepareStyles(element: Element): void {
-   for (const target of [document, element.ownerDocument]) {
+   for (const target of [mainPage.document, element.ownerDocument]) {
       if (!styledDocuments.has(target)) {
          styledDocuments.add(target);
          const nonce = cspNonce(target);
@@ -85,7 +86,7 @@ class EditorWindow {
       const ResizeObserver = this.window.ResizeObserver;
       this.resizes = typeof ResizeObserver === 'function' ? new ResizeObserver((entries) => entries.forEach((entry) => this.watched.get(entry.target)?.())) : null;
       this.watched.forEach((_, element) => this.resizes?.observe(element));
-      if (this.window !== window) {
+      if (this.window !== mainPage.window) {
          // The scroll event of an element does not bubble, so only a capture listener hears it.
          this.window.addEventListener('scroll', this.scrolled, { capture: true, passive: true });
       }

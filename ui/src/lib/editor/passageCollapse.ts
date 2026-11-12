@@ -6,6 +6,7 @@ import { passageLineMarks } from './passageDecorations';
 import { scrollParent } from './scrollParent';
 import { windowOf } from './editorWindow';
 import type { DecoratedPassage, PassageDecorations } from '../passageMarks';
+import { mainPage } from '../panelDocument.svelte';
 
 /** The lines around a passage that stay shown, the fewest lines that a marker hides, and how many lines one step of expanding shows. */
 export const collapseSettings = { context: 3, minLines: 4, step: 20 };
@@ -40,14 +41,14 @@ class CollapsedLinesWidget extends WidgetType {
 
    override toDOM(view: EditorView): HTMLElement {
       const { lines, hidden } = this.marker;
-      const element = document.createElement('div');
+      const element = mainPage.document.createElement('div');
       element.className = markerClass;
       element.dataset.from = String(lines.from);
-      const count = element.appendChild(document.createElement('span'));
+      const count = element.appendChild(mainPage.document.createElement('span'));
       count.className = 'lotsen-collapsedCount';
       count.textContent = `${hidden} ${hidden === 1 ? 'line' : 'lines'} hidden`;
       const button = (edge: ExpandEdge, text: string) => {
-         const control = element.appendChild(document.createElement('button'));
+         const control = element.appendChild(mainPage.document.createElement('button'));
          control.type = 'button';
          control.className = 'lotsen-expand';
          control.dataset.edge = edge;
