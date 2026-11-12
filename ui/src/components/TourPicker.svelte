@@ -39,14 +39,17 @@
 
    const id = $props.id();
    let open = $state(false);
-   let switcher = $state<HTMLElement | null>(null);
+   let anchor = $state<HTMLElement | null>(null);
+   let listTrigger = $state<HTMLElement | null>(null);
    // The tour whose delete the dialog asks to confirm. The dialog lives outside the list's popover, which closes when the dialog opens.
    let deleting = $state<TourSummary | null>(null);
    let confirming = $state(false);
    let busy = $state(false);
    let deleteError = $state<string | null>(null);
-   // Never null: a null text renders the trigger as a new element, which would drop the focus that closing the list returns to it.
-   const tooltip = $derived(selectedTour ? `${selectedTour.label}\n${selectedTour.target.url}` : 'Choose a tour');
+   // The list trigger's name and tooltip. A null tooltip would render the trigger as a new element, which drops the focus that the closing list returns to it.
+   const triggerName = $derived(selectedTour ? 'Choose another tour' : 'Choose a tour');
+   // Only an https: URL becomes a link.
+   const pullRequestUrl = $derived(selectedTour && URL.canParse(selectedTour.target.url) && new URL(selectedTour.target.url).protocol === 'https:' ? selectedTour.target.url : null);
 
    function select(tourId: string) {
       open = false;
@@ -78,37 +81,66 @@
    }
 </script>
 
-<Popover.Root bind:open>
-   <Popover.Trigger>
-      {#snippet child({ props: popoverProps })}
-         <WithTooltip text={tooltip} {...popoverProps}>
-            {#snippet trigger({ props })}
-               <button
-                  {...props}
-                  bind:this={switcher}
-                  type="button"
-                  class="flex max-w-full min-w-0 items-center gap-1 rounded-md border px-2 py-1 hover:bg-accent focus-visible:border-ring"
-                  aria-label={selectedTour ? `Tour: ${selectedTour.label}, choose another` : 'Choose a tour'}
-               >
-                  <span class={['truncate', !selectedTour && 'text-muted-foreground']}>{selectedTour ? selectedTour.label : 'Choose a tour'}</span>
-                  <ChevronDown class="size-3 shrink-0" />
-               </button>
-            {/snippet}
-         </WithTooltip>
-      {/snippet}
-   </Popover.Trigger>
-   <Popover.Content align="start" class="scroll-box max-h-96 w-96 gap-0 p-0">
-      <TourList {tours} {hiddenCount} {showHidden} {loaded} {error} {selectedTourId} onselect={select} {onshowhidden} {onarchive} ondelete={askToDelete} />
-   </Popover.Content>
-</Popover.Root>
+<div bind:this={anchor} class="flex max-w-full min-w-0 items-center gap-2">
+   {#if selectedTour && pullRequestUrl !== null}
+      <WithTooltip text={`Open the pull request in a new tab\n${pullRequestUrl}`}>
+         {#snippet trigger({ props })}
+            <a
+               {...props}
+               href={pullRequestUrl}
+               target="_blank"
+               rel="noopener noreferrer"
+               class="min-w-0 truncate rounded-sm underline-offset-4 hover:underline focus-visible:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden"
+               >{selectedTour.label}</a
+            >
+         {/snippet}
+      </WithTooltip>
+   {:else if selectedTour}
+      <WithTooltip text={`${selectedTour.label}\n${selectedTour.target.url}`}>
+         {#snippet trigger({ props })}
+            <span {...props} class="min-w-0 truncate">{selectedTour.label}</span>
+         {/snippet}
+      </WithTooltip>
+   {/if}
+   <Popover.Root bind:open>
+      <Popover.Trigger>
+         {#snippet child({ props: popoverProps })}
+            <WithTooltip text={triggerName} {...popoverProps}>
+               {#snippet trigger({ props })}
+                  <!-- The same element with or without a selected tour, so it keeps the focus that the closing list returns when the first tour is chosen. -->
+                  <button
+                     {...props}
+                     bind:this={listTrigger}
+                     type="button"
+                     class={[
+                        'flex items-center rounded-md border hover:bg-accent focus-visible:border-ring',
+                        selectedTour ? 'size-8 shrink-0 justify-center shadow-xs' : 'max-w-full min-w-0 gap-1 px-2 py-1',
+                     ]}
+                     aria-label={triggerName}
+                  >
+                     {#if !selectedTour}
+                        <span class="truncate text-muted-foreground">Choose a tour</span>
+                     {/if}
+                     <ChevronDown class={selectedTour ? 'size-4 shrink-0' : 'size-3 shrink-0'} />
+                  </button>
+               {/snippet}
+            </WithTooltip>
+         {/snippet}
+      </Popover.Trigger>
+      <!-- The list anchors to the whole switcher, so it opens below the label's left edge. -->
+      <Popover.Content customAnchor={anchor} align="start" class="scroll-box max-h-96 w-96 gap-0 p-0">
+         <TourList {tours} {hiddenCount} {showHidden} {loaded} {error} {selectedTourId} onselect={select} {onshowhidden} {onarchive} ondelete={askToDelete} />
+      </Popover.Content>
+   </Popover.Root>
+</div>
 
 <AlertDialog.Root bind:open={confirming}>
-   <!-- The delete button left with the list, so the focus returns to the switcher. -->
+   <!-- The delete button left with the list, so the focus returns to the list's trigger. -->
    <AlertDialog.Content
       escapeKeydownBehavior={busy ? 'ignore' : 'close'}
       onCloseAutoFocus={(event) => {
          event.preventDefault();
-         switcher?.focus();
+         listTrigger?.focus();
       }}
    >
       <AlertDialog.Header>

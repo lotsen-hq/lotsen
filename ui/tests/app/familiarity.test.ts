@@ -8,7 +8,7 @@ import { messagesOf } from '../../src/lib/threadView';
 import type { Familiarity } from '../../src/lib/types';
 import type { ClaudeSession, Transport, World } from '../backend/backend';
 import { attachClaude, backend, cartContent, openStop, openTour, readTour, seedTour, settled, startApp, type SeededTour } from '../harness';
-import { openTourList, tourButton } from '../tourPicker';
+import { openTourList, selectedTourLink, tourButton } from '../tourPicker';
 import { planPanel } from './appPanels';
 import {
    chooseFromPlanMenu,
@@ -467,7 +467,7 @@ describe('the familiarity line in the Plan panel', () => {
          .getAllByRole('button', tourButton)
          .find((button) => button.textContent?.includes('shop #43'))!
          .click();
-      await waitFor(() => expect(screen.getByRole('button', { name: 'Tour: shop #43, choose another' })).toBeTruthy());
+      await waitFor(() => expect(selectedTourLink('shop #43')).toBeTruthy());
       await showPlanPanel();
 
       await waitFor(() => expect(shownLevel('New to the code')).toBeTruthy());

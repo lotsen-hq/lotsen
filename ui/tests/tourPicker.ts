@@ -1,8 +1,13 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
 import { expect } from 'vitest';
 
-/** The accessible name of the tour switcher in the top bar, with a tour selected or without one. */
-export const tourSwitcherName = /^(Choose a tour|Tour: .+, choose another)$/;
+/** The accessible name of the tour list's trigger in the top bar, with a tour selected or without one. */
+export const tourSwitcherName = /^(Choose a tour|Choose another tour)$/;
+
+/** Returns the top bar's link to the selected tour's pull request, which the tour's label names. */
+export function selectedTourLink(label: string): HTMLElement {
+   return within(screen.getByRole('banner')).getByRole('link', { name: label });
+}
 
 /** Opens the tour switcher in the top bar unless it is open, and returns its list. */
 export async function openTourList() {

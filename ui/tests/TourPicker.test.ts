@@ -25,6 +25,10 @@ function summary(id: string, label: string): TourSummary {
 
 const tours = [summary('1', 'contoso/shop/web #1'), summary('2', 'contoso/shop/api #2')];
 
+function withUrl(tour: TourSummary, url: string): TourSummary {
+   return { ...tour, target: { ...tour.target, url } };
+}
+
 function renderSwitcher(selected: TourSummary | null) {
    const onselect = vi.fn();
    const result = render(TourPicker, {
@@ -47,33 +51,57 @@ function renderSwitcher(selected: TourSummary | null) {
 }
 
 describe('the tour switcher', () => {
-   it('reads Choose a tour while no tour is selected', async () => {
+   it('reads Choose a tour as one button, with no link, while no tour is selected', async () => {
       renderSwitcher(null);
       const switcher = screen.getByRole('button', { name: 'Choose a tour' });
 
+      expect(screen.getAllByRole('button')).toEqual([switcher]);
       expect(switcher.textContent.trim()).toBe('Choose a tour');
+      expect(screen.queryByRole('link')).toBeNull();
       expect(await hoverTooltip(switcher)).toBe('Choose a tour');
    });
 
-   it('shows the selected tour’s label, names the tour in its accessible name, and gives the label and URL in its tooltip', async () => {
+   it('links the selected tour’s label to its pull request in a new tab, with the URL in the link’s tooltip', async () => {
       renderSwitcher(tours[1]!);
-      const switcher = screen.getByRole('button', { name: 'Tour: contoso/shop/api #2, choose another' });
+      const link = screen.getByRole('link', { name: 'contoso/shop/api #2' });
 
-      expect(switcher.textContent.trim()).toBe('contoso/shop/api #2');
-      expect(await hoverTooltip(switcher)).toBe('contoso/shop/api #2\nhttps://platform.test/pull/2');
+      expect(link.getAttribute('href')).toBe('https://platform.test/pull/2');
+      expect(link.getAttribute('target')).toBe('_blank');
+      expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+      expect(await hoverTooltip(link)).toBe('Open the pull request in a new tab\nhttps://platform.test/pull/2');
    });
 
-   it('opens the tour list, and a choice closes it and names the chosen tour', async () => {
-      const { list, onselect } = renderSwitcher(tours[0]!);
-      const switcher = screen.getByRole('button', { name: /^Tour: / });
+   it('links a URL whose https: scheme is in upper case', () => {
+      renderSwitcher(withUrl(tours[0]!, 'HTTPS://platform.test/pull/1'));
 
-      await fireEvent.click(switcher);
-      expect(switcher.getAttribute('aria-expanded')).toBe('true');
+      expect(screen.getByRole('link', { name: 'contoso/shop/web #1' }).getAttribute('href')).toBe('HTTPS://platform.test/pull/1');
+   });
+
+   it.each(['http://platform.test/pull/1', 'javascript:alert(1)', 'data:text/html,x', 'not a url'])(
+      'shows the label of a tour whose URL is %s as text, and Choose another tour still opens the list',
+      async (url) => {
+         const { list } = renderSwitcher(withUrl(tours[0]!, url));
+
+         expect(screen.queryByRole('link')).toBeNull();
+         const label = screen.getByText('contoso/shop/web #1');
+         expect(await hoverTooltip(label)).toBe(`contoso/shop/web #1\n${url}`);
+         await fireEvent.click(screen.getByRole('button', { name: 'Choose another tour' }));
+         expect(list()).not.toBeNull();
+      },
+   );
+
+   it('opens the tour list from Choose another tour, and a choice closes it and names the chosen tour', async () => {
+      const { list, onselect } = renderSwitcher(tours[0]!);
+      const chooser = screen.getByRole('button', { name: 'Choose another tour' });
+      expect(await hoverTooltip(chooser)).toBe('Choose another tour');
+
+      await fireEvent.click(chooser);
+      expect(chooser.getAttribute('aria-expanded')).toBe('true');
       await fireEvent.click(within(list()!).getByRole('button', { name: /#2/ }));
 
       expect(onselect).toHaveBeenCalledWith('2');
       await waitFor(() => expect(list()).toBeNull());
-      expect(switcher.getAttribute('aria-expanded')).toBe('false');
+      expect(chooser.getAttribute('aria-expanded')).toBe('false');
    });
 
    it('returns focus to itself when Escape closes the list', async () => {
@@ -91,12 +119,12 @@ describe('the tour switcher', () => {
 
    it('closes the list on one Escape after opening from the keyboard, while the focused tour shows its tooltip', async () => {
       renderSwitcher(tours[0]!);
-      const switcher = screen.getByRole('button', { name: /^Tour: / });
+      const chooser = screen.getByRole('button', { name: 'Choose another tour' });
       // jsdom never positions the popover, which leaves the list hidden from role queries, so this finds it by its markup.
       const list = () => document.querySelector('nav[aria-labelledby="tour-list-heading"]');
-      switcher.focus();
+      chooser.focus();
 
-      await fireEvent.keyDown(switcher, { key: 'Enter' });
+      await fireEvent.keyDown(chooser, { key: 'Enter' });
       // A browser moves the focus to the first tour as the list opens, which jsdom does not do while the list is hidden.
       const focusedTour = await waitFor(() => list()!.querySelector('button')!);
       focusedTour.focus();
@@ -104,13 +132,13 @@ describe('the tour switcher', () => {
       await fireEvent.keyDown(focusedTour, { key: 'Escape' });
 
       await waitFor(() => expect(list()).toBeNull());
-      await waitFor(() => expect(document.activeElement).toBe(switcher));
+      await waitFor(() => expect(document.activeElement).toBe(chooser));
    });
 
    it('closes the list on one Escape while an archive button shows its tooltip', async () => {
       const { list } = renderSwitcher(tours[0]!);
-      // A click opens the list without the keyboard focus that would show the switcher's own tooltip.
-      await fireEvent.click(screen.getByRole('button', { name: /^Tour: / }));
+      // A click opens the list without the keyboard focus that would show the trigger's own tooltip.
+      await fireEvent.click(screen.getByRole('button', { name: 'Choose another tour' }));
       const nav = () => document.querySelector('nav[aria-labelledby="tour-list-heading"]');
       const archive = await waitFor(() => nav()!.querySelector<HTMLElement>('button[aria-label="Archive this tour"]')!);
       await fireEvent.pointerEnter(archive, { pointerType: 'mouse' });
@@ -123,13 +151,13 @@ describe('the tour switcher', () => {
       expect(list()).toBeNull();
    });
 
-   it('stays the same element when the first tour is chosen, so it keeps the focus that the closing list returns', async () => {
+   it('keeps the same trigger element when the first tour is chosen, so it keeps the focus that the closing list returns', async () => {
       const { rerender } = renderSwitcher(null);
       const switcher = screen.getByRole('button', { name: 'Choose a tour' });
 
       await rerender({ selectedTourId: '1', selectedTour: tours[0]! });
 
       expect(switcher.isConnected).toBe(true);
-      expect(switcher.getAttribute('aria-label')).toBe('Tour: contoso/shop/web #1, choose another');
+      expect(switcher.getAttribute('aria-label')).toBe('Choose another tour');
    });
 });

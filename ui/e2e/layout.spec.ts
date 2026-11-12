@@ -544,7 +544,7 @@ test.describe('the Threads panel', () => {
       const before = (await field(page).boundingBox())!.height;
       await page.getByRole('button', { name: 'Collapse the threads' }).click();
 
-      await page.getByRole('button', { name: /^Tour: .+, choose another$/ }).click();
+      await page.getByRole('button', { name: 'Choose another tour' }).click();
       await page
          .getByRole('navigation', { name: 'Tours' })
          .getByRole('button', { name: /storefront #433/ })
@@ -691,7 +691,7 @@ test.describe('the Files tree', () => {
 });
 
 test.describe('the page height', () => {
-   const picker = (page: Page) => page.getByRole('button', { name: /^(Choose a tour|Tour: .+, choose another)$/ });
+   const picker = (page: Page) => page.getByRole('button', { name: /^(Choose a tour|Choose another tour)$/ });
    const tourList = (page: Page) => page.getByRole('navigation', { name: 'Tours' });
    const plan = (page: Page) => page.getByRole('tabpanel', { name: 'Plan' });
 
@@ -729,7 +729,7 @@ test.describe('the page height', () => {
       for (const tour of tours) {
          await picker(page).click();
          await tourList(page).getByRole('button', { name: tour, exact: false }).first().click();
-         await expect(picker(page)).toHaveAccessibleName(`Tour: ${tour}, choose another`);
+         await expect(page.getByRole('banner').getByRole('link', { name: tour, exact: true })).toBeVisible();
          for (const region of ['Tour', 'Stop', 'Threads']) {
             await expect(page.getByRole('region', { name: region, exact: true })).toBeVisible();
          }

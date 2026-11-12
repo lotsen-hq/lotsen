@@ -29,7 +29,7 @@ export async function openDemoTour(page: Page, tour: string, settings: DemoSetti
       }
    }, stored);
    await page.goto('/');
-   await page.getByRole('button', { name: /^(Choose a tour|Tour: .+, choose another)$/ }).click();
+   await page.getByRole('button', { name: /^(Choose a tour|Choose another tour)$/ }).click();
    await page
       .getByRole('navigation', { name: 'Tours' })
       .getByRole('button', { name: new RegExp(tour) })

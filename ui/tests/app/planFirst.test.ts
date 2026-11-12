@@ -5,7 +5,7 @@ import { messagesOf } from '../../src/lib/threadView';
 import type { ClaudeSession, Transport, World } from '../backend/backend';
 import { attachClaude, backend, openStop, openTour, readTour, seedTour, startApp, type SeededTour } from '../harness';
 import { dragRow } from '../stopOrderDrag';
-import { openTourList, tourButton } from '../tourPicker';
+import { openTourList, selectedTourLink, tourButton } from '../tourPicker';
 import { closePlanMenu, isItemDisabled, openPlanMenu, planActions, planMenuButton, planMenuItem, reasonOf } from './planMenu';
 import { openThreadView } from './threadView';
 
@@ -80,7 +80,7 @@ async function choose(label: string): Promise<void> {
       .getAllByRole('button', tourButton)
       .find((button) => button.textContent?.includes(label))!
       .click();
-   await waitFor(() => expect(screen.getByRole('button', { name: `Tour: ${label}, choose another` })).toBeTruthy());
+   await waitFor(() => expect(selectedTourLink(label)).toBeTruthy());
    await fireEvent.click(await screen.findByRole('tab', { name: 'Plan' }));
    await screen.findByRole('tabpanel', { name: 'Plan' });
 }

@@ -7,7 +7,7 @@ import { tourActionPending } from '../../src/lib/tourActions';
 import type { ClaudeSession, Transport, World } from '../backend/backend';
 import { attachClaude, backend, cartContent, openStop, openTour, readTour, seedTour, startApp, type SeededStop, type SeededTour } from '../harness';
 import { dragRow } from '../stopOrderDrag';
-import { openTourList, tourButton } from '../tourPicker';
+import { openTourList, selectedTourLink, tourButton } from '../tourPicker';
 import { chooseFromPlanMenu, closePlanMenu, isItemDisabled, openPlanMenu, planActions, planMenuItem, planMenuNames, reasonOf } from './planMenu';
 
 beforeEach(() => {
@@ -113,7 +113,7 @@ async function choose(label: string): Promise<void> {
       .getAllByRole('button', tourButton)
       .find((button) => button.textContent?.includes(label))!
       .click();
-   await waitFor(() => expect(screen.getByRole('button', { name: `Tour: ${label}, choose another` })).toBeTruthy());
+   await waitFor(() => expect(selectedTourLink(label)).toBeTruthy());
    await showPlanPanel();
 }
 

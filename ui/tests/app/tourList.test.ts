@@ -4,7 +4,7 @@ import type { Familiarity, Tour } from '../../src/lib/types';
 import type { World } from '../backend/backend';
 import { backend, cartBase, cartHead, readTour, seedTour, startApp } from '../harness';
 import { hoverTooltip } from '../tooltip';
-import { openTourList, tourButton, tourSwitcherName } from '../tourPicker';
+import { openTourList, selectedTourLink, tourButton, tourSwitcherName } from '../tourPicker';
 import { planPanel, resetPageEachTest } from './appPanels';
 
 resetPageEachTest();
@@ -49,7 +49,7 @@ describe('the tour list and the plan', () => {
       expect(items[1]!.textContent).toContain('New to the code');
    });
 
-   it("shows the selected tour's label on the tour switcher, with the label and URL as its tooltip", async () => {
+   it("shows the selected tour's label as a link to its pull request, with the URL in its tooltip", async () => {
       const world = await backend().world();
       await cartPullRequest(world);
       await createTour(world, 'https://platform.test/web/pull/9');
@@ -59,9 +59,10 @@ describe('the tour list and the plan', () => {
 
       (await (await openTourList()).findByRole('button', tourButton)).click();
 
-      await waitFor(() => expect(switcher.getAttribute('aria-label')).toBe('Tour: web #9, choose another'));
-      expect(switcher.textContent.trim()).toBe('web #9');
-      expect(await hoverTooltip(switcher)).toBe('web #9\nhttps://platform.test/web/pull/9');
+      const link = await waitFor(() => selectedTourLink('web #9'));
+      expect(link.getAttribute('href')).toBe('https://platform.test/web/pull/9');
+      expect(await hoverTooltip(link)).toBe('Open the pull request in a new tab\nhttps://platform.test/web/pull/9');
+      expect(switcher.getAttribute('aria-label')).toBe('Choose another tour');
    });
 
    it('chooses a tour from the switcher, which closes and marks the chosen tour when it opens again', async () => {
@@ -84,8 +85,7 @@ describe('the tour list and the plan', () => {
 
       fireEvent.click(list.getByRole('button', { name: /#2/ }));
 
-      await waitFor(() => expect(picker.getAttribute('aria-label')).toBe('Tour: api #2, choose another'));
-      expect(picker.textContent.trim()).toBe('api #2');
+      await waitFor(() => expect(selectedTourLink('api #2')).toBeTruthy());
    });
 
    it('adds a tour from a tourCreated event without a reload', async () => {
