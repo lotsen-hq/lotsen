@@ -1,9 +1,8 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { center, checkoutTour, editorLine, inScrollerView, openDemoTour, openStop, showPanel } from './demo';
+import { arrange, center, checkoutTour, editorLine, groups, inScrollerView, openDemoTour, openStop, showPanel } from './demo';
 
 const region = (page: Page, name: string) => page.getByRole('region', { name, exact: true });
 
-/** Returns the tabs of each group that shows, in document order. */
 /** Returns the number of drop targets that the page shows: Dockview draws one in the group, or anchored over it, and keeps an anchored one in the page between drags. */
 const shownDropTargets = (page: Page) =>
    page.evaluate(
@@ -25,8 +24,6 @@ const dispatchDrag = (target: Locator, type: string, x = 0.5, y = 0.5) =>
       },
       [type, x, y] as const,
    );
-
-const groups = (page: Page) => page.getByRole('tablist').evaluateAll((lists) => lists.map((list) => [...list.querySelectorAll('[role="tab"]')].map((tab) => tab.getAttribute('aria-label'))));
 
 // An unhandled error in the page, such as one that Svelte throws, leaves a test that reads only the page passing, so each test fails on one, in the main page or a popout window.
 let pageErrors: string[] = [];
@@ -530,12 +527,6 @@ test.describe('a popout window', () => {
       await expect(dialog).toBeHidden();
    });
 });
-
-/** Opens the Panels menu and picks an arrangement, a named layout or Reset layout. */
-async function arrange(page: Page, name: string): Promise<void> {
-   await page.getByRole('button', { name: 'Panels' }).click();
-   await page.getByRole('menuitem', { name }).click();
-}
 
 /** Returns the saved layout that the page holds in browser storage, as JSON. */
 const savedLayout = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('lotsen.workspaceLayout') ?? 'null'));

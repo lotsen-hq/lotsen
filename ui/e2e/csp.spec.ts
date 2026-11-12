@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { center, checkoutTour, dragTab, openDemoTour, openStop } from './demo';
+import { arrange, center, checkoutTour, dragTab, groups, openDemoTour, openStop } from './demo';
 
 declare global {
    interface Window {
@@ -8,7 +8,7 @@ declare global {
 }
 
 // This file runs in the csp project, against the built demo that Vite's preview serves with the server's policy.
-test('records no securitypolicyviolation while the page loads and a panel is dragged to another group', async ({ page }) => {
+test('records no securitypolicyviolation while the page loads, a panel is dragged to another group and each arrangement applies', async ({ page }) => {
    await page.addInitScript(() => {
       window.violations = [];
       document.addEventListener('securitypolicyviolation', (event) => window.violations.push(`${event.violatedDirective} ${event.sourceFile}:${event.lineNumber} ${event.sample}`));
@@ -21,6 +21,15 @@ test('records no securitypolicyviolation while the page loads and a panel is dra
    await dragTab(page, 'Threads', center(page));
 
    await expect(page.getByRole('region', { name: 'Threads', exact: true }).getByRole('tab', { name: 'Code' })).toBeVisible();
+   for (const { name, expected } of [
+      { name: 'Columns', expected: [['Files'], ['Plan'], ['Code'], ['Stop'], ['Threads']] },
+      { name: 'Explanation above the diff', expected: [['Files', 'Plan'], ['Stop'], ['Code'], ['Threads']] },
+      { name: 'Reset layout', expected: [['Files', 'Plan'], ['Code'], ['Stop'], ['Threads']] },
+   ]) {
+      await arrange(page, name);
+      await expect.poll(() => groups(page)).toEqual(expected);
+   }
+
    expect(await policy).toContain("style-src 'self' 'nonce-");
    expect(await page.evaluate(() => window.violations)).toEqual([]);
 });

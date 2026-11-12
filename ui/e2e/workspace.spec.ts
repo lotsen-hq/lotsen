@@ -1,16 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
-import { center, checkoutTour, dragTab, nextWorld, openDemoTour, openSecondPage, openStop, showPanel } from './demo';
+import { arrange, center, checkoutTour, dragTab, groups, nextWorld, openDemoTour, openSecondPage, openStop, showPanel } from './demo';
 
 const region = (page: Page, name: string) => page.getByRole('region', { name, exact: true });
-
-/** Returns the tabs of each group that shows, in document order. */
-const groups = (page: Page) => page.getByRole('tablist').evaluateAll((lists) => lists.map((list) => [...list.querySelectorAll('[role="tab"]')].map((tab) => tab.getAttribute('aria-label'))));
-
-/** Applies an arrangement, or Reset layout, from the Panels menu. */
-async function arrange(page: Page, name: string): Promise<void> {
-   await page.getByRole('button', { name: 'Panels' }).click();
-   await page.getByRole('menuitem', { name }).click();
-}
 
 test.describe('the arrangements', () => {
    for (const { name, expected } of [

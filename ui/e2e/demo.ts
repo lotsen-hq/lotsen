@@ -101,6 +101,15 @@ export async function showPanel(page: Page, title: string): Promise<void> {
    await expect(page.getByRole('region', { name: title, exact: true })).toBeVisible();
 }
 
+/** Returns the tabs of each group that shows, in document order. */
+export const groups = (page: Page) => page.getByRole('tablist').evaluateAll((lists) => lists.map((list) => [...list.querySelectorAll('[role="tab"]')].map((tab) => tab.getAttribute('aria-label'))));
+
+/** Opens the Panels menu and picks an arrangement, a named layout or Reset layout. */
+export async function arrange(page: Page, name: string): Promise<void> {
+   await page.getByRole('button', { name: 'Panels' }).click();
+   await page.getByRole('menuitem', { name }).click();
+}
+
 /** Drags a panel's tab with the mouse onto the middle of the target, which docks the panel there as a tab. */
 export async function dragTab(page: Page, title: string, target: Locator): Promise<void> {
    const tab = (await page.getByRole('tab', { name: title }).boundingBox())!;
