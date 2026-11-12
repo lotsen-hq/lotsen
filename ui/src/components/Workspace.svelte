@@ -3,7 +3,8 @@
    import { getAllContexts, mount, onMount, unmount, type Snippet } from 'svelte';
    import { cspNonce } from '../lib/cspNonce';
    import { savedLayout } from '../lib/layoutRecord';
-   import { panelIds, type PanelId, type WorkspaceLayout } from '../lib/workspaceLayout.svelte';
+   import type { WorkspaceLayout } from '../lib/workspaceLayout.svelte';
+   import { panelIds, type PanelId } from '../lib/workspacePanels';
    import GroupActions from './GroupActions.svelte';
 
    type LeftPanel = 'files' | 'plan';
@@ -70,19 +71,6 @@
       };
    }
 
-   /** Lays out the Default layout: Files and Plan as tabs on the left, the code in the center, and the stop above the threads on the right. */
-   function defaultLayout(dock: DockviewApi): void {
-      dock.clear();
-      const title = (id: PanelId) => layout.titles[id];
-      dock.addPanel({ id: 'files', component: 'files', title: title('files') });
-      dock.addPanel({ id: 'plan', component: 'plan', title: title('plan'), position: { referencePanel: 'files', direction: 'within' } });
-      dock.addPanel({ id: 'diff', component: 'diff', title: title('diff'), position: { referencePanel: 'files', direction: 'right' } });
-      dock.addPanel({ id: 'stop', component: 'stop', title: title('stop'), position: { referencePanel: 'diff', direction: 'right' } });
-      dock.addPanel({ id: 'threads', component: 'threads', title: title('threads'), position: { referencePanel: 'stop', direction: 'below' } });
-      dock.getPanel('files')!.group.api.setSize({ width: dock.width * 0.22 });
-      dock.getPanel('stop')!.group.api.setSize({ width: dock.width * 0.28, height: dock.height * 0.6 });
-   }
-
    onMount(() => {
       // Dockview rounds the sizes it measures to whole pixels (watchElementResize in dockview-core 8.9.0's resizable.ts and shell.ts), which lays the groups out past a
       // container of a fractional size, so the container takes the frame's size rounded down.
@@ -111,20 +99,10 @@
          region.removeAttribute('role');
       }
 
-      // Dockview hides a group by giving it no size (ViewItem.setVisible in dockview-core 8.9.0's splitview.ts), so the hidden attribute also takes the group out of
-      // the tab order and the accessibility tree.
-      const follow = (group: DockviewGroupPanel) => group.api.onDidVisibilityChange((event) => (group.element.hidden = !event.isVisible));
-      const visibility = [dock.onDidAddGroup(follow)];
-
       const detach = layout.attach(dock, (record) => savedLayout.write(record));
       const saved = savedLayout.read();
       if (saved === null || !layout.load(saved)) {
-         defaultLayout(dock);
-      }
-
-      visibility.push(...dock.groups.map(follow));
-      for (const group of dock.groups) {
-         group.element.hidden = !group.api.isVisible;
+         layout.apply('default');
       }
 
       // Dockview opens a tab on a pointer press, so a click without one, as from a screen reader, opens it here.
@@ -154,7 +132,6 @@
          root.removeEventListener('click', openTab);
          root.removeEventListener('keydown', keepPanel, true);
          choices.dispose();
-         visibility.forEach((subscription) => subscription.dispose());
          detach();
          dock.dispose();
       };
@@ -162,10 +139,11 @@
 
    $effect(() => layout.setTitle('diff', diffTitle));
 
-   // A panel the reviewer picked of Files and Plan holds for that tour, and the default applies until then.
+   // A panel the reviewer picked of Files and Plan holds for that tour, and the default applies until then, also after a layout loads.
    const chosen: Record<string, LeftPanel> = {};
    let applying = false;
    $effect(() => {
+      void layout.loads;
       const shown = chosen[tourId ?? ''] ?? defaultLeft;
       const panel = api?.getPanel(shown);
       if (panel && panel.group === api?.getPanel(shown === 'files' ? 'plan' : 'files')?.group && panel.group.activePanel !== panel) {

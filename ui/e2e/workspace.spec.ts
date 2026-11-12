@@ -3,6 +3,55 @@ import { center, checkoutTour, dragTab, openDemoTour, openStop, showPanel } from
 
 const region = (page: Page, name: string) => page.getByRole('region', { name, exact: true });
 
+/** Returns the tabs of each group that shows, in document order. */
+const groups = (page: Page) => page.getByRole('tablist').evaluateAll((lists) => lists.map((list) => [...list.querySelectorAll('[role="tab"]')].map((tab) => tab.getAttribute('aria-label'))));
+
+/** Applies an arrangement, or Reset layout, from the Panels menu. */
+async function arrange(page: Page, name: string): Promise<void> {
+   await page.getByRole('button', { name: 'Panels' }).click();
+   await page.getByRole('menuitem', { name }).click();
+}
+
+test.describe('the arrangements', () => {
+   for (const { name, expected } of [
+      { name: 'Columns', expected: [['Files'], ['Plan'], ['Code'], ['Stop'], ['Threads']] },
+      { name: 'Explanation above the diff', expected: [['Files', 'Plan'], ['Stop'], ['Code'], ['Threads']] },
+      { name: 'Default', expected: [['Files', 'Plan'], ['Code'], ['Stop'], ['Threads']] },
+   ]) {
+      test(`lays out every panel in its group as ${name}`, async ({ page }) => {
+         await openDemoTour(page, checkoutTour);
+         await dragTab(page, 'Threads', center(page));
+
+         await arrange(page, name);
+
+         await expect.poll(() => groups(page)).toEqual(expected);
+      });
+   }
+
+   test('gives the Default layout on Reset layout after a drag', async ({ page }) => {
+      await openDemoTour(page, checkoutTour);
+      await dragTab(page, 'Stop', center(page));
+      await expect.poll(() => groups(page)).toEqual([['Files', 'Plan'], ['Code', 'Stop'], ['Threads']]);
+
+      await arrange(page, 'Reset layout');
+
+      await expect.poll(() => groups(page)).toEqual([['Files', 'Plan'], ['Code'], ['Stop'], ['Threads']]);
+   });
+
+   test('keeps a section of the stop closed through an arrangement', async ({ page }) => {
+      await openDemoTour(page, checkoutTour);
+      await openStop(page, 'A cart line needs at least one item');
+      const why = region(page, 'Stop').getByRole('button', { name: 'Why' });
+      await why.click();
+      await expect(why).toHaveAttribute('aria-expanded', 'false');
+
+      await arrange(page, 'Explanation above the diff');
+
+      await expect.poll(() => groups(page)).toEqual([['Files', 'Plan'], ['Stop'], ['Code'], ['Threads']]);
+      await expect(why).toHaveAttribute('aria-expanded', 'false');
+   });
+});
+
 test.describe('the workspace', () => {
    test('maximizes a panel over the others and restores them', async ({ page }) => {
       await openDemoTour(page, checkoutTour);
