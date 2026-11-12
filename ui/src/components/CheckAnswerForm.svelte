@@ -9,6 +9,7 @@
    import { Button } from '$lib/components/ui/button';
    import { answerStateText, answerTypes, type CheckAnswerWrites } from '../lib/answers';
    import { sendOnModifiedEnter } from '../lib/dom';
+   import { panelDocument } from '../lib/panelDocument.svelte';
    import { maxQuestionLength } from '../lib/threadView';
    import type { CheckAnswer, StopCheck } from '../lib/types';
 
@@ -39,6 +40,7 @@
    let box = $state<HTMLTextAreaElement | null>(null);
    let editButton = $state<HTMLElement | null>(null);
    let group = $state<HTMLElement | null>(null);
+   const home = panelDocument();
    const hintShown = $derived(writes !== null && answer === undefined);
 
    // An answer that another view clears ends the edit, so that a later answer stays collapsed.
@@ -80,8 +82,8 @@
    // Collapsing to the answer removes the control that held focus. Focus that the reviewer moved elsewhere on the page stays there.
    async function focusEdit(): Promise<void> {
       await tick();
-      const active = document.activeElement;
-      if (active === document.body || group?.contains(active)) {
+      const active = home.document.activeElement;
+      if (active === home.document.body || group?.contains(active)) {
          editButton?.focus();
       }
    }

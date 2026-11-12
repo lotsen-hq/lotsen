@@ -1,5 +1,6 @@
 <script lang="ts">
    import { AlertDialog as AlertDialogPrimitive } from 'bits-ui';
+   import { locksScroll, panelDocument } from '$lib/panelDocument.svelte';
    import { cn, type WithoutChild, type WithoutChildrenOrChild } from '$lib/utils.js';
    import AlertDialogOverlay from './alert-dialog-overlay.svelte';
    import AlertDialogPortal from './alert-dialog-portal.svelte';
@@ -7,6 +8,7 @@
 
    let {
       ref = $bindable(null),
+      preventScroll,
       class: className,
       size = 'default',
       portalProps,
@@ -15,12 +17,15 @@
       size?: 'default' | 'sm';
       portalProps?: WithoutChildrenOrChild<ComponentProps<typeof AlertDialogPortal>>;
    } = $props();
+
+   const home = panelDocument();
 </script>
 
 <AlertDialogPortal {...portalProps}>
    <AlertDialogOverlay />
    <AlertDialogPrimitive.Content
       bind:ref
+      preventScroll={preventScroll ?? locksScroll(home)}
       data-slot="alert-dialog-content"
       data-size={size}
       class={cn(

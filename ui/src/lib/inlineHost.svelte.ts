@@ -1,4 +1,4 @@
-import { mount, unmount } from 'svelte';
+import { getAllContexts, mount, unmount } from 'svelte';
 import ExplanationBlock from '../components/ExplanationBlock.svelte';
 import type { BlockHost, EditorSurface } from './editor/surface';
 import type { ExplanationView } from './explanationView.svelte';
@@ -25,14 +25,18 @@ export class InlineHost {
 
    private readonly view: () => ExplanationView | null;
    private readonly paths: () => FilePaths;
+   private readonly contexts: Map<unknown, unknown>;
 
    /**
+    * Construct it while the component that shows the file initializes, because the block takes that component's contexts, such as its panel document and its portal target.
+    *
     * @param view - Returns the page's explanation, or null when the file shows none.
     * @param paths - Returns the file's paths at each side, which decide whether the explanation's inline passage lies in the file.
     */
    constructor(view: () => ExplanationView | null, paths: () => FilePaths) {
       this.view = view;
       this.paths = paths;
+      this.contexts = getAllContexts();
    }
 
    /**
@@ -60,7 +64,7 @@ export class InlineHost {
          key,
          below: passage,
          render: (target) => {
-            const instance = mount(ExplanationBlock, { target, props: { view, host: 'inline' } });
+            const instance = mount(ExplanationBlock, { target, props: { view, host: 'inline' }, context: this.contexts });
             return () => void unmount(instance);
          },
       };

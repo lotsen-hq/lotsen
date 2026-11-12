@@ -11,6 +11,7 @@
    import { tick } from 'svelte';
    import { disabledReason } from '../lib/controls';
    import { anchorLabel, attachmentOf } from '../lib/labels';
+   import { panelDocument } from '../lib/panelDocument.svelte';
    import { PendingWrite } from '../lib/pendingWrite.svelte';
    import { getThreadActions } from '../lib/threadActions.svelte';
    import type { Pick, ThreadsView } from '../lib/threadsView.svelte';
@@ -48,6 +49,7 @@
    let about = $state<'stop' | 'tour' | 'picked'>('stop');
    let text = $state('');
    let box = $state<Composer>();
+   const home = panelDocument();
 
    const picked = $derived(view.picked);
    // A question about the stop needs an open stop, so without one the box asks about the tour and keeps the reviewer's choice for the next stop. A pick that went asks about the stop.
@@ -78,7 +80,7 @@
    $effect(() => {
       if (picked !== null) {
          about = 'picked';
-         void tick().then(() => requestAnimationFrame(() => box?.focus()));
+         void tick().then(() => home.window.requestAnimationFrame(() => box?.focus()));
       }
    });
 

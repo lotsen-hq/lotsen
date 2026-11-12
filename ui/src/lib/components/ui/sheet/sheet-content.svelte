@@ -4,6 +4,7 @@
 
 <script lang="ts">
    import { Dialog as SheetPrimitive } from 'bits-ui';
+   import { locksScroll, panelDocument } from '$lib/panelDocument.svelte';
    import XIcon from '@lucide/svelte/icons/x';
    import { Button } from '$lib/components/ui/button/index.js';
    import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
@@ -14,6 +15,7 @@
 
    let {
       ref = $bindable(null),
+      preventScroll,
       class: className,
       side = 'right',
       showCloseButton = true,
@@ -26,12 +28,15 @@
       showCloseButton?: boolean;
       children: Snippet;
    } = $props();
+
+   const home = panelDocument();
 </script>
 
 <SheetPortal {...portalProps}>
    <SheetOverlay />
    <SheetPrimitive.Content
       bind:ref
+      preventScroll={preventScroll ?? locksScroll(home)}
       data-slot="sheet-content"
       data-side={side}
       class={cn(

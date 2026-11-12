@@ -11,6 +11,7 @@
    import { hasAnswersToSend } from '../lib/controls';
    import type { LinkHover } from '../lib/linkHover';
    import type { OpenSections } from '../lib/openSections.svelte';
+   import { panelDocument } from '../lib/panelDocument.svelte';
    import { stopTextTarget, type SelectionExplain } from '../lib/selectionAsk';
    import type { ThreadMarker } from '../lib/threadView';
    import type { CodeReference, StopContent } from '../lib/types';
@@ -65,11 +66,12 @@
    } = $props();
 
    let root = $state<HTMLElement>();
+   const home = panelDocument();
    // A sent batch empties the count before the server's controls close the offer.
    const send = $derived(answers?.send && hasAnswersToSend(answers.send.offer) && answers.send.unsent > 0 ? answers.send : null);
    // Removing the row drops the focus on its button to the page body, so the focus moves to the last check. A pre effect reads the focus before the row leaves the page.
    $effect.pre(() => {
-      if (send === null && root?.querySelector('[data-send-row]')?.contains(document.activeElement)) {
+      if (send === null && root?.querySelector('[data-send-row]')?.contains(home.document.activeElement)) {
          void tick().then(() => [...(root?.querySelectorAll<HTMLElement>('[data-check-id]') ?? [])].at(-1)?.focus());
       }
    });

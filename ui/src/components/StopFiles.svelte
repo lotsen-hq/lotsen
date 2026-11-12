@@ -3,6 +3,7 @@
    import type { LineFocus } from '../lib/openStop.svelte';
    import type { DiffLayout } from '../lib/diffLayout';
    import type { ExplanationView } from '../lib/explanationView.svelte';
+   import { panelDocument } from '../lib/panelDocument.svelte';
    import { scrolledToEnd, shownStackFile, type StackFile } from '../lib/stopFiles';
    import type { ChangedFile, CodeReference, FileMark, FileSide, QuestionThread, Stop } from '../lib/types';
    import StackedFile from './StackedFile.svelte';
@@ -61,6 +62,7 @@
    let opened: string | null = null;
    let reviewerInput = false;
    let lastTarget: { key: string } | null = null;
+   const home = panelDocument();
 
    // The stack measures at most once a frame, however many scroll and resize events arrive. A new stack or a new target measures again, as neither needs to scroll or resize it.
    // The viewport is observed too, since a shorter viewport changes what shows without resizing the stack.
@@ -69,6 +71,7 @@
       void target;
       const scroller = viewport;
       const stacked = list;
+      const { window } = home;
       // The list's binding turns null, not undefined, once the changed files load again.
       if (!scroller || !stacked) {
          return;
@@ -85,7 +88,7 @@
          ontop(shownStackFile(extents, { top, bottom, atEnd: scrolledToEnd(scroller) }, opened));
       };
       const schedule = () => {
-         frame ||= requestAnimationFrame(measure);
+         frame ||= window.requestAnimationFrame(measure);
       };
       const input = () => {
          reviewerInput = true;
@@ -97,7 +100,7 @@
 
          schedule();
       };
-      const resizes = new ResizeObserver(schedule);
+      const resizes = new window.ResizeObserver(schedule);
       resizes.observe(stacked);
       resizes.observe(scroller);
       const inputs = ['wheel', 'touchmove', 'keydown', 'pointerdown'] as const;
@@ -107,7 +110,7 @@
       scroller.addEventListener('scroll', scrolled, { passive: true });
       schedule();
       return () => {
-         cancelAnimationFrame(frame);
+         window.cancelAnimationFrame(frame);
          resizes.disconnect();
          for (const name of inputs) {
             scroller.removeEventListener(name, input);

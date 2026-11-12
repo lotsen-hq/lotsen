@@ -4,6 +4,8 @@
 -->
 <script lang="ts">
    import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
+   import { untrack } from 'svelte';
+   import { panelDocument } from '../lib/panelDocument.svelte';
    import type { Stop } from '../lib/types';
    import StopKindPill from './StopKindPill.svelte';
 
@@ -12,7 +14,7 @@
       visible,
       versionNotice,
       staleNotice,
-      height = $bindable(0),
+      height = $bindable(),
    }: {
       stop: Stop;
       /** Whether the bar shows. A hidden bar keeps its layout, so `height` is right for the first scroll that shows it. */
@@ -24,10 +26,26 @@
       /** The height of the bar in pixels, which the bar writes. */
       height?: number;
    } = $props();
+
+   const home = panelDocument();
+
+   // Svelte's `bind:clientHeight` observes with the main page's ResizeObserver (bindings/size.js in svelte 5.57.2), so the bar observes with its panel's, as `PanelDocument.window` says.
+   // The bar reads its height once as it mounts too, because a stop that opens at a check scrolls before the first observation, as layout.spec.ts checks.
+   function measure(bar: HTMLElement): () => void {
+      const read = () => {
+         if (height !== bar.clientHeight) {
+            height = bar.clientHeight;
+         }
+      };
+      untrack(read);
+      const observer = new home.window.ResizeObserver(read);
+      observer.observe(bar);
+      return () => observer.disconnect();
+   }
 </script>
 
 <div class="sticky top-0 z-10 h-0" aria-hidden="true">
-   <div data-stop-bar class={['absolute inset-x-0 top-0 border-b bg-card shadow-sm select-none', !visible && 'invisible']} bind:clientHeight={height}>
+   <div data-stop-bar class={['absolute inset-x-0 top-0 border-b bg-card shadow-sm select-none', !visible && 'invisible']} {@attach measure}>
       <div class="flex items-baseline gap-2 px-4 py-1 text-sm">
          <StopKindPill kind={stop.kind} />
          <h3 class="min-w-0 flex-1 truncate font-semibold">{stop.title}</h3>
