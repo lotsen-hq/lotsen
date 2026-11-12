@@ -549,7 +549,7 @@ test.describe('the workspace with a popout window', () => {
       await expect.poll(() => groups(page)).toEqual([['Files', 'Plan'], ['Code'], ['Stop'], ['Threads']]);
    });
 
-   test('keeps a maximized group maximized when the browser blocks the popout window', async ({ page }) => {
+   test('keeps a maximized group maximized and tells the reviewer when the browser blocks the popout window', async ({ page }) => {
       await openDemoTour(page, checkoutTour);
       await page.getByRole('button', { name: 'Maximize the threads' }).click();
       await expect.poll(() => groups(page)).toEqual([['Threads']]);
@@ -559,6 +559,10 @@ test.describe('the workspace with a popout window', () => {
 
       await expect(page.getByRole('button', { name: 'Restore the threads' })).toBeVisible();
       await expect.poll(() => groups(page)).toEqual([['Threads']]);
+      const notice = page.getByRole('alert').filter({ hasText: 'The browser blocked the popout window' });
+      await expect(notice).toBeVisible();
+      await page.getByRole('button', { name: 'Dismiss the popout notice' }).click();
+      await expect(notice).toBeHidden();
    });
 
    test('refuses a tab that is dragged from the main window into a popout window', async ({ page }) => {
