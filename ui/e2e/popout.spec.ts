@@ -4,6 +4,28 @@ import { center, checkoutTour, editorLine, inScrollerView, openDemoTour, openSto
 const region = (page: Page, name: string) => page.getByRole('region', { name, exact: true });
 
 /** Returns the tabs of each group that shows, in document order. */
+/** Returns the number of drop targets that the page shows: Dockview draws one in the group, or anchored over it, and keeps an anchored one in the page between drags. */
+const shownDropTargets = (page: Page) =>
+   page.evaluate(
+      () =>
+         [...document.querySelectorAll('.dv-drop-target-dropzone, .dv-drop-target-anchor')].filter((target) => {
+            const style = getComputedStyle(target);
+            return target.getBoundingClientRect().width > 0 && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+         }).length,
+   );
+
+/** Dispatches an HTML5 drag event at a point of the element, given as shares of its box. Playwright drags only within one page, so a test of a drag between windows dispatches them itself. */
+const dispatchDrag = (target: Locator, type: string, x = 0.5, y = 0.5) =>
+   target.evaluate(
+      (element, [type, x, y]) => {
+         const view = element.ownerDocument.defaultView!;
+         const box = element.getBoundingClientRect();
+         const init = { bubbles: true, cancelable: true, clientX: box.x + box.width * x, clientY: box.y + box.height * y, dataTransfer: new view.DataTransfer(), view };
+         element.dispatchEvent(new view.DragEvent(type, init));
+      },
+      [type, x, y] as const,
+   );
+
 const groups = (page: Page) => page.getByRole('tablist').evaluateAll((lists) => lists.map((list) => [...list.querySelectorAll('[role="tab"]')].map((tab) => tab.getAttribute('aria-label'))));
 
 /** Pops the panel out from its group header, and returns its popout window once the panel shows there. */
@@ -561,25 +583,46 @@ test.describe('the workspace with a popout window', () => {
       await expect(notice).toBeHidden();
    });
 
+   test('shows no place to drop the tab of a popout window inside that window, which holds only that panel', async ({ page }) => {
+      await openDemoTour(page, checkoutTour);
+      const popout = await popOut(page, 'Threads', 'Pop out the threads');
+
+      const tab = popout.getByRole('tab', { name: 'Threads' });
+      const content = popout.locator('.dv-content-container');
+
+      await dispatchDrag(tab, 'dragstart');
+      const overlays: number[] = [];
+      // The center of the group and a point near each edge, where Dockview offers a split.
+      for (const [x, y] of [
+         [0.5, 0.5],
+         [0.95, 0.5],
+         [0.05, 0.5],
+         [0.5, 0.95],
+         [0.5, 0.05],
+      ] as const) {
+         await dispatchDrag(content, 'dragenter', x, y);
+         await dispatchDrag(content, 'dragover', x, y);
+         overlays.push(await shownDropTargets(popout));
+      }
+      await dispatchDrag(tab, 'dragend');
+
+      expect(overlays).toEqual([0, 0, 0, 0, 0]);
+      expect(await groups(popout)).toEqual([['Threads']]);
+   });
+
    test('refuses a tab that is dragged from the main window into a popout window', async ({ page }) => {
       await openDemoTour(page, checkoutTour);
       const popout = await popOut(page, 'Threads', 'Pop out the threads');
       const stop = page.getByRole('tab', { name: 'Stop' });
 
-      // Playwright drags only within one page, so the test dispatches the events of an HTML5 drag between windows itself.
-      await stop.evaluate((tab) => tab.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() })));
-      const overlays = await region(popout, 'Threads').evaluate((threads) => {
-         const view = threads.ownerDocument.defaultView!;
-         const box = threads.getBoundingClientRect();
-         const content = threads.ownerDocument.querySelector('.dv-content-container')!;
-         const init = { bubbles: true, cancelable: true, clientX: box.x + box.width / 2, clientY: box.y + box.height / 2, dataTransfer: new view.DataTransfer(), view };
-         content.dispatchEvent(new view.DragEvent('dragenter', init));
-         content.dispatchEvent(new view.DragEvent('dragover', init));
-         const shown = threads.ownerDocument.querySelectorAll('.dv-drop-target-dropzone').length;
-         content.dispatchEvent(new view.DragEvent('drop', init));
-         return shown;
-      });
-      await stop.evaluate((tab) => tab.dispatchEvent(new DragEvent('dragend', { bubbles: true })));
+      const content = popout.locator('.dv-content-container');
+
+      await dispatchDrag(stop, 'dragstart');
+      await dispatchDrag(content, 'dragenter');
+      await dispatchDrag(content, 'dragover');
+      const overlays = await shownDropTargets(popout);
+      await dispatchDrag(content, 'drop');
+      await dispatchDrag(stop, 'dragend');
 
       expect(overlays).toBe(0);
       expect(await groups(page)).toEqual([['Files', 'Plan'], ['Code'], ['Stop']]);
