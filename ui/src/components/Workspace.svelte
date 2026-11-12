@@ -68,6 +68,37 @@
       return () => changes.disconnect();
    }
 
+   /**
+    * Hides a popout window's page until each stylesheet link in it has loaded or failed to load.
+    *
+    * @remarks Dockview copies each stylesheet of this page that has a URL, such as `app.css`, as a new link, and moves the panel in before the link loads (addStyles in dockview-core
+    * 8.9.0's dom.ts). The CSP specs pin that the panel shows only once the link applies.
+    */
+   function hideUntilStyled(popout: Window): () => void {
+      const page = popout.document.documentElement;
+      const pending = [...popout.document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')].filter((link) => link.sheet === null);
+      let left = pending.length;
+      const settle = () => {
+         left -= 1;
+         if (left === 0) {
+            page.style.removeProperty('visibility');
+         }
+      };
+      if (left > 0) {
+         page.style.visibility = 'hidden';
+      }
+      for (const link of pending) {
+         link.addEventListener('load', settle, { once: true });
+         link.addEventListener('error', settle, { once: true });
+      }
+      return () => {
+         for (const link of pending) {
+            link.removeEventListener('load', settle);
+            link.removeEventListener('error', settle);
+         }
+      };
+   }
+
    function groupActions(group: DockviewGroupPanel): IHeaderActionsRenderer {
       const element = document.createElement('div');
       element.className = 'h-full';
@@ -158,9 +189,10 @@
          dock,
          (record) => savedLayout.write(record),
          (popout) => {
+            const unhide = hideUntilStyled(popout);
             const unfollow = followTheme(popout);
             const unhandle = handleTabs(popout.document);
-            return () => (unfollow(), unhandle());
+            return () => (unhide(), unfollow(), unhandle());
          },
       );
       const saved = savedLayout.read();

@@ -39,25 +39,65 @@ test('applies app.css and each style element that a popout window copies from th
    // The diff's editor adds a <style> element to the main page, which the popout window's page copies.
    await openStop(page, 'A cart line needs at least one item');
    await expect(center(page).locator('.cm-editor').first()).toBeVisible();
-   const opened = page.waitForEvent('popup');
 
-   await page.getByRole('button', { name: 'Pop out the threads' }).click();
+   const popout = await popOutThreads(page);
 
-   const popout = await opened;
-   const list = popout.getByRole('region', { name: 'Threads', exact: true }).getByRole('list', { name: 'Threads' });
-   await expect(list).toBeVisible();
-   // A row's button is a flex box only while app.css applies.
-   expect(
-      await list
-         .getByRole('button')
-         .first()
-         .evaluate((button) => getComputedStyle(button).display),
-   ).toBe('flex');
+   await expect(threadList(popout)).toBeVisible();
+   expect(await rowDisplay(popout)).toBe('flex');
    // The policy leaves a <style> element without the page's nonce with no style sheet.
    const styles = await popout.evaluate(() => [...document.querySelectorAll('style')].map((style) => style.sheet !== null));
    expect(styles.length).toBeGreaterThan(0);
    expect(styles.every(Boolean)).toBe(true);
 });
+
+// Routing turns off the browser's HTTP cache, so the popout window's request for app.css reaches the route (https://playwright.dev/docs/api/class-browsercontext#browser-context-route).
+test('shows a popped-out panel in its popout window only once the stylesheets that the window loads apply', async ({ page }) => {
+   await openDemoTour(page, checkoutTour);
+   let caught!: () => void;
+   const requested = new Promise<void>((resolve) => (caught = resolve));
+   let release!: () => void;
+   const released = new Promise<void>((resolve) => (release = resolve));
+   await page.context().route('**/app.css', async (route) => {
+      caught();
+      await released;
+      await route.continue();
+   });
+
+   const popout = await popOutThreads(page);
+
+   await requested;
+   await expect(threadList(popout)).toBeAttached();
+   await expect(threadList(popout)).toBeHidden();
+   release();
+   await expect(threadList(popout)).toBeVisible();
+   expect(await rowDisplay(popout)).toBe('flex');
+});
+
+test('shows a popped-out panel in its popout window when a stylesheet that the window loads fails to load', async ({ page }) => {
+   await openDemoTour(page, checkoutTour);
+   await page.context().route('**/app.css', (route) => route.abort());
+
+   const popout = await popOutThreads(page);
+
+   await expect(threadList(popout)).toBeVisible();
+});
+
+/** Pops the Threads panel out, and returns its popout window. */
+async function popOutThreads(page: Page): Promise<Page> {
+   const opened = page.waitForEvent('popup');
+   await page.getByRole('button', { name: 'Pop out the threads' }).click();
+   return opened;
+}
+
+// `includeHidden` finds the list also while the popout window's page is hidden.
+const threadList = (target: Page) => target.getByRole('region', { name: 'Threads', exact: true, includeHidden: true }).getByRole('list', { name: 'Threads', includeHidden: true });
+
+/** Returns the display of the thread list's first row button, which app.css makes a flex box. */
+const rowDisplay = (target: Page) =>
+   threadList(target)
+      .getByRole('button')
+      .first()
+      .evaluate((button) => getComputedStyle(button).display);
 
 /** Records each securitypolicyviolation of the page and of the popout windows that it opens, in the window's `violations`. */
 async function recordViolations(page: Page): Promise<void> {
