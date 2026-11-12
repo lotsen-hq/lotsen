@@ -94,7 +94,7 @@
 </script>
 
 <Dialog.Root bind:open>
-   <Dialog.Content bind:ref={content} escapeKeydownBehavior={busy ? 'ignore' : 'close'} interactOutsideBehavior={busy ? 'ignore' : 'close'} {onCloseAutoFocus}>
+   <Dialog.Content bind:ref={content} escapeKeydownBehavior={busy ? 'ignore' : 'close'} interactOutsideBehavior={busy ? 'ignore' : 'close'} showCloseButton={!busy} {onCloseAutoFocus}>
       <Dialog.Header>
          <Dialog.Title>Manage layouts</Dialog.Title>
          <Dialog.Description>Rename or delete the layouts that you saved.</Dialog.Description>

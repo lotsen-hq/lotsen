@@ -445,13 +445,17 @@ async function saveAs(name: string): Promise<ReturnType<typeof within>> {
    return dialog;
 }
 
-/** Returns the element that each panel renders in, opening each panel's tab in turn. */
+/**
+ * Returns the root of each panel's content, opening each panel's tab in turn.
+ *
+ * Dockview gets each panel's holder from the workspace whatever the layout, so the content, and with it the panel's state, changes only when the page mounts it again.
+ */
 async function panelElements(): Promise<Record<string, Element | null>> {
    const elements: Record<string, Element | null> = {};
    for (const name of Object.values(titles)) {
       await fireEvent.click(screen.getByRole('tab', { name }));
       elements[name] = await waitFor(() => {
-         const element = screen.getByRole('region', { name }).querySelector('[role="tabpanel"]')?.firstElementChild ?? null;
+         const element = screen.getByRole('region', { name }).querySelector('[role="tabpanel"]')?.firstElementChild?.firstElementChild ?? null;
          expect(element, name).not.toBeNull();
          return element;
       });
@@ -528,7 +532,8 @@ describe('the named layouts', () => {
       await fireEvent.click(dialog.getByRole('button', { name: 'Delete Wide' }));
       await fireEvent.click(dialog.getByRole('button', { name: 'Delete' }));
       await waitFor(() => expect(dialog.queryByText(/Wide/)).toBeNull());
-      await fireEvent.click(dialog.getByRole('button', { name: 'Close' }));
+      // The dialog shows its close button again once the delete ends, which is a moment after the row goes.
+      await fireEvent.click(await dialog.findByRole('button', { name: 'Close' }));
       await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Manage layouts' })).toBeNull());
       await waitFor(() => expect(document.activeElement).toBe(panelsMenu()));
 
