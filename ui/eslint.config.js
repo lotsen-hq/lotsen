@@ -55,6 +55,16 @@ const mainPageSyntax = [
       message: `${panelPlace} Observe the size with the panel window's ResizeObserver.`,
    },
 ];
+// A popout window's nodes and events can belong to its realm, where the main page's DOM classes fail instanceof, as isElement in src/lib/dom.ts says.
+const realmSyntax = [
+   {
+      selector:
+         "BinaryExpression[operator='instanceof'][right.type='Identifier'][right.name=/^(Node|Element|Text|CharacterData|Document|DocumentFragment|ShadowRoot|Window|Range|Selection|EventTarget|(HTML|SVG|MathML)\\w*Element|\\w*Event)$/]",
+      message: "A node or event of a popout window can fail the main page's instanceof. Check a node with isElement or isHTMLElement from src/lib/dom.ts, and an event by its type.",
+   },
+];
+// The files that run only on the main page.
+const mainPageFiles = ['src/main.ts', 'src/App.svelte', 'src/components/Workspace.svelte', 'src/lib/workspaceLayout.svelte.ts', 'src/lib/panelDocument.svelte.ts'];
 
 // The pin rules, the explanation model and the components stay apart from editor geometry, so only src/lib/editor/ talks to CodeMirror.
 const editorImports = { group: ['@codemirror/*'], message: 'Only src/lib/editor/ imports CodeMirror. Ask the editor through its EditorSurface.' };
@@ -99,12 +109,17 @@ export default defineConfig(
    // Every file but the ones that run only on the main page, so a new panel file is covered without a change here.
    {
       files: ['src/**/*.ts', 'src/**/*.svelte'],
-      ignores: ['src/main.ts', 'src/App.svelte', 'src/components/Workspace.svelte', 'src/lib/workspaceLayout.svelte.ts', 'src/lib/panelDocument.svelte.ts'],
+      ignores: mainPageFiles,
       rules: {
          'no-restricted-globals': ['error', ...mainPageGlobals],
          'no-restricted-properties': ['error', ...['document', 'window'].map((property) => ({ object: 'globalThis', property, message: panelPlace }))],
-         'no-restricted-syntax': ['error', ...htmlAndStyleInsertion, ...mainPageSyntax],
+         'no-restricted-syntax': ['error', ...htmlAndStyleInsertion, ...mainPageSyntax, ...realmSyntax],
       },
+   },
+   // The main page's code handles events from a popout window too, such as those of its tabs.
+   {
+      files: mainPageFiles,
+      rules: { 'no-restricted-syntax': ['error', ...htmlAndStyleInsertion, ...realmSyntax] },
    },
    // The contract's schema gives an operation without input the empty object, which json-schema-to-typescript writes as an empty interface.
    {
@@ -121,6 +136,7 @@ export default defineConfig(
             'error',
             ...htmlAndStyleInsertion,
             ...mainPageSyntax,
+            ...realmSyntax,
             {
                selector: "SvelteMustacheTag[kind='raw']:not(Program > SvelteElement > SvelteMustacheTag[expression.type='Identifier'][expression.name='html'])",
                message: 'Prose inserts only its html prop as HTML, directly in its root element.',

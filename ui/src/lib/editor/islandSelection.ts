@@ -1,4 +1,5 @@
 import { ViewPlugin } from '@codemirror/view';
+import { isElement } from '../dom';
 
 /** What a press on a widget leaves to the widget's own controls: buttons, links, form fields and anything else that takes focus. */
 const interactive = 'a, button, input, select, textarea, [role="link"], [role="button"], [tabindex]';
@@ -24,7 +25,7 @@ export const islandSelection = ViewPlugin.define((view) => {
    /** Ends the drag in progress, or is null when none is. */
    let endDrag: (() => void) | null = null;
    const press = (event: MouseEvent) => {
-      const target = event.target instanceof Element ? event.target : null;
+      const target = isElement(event.target) ? event.target : null;
       if (target === null) {
          return;
       }

@@ -10,6 +10,7 @@
    import type { KnownDirectory } from '../lib/viewState';
    import type { KnownFiles } from '../lib/tourRecord.svelte';
    import { contentOf } from '../lib/stops';
+   import { isHTMLElement } from '../lib/dom';
    import {
       buildFileList,
       buildFileTree,
@@ -148,7 +149,7 @@
    $effect.pre(() => {
       void [groups, files, layout, changedView];
       const active = home.document.activeElement;
-      focusedBefore = active instanceof HTMLElement && changedView?.contains(active) ? active : null;
+      focusedBefore = isHTMLElement(active) && changedView?.contains(active) ? active : null;
    });
 
    $effect(() => {

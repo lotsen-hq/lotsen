@@ -4,6 +4,7 @@
    import type { KnownDiff, PickedAnchor, PickHandler } from '../lib/viewState';
    import type { LineFocus } from '../lib/openStop.svelte';
    import type { DiffLayout } from '../lib/diffLayout';
+   import { isElement } from '../lib/dom';
    import { editorSurfaces, type EditorSurface } from '../lib/editor/surface';
    import type { ExplanationView } from '../lib/explanationView.svelte';
    import { fileMarkLabels, formatSize } from '../lib/labels';
@@ -178,7 +179,7 @@
 
    /** Opens the thread of a marker that the editors draw, which carries its ID. */
    function openMarker(event: Event): void {
-      const marker = event.target instanceof Element ? event.target.closest<HTMLElement>('.lotsen-threadMarkers [data-thread-id]') : null;
+      const marker = isElement(event.target) ? event.target.closest<HTMLElement>('.lotsen-threadMarkers [data-thread-id]') : null;
       if (marker !== null && host?.contains(marker)) {
          onopenthread(marker.dataset.threadId!);
       }

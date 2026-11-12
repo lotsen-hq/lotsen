@@ -18,3 +18,17 @@ export function sendOnEnter(event: KeyboardEvent): void {
 export function htmlText(html: string): string {
    return new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
 }
+
+/**
+ * Returns whether a value is an element, of any window's realm.
+ *
+ * @remarks A popout window's nodes can belong to that window's realm, where the main page's `instanceof Element` is false for them.
+ */
+export function isElement(value: unknown): value is Element {
+   return typeof value === 'object' && value !== null && 'nodeType' in value && value.nodeType === Node.ELEMENT_NODE;
+}
+
+/** Returns whether a value is an HTML element, of any window's realm, as {@link isElement} checks it. */
+export function isHTMLElement(value: unknown): value is HTMLElement {
+   return isElement(value) && value.namespaceURI === 'http://www.w3.org/1999/xhtml';
+}

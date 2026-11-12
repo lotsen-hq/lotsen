@@ -2,6 +2,7 @@
    import type { KnownDiff, KnownText, PickHandler } from '../lib/viewState';
    import type { LineFocus } from '../lib/openStop.svelte';
    import type { DiffLayout } from '../lib/diffLayout';
+   import { isHTMLElement } from '../lib/dom';
    import type { ExplanationView } from '../lib/explanationView.svelte';
    import { panelDocument } from '../lib/panelDocument.svelte';
    import { scrolledToEnd, shownStackFile, type StackFile } from '../lib/stopFiles';
@@ -128,7 +129,7 @@
          reviewerInput = false;
       }
 
-      const item = wanted === null ? undefined : [...(list?.children ?? [])].find((element) => element instanceof HTMLElement && element.dataset.key === wanted.key);
+      const item = wanted === null ? undefined : [...(list?.children ?? [])].find((element) => isHTMLElement(element) && element.dataset.key === wanted.key);
       item?.scrollIntoView({ block: 'start' });
    });
 </script>

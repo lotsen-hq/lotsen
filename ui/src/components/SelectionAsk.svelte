@@ -7,6 +7,7 @@
    import MessageSquarePlus from '@lucide/svelte/icons/message-square-plus';
    import { untrack } from 'svelte';
    import { Button } from '$lib/components/ui/button';
+   import { isHTMLElement } from '../lib/dom';
    import { panelDocument } from '../lib/panelDocument.svelte';
    import type { PickedAnchor, PickHandler } from '../lib/viewState';
    import type { SelectionExplain, SelectionTarget } from '../lib/selectionAsk';
@@ -97,7 +98,7 @@
    function place(): void {
       const parent = element?.offsetParent;
       const rects = selected?.getClientRects?.();
-      if (!element || !(parent instanceof HTMLElement) || !rects || rects.length === 0) {
+      if (!element || !isHTMLElement(parent) || !rects || rects.length === 0) {
          return;
       }
 

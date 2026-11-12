@@ -413,6 +413,31 @@ test.describe('a popout window', () => {
       });
    }
 
+   test("selects the deleted lines of the inline diff in the Code panel that it holds while the lines' elements belong to the popout window's realm", async ({ page }) => {
+      await openDemoTour(page, checkoutTour, { placement: 'side', layout: 'inline' });
+      const popout = await popOut(page, 'Code', 'Pop out the code');
+      await popout.setViewportSize({ width: 900, height: 500 });
+      await openShippingRates(page);
+      const editor = center(popout).locator('.cm-editor').first();
+      const deleted = (text: string) => editor.locator('.cm-deletedLine', { hasText: text });
+      await expect.poll(() => inScrollerView(deleted("'region-052'"))).toBe(true);
+
+      // Firefox can show a popout window's deleted lines with elements of that window's realm, so the test gives them such elements in every browser.
+      const mainRealm = await deleted("'region-052'")
+         .locator('xpath=..')
+         .evaluate((chunk) => {
+            for (const line of chunk.querySelectorAll('.cm-deletedLine')) {
+               line.replaceChildren(...[...line.childNodes].map((node) => chunk.ownerDocument.importNode(node, true)));
+            }
+
+            return chunk.querySelector('.cm-deletedLine > *') instanceof (window.opener as typeof globalThis).Element;
+         });
+      expect(mainRealm).toBe(false);
+
+      await dragOver(popout, deleted("'region-052'"), deleted("'region-054'"));
+      await expect(center(popout).getByRole('button', { name: 'Ask Claude about src/checkout/shipping.ts, lines 54–56 at the base' })).toBeVisible();
+   });
+
    test('keeps the focus on the control of a collapsed marker that expands it by keyboard in the Code panel that it holds', async ({ page }) => {
       await openDemoTour(page, checkoutTour, { placement: 'side', layout: 'inline' });
       await openShippingRates(page);

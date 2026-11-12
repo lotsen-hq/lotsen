@@ -6,6 +6,7 @@
 <script lang="ts">
    import { onDestroy } from 'svelte';
    import type { ClassValue } from 'svelte/elements';
+   import { isElement } from '../lib/dom';
    import type { HoverSource, LinkHover } from '../lib/linkHover';
    import { pointsInto } from '../lib/pin';
    import type { CodeReference } from '../lib/types';
@@ -109,7 +110,7 @@
 
    /** Returns the `ref:` anchor of this prose that holds a node, or null when the node is in none or in one that is not at the pin. */
    function anchorAt(target: EventTarget | null): HTMLElement | null {
-      const anchor = target instanceof Element ? target.closest<HTMLElement>(referenceSelector) : null;
+      const anchor = isElement(target) ? target.closest<HTMLElement>(referenceSelector) : null;
       return anchor !== null && container.contains(anchor) && !earlier(anchor) ? anchor : null;
    }
 

@@ -3,6 +3,7 @@
    import { getAllContexts, mount, onMount, unmount, type Snippet } from 'svelte';
    import { arrangementRecord } from '../lib/arrangements';
    import { cspNonce } from '../lib/cspNonce';
+   import { isElement } from '../lib/dom';
    import { savedLayout } from '../lib/layoutRecord';
    import { PanelDocument } from '../lib/panelDocument.svelte';
    import type { WorkspaceLayout } from '../lib/workspaceLayout.svelte';
@@ -131,14 +132,14 @@
 
       // Dockview opens a tab on a pointer press, so a click without one, as from a screen reader, opens it here.
       const openTab = (event: MouseEvent) => {
-         const id = event.target instanceof Element ? event.target.closest('[data-tab-panel-id]')?.getAttribute('data-tab-panel-id') : null;
+         const id = isElement(event.target) ? event.target.closest('[data-tab-panel-id]')?.getAttribute('data-tab-panel-id') : null;
          if (id) {
             dock.getPanel(id)?.api.setActive();
          }
       };
       // Delete and Backspace on a tab would close its panel for good, so they do nothing. The group's Hide button hides a panel.
       const keepPanel = (event: KeyboardEvent) => {
-         if ((event.key === 'Delete' || event.key === 'Backspace') && event.target instanceof Element && event.target.matches('[role="tab"]')) {
+         if ((event.key === 'Delete' || event.key === 'Backspace') && isElement(event.target) && event.target.matches('[role="tab"]')) {
             event.stopPropagation();
          }
       };

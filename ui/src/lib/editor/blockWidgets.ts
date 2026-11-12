@@ -1,6 +1,7 @@
 import { StateEffect, StateField, type Extension } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import { editorWindow } from './editorWindow';
+import { isHTMLElement } from '../dom';
 import { mainPage } from '../panelDocument.svelte';
 
 /** Where a block sits in an editor: after the line that ends at `pos`, or with `before`, above the line at `pos` and below the deleted lines that the inline view draws there. */
@@ -164,7 +165,7 @@ class BlockWidth {
          key: this,
          read: (view) => {
             const gutters = view.dom.querySelector('.cm-gutters');
-            const left = gutters instanceof HTMLElement ? gutters.offsetWidth : 0;
+            const left = isHTMLElement(gutters) ? gutters.offsetWidth : 0;
             return { left, width: view.scrollDOM.clientWidth - left };
          },
          write: ({ left, width }, view) => {
