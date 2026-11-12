@@ -21,6 +21,7 @@ Usage: scripts/live-test.sh <command>
   demo <pr-url> [familiarity] [dir]
                               Tour the PR in an interactive session in dir (default: a new empty directory), with a server on
                               the demo data directory ($demo_data). Publishes first when the sources changed.
+  demo-link                   Print a new link to the UI of the demo's server, which works once.
 EOF
 }
 
@@ -89,7 +90,7 @@ demo() {
    # An --mcp-config server named lotsen replaces the user-scope registration for this session.
    local config
    config=$(printf '{"mcpServers":{"lotsen":{"command":"%s","args":["mcp"],"env":{"LOTSEN_DATA_DIR":"%s"}}}}' "$lotsen" "$demo_data")
-   echo "Demo data directory: $demo_data. A new link to the UI: LOTSEN_DATA_DIR=$demo_data $lotsen open"
+   echo "Demo data directory: $demo_data. A new link to the UI: just demo-print-link"
    # The prompt comes first, because --mcp-config and the channel flag each take every word after them.
    exec claude "/lotsen:tour $url $familiarity" --plugin-dir "$(plugin_copy)" --mcp-config "$config" --dangerously-load-development-channels server:lotsen
 }
@@ -111,5 +112,6 @@ case "${1:-}" in
    plugin) plugin_copy ;;
    pin) shift; pin "$@" ;;
    demo) shift; demo "$@" ;;
+   demo-link) need_publish; exec env LOTSEN_DATA_DIR="$demo_data" "$lotsen" open --print-link ;;
    *) usage; exit 2 ;;
 esac
