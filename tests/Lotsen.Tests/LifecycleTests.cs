@@ -106,7 +106,9 @@ public sealed class LifecycleTests : IDisposable
       Assert.Equal(serve.Port, serve.State.Port);
       Assert.Equal("127.0.0.1", serve.State.Address);
       Assert.True(await AcceptsConnectionAsync(serve.Port));
-      Assert.Contains($"http://127.0.0.1:{serve.Port}", serve.Process.StandardOutput);
+      var address = $"http://127.0.0.1:{serve.Port}";
+      await Poll.UntilAsync(
+         () => serve.Process.StandardOutput.Contains(address, StringComparison.Ordinal) ? address : null, Timeout, () => $"lotsen printed no line naming {address}:\n{serve.Process.Output}");
    }
 
    [Fact]
