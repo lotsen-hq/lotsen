@@ -4,6 +4,7 @@
    import ChevronDown from '@lucide/svelte/icons/chevron-down';
    import PanelsTopLeft from '@lucide/svelte/icons/panels-top-left';
    import Unplug from '@lucide/svelte/icons/unplug';
+   import X from '@lucide/svelte/icons/x';
    import type { Snippet } from 'svelte';
    import { Button, buttonVariants } from '$lib/components/ui/button';
    import { DropdownMenu as DropdownMenuPrimitive } from 'bits-ui';
@@ -138,6 +139,12 @@
             <LoaderCircle class="size-4 shrink-0 animate-spin" aria-hidden="true" />
          {/if}
          <span class="truncate" title={generation.line}>{generation.line}</span>
+      </div>
+   {/if}
+   {#if layout.popoutFailure !== null}
+      <div class="flex max-w-80 min-w-0 items-center gap-0.5" data-popout-failure>
+         <span class="truncate text-sm text-destructive" role="alert" title={layout.popoutFailure}>{layout.popoutFailure}</span>
+         <Button variant="ghost" size="icon-xs" class="shrink-0" aria-label="Dismiss the popout notice" onclick={() => (layout.popoutFailure = null)}><X aria-hidden="true" /></Button>
       </div>
    {/if}
    {#if attachment !== null}

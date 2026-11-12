@@ -1,4 +1,4 @@
-import type { DockviewApi, DockviewGroupPanel, IDockviewGroupPanel, IDockviewPanel } from 'dockview';
+import type { DockviewApi, DockviewGroupPanel, IDockviewGroupPanel, IDockviewPanel, PopoutWindowFailure } from 'dockview';
 import { arrangementRecord, type ArrangementId } from './arrangements';
 import { layoutVersion, withoutPopouts, type LayoutRecord, type PanelHome } from './layoutRecord';
 import { panelIds, type PanelId } from './workspacePanels';
@@ -21,6 +21,8 @@ export class WorkspaceLayout {
    poppedOut = $state<Record<PanelId, boolean>>({ files: false, plan: false, diff: false, stop: false, threads: false });
    /** Whether each panel's popout window is opening, from the Pop out click until Dockview's open of the window has settled, opened or not. */
    opening = $state<Record<PanelId, boolean>>({ files: false, plan: false, diff: false, stop: false, threads: false });
+   /** What the top bar tells the reviewer about the last popout window that did not open, or null when the last one opened or the reviewer dismissed the notice. */
+   popoutFailure = $state<string | null>(null);
    /** The id of the Dockview group that fills the workspace, or null when every group has its own place. */
    maximizedGroup = $state<string | null>(null);
    /** The number of layouts that {@link WorkspaceLayout.load} loaded, which changes with each load. */
@@ -73,6 +75,7 @@ export class WorkspaceLayout {
          api.onDidLayoutFromJSON(locate),
          api.onDidAddPopoutGroup(({ window }) => window && this.popouts.push({ window, teardown: preparePopout(window) })),
          api.onWillClosePopoutWindow(({ window }) => release(window)),
+         api.onDidOpenPopoutWindowFail((failure) => (this.popoutFailure = popoutFailureNotice(failure))),
          // Dockview fires it while it still returns the window's panels to the main window (disposePopoutWindow in dockview-core 8.9.0's dockviewComponent.ts), so the settling waits.
          api.onDidRemovePopoutGroup(() => queueMicrotask(() => this.api === api && this.settle())),
          // An overlay without a group is at an edge of the main window's layout, the only place where Dockview fires one (wireEdgeDropTarget in dockview-core 8.9.0's dockviewComponent.ts).
@@ -318,6 +321,7 @@ export class WorkspaceLayout {
          return;
       }
 
+      this.popoutFailure = null;
       const maximized = api.groups.find((group) => group.api.isMaximized());
       this.exitMaximized();
       this.opening[id] = true;
@@ -428,4 +432,16 @@ function windowOf(group: IDockviewGroupPanel): Window {
 
 function panelOf(panel: IDockviewPanel | undefined): PanelId | null {
    return panel !== undefined && (panelIds as readonly string[]).includes(panel.id) ? (panel.id as PanelId) : null;
+}
+
+/** Returns what the top bar tells the reviewer about a popout window that did not open, or null when the window opened and closed before it loaded. */
+export function popoutFailureNotice(failure: PopoutWindowFailure): string | null {
+   switch (failure.reason) {
+      case 'blocked':
+         return 'The browser blocked the popout window. Allow pop-ups for this page, then pop out the panel again.';
+      case 'closed':
+         return null;
+      default:
+         return 'The popout window did not open. The browser console says why.';
+   }
 }
