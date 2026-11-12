@@ -239,7 +239,8 @@
    });
 </script>
 
-<div bind:this={frame} class="min-h-0 flex-1 overflow-hidden">
+<!-- `isolate` keeps Dockview's z-indexes below the overlays that bits-ui portals to the body. The tour picker test in `workspace.spec.ts` pins it. -->
+<div bind:this={frame} class="isolate min-h-0 flex-1 overflow-hidden">
    <div bind:this={root}></div>
 </div>
 
