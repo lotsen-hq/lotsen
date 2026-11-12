@@ -373,20 +373,29 @@
       }
    }
 
-   /* A stop's skip toggle, which shows while the pointer or the focus is in the row, or while the stop is skipped. */
+   /* A stop's skip toggle and done checkbox, which show while the pointer or the focus is in the row, or while the stop is skipped or done on any version. */
    :is(.plan .stop-item, .stop-order-row) {
       & .skip-toggle {
          @apply shrink-0 text-muted-foreground;
       }
 
-      &:not(:hover, :focus-within) .skip-toggle[aria-pressed='false'] {
+      &:not(:hover, :focus-within) :is(.skip-toggle[aria-pressed='false'], .done-toggle:not(.checked, .earlier)) {
          @apply opacity-0;
       }
 
       @media (hover: none) {
-         &:not(:hover, :focus-within) .skip-toggle[aria-pressed='false'] {
+         &:not(:hover, :focus-within) :is(.skip-toggle[aria-pressed='false'], .done-toggle:not(.checked, .earlier)) {
             @apply opacity-100;
          }
+      }
+   }
+
+   /* A done stop's check takes the success color. A stop done on an earlier version keeps the muted color and has its own icon. */
+   .plan .stop-item .done-toggle {
+      @apply shrink-0 text-muted-foreground hover:text-foreground;
+
+      &.checked {
+         @apply text-success;
       }
    }
 

@@ -320,6 +320,10 @@
                      changed={app.selectedChangedStops}
                      onskip={(stopId, skipped) => app.setStopSkipped(stopId, skipped)}
                      skipsSaving={app.selectedSkipsSaving}
+                     done={app.selectedDoneStates}
+                     doneCount={app.selectedDoneCount}
+                     onsetdone={(stopId, version) => app.setStopDone(stopId, version)}
+                     viewed={app.selectedStop?.stage === 'written' ? { stopId: app.selectedStop.id, version: app.selectedStop.version } : null}
                      familiarity={app.selectedFamiliarity}
                      onfamiliarity={app.selectedTour?.planApproval === 'awaited' ? null : (level, text) => app.changeFamiliarity(level, text)}
                      planWaits={app.selectedPlanWaits}
@@ -437,6 +441,8 @@
                         onopenversion={(number) => app.openVersion(number)}
                         skipped={app.selectedSkippedStops.has(app.selectedStop.id)}
                         onskip={(skipped) => app.setStopSkipped(app.selectedStop!.id, skipped)}
+                        done={app.selectedDoneStates.get(app.selectedStop.id)}
+                        onsetdone={(version) => app.setStopDone(app.selectedStop!.id, version)}
                         planWaits={app.selectedPlanWaits}
                      />
                   {/key}

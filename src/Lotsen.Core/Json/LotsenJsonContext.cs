@@ -106,6 +106,8 @@ namespace Lotsen.Json;
 [JsonSerializable(typeof(SetStopSkippedInput))]
 [JsonSerializable(typeof(UpdatedSkips))]
 [JsonSerializable(typeof(UpdatedSeenVersion))]
+[JsonSerializable(typeof(SetStopDoneInput))]
+[JsonSerializable(typeof(UpdatedDoneVersion))]
 [JsonSerializable(typeof(RecordReadingProgressInput))]
 [JsonSerializable(typeof(RecordedProgress))]
 [JsonSerializable(typeof(SetTourArchivedInput))]

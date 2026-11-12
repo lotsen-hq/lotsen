@@ -35,6 +35,7 @@ import type {
    TourList,
    UpdatedAnswer,
    UpdatedBatch,
+   UpdatedDoneVersion,
    UpdatedIteration,
    UpdatedPreference,
    UpdatedSkips,
@@ -122,6 +123,12 @@ export interface Api {
     * @throws ApiError with status 404 and code `stopNotFound` when the plan has no such stop.
     */
    setStopSkipped(tourId: string, stopId: string, skipped: boolean): Promise<Revised<UpdatedSkips>>;
+   /**
+    * Marks a version of a stop with content done, or takes the done mark back for `null`, and returns the stop's done mark with the tour's update time. It works with or without a bound session.
+    *
+    * @throws ApiError with status 404 and code `stopNotFound` when the plan has no such stop, or with status 400 when the stop has no content or no such version.
+    */
+   setStopDone(tourId: string, stopId: string, version: number | null): Promise<Revised<UpdatedDoneVersion>>;
    /**
     * Records the stop that the reviewer opened, or the summary page for `'summary'`, as the tour's reading progress, and returns the stored progress with the tour's state. It works with or
     * without a bound session.
@@ -356,6 +363,7 @@ export function createApi(fetchFn: typeof fetch, credential: string, onControls:
       markFileReviewed: async (tourId, path, headObjectId) => void (await call('mark_file_reviewed', { tourId, path, headObjectId })),
       clearFileReviewed: async (tourId, path) => void (await call('clear_file_reviewed', { tourId, path })),
       setStopSkipped: (tourId, stopId, skipped) => revised('set_stop_skipped', { tourId, stopId, skipped }),
+      setStopDone: (tourId, stopId, version) => revised('set_stop_done', { tourId, stopId, version }),
       recordProgress: (tourId, place) => revised('record_reading_progress', { tourId, ...(place === 'summary' ? { summary: true } : place) }),
       setTourArchived: (tourId, archived) => call('set_tour_archived', { tourId, archived }),
       deleteTour: (tourId) => call('delete_tour', { tourId }),

@@ -289,6 +289,25 @@
         }
       ]
     },
+    "doneVersionUpdated": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UpdatedDoneVersion"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "description": "The tour's revision that the event shows."
+            }
+          },
+          "required": [
+            "revision"
+          ]
+        }
+      ]
+    },
     "familiarityChanged": {
       "allOf": [
         {
@@ -408,6 +427,7 @@
     "answerBatchUpdated",
     "skipsUpdated",
     "seenVersionUpdated",
+    "doneVersionUpdated",
     "familiarityChanged",
     "planApproved",
     "tourStateChanged",
@@ -1595,6 +1615,7 @@
         "answerBatchUpdated",
         "skipsUpdated",
         "seenVersionUpdated",
+        "doneVersionUpdated",
         "familiarityChanged",
         "planApproved",
         "tourStateChanged",
@@ -2207,6 +2228,7 @@
         "mark_file_reviewed",
         "clear_file_reviewed",
         "set_stop_skipped",
+        "set_stop_done",
         "record_reading_progress",
         "set_tour_archived",
         "delete_tour",
@@ -2639,6 +2661,22 @@
           ],
           "additionalProperties": false
         },
+        "set_stop_done": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/SetStopDoneInput"
+            },
+            "output": {
+              "$ref": "#/definitions/UpdatedDoneVersion"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
         "record_reading_progress": {
           "type": "object",
           "properties": {
@@ -2826,6 +2864,7 @@
         "mark_file_reviewed",
         "clear_file_reviewed",
         "set_stop_skipped",
+        "set_stop_done",
         "record_reading_progress",
         "set_tour_archived",
         "delete_tour",
@@ -3826,6 +3865,34 @@
         "stopId",
         "checkId",
         "type"
+      ],
+      "additionalProperties": false
+    },
+    "SetStopDoneInput": {
+      "title": "SetStopDoneInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "stopId": {
+          "description": "The ID of a stop of the tour's plan that has content.",
+          "type": "string"
+        },
+        "version": {
+          "description": "The number of the stop's version that the reviewer read, from 1 up to the stop's current version, or null to take the done mark back.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "tourId",
+        "stopId",
+        "version"
       ],
       "additionalProperties": false
     },
@@ -5377,6 +5444,31 @@
         "answers"
       ]
     },
+    "UpdatedDoneVersion": {
+      "title": "UpdatedDoneVersion",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stopId": {
+          "type": "string"
+        },
+        "doneVersion": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "stopId"
+      ]
+    },
     "UpdatedFamiliarity": {
       "title": "UpdatedFamiliarity",
       "type": "object",
@@ -5796,6 +5888,9 @@
           "type": "integer"
         },
         "seenVersion": {
+          "type": "integer"
+        },
+        "doneVersion": {
           "type": "integer"
         },
         "id": {

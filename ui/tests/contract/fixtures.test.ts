@@ -224,6 +224,13 @@ describe('the event fixtures, through the handler of each event', () => {
       await waitFor(() => expect([...opened.selectedChangedStops]).toEqual([]));
    });
 
+   it('doneVersionUpdated stores the done mark', async () => {
+      const opened = await startOn(tourWith());
+      expect(opened.selectedDoneStates.get('s2')).toEqual({ state: 'earlier', version: 1 });
+      server.emit('doneVersionUpdated');
+      await waitFor(() => expect(opened.selectedDoneStates.get('s2')).toEqual({ state: 'done' }));
+   });
+
    it('familiarityChanged stores the level', async () => {
       const opened = await startOn(tourWith(() => ({ familiarity: 'new' })));
       server.emit('familiarityChanged');
@@ -297,6 +304,7 @@ describe('the output fixtures', () => {
       mark_file_reviewed: (api) => api.markFileReviewed(tourId, 'src/a.cs', null),
       clear_file_reviewed: (api) => api.clearFileReviewed(tourId, 'src/a.cs'),
       set_stop_skipped: (api) => api.setStopSkipped(tourId, 's6', true),
+      set_stop_done: (api) => api.setStopDone(tourId, 's2', 2),
       record_reading_progress: (api) => api.recordProgress(tourId, { stopId: 's2' }),
       set_tour_archived: (api) => api.setTourArchived(tourId, true),
       delete_tour: (api) => api.deleteTour(tourId),
@@ -329,6 +337,7 @@ describe('the output fixtures', () => {
       'clear_answer',
       'send_answers',
       'set_stop_skipped',
+      'set_stop_done',
       'record_reading_progress',
       'change_familiarity',
       'approve_plan',

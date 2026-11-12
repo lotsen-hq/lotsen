@@ -115,10 +115,11 @@ test('the side-by-side diff keeps both panes aligned past an inline explanation'
 });
 
 test("the stop kind label is 70% of its title's size, never below 10.5 pixels, and leaves a one-line Plan row as tall as before", async ({ page }) => {
+   // A wider window widens the Plan panel, so the title of this row fits on one line beside the row's skip toggle and done checkbox.
+   await page.setViewportSize({ width: 1920, height: 1000 });
    await openDemoTour(page, checkoutTour, { placement: 'inline', layout: 'inline' });
    const fontSize = async (element: Locator) => parseFloat(await element.evaluate((node) => getComputedStyle(node).fontSize));
    const height = async (element: Locator) => (await element.boundingBox())!.height;
-   // The title of this row fits on one line.
    const row = page.getByRole('tabpanel', { name: 'Plan' }).locator('button.stop-row', { hasText: 'Where totals come from' });
 
    const inPlan = row.locator('.kind-pill');
@@ -133,6 +134,23 @@ test("the stop kind label is 70% of its title's size, never below 10.5 pixels, a
    expect(await fontSize(header.locator('.kind-pill'))).toBeCloseTo(0.7 * (await fontSize(header.locator('h3'))), 1);
    await expect(block(page)).toHaveCount(1);
    expect(await fontSize(block(page).locator('.kind-pill'))).toBe(10.5);
+});
+
+test("a stop's done checkbox shows while the pointer is in its row, and stays once the stop is done", async ({ page }) => {
+   await openDemoTour(page, checkoutTour);
+   // The open demo panel lies over the plan's rows.
+   await page.locator('details', { hasText: 'Demo' }).first().locator('summary').click();
+   const item = page.getByRole('tabpanel', { name: 'Plan' }).locator('.stop-item', { hasText: 'Where totals come from' });
+   const checkbox = item.getByRole('checkbox', { name: /^Stop 2 done/ });
+   await page.mouse.move(0, 0);
+   await expect(checkbox).toHaveCSS('opacity', '0');
+
+   await item.locator('.stop-row').hover();
+   await expect(checkbox).toHaveCSS('opacity', '1');
+   await checkbox.click();
+   await expect(checkbox).toHaveAttribute('aria-checked', 'true');
+   await page.mouse.move(0, 0);
+   await expect(checkbox).toHaveCSS('opacity', '1');
 });
 
 /** Returns a color's hue in degrees on the HSL wheel. */

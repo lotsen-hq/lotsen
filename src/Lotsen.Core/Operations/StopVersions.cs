@@ -26,7 +26,8 @@ internal static class StopVersions
    /// </para>
    /// <para>
    /// The stop text threads on the replaced version follow <see cref="ThreadFact.StopRevised"/> in <see cref="TourThreads"/>: a thread moves to the new version when its field's Markdown is the
-   /// same in both, compared exactly, and otherwise its anchor stays on the replaced version and the thread becomes outdated. The write clears the stop's stale marker and keeps its skip and its seen version.
+   /// same in both, compared exactly, and otherwise its anchor stays on the replaced version and the thread becomes outdated. The write clears the stop's stale marker and keeps its skip, its seen
+   /// version and its done mark, which then covers the replaced version.
    /// </para>
    /// </remarks>
    /// <param name="tour">The latest stored tour, whose plan holds the stop at <paramref name="change"/>'s index.</param>
@@ -40,7 +41,16 @@ internal static class StopVersions
       var written = replaced is null
          ? new Stop.Written(planned.Id, planned.Title, planned.Kind, planned.Chapter, content, 1, [], Skipped: planned.Skipped)
          : new Stop.Written(
-            planned.Id, planned.Title, planned.Kind, planned.Chapter, content, replaced.Version + 1, [.. replaced.Earlier, new StopVersion(replaced.Title, replaced.Kind, replaced.Content, now)], Skipped: planned.Skipped, SeenVersion: replaced.SeenVersion);
+            planned.Id,
+            planned.Title,
+            planned.Kind,
+            planned.Chapter,
+            content,
+            replaced.Version + 1,
+            [.. replaced.Earlier, new StopVersion(replaced.Title, replaced.Kind, replaced.Content, now)],
+            Skipped: planned.Skipped,
+            SeenVersion: replaced.SeenVersion,
+            DoneVersion: replaced.DoneVersion);
       var plan = change.Plan with { Stops = [.. change.Plan.Stops.Select((stop, i) => i == change.Index ? written : stop)] };
       if (replaced is null)
       {

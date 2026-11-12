@@ -349,6 +349,63 @@ describe('a tour record', () => {
       expect(record.progress).toEqual({ lastStop: 's2', finished: false });
    });
 
+   describe('with done marks', () => {
+      const pending = tour.plan!.stops.find((stop) => stop.stage === 'pending')!.id;
+
+      it('shows a mark on the current version as done, and counts it', () => {
+         const record = loaded();
+
+         record.putDoneVersion('s2', 2, at + 1);
+
+         expect(record.doneState('s2')).toEqual({ state: 'done' });
+         expect(record.doneCount).toBe(1);
+      });
+
+      it('shows a mark above the version that it holds as done, because the record has yet to hear of the revision', () => {
+         const record = loaded();
+
+         record.putDoneVersion('s2', 3, at + 1);
+
+         expect(record.doneState('s2')).toEqual({ state: 'done' });
+      });
+
+      it('shows a mark on an earlier version as done on that version, and does not count it', () => {
+         const record = loaded();
+
+         expect(record.doneState('s2')).toEqual({ state: 'earlier', version: 1 });
+         expect(record.doneStates.get('s2')).toEqual({ state: 'earlier', version: 1 });
+         expect(record.doneCount).toBe(0);
+      });
+
+      it('shows a stop without a mark and a pending stop as not done', () => {
+         const record = loaded();
+         record.putDoneVersion(pending, 1, at + 1);
+
+         expect(record.doneState('s3')).toEqual({ state: 'none' });
+         expect(record.doneState(pending)).toEqual({ state: 'none' });
+         expect(record.doneStates.has(pending)).toBe(false);
+      });
+
+      it("keeps a newer revision's mark over an older mark and an older load", () => {
+         const record = loaded();
+         record.putDoneVersion('s2', 2, at + 2);
+
+         expect(record.putDoneVersion('s2', 1, at + 1)).toBe(false);
+         record.applyLoad(load(() => ({}), at + 1));
+
+         expect(record.doneState('s2')).toEqual({ state: 'done' });
+      });
+
+      it('keeps a cleared mark cleared over an older load that still holds it', () => {
+         const record = loaded(() => ({}), 8);
+         record.putDoneVersion('s2', null, 9);
+
+         record.applyLoad(load(() => ({}), 8));
+
+         expect(record.doneState('s2')).toEqual({ state: 'none' });
+      });
+   });
+
    it("keeps every earlier stop version it heard of, each stop's oldest first", () => {
       const record = loaded();
       const versions = record.earlierVersions;

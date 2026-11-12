@@ -123,9 +123,26 @@ internal sealed record SetStopSkippedInput(
 /// <param name="StopIds">The IDs of every skipped stop of the tour, in plan order, as <see cref="Plan.SkippedIds"/> lists them.</param>
 internal sealed record UpdatedSkips(TourId TourId, DateTimeOffset UpdatedAt, IReadOnlyList<string> StopIds);
 
+/// <summary>The input of <c>set_stop_done</c>.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+internal sealed record SetStopDoneInput(
+   [property: Description(OperationInputs.TourIdDescription)]
+   TourId TourId,
+   [property: Description("The ID of a stop of the tour's plan that has content.")]
+   string StopId,
+   [property: Description("The number of the stop's version that the reviewer read, from 1 up to the stop's current version, or null to take the done mark back.")]
+   int? Version);
+
+/// <summary>A stop's done mark as one write stored it, with the tour's update time after that write, so the UI orders it against the events and loads in flight.</summary>
+/// <param name="TourId">The tour.</param>
+/// <param name="UpdatedAt">The tour's update time after the write, or the tour's current update time when the write changed nothing.</param>
+/// <param name="StopId">The stop.</param>
+/// <param name="DoneVersion">The stop's <see cref="Stop.Written.DoneVersion"/> as stored, or null when the stop has no done mark. JSON leaves it out when null.</param>
+internal sealed record UpdatedDoneVersion(TourId TourId, DateTimeOffset UpdatedAt, string StopId, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? DoneVersion);
+
 /// <summary>
-/// The reviewer's answers to checks and skips of stops: <c>answer_check</c>, <c>set_answer_type</c> and <c>clear_answer</c>, the batches of <c>send_answers</c> and <c>fetch_answers</c>, and
-/// <c>set_stop_skipped</c>.
+/// The reviewer's answers to checks, skips of stops and done marks: <c>answer_check</c>, <c>set_answer_type</c> and <c>clear_answer</c>, the batches of <c>send_answers</c> and
+/// <c>fetch_answers</c>, <c>set_stop_skipped</c> and <c>set_stop_done</c>.
 /// </summary>
 /// <remarks>
 /// Only the UI writes an answer, because it holds the reviewer's own words, and each write needs a check that the stop's current content holds on the latest tour, so a <c>put_stop</c> that
@@ -292,6 +309,45 @@ internal sealed class AnswerOperations
             if (changed)
             {
                stored.Publish(ServerEvents.ForSkipsUpdated(result));
+            }
+
+            return result;
+         });
+      });
+
+   /// <summary>Marks a version of a stop with content done or takes the done mark back, and returns the stop's done mark with the tour's update time.</summary>
+   /// <remarks>
+   /// The tour needs no bound session, and nothing reaches any session. The write finds the stop in the latest plan, so a <c>set_plan</c> that drops the stop first refuses the write. It accepts an
+   /// earlier version that the stop holds, so a mark from a page that read the stop before a revision covers the version that the reviewer read. A stop that has the mark already stays as it is, and
+   /// the server publishes no event for it.
+   /// </remarks>
+   public OperationResult<UpdatedDoneVersion> SetStopDone(Access.Reviewer.Pass pass, SetStopDoneInput input) =>
+      _writer.Write(pass, input.TourId, edit =>
+      {
+         var latest = edit.Latest;
+         if (latest.Plan is not { } plan || latest.FindStop(input.StopId) is not { } found)
+         {
+            return OperationError.StopNotShown(input.StopId);
+         }
+
+         if (found is not Stop.Written stop)
+         {
+            return OperationError.Invalid("stopId", $"stop '{input.StopId}' has no content yet, so the reviewer has nothing to mark done. Wait until Claude writes the stop.");
+         }
+
+         if (input.Version is { } version && (version < 1 || version > stop.Version))
+         {
+            return OperationError.Invalid("version", $"stop '{input.StopId}' has versions 1 to {stop.Version}, not {version}. Read the tour again.");
+         }
+
+         var changed = stop.DoneVersion != input.Version;
+         var next = changed ? latest with { Plan = plan with { Stops = [.. plan.Stops.Select(other => other.Id == stop.Id ? stop with { DoneVersion = input.Version } : other)] } } : latest;
+         return edit.Store(next, stored =>
+         {
+            var result = new UpdatedDoneVersion(stored.Tour.Id, stored.Tour.UpdatedAt, stop.Id, input.Version);
+            if (changed)
+            {
+               stored.Publish(ServerEvents.ForDoneVersionUpdated(result));
             }
 
             return result;

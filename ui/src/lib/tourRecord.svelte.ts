@@ -59,6 +59,13 @@ export interface ReviewChange {
    settled: number;
 }
 
+/**
+ * Whether the reviewer marked a stop with content done: not done, done with the mark on the stop's current version, or done on an earlier version that a revision replaced, with that version's number.
+ */
+export type DoneState = { state: 'none' } | { state: 'done' } | { state: 'earlier'; version: number };
+
+const notDone: DoneState = { state: 'none' };
+
 /** The progress write in flight for a tour, with the place to record once it ends. `reopened` is true once the reviewer opened the place in flight again. */
 export interface ProgressWrite {
    sent: ReadingPlace;
@@ -77,7 +84,7 @@ interface PlanShape {
  * Holds what the page knows of one tour: the tour's state from its loads, its events and the responses to the page's writes, and the page's own state of the tour.
  *
  * Each entity of the tour's state keeps the value of the message with the highest revision for that entity, as {@link Revisioned} does. The entities are the plan, each stop, each thread,
- * each answer, the skips, the available iteration, the controls and the reading progress. A load is a snapshot of all of them at its revision. Reads are reactive.
+ * each answer, the skips, each seen version, each done mark, the available iteration, the controls and the reading progress. A load is a snapshot of all of them at its revision. Reads are reactive.
  */
 export class TourRecord {
    readonly tourId: string;
@@ -88,6 +95,7 @@ export class TourRecord {
    private readonly answerEntries = new Revisioned<string, CheckAnswer>();
    private readonly skips = new RevisionedValue<readonly string[]>();
    private readonly seenVersions = new Revisioned<string, number>();
+   private readonly doneVersions = new Revisioned<string, number>();
    private readonly iteration = new RevisionedValue<AvailableIteration | null>();
    private readonly knownControls = new RevisionedValue<TourControls>();
    /** The waiting work of the controls that the record heard of, oldest first, as runs of one work at consecutive revisions. {@link TourRecord.putControls} says which runs it keeps. */
@@ -103,6 +111,23 @@ export class TourRecord {
 
       return { chapters: shape.chapters, stops: shape.stopIds.flatMap((id) => this.stops.get(id) ?? []), fileMarks: shape.fileMarks };
    });
+
+   /** The done state of each of the plan's stops with a done mark, by stop ID. A stop that it lacks is not done. */
+   doneStates = $derived.by((): ReadonlyMap<string, DoneState> => {
+      // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a new map for each change of the plan or the marks, which nothing changes.
+      const states = new Map<string, DoneState>();
+      for (const stop of this.plan?.stops ?? []) {
+         const state = this.doneState(stop.id);
+         if (state.state !== 'none') {
+            states.set(stop.id, state);
+         }
+      }
+
+      return states;
+   });
+
+   /** The number of the plan's stops whose done mark covers their current version. */
+   doneCount = $derived([...this.doneStates.values()].filter((state) => state.state === 'done').length);
 
    /** The plan as the Plan panel takes it, or undefined before a load or an event brings it. */
    knownPlan = $derived<KnownPlan | undefined>(this.plan === undefined ? undefined : { plan: this.plan });
@@ -187,6 +212,21 @@ export class TourRecord {
       return this.seenVersions.get(stopId);
    }
 
+   /**
+    * Returns whether the reviewer marked the stop done, from the version that its done mark covers and the stop's current version. A pending stop is not done.
+    *
+    * A mark above the version of the stop that the record holds counts as done, because the server marks only a version that the stop has, so the record has yet to hear of the revision.
+    */
+   doneState(stopId: string): DoneState {
+      const stop = this.stops.get(stopId);
+      const marked = this.doneVersions.get(stopId);
+      if (stop?.stage !== 'written' || marked === undefined) {
+         return notDone;
+      }
+
+      return marked >= stop.version ? { state: 'done' } : { state: 'earlier', version: marked };
+   }
+
    /** Returns the thread with the ID, or undefined when the record holds none or a removal. */
    thread(threadId: string): QuestionThread | undefined {
       return this.threadEntries.get(threadId);
@@ -211,6 +251,10 @@ export class TourRecord {
       this.skips.put(skippedIn(plan), revision);
       this.seenVersions.replaceAll(
          (plan?.stops ?? []).flatMap((stop) => (stop.stage === 'written' && stop.seenVersion !== undefined ? [[stop.id, stop.seenVersion] as const] : [])),
+         revision,
+      );
+      this.doneVersions.replaceAll(
+         (plan?.stops ?? []).flatMap((stop) => (stop.stage === 'written' && stop.doneVersion !== undefined ? [[stop.id, stop.doneVersion] as const] : [])),
          revision,
       );
       this.iteration.put(tour.availableIteration ?? null, revision);
@@ -284,6 +328,11 @@ export class TourRecord {
    /** Stores the newest version of a stop that the reviewer has seen, at a revision, and returns whether it stored it. */
    putSeenVersion(stopId: string, version: number, revision: number): boolean {
       return this.seenVersions.put(stopId, version, revision);
+   }
+
+   /** Stores the version that a stop's done mark covers at a revision, or for null the removal of the mark, and returns whether it stored it. */
+   putDoneVersion(stopId: string, version: number | null, revision: number): boolean {
+      return version === null ? this.doneVersions.remove(stopId, revision) : this.doneVersions.put(stopId, version, revision);
    }
 
    /** Stores the available iteration at a revision, null for none, and returns whether it stored it. */

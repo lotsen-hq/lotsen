@@ -40,8 +40,8 @@ internal static class AgentView
       Plan = tour.Plan is { } plan ? plan with { Stops = [.. plan.Stops.Select(Of)] } : null,
    };
 
-   /// <summary>Returns the stop without its earlier versions and without the version that the reviewer has seen, as every agent session sees it. It keeps its version number.</summary>
-   public static Stop Of(Stop stop) => stop is Stop.Written written ? written with { Earlier = [], SeenVersion = null } : stop;
+   /// <summary>Returns the stop without its earlier versions, the version that the reviewer has seen and the done mark, as every agent session sees it. It keeps its version number.</summary>
+   public static Stop Of(Stop stop) => stop is Stop.Written written ? written with { Earlier = [], SeenVersion = null, DoneVersion = null } : stop;
 
    /// <summary>
    /// Returns the review summary that an agent session reads, so a draft answer or a note never reaches its fingerprint or a follow-up action's items. It holds no fingerprint, follow-up reasons

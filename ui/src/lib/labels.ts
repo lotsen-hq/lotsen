@@ -13,6 +13,8 @@ import type {
    ThreadAnchor,
    TourBinding,
 } from './types';
+import type { DoneClick } from './doneClick';
+import type { DoneState } from './tourRecord.svelte';
 
 /** Whether a session is bound to a tour, and if so, its attachment level. */
 export type Attachment = 'none' | AttachmentLevel;
@@ -71,6 +73,48 @@ export function skipTooltip(skipped: boolean): string {
    return skipped
       ? 'Take the skip back, so Next and Back stop here again.'
       : 'Next and Back pass over this stop, and the summary lists it as skipped. Claude leaves it out of rewrites for a new familiarity level, and leaves its risk out of PR comments. You can take this back at any time.';
+}
+
+/** Returns what a done state says of a stop that a revision changed after its done mark, or null for another state. */
+function earlierDoneText(done: DoneState): string | null {
+   return done.state === 'earlier' ? `Done on version ${done.version}. Claude revised it since.` : null;
+}
+
+/** Returns the tooltip of the plan's done checkbox, which says the stop's done state against its current version, then what the click does. */
+export function doneTooltip(done: DoneState, click: DoneClick): string {
+   const earlier = earlierDoneText(done);
+   const state = earlier ?? (done.state === 'done' ? 'Done.' : null);
+   const action = click.clears
+      ? 'Take the mark back.'
+      : click.earlier
+        ? `Mark version ${click.version} done.${earlier === null ? ' Claude revised it since.' : ''}`
+        : earlier !== null
+          ? 'Mark the current version done.'
+          : 'Mark this stop done. The plan counts the stops done at their current version.';
+   return state === null ? action : `${state} ${action}`;
+}
+
+/**
+ * Returns the accessible label of the plan's done checkbox for the stop with this number. Its checked state tells whether the current version is done, so the label adds the tooltip only when
+ * the mark is on an earlier version or the click targets one.
+ */
+export function doneCheckboxLabel(number: number, done: DoneState, click: DoneClick): string {
+   return done.state !== 'earlier' && !click.earlier ? `Stop ${number} done` : `Stop ${number} done. ${doneTooltip(done, click)}`;
+}
+
+/** Returns what a plan row's label adds for a done state, or null when the stop is not done. */
+export function doneRowLabel(done: DoneState): string | null {
+   return done.state === 'done' ? 'done' : done.state === 'earlier' ? `done on version ${done.version}` : null;
+}
+
+/** Returns the tooltip of the stop header's Mark done button, which says what a click does. */
+export function markDoneTooltip(done: DoneState): string {
+   const earlier = earlierDoneText(done);
+   if (earlier !== null) {
+      return `${earlier} Mark this version done.`;
+   }
+
+   return done.state === 'done' ? 'Take the done mark back.' : 'Mark this version of the stop done. If Claude revises the stop, the plan shows that you read an earlier version.';
 }
 
 /** What the plan approval form says about a stop that the reviewer skips before the approval. */

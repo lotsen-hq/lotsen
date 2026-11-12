@@ -65,6 +65,8 @@ describe('the operation wire', () => {
       await api.clearAnswer('t1', 's1', 'c1');
       await api.sendAnswers('t1');
       await api.setStopSkipped('t1', 's2', true);
+      await api.setStopDone('t1', 's2', 2);
+      await api.setStopDone('t1', 's2', null);
       await api.recordProgress('t1', { stopId: 's2' });
       await api.recordProgress('t1', { stopId: 's2', version: 2 });
       await api.recordProgress('t1', 'summary');
@@ -92,6 +94,8 @@ describe('the operation wire', () => {
          ['clear_answer', { tourId: 't1', stopId: 's1', checkId: 'c1' }],
          ['send_answers', { tourId: 't1' }],
          ['set_stop_skipped', { tourId: 't1', stopId: 's2', skipped: true }],
+         ['set_stop_done', { tourId: 't1', stopId: 's2', version: 2 }],
+         ['set_stop_done', { tourId: 't1', stopId: 's2', version: null }],
          ['record_reading_progress', { tourId: 't1', stopId: 's2' }],
          ['record_reading_progress', { tourId: 't1', stopId: 's2', version: 2 }],
          ['record_reading_progress', { tourId: 't1', summary: true }],

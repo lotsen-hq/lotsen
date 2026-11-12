@@ -565,6 +565,14 @@ internal static class OperationCatalog
          ProseView.None,
          (services, pass, input, _) => Task.FromResult(From<AnswerOperations>(services).SetStopSkipped(pass, input))),
       Operation.Define(
+         "set_stop_done",
+         "Marks a version of a stop done or takes the done mark back, and returns the stop's doneVersion with the tour's update time after the write. Give version for the version that the reviewer read, from 1 up to the stop's current version, or null to take the mark back. The tour needs no attached session. A done mark is the reviewer's private reading state: read_state leaves it out for a session, nothing reaches the session, and the review summary does not list it. The stop is done while doneVersion equals its version. A put_stop that revises the stop leaves the mark on the earlier version, and a stop that set_plan leaves out loses its mark. A pending stop, a stop that the plan lacks and a version that the stop lacks are refused. Setting the mark the stop has changes nothing.",
+         LotsenJsonContext.Default.SetStopDoneInput,
+         LotsenJsonContext.Default.UpdatedDoneVersion,
+         new Access.Reviewer("mark a stop done", "A done mark is the reviewer's reading state."),
+         ProseView.None,
+         (services, pass, input, _) => Task.FromResult(From<AnswerOperations>(services).SetStopDone(pass, input))),
+      Operation.Define(
          "record_reading_progress",
          "Records the stop or the summary page that the reviewer opened last, and returns the tour's reading progress, as lastStop and finished, with the tour's state and update time after the write. Give stopId for a stop of the plan, or summary true for the summary page. Give version with a stop whose current version the reviewer sees: the newest version given is stored as the stop's seenVersion, an earlier one or one that the stop lacks changes nothing, and a change publishes seenVersionUpdated. The tour needs no attached session, and nothing reaches the session. The state is generating while the tour has no plan or a pending stop, ready once every stop has content, inProgress once the reviewer opened a stop, finished once the reviewer opened the summary page, which stays finished, and archived while the tour is archived. A stop that the plan lacks is refused. Recording the place that the progress holds already, with no newer version, changes nothing.",
          LotsenJsonContext.Default.RecordReadingProgressInput,

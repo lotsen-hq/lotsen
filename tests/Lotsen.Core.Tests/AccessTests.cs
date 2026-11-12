@@ -72,6 +72,7 @@ public sealed class AccessTests : IClassFixture<AccessTests.Server>
             ("mark_file_reviewed", "Reviewer", "Ui"),
             ("clear_file_reviewed", "Reviewer", "Ui"),
             ("set_stop_skipped", "Reviewer", "Ui"),
+            ("set_stop_done", "Reviewer", "Ui"),
             ("record_reading_progress", "Reviewer", "Ui"),
             ("set_tour_archived", "Reviewer", "Ui"),
             ("delete_tour", "Reviewer", "Ui"),
@@ -154,6 +155,7 @@ public sealed class AccessTests : IClassFixture<AccessTests.Server>
       var agent = _server.CallerOf("agent");
 
       Assert.Equal($"only the UI can skip a stop, not {agent}. A skip is the reviewer's reading state.", OperationCatalog.Get("set_stop_skipped").Access.Refusal(agent));
+      Assert.Equal($"only the UI can mark a stop done, not {agent}. A done mark is the reviewer's reading state.", OperationCatalog.Get("set_stop_done").Access.Refusal(agent));
       Assert.Equal("only an agent session can attach a tour, not the UI.", OperationCatalog.Get("attach_tour").Access.Refusal(_server.CallerOf("ui")));
       Assert.Equal("only the agent session that a tour is attached to can write its plan and stops, not the CLI.", OperationCatalog.Get("put_stop").Access.Refusal(_server.CallerOf("cli")));
       Assert.Equal("only the UI or an agent session can read a tour, not the CLI.", OperationCatalog.Get("read_state").Access.Refusal(_server.CallerOf("cli")));

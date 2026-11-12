@@ -15,7 +15,7 @@ import type { SseEvent } from './sse';
 import { steppedTarget } from './skips';
 import { stackFileKey, stopFileStack, type FileReference, type StackFile } from './stopFiles';
 import { hiddenCount, listedTours } from './tourList';
-import { TourRecord, type KnownFiles, type KnownSummary, type ReviewState } from './tourRecord.svelte';
+import { TourRecord, type DoneState, type KnownFiles, type KnownSummary, type ReviewState } from './tourRecord.svelte';
 import { rowOf, touched, withPart, withSummary, type RowPart, type RowParts, type TourRow } from './tourRows';
 import { ThreadActions, type WriteResult } from './threadActions.svelte';
 import { defaultThreadFilter, type ThreadFilter } from './threadFilters';
@@ -57,6 +57,7 @@ import type {
    UpdatedFamiliarity,
    UpdatedPlanApproval,
    UpdatedSeenVersion,
+   UpdatedDoneVersion,
    UpdatedSkips,
    ReadingPlace,
    UpdatedTourState,
@@ -76,6 +77,7 @@ type EventHandlers = { [K in AppEventName]: { apply(app: LotsenApp, payload: Eve
 
 const dimmingPreference = booleanPreference('lotsen.dimming', true);
 const highlightPreference = booleanPreference('lotsen.highlight', true);
+const noDoneStates: ReadonlyMap<string, DoneState> = new Map();
 
 /** What the page needs from the browser: what a session needs, and the history that the page adds its entries to. */
 export interface AppEnvironment extends SessionEnvironment {
@@ -199,6 +201,10 @@ export class LotsenApp {
    /** The IDs of the selected tour's stops that changed since the reviewer last opened them, as {@link TourRecord.changedStops} says, empty while no tour is selected. */
    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a new set for each change of the stops, which nothing changes.
    selectedChangedStops = $derived<ReadonlySet<string>>(new Set(this.selectedRecord?.changedStops ?? []));
+   /** The done state of each of the selected tour's stops with a done mark, as {@link TourRecord.doneStates} holds them, empty while no tour is selected. */
+   selectedDoneStates = $derived<ReadonlyMap<string, DoneState>>(this.selectedRecord?.doneStates ?? noDoneStates);
+   /** The number of the selected tour's stops whose done mark covers their current version, 0 while no tour is selected. */
+   selectedDoneCount = $derived(this.selectedRecord?.doneCount ?? 0);
    /** The newer iteration of the selected tour's pull request that the server found against the tour's pin, or null when it knows of none or no tour is selected. */
    selectedAvailableIteration = $derived<AvailableIteration | null>(availableOn(this.selectedRecord?.availableIteration, this.selectedTour?.pin));
    /** The state of the reviewer's iteration check of the selected tour. {@link iterationCheckState} says when a change to the available iteration hides its failure. */
@@ -1638,6 +1644,26 @@ export class LotsenApp {
    }
 
    /**
+    * Marks a version of a stop of the selected tour done, or takes the done mark back for null, with or without a bound session. Nothing reaches Claude as an event.
+    *
+    * @returns Null once the server stored the mark, or the server's reason when it refused the write. A refused UI credential signs the page out.
+    */
+   async setStopDone(stopId: string, version: number | null): Promise<string | null> {
+      const tourId = this.selectedTourId;
+      if (tourId === null) {
+         return 'Open a tour first.';
+      }
+
+      try {
+         const { output: done, revision } = await this.requireApi().setStopDone(tourId, stopId, version);
+         this.applyDoneVersion(done, revision);
+         return null;
+      } catch (error) {
+         return this.refusalOf(error, version === null ? 'The done mark could not be taken back.' : 'The stop could not be marked done.');
+      }
+   }
+
+   /**
     * Checks the selected tour's pull request for a new iteration and keeps the result, or the reason the check could not finish. The diff, the stops and the open stop stay on the tour's pin,
     * whatever the check finds. A check of the tour that waits for its response already is not sent again.
     */
@@ -1751,6 +1777,11 @@ export class LotsenApp {
 
    private applySeenVersion({ tourId, updatedAt, stopId, seenVersion }: UpdatedSeenVersion, revision: number): void {
       this.recordOf(tourId)?.putSeenVersion(stopId, seenVersion, revision);
+      this.touchTour(tourId, revision, updatedAt);
+   }
+
+   private applyDoneVersion({ tourId, updatedAt, stopId, doneVersion }: UpdatedDoneVersion, revision: number): void {
+      this.recordOf(tourId)?.putDoneVersion(stopId, doneVersion ?? null, revision);
       this.touchTour(tourId, revision, updatedAt);
    }
 
@@ -2159,6 +2190,7 @@ export class LotsenApp {
       answerBatchUpdated: { apply: (app, batch) => app.applyBatch(batch, batch.revision), refreshesSummary: true },
       skipsUpdated: { apply: (app, skips) => app.applySkips(skips, skips.revision), refreshesSummary: true },
       seenVersionUpdated: { apply: (app, seen) => app.applySeenVersion(seen, seen.revision), refreshesSummary: false },
+      doneVersionUpdated: { apply: (app, done) => app.applyDoneVersion(done, done.revision), refreshesSummary: false },
       familiarityChanged: { apply: (app, changed) => app.applyFamiliarity(changed, changed.revision), refreshesSummary: false },
       planApproved: { apply: (app, approved) => app.applyPlanApproval(approved, approved.revision), refreshesSummary: false },
       tourStateChanged: { apply: (app, state) => app.applyTourState(state, state.revision), refreshesSummary: false },

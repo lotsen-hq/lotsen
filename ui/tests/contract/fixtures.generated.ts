@@ -135,6 +135,7 @@ export const eventFixtures = {
                   }
                ],
                "seenVersion": 1,
+               "doneVersion": 1,
                "id": "s2",
                "title": "The writer",
                "kind": "inspect",
@@ -355,6 +356,7 @@ export const eventFixtures = {
             }
          ],
          "seenVersion": 1,
+         "doneVersion": 1,
          "id": "s2",
          "title": "The writer",
          "kind": "inspect",
@@ -669,6 +671,13 @@ export const eventFixtures = {
       "updatedAt": "2026-10-30T09:05:00+00:00",
       "stopId": "s2",
       "seenVersion": 2,
+      "revision": 7
+   },
+   "doneVersionUpdated": {
+      "tourId": "abcdefghijklmnop",
+      "updatedAt": "2026-10-30T09:05:00+00:00",
+      "stopId": "s2",
+      "doneVersion": 2,
       "revision": 7
    },
    "familiarityChanged": {
@@ -1086,6 +1095,7 @@ export const outputFixtures = {
                   }
                ],
                "seenVersion": 1,
+               "doneVersion": 1,
                "id": "s2",
                "title": "The writer",
                "kind": "inspect",
@@ -2421,6 +2431,12 @@ export const outputFixtures = {
       "stopIds": [
          "s6"
       ]
+   },
+   "set_stop_done": {
+      "tourId": "abcdefghijklmnop",
+      "updatedAt": "2026-10-30T09:05:00+00:00",
+      "stopId": "s2",
+      "doneVersion": 2
    },
    "record_reading_progress": {
       "tourId": "abcdefghijklmnop",

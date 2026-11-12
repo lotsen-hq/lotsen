@@ -43,7 +43,8 @@ internal static class ContractSamples
          Placement: StopPlacement.Side),
       2,
       [new StopVersion("The writer", StopKind.Inspect, FirstWriterContent, At)],
-      SeenVersion: 1);
+      SeenVersion: 1,
+      DoneVersion: 1);
 
    private static readonly Stop.Written Question = new(
       "s3",
@@ -128,6 +129,7 @@ internal static class ContractSamples
          ServerEvents.ForAnswerBatchUpdated(new UpdatedBatch(Id, Later, "b1", [SentAnswer])),
          ServerEvents.ForSkipsUpdated(new UpdatedSkips(Id, Later, ["s6"])),
          ServerEvents.ForSeenVersionUpdated(new UpdatedSeenVersion(Id, Later, "s2", 2)),
+         ServerEvents.ForDoneVersionUpdated(new UpdatedDoneVersion(Id, Later, "s2", 2)),
          ServerEvents.ForFamiliarityChanged(Tour),
          ServerEvents.ForPlanApproved(Tour),
          ServerEvents.ForTourStateChanged(new UpdatedTourState(Id, Later, TourState.InProgress, PullRequestState.Active)),
@@ -182,6 +184,7 @@ internal static class ContractSamples
          new DirectoryListing(null, FileSide.Head, Head, [new RepositoryEntry("src", RepositoryEntryType.Directory), new RepositoryEntry("README.md", RepositoryEntryType.File)]),
          new ReviewMarkList([new ReviewMark("src/a.cs", new string('d', 40))]),
          new UpdatedSkips(Id, Later, ["s6"]),
+         new UpdatedDoneVersion(Id, Later, "s2", 2),
          new RecordedProgress(Id, Later, TourState.InProgress, PullRequestState.Active, new ReadingProgress(false, "s2"), SeenVersion: 2),
          new UpdatedTourState(Id, Later, TourState.Archived, PullRequestState.Completed),
          new DeletedTour(Id),

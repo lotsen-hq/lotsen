@@ -262,8 +262,8 @@ internal sealed record Chapter(string Id, string Title);
 /// derived type.
 /// </summary>
 /// <remarks>
-/// A stop owns what belongs to it, so a <c>set_plan</c> that drops a stop drops its content, its earlier versions and its skip with it. Only <c>put_stop</c> turns a pending stop into a written
-/// one, and it changes the kind of a written stop, because it checks the content against the kind. A stop can be changed with <c>with</c>, and <see cref="TourRules"/> checks every stored one:
+/// A stop owns what belongs to it, so a <c>set_plan</c> that drops a stop drops its content, its earlier versions, its skip and its done mark with it. Only <c>put_stop</c> turns a pending stop into a
+/// written one, and it changes the kind of a written stop, because it checks the content against the kind. A stop can be changed with <c>with</c>, and <see cref="TourRules"/> checks every stored one:
 /// a written stop's content and each earlier version follow <see cref="StopContentRules"/> under their kinds, and its version counts its earlier versions.
 /// </remarks>
 /// <param name="Id">The stop's ID, unique within the plan and stable across revisions.</param>
@@ -306,6 +306,11 @@ internal closed record Stop(string Id, string Title, StopKind Kind, string Chapt
    /// The newest version of the content that the reviewer has seen, as <see cref="Seen"/> records it, or null before the reviewer opened one: the reviewer's own reading state, so an agent session's
    /// read of the tour leaves it out. JSON leaves it out when null.
    /// </param>
+   /// <param name="DoneVersion">
+   /// The version that the reviewer marked done, or null when the stop has no done mark: the reviewer's own reading state, which only the UI sets, so an agent session's read of the tour leaves it
+   /// out. The stop is done when the mark equals <see cref="Version"/>, and done on an earlier version when the mark is lower, so a revision leaves the mark on the replaced version. JSON leaves
+   /// it out when null.
+   /// </param>
    internal sealed record Written(
       string Id,
       string Title,
@@ -316,7 +321,8 @@ internal closed record Stop(string Id, string Title, StopKind Kind, string Chapt
       IReadOnlyList<StopVersion> Earlier,
       [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? StaleOn = null,
       bool Skipped = false,
-      [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? SeenVersion = null) : Stop(Id, Title, Kind, Chapter, Skipped)
+      [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? SeenVersion = null,
+      [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? DoneVersion = null) : Stop(Id, Title, Kind, Chapter, Skipped)
    {
       /// <summary>Returns the stop with this version recorded as seen, or this same stop when the version is not one of the stop's or the reviewer has seen a version as new.</summary>
       public Written Seen(int version) => version <= Version && version > (SeenVersion ?? 0) ? this with { SeenVersion = version } : this;

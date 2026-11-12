@@ -198,6 +198,12 @@ internal static class ServerEvents
    /// <summary>The reviewer saw a newer version of a stop than the stop's seen version. The payload is an <see cref="UpdatedSeenVersion"/>.</summary>
    public static readonly ServerEventKind<UpdatedSeenVersion> SeenVersionUpdated = Declare("seenVersionUpdated", LotsenJsonContext.Default.UpdatedSeenVersion, ProseView.None);
 
+   /// <summary>
+   /// The reviewer marked a version of a stop done or took the done mark back. The payload is an <see cref="UpdatedDoneVersion"/>. A <c>set_plan</c> that drops a done mark publishes
+   /// <see cref="PlanSet"/> alone.
+   /// </summary>
+   public static readonly ServerEventKind<UpdatedDoneVersion> DoneVersionUpdated = Declare("doneVersionUpdated", LotsenJsonContext.Default.UpdatedDoneVersion, ProseView.None);
+
    /// <summary>The reviewer changed the tour's familiarity level. The payload is an <see cref="UpdatedFamiliarity"/>. The same write's <see cref="ThreadCreated"/> event carries its tour action.</summary>
    public static readonly ServerEventKind<UpdatedFamiliarity> FamiliarityChanged = Declare("familiarityChanged", LotsenJsonContext.Default.UpdatedFamiliarity, ProseView.None);
 
@@ -268,6 +274,8 @@ internal static class ServerEvents
    public static ServerEvent ForSkipsUpdated(UpdatedSkips updated) => ServerEvent.Of(SkipsUpdated, updated);
 
    public static ServerEvent ForSeenVersionUpdated(UpdatedSeenVersion updated) => ServerEvent.Of(SeenVersionUpdated, updated);
+
+   public static ServerEvent ForDoneVersionUpdated(UpdatedDoneVersion updated) => ServerEvent.Of(DoneVersionUpdated, updated);
 
    public static ServerEvent ForTourStateChanged(UpdatedTourState updated) => ServerEvent.Of(TourStateChanged, updated);
 

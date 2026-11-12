@@ -10,6 +10,8 @@ internal static class TourJson
       [.. (tour["plan"]?["stops"]?.AsArray() ?? []).Where(stop => (bool?)stop!["skipped"] == true).Select(stop => (string)stop!["id"]!)];
 
    /// <summary>Returns the earlier versions of the plan's stop with this ID.</summary>
-   public static JsonArray EarlierOf(JsonNode tour, string stopId) =>
-      tour["plan"]!["stops"]!.AsArray().Single(stop => (string)stop!["id"]! == stopId)!["earlier"]!.AsArray();
+   public static JsonArray EarlierOf(JsonNode tour, string stopId) => StopOf(tour, stopId)["earlier"]!.AsArray();
+
+   /// <summary>Returns the plan's stop with this ID.</summary>
+   public static JsonNode StopOf(JsonNode tour, string stopId) => tour["plan"]!["stops"]!.AsArray().Single(stop => (string)stop!["id"]! == stopId)!;
 }

@@ -1,13 +1,17 @@
 <script lang="ts">
    import ClipboardList from '@lucide/svelte/icons/clipboard-list';
    import ClockAlert from '@lucide/svelte/icons/clock-alert';
+   import CopyCheck from '@lucide/svelte/icons/copy-check';
    import LoaderCircle from '@lucide/svelte/icons/loader-circle';
    import SkipForward from '@lucide/svelte/icons/skip-forward';
-   import type { KnownPlan } from '../lib/tourRecord.svelte';
+   import Square from '@lucide/svelte/icons/square';
+   import SquareCheck from '@lucide/svelte/icons/square-check';
+   import { doneClick, type DoneClick } from '../lib/doneClick';
+   import type { DoneState, KnownPlan } from '../lib/tourRecord.svelte';
    import { staleOnOf } from '../lib/stops';
-   import { revisedTooltip, skipTooltip, stopKindLabels, stopStatusLabels, unwrittenStopLabel, type Attachment } from '../lib/labels';
+   import { doneCheckboxLabel, doneRowLabel, doneTooltip, revisedTooltip, skipTooltip, stopKindLabels, stopStatusLabels, unwrittenStopLabel, type Attachment } from '../lib/labels';
    import type { PlanActionKind } from '../lib/tourActions';
-   import type { Familiarity, QuestionThread, RequestedTourAction, TourControls } from '../lib/types';
+   import type { Familiarity, QuestionThread, RequestedTourAction, Stop, TourControls } from '../lib/types';
    import PlanActions from './PlanActions.svelte';
    import PlanProposal from './PlanProposal.svelte';
    import StopKindPill from './StopKindPill.svelte';
@@ -31,6 +35,10 @@
       changed = new Set(),
       onskip = null,
       skipsSaving = false,
+      done = new Map(),
+      doneCount = 0,
+      onsetdone = null,
+      viewed = null,
       familiarity = null,
       onfamiliarity = null,
       planWaits = false,
@@ -63,6 +71,14 @@
       onskip?: ((stopId: string, skipped: boolean) => Promise<string | null>) | null;
       /** Whether the page waits for a skip write of the tour from any panel, which Approve waits for. */
       skipsSaving?: boolean;
+      /** The done state of each stop with a done mark, by stop ID. A stop that it lacks is not done. */
+      done?: ReadonlyMap<string, DoneState>;
+      /** The number of the plan's stops whose done mark covers their current version. */
+      doneCount?: number;
+      /** Marks a version of a stop done, or takes the mark back for null, and returns null once the server stored it or its reason for a refusal, or null when the page offers no done mark. */
+      onsetdone?: ((stopId: string, version: number | null) => Promise<string | null>) | null;
+      /** The stop under view and the number of the version that the page shows of it, which its done checkbox targets, or null when no written stop is under view. */
+      viewed?: { stopId: string; version: number } | null;
       /** The tour's familiarity level, or null when the page does not know it. */
       familiarity?: Familiarity | null;
       /** Changes the tour's familiarity level with the reviewer's words, and returns null once the server stored it or its reason for a refusal, or null when the page offers no change. */
@@ -87,6 +103,22 @@
       const reason = await onskip(stopId, !skipped.has(stopId));
       skipping = new Set([...skipping].filter((candidate) => candidate !== stopId));
       // Only a new click clears a refusal, so another stop's save that ends later leaves it on screen.
+      if (reason !== null) {
+         refusal = reason;
+      }
+   }
+
+   let marking = $state<ReadonlySet<string>>(new Set());
+
+   async function toggleDone(stopId: string, click: DoneClick): Promise<void> {
+      if (onsetdone === null || marking.has(stopId)) {
+         return;
+      }
+
+      marking = new Set([...marking, stopId]);
+      refusal = null;
+      const reason = await onsetdone(stopId, click.clears ? null : click.version);
+      marking = new Set([...marking].filter((candidate) => candidate !== stopId));
       if (reason !== null) {
          refusal = reason;
       }
@@ -127,7 +159,31 @@
    {/if}
 {/snippet}
 
+<!-- A pending stop has nothing to read yet, so it gets no checkbox. The checked state follows the current version, so done on an earlier version is unchecked and its label names the version. -->
+{#snippet doneToggle(stop: Stop, number: number)}
+   {#if onsetdone !== null && stop.stage === 'written'}
+      {@const doneState = done.get(stop.id) ?? { state: 'none' }}
+      {@const click = doneClick(doneState, stop.version, viewed?.stopId === stop.id ? viewed.version : null)}
+      <TooltipButton
+         tooltip={doneTooltip(doneState, click)}
+         variant="ghost"
+         size="icon-xs"
+         class={doneState.state === 'done' ? 'done-toggle checked' : doneState.state === 'earlier' ? 'done-toggle earlier' : 'done-toggle'}
+         role="checkbox"
+         aria-label={doneCheckboxLabel(number, doneState, click)}
+         aria-checked={doneState.state === 'done'}
+         disabled={marking.has(stop.id)}
+         onclick={() => toggleDone(stop.id, click)}
+      >
+         {#if doneState.state === 'done'}<SquareCheck class="size-5" />{:else if doneState.state === 'earlier'}<CopyCheck class="size-5" />{:else}<Square class="size-5" />{/if}
+      </TooltipButton>
+   {/if}
+{/snippet}
+
 {#snippet planList()}
+   {#if onsetdone !== null && known?.plan}
+      <p class="px-4 pb-1 text-xs text-muted-foreground">{doneCount} of {known.plan.stops.length} done</p>
+   {/if}
    {#if refusal !== null}
       <p class="px-4 py-1 text-xs text-destructive" role="alert">{refusal}</p>
    {/if}
@@ -145,6 +201,7 @@
                   {@const kind = stopKindLabels[stop.kind] ?? stop.kind}
                   {@const number = chapter.first + index}
                   {@const isSkipped = skipped.has(stop.id)}
+                  {@const doneLabel = doneRowLabel(done.get(stop.id) ?? { state: 'none' })}
                   <li class="stop-item">
                      <button
                         type="button"
@@ -155,6 +212,7 @@
                            ...(status === null ? [] : [status]),
                            ...(staleOnOf(stop) === undefined ? [] : [`stale since update ${staleOnOf(stop)}`]),
                            ...(isSkipped ? ['skipped'] : []),
+                           ...(doneLabel === null ? [] : [doneLabel]),
                         ].join(', ')}
                         onclick={() => onopen(stop.id)}
                      >
@@ -184,6 +242,7 @@
                            {/if}
                         </span>
                      </button>
+                     {@render doneToggle(stop, number)}
                      {@render skipToggle(stop.id, number)}
                   </li>
                {/each}

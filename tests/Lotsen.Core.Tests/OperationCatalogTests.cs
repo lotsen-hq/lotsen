@@ -55,6 +55,7 @@ public sealed class OperationCatalogTests
             "mark_file_reviewed",
             "clear_file_reviewed",
             "set_stop_skipped",
+            "set_stop_done",
             "record_reading_progress",
             "set_tour_archived",
             "delete_tour",

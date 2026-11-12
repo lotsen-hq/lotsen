@@ -82,6 +82,7 @@ export type EventName =
    | 'answerBatchUpdated'
    | 'skipsUpdated'
    | 'seenVersionUpdated'
+   | 'doneVersionUpdated'
    | 'familiarityChanged'
    | 'planApproved'
    | 'tourStateChanged'
@@ -117,6 +118,7 @@ export type OperationName =
    | 'mark_file_reviewed'
    | 'clear_file_reviewed'
    | 'set_stop_skipped'
+   | 'set_stop_done'
    | 'record_reading_progress'
    | 'set_tour_archived'
    | 'delete_tour'
@@ -216,6 +218,12 @@ export interface EventPayloads {
       revision: number;
    };
    seenVersionUpdated: UpdatedSeenVersion & {
+      /**
+       * The tour's revision that the event shows.
+       */
+      revision: number;
+   };
+   doneVersionUpdated: UpdatedDoneVersion & {
       /**
        * The tour's revision that the event shows.
        */
@@ -331,6 +339,7 @@ export interface WrittenStop {
    earlier: StopVersion[];
    staleOn?: number;
    seenVersion?: number;
+   doneVersion?: number;
    id: string;
    title: string;
    kind: StopKind;
@@ -670,6 +679,12 @@ export interface UpdatedSeenVersion {
    updatedAt: string;
    stopId: string;
    seenVersion: number;
+}
+export interface UpdatedDoneVersion {
+   tourId: string;
+   updatedAt: string;
+   stopId: string;
+   doneVersion?: number;
 }
 export interface UpdatedFamiliarity {
    tourId: string;
@@ -1307,6 +1322,10 @@ export interface Operations {
       input: SetStopSkippedInput;
       output: UpdatedSkips;
    };
+   set_stop_done: {
+      input: SetStopDoneInput;
+      output: UpdatedDoneVersion;
+   };
    record_reading_progress: {
       input: RecordReadingProgressInput;
       output: RecordedProgress;
@@ -1595,6 +1614,20 @@ export interface SetStopSkippedInput {
     * true to skip the stop, false to take the skip back.
     */
    skipped: boolean;
+}
+export interface SetStopDoneInput {
+   /**
+    * The tour's ID, as create_tour or list_tours returned it, or as the user gave it.
+    */
+   tourId: string;
+   /**
+    * The ID of a stop of the tour's plan that has content.
+    */
+   stopId: string;
+   /**
+    * The number of the stop's version that the reviewer read, from 1 up to the stop's current version, or null to take the done mark back.
+    */
+   version: number | null;
 }
 export interface RecordReadingProgressInput {
    /**

@@ -1,8 +1,11 @@
 <script lang="ts">
+   import CopyCheck from '@lucide/svelte/icons/copy-check';
    import SkipForward from '@lucide/svelte/icons/skip-forward';
+   import Square from '@lucide/svelte/icons/square';
+   import SquareCheck from '@lucide/svelte/icons/square-check';
    import { Button } from '$lib/components/ui/button';
    import type { ExplanationView } from '../lib/explanationView.svelte';
-   import { skipTooltip } from '../lib/labels';
+   import { markDoneTooltip, skipTooltip } from '../lib/labels';
    import { panelDocument } from '../lib/panelDocument.svelte';
    import { primaryPassage } from '../lib/placement';
    import { stopThreads } from '../lib/threadView';
@@ -10,6 +13,7 @@
    import { versionOf } from '../lib/stops';
    import { staleNoticeText, versionNoticeText } from '../lib/stopNotices';
    import type { CodeReference, Stop, TourControls } from '../lib/types';
+   import type { DoneState } from '../lib/tourRecord.svelte';
    import type { KnownVersion } from '../lib/versions';
    import ExplanationBlock from './ExplanationBlock.svelte';
    import StopActions from './StopActions.svelte';
@@ -33,6 +37,8 @@
       onopenversion = () => {},
       skipped = false,
       onskip = null,
+      done = { state: 'none' },
+      onsetdone = null,
       planWaits = false,
    }: {
       /** The stop at the version that the panel shows, which is the stop of the explanation. */
@@ -55,6 +61,10 @@
       skipped?: boolean;
       /** Skips the stop or takes its skip back, and returns null once the server stored it or its reason for a refusal, or null when the page offers no skip. */
       onskip?: ((skipped: boolean) => Promise<string | null>) | null;
+      /** Whether the reviewer marked the stop done, as the stop's current version gives it. */
+      done?: DoneState;
+      /** Marks a version of the stop done, or takes the mark back for null, and returns null once the server stored it or its reason for a refusal, or null when the page offers no done mark. */
+      onsetdone?: ((version: number | null) => Promise<string | null>) | null;
       /** Whether the tour's plan waits for the reviewer's approval, so Claude writes no stop yet. */
       planWaits?: boolean;
    } = $props();
@@ -70,6 +80,22 @@
       skipping = true;
       skipRefusal = await onskip(!skipped);
       skipping = false;
+   }
+
+   let marking = $state(false);
+   let doneRefusal = $state<string | null>(null);
+
+   // A done mark covers the version that the reviewer read, so the button shows only on the current version.
+   const markable = $derived(onsetdone !== null && stop.stage === 'written' && current !== undefined && (versionOf(stop) ?? current) === current);
+
+   async function toggleDone(): Promise<void> {
+      if (onsetdone === null || current === undefined || marking) {
+         return;
+      }
+
+      marking = true;
+      doneRefusal = await onsetdone(done.state === 'done' ? null : current);
+      marking = false;
    }
 
    const primary = $derived(primaryPassage(stop));
@@ -121,12 +147,20 @@
                <!-- A skip belongs to the stop, not to a version, so an earlier version offers it too. -->
                <TooltipButton tooltip={skipTooltip(skipped)} variant="outline" size="sm" aria-pressed={skipped} disabled={skipping} onclick={toggleSkip}><SkipForward />Skip stop</TooltipButton>
             {/if}
+            {#if markable}
+               <TooltipButton tooltip={markDoneTooltip(done)} variant="outline" size="sm" aria-pressed={done.state === 'done'} disabled={marking} onclick={toggleDone}>
+                  {#if done.state === 'done'}<SquareCheck />{:else if done.state === 'earlier'}<CopyCheck />{:else}<Square />{/if}Mark done
+               </TooltipButton>
+            {/if}
             {#if view.movable && stop.stage === 'written'}
                <Button variant="outline" size="sm" class="ml-auto" onclick={() => view.move(move.to)}>{move.label}</Button>
             {/if}
          </header>
          {#if skipRefusal !== null}
             <p class="mt-1 text-xs text-destructive" role="alert">{skipRefusal}</p>
+         {/if}
+         {#if doneRefusal !== null}
+            <p class="mt-1 text-xs text-destructive" role="alert">{doneRefusal}</p>
          {/if}
          {#if shownVersion !== null}
             {@const current = shownVersion.current}
