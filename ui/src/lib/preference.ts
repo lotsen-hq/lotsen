@@ -14,19 +14,41 @@ export interface Preference<T> {
    write(value: T): void;
 }
 
+/**
+ * The reviewer's values under every key that starts with one prefix, such as the named layouts, held on the server and in the page alone.
+ *
+ * Browser storage holds none of them, because a text that browser storage kept fills a key that the server lacks, so it would bring back a value that a page of another origin deleted.
+ */
+export interface PreferenceFamily<T> {
+   /** Returns each key of the family that holds a text, with its value, or undefined for a text that holds no value. A read in a reactive context follows the family's changes. */
+   entries(): { key: string; value: T | undefined }[];
+   /**
+    * Stores the value under the key on the server, or deletes the key for null, and then in the page.
+    *
+    * The page keeps its text when the server refuses the write.
+    *
+    * @throws The server's refusal, or an error when the key lacks the family's prefix or the page has not read the server's preferences.
+    */
+   write(key: string, value: T | null): Promise<void>;
+}
+
 /** Sends one preference's text to the server's preference store, or the delete of its key for null. */
 export type PreferenceWriter = (key: string, text: string | null) => Promise<unknown>;
 
 // Every key that a preference of the page reads.
 const registered = new Set<string>();
 
-// Each key's text as the page knows it beyond browser storage: the server's once the page has read them, and every write since. Null means the key holds no text.
+// The prefix of every preference family.
+const families = new Set<string>();
+
+// Each key's text as the page knows it beyond browser storage: the server's once the page has read them, and every write since. Null means the key holds no text, and a family key
+// without a text is absent.
 const known = new SvelteMap<string, string | null>();
 
 // The server's writer, from the page's first read of the server's preferences that succeeded. The page's writes before it stay in the page.
 let writer: PreferenceWriter | null = null;
 
-// The keys with a server write in flight, each with the text that waits to follow it, so each key has one write in flight and a burst of writes sends the last text.
+// The keys with a server write in flight. A preference's key holds the text that waits to follow the write, so each key has one write in flight and a burst of writes sends the last text.
 const inFlight = new Map<string, { waiting?: { text: string | null } }>();
 
 // The keys whose last write the server did not take. A read keeps their page text and sends it again.
@@ -35,6 +57,12 @@ const failed = new Set<string>();
 // The order of the page's sends, by the number of the last send of each key, so a read keeps each key that the page sent after the read began.
 let sends = 0;
 const lastSent = new Map<string, number>();
+
+// Each family write of a key waits for the one before it, so the server stores the key's texts in the order the page wrote them.
+const familyWrites = new Map<string, Promise<void>>();
+
+// The number of detaches, so a family write that the server answers after a detach leaves the page's texts alone.
+let sessions = 0;
 
 /**
  * Returns a preference that reads and writes its choice under the key.
@@ -90,11 +118,40 @@ export function storedPreference<T>(key: string, parse: (stored: string) => T | 
 }
 
 /**
+ * Returns the preference family of every key that starts with the prefix.
+ *
+ * @param parse Returns the value that a key's text holds, or undefined when the text holds none.
+ * @param format Returns the text that stores a value.
+ */
+export function preferenceFamily<T>(prefix: string, parse: (stored: string) => T | undefined, format: (value: T) => string): PreferenceFamily<T> {
+   families.add(prefix);
+   return {
+      entries() {
+         const found: { key: string; value: T | undefined }[] = [];
+         for (const [key, text] of known) {
+            if (key.startsWith(prefix) && text !== null) {
+               found.push({ key, value: parse(text) });
+            }
+         }
+
+         return found;
+      },
+      write(key, value) {
+         if (!key.startsWith(prefix)) {
+            return Promise.reject(new Error(`The key ${key} is not of the family ${prefix}.`));
+         }
+
+         return writeThrough(key, value === null ? null : format(value));
+      },
+   };
+}
+
+/**
  * Reads the server's preferences, then sends the page's later writes to the server through the writer and settles each preference between the page and the server.
  *
  * A key keeps the page's text, and the page sends it, when the server lacks the key or when the page's last write of it failed. So a text that browser storage kept fills a key that the
- * server lacks, and never replaces a text that the server holds. Every other key takes the server's text, which browser storage then mirrors. A key that the page sent after the read
- * began, or whose write is in flight, keeps the page's text, which that write stores.
+ * server lacks, and never replaces a text that the server holds. Every other key takes the server's text, which browser storage then mirrors. A key of a preference family takes the
+ * server's text, or none when the server lacks the key. A key that the page sent after the read began, or whose write is in flight, keeps the page's text, which that write stores.
  *
  * @param read Returns the server's preferences, or null when the page no longer wants them, which changes nothing.
  * @throws What the read throws, which changes nothing.
@@ -107,8 +164,9 @@ export async function syncPreferences(read: () => Promise<Readonly<Record<string
    }
 
    writer = write;
+   const pageWins = (key: string) => inFlight.has(key) || (lastSent.get(key) ?? 0) > began;
    for (const key of registered) {
-      if (inFlight.has(key) || (lastSent.get(key) ?? 0) > began) {
+      if (pageWins(key)) {
          continue;
       }
 
@@ -122,21 +180,35 @@ export async function syncPreferences(read: () => Promise<Readonly<Record<string
          store(key, server);
       }
    }
+
+   const familyKeys = new Set([...Object.keys(stored), ...known.keys()].filter(inFamily));
+   for (const key of familyKeys) {
+      if (!pageWins(key)) {
+         storeInFamily(key, stored[key] ?? null);
+      }
+   }
 }
 
 /** Applies a preference's change from the server's `preferenceChanged` event, unless a write of the page to the key is in flight, which the server stores after the change. */
 export function applyPreference(key: string, text: string | null): void {
-   if (registered.has(key) && !inFlight.has(key)) {
+   if (inFlight.has(key)) {
+      return;
+   }
+
+   if (registered.has(key)) {
       failed.delete(key);
       store(key, text);
+   } else if (inFamily(key)) {
+      storeInFamily(key, text);
    }
 }
 
 /**
- * Stops sending the page's later writes to the server and forgets the server's texts, so each preference reads browser storage again, as when the page ends its session. The writes in flight
- * and the texts that wait to follow them still go out.
+ * Stops sending the page's later writes to the server and forgets the server's texts, so each preference reads browser storage again and each preference family is empty, as when the page
+ * ends its session. The writes in flight and the texts that wait to follow them still go out.
  */
 export function detachPreferences(): void {
+   sessions++;
    writer = null;
    known.clear();
    inFlight.clear();
@@ -151,6 +223,48 @@ function textOf(key: string): string | null {
 function store(key: string, text: string | null): void {
    known.set(key, text);
    writeBrowser(key, text);
+}
+
+function inFamily(key: string): boolean {
+   return [...families].some((prefix) => key.startsWith(prefix));
+}
+
+function storeInFamily(key: string, text: string | null): void {
+   if (text === null) {
+      known.delete(key);
+   } else {
+      known.set(key, text);
+   }
+}
+
+async function writeThrough(key: string, text: string | null): Promise<void> {
+   const write = writer;
+   if (write === null) {
+      throw new Error('The page has not read the preferences from the server yet. Try again.');
+   }
+
+   const session = sessions;
+   lastSent.set(key, ++sends);
+   const entry = {};
+   inFlight.set(key, entry);
+   const before = familyWrites.get(key);
+   const done = (async () => {
+      try {
+         await before;
+         await write(key, text);
+         if (sessions === session) {
+            storeInFamily(key, text);
+         }
+      } finally {
+         if (inFlight.get(key) === entry) {
+            inFlight.delete(key);
+         }
+      }
+   })();
+   const settled = done.catch(() => {});
+   familyWrites.set(key, settled);
+   void settled.then(() => familyWrites.get(key) === settled && familyWrites.delete(key));
+   return done;
 }
 
 // Each write waits for the one before it, so the server stores a key's texts in the order the page wrote them.

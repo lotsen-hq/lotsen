@@ -17,8 +17,11 @@
    import type { ConnectionState } from '../lib/eventStream';
    import type { Settings } from '../lib/settings.svelte';
    import { arrangements } from '../lib/arrangements';
+   import { namedLayouts } from '../lib/namedLayouts';
    import type { WorkspaceLayout } from '../lib/workspaceLayout.svelte';
    import { panelIds } from '../lib/workspacePanels';
+   import ManageLayoutsDialog from './ManageLayoutsDialog.svelte';
+   import SaveLayoutDialog from './SaveLayoutDialog.svelte';
    import SettingsPanel from './SettingsPanel.svelte';
    import Wordmark from './Wordmark.svelte';
    import AttachmentState from './AttachmentState.svelte';
@@ -75,6 +78,17 @@
 
    let panelsMenu = $state<HTMLElement | null>(null);
    $effect(() => (panelsMenu ? layout.registerMenu(panelsMenu) : undefined));
+
+   // Another page's change of a named layout changes the menu and never this page's workspace.
+   const savedLayouts = $derived(namedLayouts());
+   let saving = $state(false);
+   let managing = $state(false);
+
+   // The item that opened a dialog left with the menu, so the focus returns to the menu's button.
+   function focusPanelsMenu(event: Event): void {
+      event.preventDefault();
+      panelsMenu?.focus();
+   }
 
    const connectionLabels: Record<ConnectionState, string> = {
       connecting: 'Connecting…',
@@ -148,8 +162,27 @@
             {/each}
          </DropdownMenuPrimitive.Group>
          <DropdownMenu.Separator />
+         <DropdownMenuPrimitive.Group>
+            <DropdownMenu.GroupHeading>My layouts</DropdownMenu.GroupHeading>
+            {#each savedLayouts as saved (saved.id)}
+               {@const record = saved.record}
+               {#if record === undefined}
+                  <DropdownMenu.Item disabled class="flex-col items-start gap-0">
+                     <span class="max-w-full truncate">{saved.name}</span>
+                     <span class="text-xs text-muted-foreground">Saved by another version of lotsen</span>
+                  </DropdownMenu.Item>
+               {:else}
+                  <DropdownMenu.Item onSelect={() => layout.applyRecord(record)}><span class="truncate">{saved.name}</span></DropdownMenu.Item>
+               {/if}
+            {/each}
+            <DropdownMenu.Item onSelect={() => (saving = true)}>Save layout as…</DropdownMenu.Item>
+            <DropdownMenu.Item onSelect={() => (managing = true)}>Manage layouts…</DropdownMenu.Item>
+         </DropdownMenuPrimitive.Group>
+         <DropdownMenu.Separator />
          <DropdownMenu.Item onSelect={() => layout.apply('default')}>Reset layout</DropdownMenu.Item>
       </DropdownMenu.Content>
    </DropdownMenu.Root>
+   <SaveLayoutDialog bind:open={saving} snapshot={() => layout.snapshot()} onCloseAutoFocus={focusPanelsMenu} />
+   <ManageLayoutsDialog bind:open={managing} onCloseAutoFocus={focusPanelsMenu} />
    <SettingsPanel {settings} {onprune} />
 </header>

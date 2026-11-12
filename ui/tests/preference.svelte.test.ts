@@ -1,9 +1,10 @@
 import { flushSync } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { applyPreference, booleanPreference, detachPreferences, preference, syncPreferences, type PreferenceWriter } from '../src/lib/preference';
+import { applyPreference, booleanPreference, detachPreferences, preference, preferenceFamily, syncPreferences, type PreferenceWriter } from '../src/lib/preference';
 
 const fruit = preference<'apple' | 'pear'>('test.fruit', ['apple', 'pear'], 'apple');
 const lit = booleanPreference('test.lit', true);
+const counts = preferenceFamily<number>('test.counts/', (stored) => (/^\d+$/.test(stored) ? Number(stored) : undefined), String);
 
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.restoreAllMocks());
@@ -323,5 +324,110 @@ describe('the page’s writes', () => {
       localStorage.clear();
       detachPreferences();
       expect(fruit.read()).toBe('apple');
+   });
+});
+
+describe('a preference family', () => {
+   it('takes every key of its prefix from the server, with no value for a text that holds none', async () => {
+      const { write } = answeringWriter();
+
+      await sync({ 'test.counts/a': '1', 'test.counts/b': 'many', 'test.fruit': 'pear' }, write);
+
+      expect(counts.entries()).toEqual([
+         { key: 'test.counts/a', value: 1 },
+         { key: 'test.counts/b', value: undefined },
+      ]);
+   });
+
+   it('stores a write in the page once the server takes it, and never in browser storage', async () => {
+      const { write, writes, sent } = heldWriter();
+      await sync({}, write);
+
+      const writing = counts.write('test.counts/a', 2);
+      await settle();
+      expect(counts.entries()).toEqual([]);
+      writes[0]!.resolve();
+      await writing;
+
+      expect(sent()).toEqual([{ key: 'test.counts/a', text: '2' }]);
+      expect(counts.entries()).toEqual([{ key: 'test.counts/a', value: 2 }]);
+      expect(localStorage.getItem('test.counts/a')).toBeNull();
+   });
+
+   it('deletes a key for null', async () => {
+      const { write } = answeringWriter();
+      await sync({ 'test.counts/a': '1' }, write);
+
+      await counts.write('test.counts/a', null);
+
+      expect(counts.entries()).toEqual([]);
+   });
+
+   it('keeps the page’s text when the server refuses a write, which rejects with the refusal', async () => {
+      const { write, writes } = heldWriter();
+      await sync({ 'test.counts/a': '1' }, write);
+
+      const writing = counts.write('test.counts/a', 2);
+      await settle();
+      writes[0]!.reject();
+
+      await expect(writing).rejects.toThrow('refused');
+      expect(counts.entries()).toEqual([{ key: 'test.counts/a', value: 1 }]);
+   });
+
+   it('refuses a write before the page has read the server’s preferences', async () => {
+      await expect(counts.write('test.counts/a', 2)).rejects.toThrow();
+
+      expect(counts.entries()).toEqual([]);
+   });
+
+   it('keeps a key with a write in flight through a change and a read that the write follows', async () => {
+      const { write, writes } = heldWriter();
+      await sync({ 'test.counts/a': '1' }, write);
+      const writing = counts.write('test.counts/a', 2);
+      await settle();
+
+      applyPreference('test.counts/a', '3');
+      await sync({ 'test.counts/a': '1' }, write);
+      writes[0]!.resolve();
+      await writing;
+
+      expect(counts.entries()).toEqual([{ key: 'test.counts/a', value: 2 }]);
+   });
+
+   it('drops a key that the server lacks on the next read', async () => {
+      const { write } = answeringWriter();
+      await sync({ 'test.counts/a': '1' }, write);
+
+      await sync({ 'test.counts/b': '2' }, write);
+
+      expect(counts.entries()).toEqual([{ key: 'test.counts/b', value: 2 }]);
+   });
+
+   it('follows another page’s changes in a reactive read', async () => {
+      const { write } = answeringWriter();
+      await sync({}, write);
+      const reads: number[][] = [];
+      const stop = $effect.root(() => {
+         $effect(() => void reads.push(counts.entries().map(({ value }) => value ?? -1)));
+      });
+      flushSync();
+
+      applyPreference('test.counts/a', '1');
+      flushSync();
+      applyPreference('test.counts/a', null);
+      flushSync();
+      stop();
+
+      expect(reads).toEqual([[], [1], []]);
+   });
+
+   it('is empty once the page detaches the preferences', async () => {
+      const { write } = answeringWriter();
+      await sync({ 'test.counts/a': '1' }, write);
+
+      detachPreferences();
+
+      expect(counts.entries()).toEqual([]);
    });
 });

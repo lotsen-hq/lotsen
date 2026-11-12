@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Browser, type Locator, type Page } from '@playwright/test';
+import { worldHeader, worldPath, type DemoWorld } from '../demo/pageWorld';
 
 /** The settings that a test page starts with, by their keys in browser storage. */
 export interface DemoSettings {
@@ -36,6 +37,45 @@ export async function openDemoTour(page: Page, tour: string, settings: DemoSetti
       .first()
       .click();
    await page.getByRole('tab', { name: 'Plan' }).click();
+}
+
+/** Returns the world that the page's next load gets, once the demo answers the page's request for one. */
+export async function nextWorld(page: Page): Promise<DemoWorld> {
+   const answered = await page.waitForResponse((response) => new URL(response.url()).pathname === worldPath && response.request().method() === 'POST');
+   return (await answered.json()) as DemoWorld;
+}
+
+/**
+ * Loads the demo in a second page that reaches the world of another page, and waits until the page shows.
+ *
+ * The demo gives each load a world of its own. So the second page's app gets the other world's UI credential, and each request that carries it goes to that world. The demo's own setup of
+ * the second page's world keeps that world's credential and its world. The page has a browser context of its own, because in one context the long-lived requests of both pages hold every
+ * connection that Chromium opens to the demo's host, and the first page's write then never leaves the browser.
+ *
+ * @returns The page, and a function that closes its browser context.
+ */
+export async function openSecondPage(browser: Browser, baseURL: string | undefined, world: DemoWorld): Promise<{ page: Page; close: () => Promise<void> }> {
+   const context = await browser.newContext({ baseURL });
+   try {
+      const page = await context.newPage();
+      await page.route('**/api/**', async (route) => {
+         const headers = route.request().headers();
+         if (new URL(route.request().url()).pathname === '/api/ui-credential') {
+            await route.fulfill({ json: { credential: world.uiCredential } });
+         } else if (headers.authorization === `Bearer ${world.uiCredential}`) {
+            await route.continue({ headers: { ...headers, [worldHeader.toLowerCase()]: world.world } });
+         } else {
+            await route.continue();
+         }
+      });
+      await page.goto('/');
+      // The page waits for a world of its own and binds its sample tours before it shows.
+      await expect(page.getByRole('button', { name: /^(Choose a tour|Tour: .+, choose another)$/ })).toBeVisible({ timeout: 90_000 });
+      return { page, close: () => context.close() };
+   } catch (error) {
+      await context.close();
+      throw error;
+   }
 }
 
 /**
