@@ -40,6 +40,25 @@ test.describe('the workspace', () => {
       await expect(why).toHaveAttribute('aria-expanded', 'false');
    });
 
+   test('keeps the size of every group while a panel that shares its group hides and shows again', async ({ page }) => {
+      await openDemoTour(page, checkoutTour);
+      await dragTab(page, 'Threads', center(page));
+      await page.getByRole('tab', { name: 'Code' }).click();
+      const widths = () => page.getByRole('tablist').evaluateAll((lists) => lists.map((list) => Math.round(list.closest('[role="region"]')!.getBoundingClientRect().width)));
+      const before = await widths();
+      expect(before).toHaveLength(3);
+
+      await page.getByRole('button', { name: 'Hide the code' }).click();
+
+      await expect(page.getByRole('tab', { name: 'Code' })).toBeHidden();
+      expect(await widths()).toEqual(before);
+
+      await showPanel(page, 'Code');
+
+      await expect(region(page, 'Code').getByRole('tab', { name: 'Threads' })).toBeVisible();
+      expect(await widths()).toEqual(before);
+   });
+
    test('opens a thread menu and a tooltip inside a panel dragged to another group', async ({ page }) => {
       await openDemoTour(page, checkoutTour);
 
