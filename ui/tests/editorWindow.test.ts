@@ -43,7 +43,7 @@ afterEach(() => {
    vi.restoreAllMocks();
 });
 
-describe("an editor's size watching", () => {
+describe('an editor that moves into another window', () => {
    it("watches the scroller and the explanation block from the observer of the window that holds them, after they move into another window's document", () => {
       const main = recordingObserver();
       vi.stubGlobal('ResizeObserver', main.Recording);
@@ -65,4 +65,48 @@ describe("an editor's size watching", () => {
       popout.resize(view.scrollDOM);
       expect(measure).toHaveBeenCalled();
    });
+
+   it('measures the editor on a scroll of its scroller or of an element around it, after it moves into another window, and not on the scroll of an element beside it', () => {
+      frame = document.body.appendChild(document.createElement('iframe'));
+      const other = frame.contentWindow! as Window & typeof globalThis;
+      const parent = document.body.appendChild(document.createElement('div'));
+      editor = createDiffEditor({ parent, layout: 'inline', diff, language: null });
+      const view = editor.head!;
+      const beside = other.document.body.appendChild(other.document.createElement('div'));
+      other.document.body.append(parent);
+      editor.follow();
+      const measure = vi.spyOn(EditorView.prototype, 'requestMeasure');
+
+      beside.dispatchEvent(new Event('scroll'));
+      expect(measure).not.toHaveBeenCalled();
+      view.scrollDOM.dispatchEvent(new Event('scroll'));
+      parent.dispatchEvent(new Event('scroll'));
+      expect(measure).toHaveBeenCalledTimes(2);
+   });
+
+   for (const leave of ['follow', 'destroy'] as const) {
+      it(`removes its scroll listener from the other window once the editor ${leave === 'follow' ? 'returns to the main page' : 'is destroyed there'}`, () => {
+         frame = document.body.appendChild(document.createElement('iframe'));
+         const other = frame.contentWindow! as Window & typeof globalThis;
+         const parent = document.body.appendChild(document.createElement('div'));
+         editor = createDiffEditor({ parent, layout: 'inline', diff, language: null });
+         const added = vi.spyOn(other, 'addEventListener');
+         const removed = vi.spyOn(other, 'removeEventListener');
+         other.document.body.append(parent);
+         editor.follow();
+         // CodeMirror adds a scroll listener of its own to the window, without capture.
+         const listener = added.mock.calls.find(([type, , options]) => type === 'scroll' && typeof options === 'object' && options.capture === true)![1];
+
+         if (leave === 'follow') {
+            document.body.append(parent);
+            editor.follow();
+         } else {
+            editor.destroy();
+            editor = null;
+         }
+
+         // An editor's destroy detaches its element, so no later scroll can show a listener left behind.
+         expect(removed).toHaveBeenCalledWith('scroll', listener, { capture: true });
+      });
+   }
 });

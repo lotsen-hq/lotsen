@@ -31,6 +31,10 @@ export function prepareStyles(element: Element): void {
  *
  * CodeMirror observes its scroller from the window that it mounted in, and `setRoot` keeps that observer, which misses resizes in another window (see `PanelDocument.window`). So a resize of
  * the scroller measures the editor again here.
+ *
+ * In another window, a scroll of the scroller or of an element around it measures the editor here too. CodeMirror measures on a scroll only while its IntersectionObserver, which belongs to the
+ * main page's window, reports the editor in view (`DOMObserver.onScroll` in @codemirror/view 6.43.15). Firefox 157's observer reports an editor in a popout window as out of view, so the
+ * editor would otherwise keep the lines that it drew before the scroll.
  */
 class EditorWindow {
    private readonly view: EditorView;
@@ -38,6 +42,12 @@ class EditorWindow {
    private readonly watched = new Map<Element, () => void>();
    private window: Window & typeof globalThis;
    private resizes: ResizeObserver | null = null;
+   private readonly scrolled = (event: Event) => {
+      // A scroll event targets a document or an element.
+      if (event.target === this.view.scrollDOM || (event.target as Node).contains(this.view.dom)) {
+         this.view.requestMeasure();
+      }
+   };
 
    constructor(view: EditorView) {
       this.view = view;
@@ -60,14 +70,14 @@ class EditorWindow {
    follow(): void {
       const current = windowOf(this.view.dom);
       if (current !== this.window) {
-         this.resizes?.disconnect();
+         this.stop();
          this.window = current;
          this.observe();
       }
    }
 
    destroy(): void {
-      this.resizes?.disconnect();
+      this.stop();
       this.resizes = null;
    }
 
@@ -75,6 +85,15 @@ class EditorWindow {
       const ResizeObserver = this.window.ResizeObserver;
       this.resizes = typeof ResizeObserver === 'function' ? new ResizeObserver((entries) => entries.forEach((entry) => this.watched.get(entry.target)?.())) : null;
       this.watched.forEach((_, element) => this.resizes?.observe(element));
+      if (this.window !== window) {
+         // The scroll event of an element does not bubble, so only a capture listener hears it.
+         this.window.addEventListener('scroll', this.scrolled, { capture: true, passive: true });
+      }
+   }
+
+   private stop(): void {
+      this.resizes?.disconnect();
+      this.window.removeEventListener('scroll', this.scrolled, { capture: true });
    }
 }
 

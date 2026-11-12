@@ -57,10 +57,10 @@ stress *ARGS:
 ui-install:
    npm ci
 
-# Download the Chromium build of the UI's Playwright version, for the layout suite. CI also installs its system libraries, which needs sudo.
+# Download the Chromium and Firefox builds of the UI's Playwright version, for the layout suite. CI also installs their system libraries, which needs sudo.
 [working-directory: 'ui']
 ui-browser:
-   npx playwright install chromium
+   npx playwright install chromium firefox
 
 # Build the UI into ui/dist, which a Release build and a publish embed.
 [working-directory: 'ui']
@@ -83,7 +83,7 @@ ui-test-on $LOTSEN_TEST_HOST:
 test-host:
    dotnet build tests/Lotsen.TestHost
 
-# Run the UI's layout suite in Chromium against the demo, which starts the test host and stops it once the suite ends. It builds the host unless LOTSEN_TEST_HOST names a built one.
+# Run the UI's layout suite in Chromium, and its popout specs in Firefox too, against the demo, which starts the test host and stops it once the suite ends. It builds the host unless LOTSEN_TEST_HOST names a built one.
 [working-directory: 'ui']
 ui-e2e:
    npm run e2e
