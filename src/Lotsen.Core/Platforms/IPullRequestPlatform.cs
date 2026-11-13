@@ -48,7 +48,7 @@ public interface IPullRequestPlatform
    /// The iteration's number keeps the promise of <see cref="ResolvedPullRequest.Iteration"/>. Every failure outside the process throws one of the two exceptions below, and any other exception
    /// is a fault of the adapter.
    /// </remarks>
-   /// <exception cref="PlatformException">The platform refused the request or could not be reached.</exception>
+   /// <exception cref="PlatformException">The platform refused the request or could not be reached, or the platform's own storage could not be read or written.</exception>
    /// <exception cref="AccessTokenUnavailableException">The token provider has no token.</exception>
    Task<ResolvedPullRequest> ResolveAsync(Uri url, CancellationToken cancellationToken);
 }
@@ -89,7 +89,7 @@ public enum MentionKind
    PullRequest,
 }
 
-/// <summary>The exception for a platform request that failed, or for a target whose platform lotsen does not know.</summary>
+/// <summary>The exception for a platform request that failed, for a platform's own storage that failed, or for a target whose platform lotsen does not know.</summary>
 public sealed class PlatformException : ExternalFailureException
 {
    /// <param name="message">The reason, written for the reviewer and Claude, which names the pull request and the fix where there is one. It never holds a token.</param>

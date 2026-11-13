@@ -7,7 +7,7 @@ namespace Lotsen.Tests;
 [Trait("Category", "GitHub")]
 public sealed class MentionUrlTests
 {
-   private readonly GitHubPlatform _platform = new(new FixedAccessTokenProvider("token-one"));
+   private readonly GitHubPlatform _platform = FakeGitHub.Offline();
 
    [Theory]
    [InlineData("https://github.com/octo-org/hello-world/pull/42", "https://github.com/octo-org/hello-world/issues/1234")]

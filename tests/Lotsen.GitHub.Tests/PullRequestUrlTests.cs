@@ -6,7 +6,7 @@ namespace Lotsen.Tests;
 [Trait("Category", "Api")]
 public sealed class PullRequestUrlTests
 {
-   private readonly GitHubPlatform _platform = new(new FixedAccessTokenProvider("token-one"));
+   private readonly GitHubPlatform _platform = FakeGitHub.Offline();
 
    [Theory]
    [InlineData("https://github.com/octo-org/hello-world/pull/42")]
