@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+   <ItemGroup>
+      <ProjectReference Include="../../src/Lotsen.Core/Lotsen.Core.csproj" />
+      <ProjectReference Include="../../src/Lotsen.GitHub/Lotsen.GitHub.csproj" />
+   </ItemGroup>
+
+</Project>
