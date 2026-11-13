@@ -4,6 +4,10 @@ The notable changes in each release of lotsen, newest first. Versions follow [se
 
 ## Unreleased
 
+### Changed
+
+- **Stops and diffs load faster, most of all on Windows, where each git process is slow.** lotsen keeps what git told it about a tour's commits in its git fact cache, so a stop that Claude writes again, a diff you open again and the list of changed files after pinning start no git process. The first stop that Claude writes on a pin starts fewer of them too.
+
 ## v0.2.0 - 2026-11-13
 
 ### Added
