@@ -7,10 +7,13 @@ The notable changes in each release of lotsen, newest first. Versions follow [se
 ### Added
 
 - **Choose the size of the page's text.** Settings offers Small, Medium and Large, and the code in the diffs scales with the rest. Medium keeps the sizes of earlier versions.
+- **Choose a color theme.** Settings offers Catppuccin, Visual Studio Code and Gruvbox beside Lotsen's own colors. Each has a light and a dark palette, so the Theme setting still picks light, dark or the system's choice.
+- **Catppuccin and Gruvbox syntax colors** join the Syntax colors setting. It stays separate from the color theme, so you can combine any two.
 
 ### Changed
 
 - **A diff line with thread markers is as tall as any other line**, so its code sits level with its line number.
+- **Gray text in the light theme is darker**, so small labels such as a thread's "Resolved" read clearly on their gray fill.
 - **Stops and diffs load faster, most of all on Windows, where each git process is slow.** lotsen keeps what git told it about a tour's commits in its git fact cache, so a stop that Claude writes again, a diff you open again and the list of changed files after pinning start no git process. The first stop that Claude writes on a pin starts fewer of them too.
 
 ## v0.2.0 - 2026-11-13
