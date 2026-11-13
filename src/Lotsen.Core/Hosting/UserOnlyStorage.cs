@@ -6,7 +6,7 @@ namespace Lotsen.Hosting;
 /// <remarks>
 /// On Windows the directories and files keep the ACL they inherit, which under <c>%LOCALAPPDATA%</c> is user-only.
 /// </remarks>
-internal static class UserOnlyStorage
+public static class UserOnlyStorage
 {
    private const UnixFileMode UserReadWrite = UnixFileMode.UserRead | UnixFileMode.UserWrite;
 
@@ -32,6 +32,9 @@ internal static class UserOnlyStorage
    /// </para>
    /// <para>
    /// Readers must open the file with <see cref="FileShare.Delete"/>. On Windows the rename then replaces the file while they read it, as <see cref="WindowsRename"/> describes.
+   /// </para>
+   /// <para>
+   /// A process must write each path one at a time, because the temporary file's name holds only the process ID, so two writes of one path at once would share it.
    /// </para>
    /// </remarks>
    /// <param name="path">The file to replace. Its directory must exist.</param>
