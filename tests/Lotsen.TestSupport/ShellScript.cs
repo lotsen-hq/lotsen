@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace Lotsen.Tests;
 
-/// <summary>Writes the shell scripts that git runs for a test, such as a hook, and copies the executables that tests run in place of the Azure CLI or a browser.</summary>
+/// <summary>Writes the shell scripts that git runs for a test, such as a hook, and copies the executables that tests run in place of the Azure CLI, the GitHub CLI or a browser.</summary>
 /// <remarks>
 /// A child that <c>Process.Start</c> forks on another thread holds a copy of this process's open files until it execs. If the copy includes a write handle to an executable, a run of that
 /// executable fails with ETXTBSY ("Text file busy"). So <c>install</c> writes each executable in its own process, and this process never opens one for writing.

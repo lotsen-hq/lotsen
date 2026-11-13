@@ -42,6 +42,11 @@ internal sealed class GitFixture : IDisposable
    public CloneCache NewCache(GitOptions? options = null, ICloneDirectories? directories = null, TimeProvider? time = null, ILogger<CloneCache>? logger = null) =>
       new(DataDirectory, directories ?? new CloneDirectories(DataDirectory), new GitRunner(options ?? new GitOptions()), time ?? TimeProvider.System, logger ?? NullLogger<CloneCache>.Instance);
 
+   /// <summary>Clones the URL into a new clone cache with the credential.</summary>
+   /// <param name="transferTimeout">The longest one git run of the clone may take, which is also the validity that git asks of the credential.</param>
+   public async Task CloneAsync(Uri url, IGitCredential credential, TimeSpan transferTimeout, CancellationToken cancellationToken) =>
+      await NewCache(new GitOptions { TransferTimeout = transferTimeout }).OpenAsync(TestRemote.Of(url, credential), [], FetchPolicy.Sync, cancellationToken);
+
    /// <summary>Writes the files (a null content deletes the file), commits them on the current branch and returns the commit.</summary>
    public CommitId Commit(string message, params (string Path, string? Content)[] files)
    {

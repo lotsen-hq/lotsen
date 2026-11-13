@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Lotsen.Tests;
 
 /// <summary>A copy of the test child program that stands in for the Azure CLI. It records its arguments, then prints and exits with what the test set.</summary>
-/// <remarks>The program reads the files that the test sets from the directory of its copy, as its <c>FakeAzureCli</c> method says.</remarks>
+/// <remarks>The program reads the files that the test sets from the directory of its copy, as its <c>FakeCli</c> method says.</remarks>
 internal sealed class FakeAzureCli : IDisposable
 {
    private readonly string _root = Directory.CreateTempSubdirectory("lotsen-az-").FullName;

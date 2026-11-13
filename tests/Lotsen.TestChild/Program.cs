@@ -4,8 +4,8 @@ using System.Globalization;
 namespace Lotsen.TestChild;
 
 /// <summary>
-/// Runs one behavior that a test asks of a child process, named by the first argument. Run as an executable named <c>az</c>, it stands in for the Azure CLI instead, as <see cref="FakeAzureCli(string[])"/>
-/// says.
+/// Runs one behavior that a test asks of a child process, named by the first argument. Run as an executable named <c>az</c> or <c>gh</c>, it stands in for the Azure CLI or the GitHub CLI
+/// instead, as <see cref="FakeCli(string[])"/> says.
 /// </summary>
 /// <remarks>
 /// The behaviors are <c>print &lt;code&gt; &lt;output&gt; &lt;error&gt;</c>, <c>flood &lt;bytes&gt;</c>, which writes that many bytes to each output, <c>echo</c>, which copies the input to the
@@ -20,9 +20,9 @@ public static class Program
 
    public static int Main(string[] args)
    {
-      if (Path.GetFileNameWithoutExtension(Environment.ProcessPath) == "az")
+      if (Path.GetFileNameWithoutExtension(Environment.ProcessPath) is "az" or "gh")
       {
-         return FakeAzureCli(args);
+         return FakeCli(args);
       }
 
       switch (args)
@@ -91,7 +91,7 @@ public static class Program
 
    /// <summary>Records the arguments in <c>arguments.log</c>, then sleeps if <c>hang</c> exists, or prints <c>stdout</c> and <c>stderr</c> and exits with the code in <c>exit-code</c>.</summary>
    /// <remarks>The files sit beside the executable, in the directory that the test copied this program to.</remarks>
-   private static int FakeAzureCli(string[] args)
+   private static int FakeCli(string[] args)
    {
       var directory = AppContext.BaseDirectory;
       File.AppendAllText(Path.Combine(directory, "arguments.log"), string.Join(' ', args) + "\n");
