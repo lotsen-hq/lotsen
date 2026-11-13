@@ -89,7 +89,8 @@ test('an inline explanation sits below its primary passage, and follows a revisi
    await expect(block(page)).toHaveCount(0);
    await page.getByRole('button', { name: `Write “${oldForm}”` }).click();
 
-   await expect(block(page).getByRole('heading', { name: oldForm })).toBeVisible();
+   // The write and the diff that follows each run several git processes, which took 5 seconds together on the Windows CI runner.
+   await expect(block(page).getByRole('heading', { name: oldForm })).toBeVisible({ timeout: 15_000 });
    const written = block(page).locator('xpath=preceding-sibling::div[contains(@class, "cm-line")][1]');
    await expect(written).toHaveClass(/lotsen-passage-primary/);
    expect((await edges(block(page))).top).toBeCloseTo((await edges(written)).bottom, 0);
