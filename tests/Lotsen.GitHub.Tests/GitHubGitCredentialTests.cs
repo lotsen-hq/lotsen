@@ -48,7 +48,7 @@ public sealed class GitHubGitCredentialTests : IDisposable
    [Fact]
    public async Task Platform_presents_the_gh_token_to_git()
    {
-      var platform = new GitHubPlatform(new FixedAccessTokenProvider("token-one"));
+      using var platform = FakeGitHub.Offline();
 
       var answer = await platform.GitCredential.AnswerAsync(TimeSpan.FromMinutes(1), Cancellation);
 

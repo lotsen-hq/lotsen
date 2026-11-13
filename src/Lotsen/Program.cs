@@ -1,6 +1,7 @@
 using System.Reflection;
 using Lotsen.AzureDevOps;
 using Lotsen.Cli;
+using Lotsen.GitHub;
 using Lotsen.Hosting;
 
 namespace Lotsen;
@@ -9,10 +10,10 @@ namespace Lotsen;
 internal static class Program
 {
    /// <summary>The assemblies that make up the executable, whose module version IDs form its build identity.</summary>
-   internal static IReadOnlyList<Assembly> Assemblies { get; } = [typeof(Program).Assembly, typeof(Commands).Assembly, typeof(AzureDevOpsPlatform).Assembly];
+   internal static IReadOnlyList<Assembly> Assemblies { get; } = [typeof(Program).Assembly, typeof(Commands).Assembly, typeof(AzureDevOpsPlatform).Assembly, typeof(GitHubPlatform).Assembly];
 
    /// <summary>The versions of this executable, which a server and an adapter of the same build agree on.</summary>
    internal static VersionInfo Version { get; } = VersionInfo.FromAssemblies(Assemblies);
 
-   public static Task<int> Main(string[] args) => Commands.RunAsync(args, Version, [AzureDevOpsPlatform.Factory()]);
+   public static Task<int> Main(string[] args) => Commands.RunAsync(args, Version, [AzureDevOpsPlatform.Factory(), GitHubPlatform.Factory()]);
 }

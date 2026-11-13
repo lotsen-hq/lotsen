@@ -1,8 +1,9 @@
+using System.Text.Json.Nodes;
 using Lotsen.Hosting;
 
 namespace Lotsen.Tests;
 
-/// <summary>Covers how the lotsen executable reads its command line, as separate processes.</summary>
+/// <summary>Covers how the lotsen executable reads its command line and which platforms it registers, as separate processes.</summary>
 [Trait("Category", "Cli")]
 public sealed class CliTests : IDisposable
 {
@@ -421,16 +422,29 @@ public sealed class CliTests : IDisposable
       Assert.Contains("or else 64 MiB.", standardOutput);
    }
 
-   public void Dispose()
+   /// <summary>The background server finds no Azure CLI and no GitHub CLI on its PATH, so the pins of both tours fail before any request to a platform.</summary>
+   [Fact]
+   public async Task Executable_registers_the_Azure_DevOps_and_GitHub_platforms()
    {
-      try
-      {
-         TestDirectories.Delete(Path.GetDirectoryName(_dataDirectory.Path)!, BackgroundServerProcesses.CleanupWait);
-      }
-      catch (IOException)
-      {
-      }
+      const string AzureDevOpsUrl = "https://dev.azure.com/contoso/shop/_git/web/pullrequest/42";
+      const string GitHubUrl = "https://github.com/octo-org/hello-world/pull/42";
+      var environment = LotsenProcess.WithoutBrowser();
+      environment["PATH"] = Path.Combine(_dataDirectory.Path, "no-tools");
+      using var adapter = AdapterProcess.Start(_dataDirectory.Path, environment);
+      await adapter.InitializeAsync();
+
+      var azureDevOps = await adapter.CallToolAsync(2, "create_tour", $$"""{ "prUrl": "{{AzureDevOpsUrl}}", "familiarity": "some" }""");
+      var gitHub = await adapter.CallToolAsync(3, "create_tour", $$"""{ "prUrl": "{{GitHubUrl}}/files", "familiarity": "some" }""");
+
+      Assert.False(azureDevOps.IsError || gitHub.IsError, $"{azureDevOps.Text}\n{gitHub.Text}\n{adapter.Output}");
+      Assert.Equal(("azureDevOps", AzureDevOpsUrl), TargetOf(azureDevOps));
+      Assert.Equal(("github", GitHubUrl), TargetOf(gitHub));
    }
+
+   public void Dispose() => BackgroundServerProcesses.CleanUp(_dataDirectory);
+
+   private static (string? Platform, string? Url) TargetOf(ToolResult created) =>
+      JsonNode.Parse(created.Text)!["target"] is { } target ? ((string?)target["platform"], (string?)target["url"]) : (null, null);
 
    private static Dictionary<string, string> FactCacheVariable(string value) => new() { [FactCacheSize.Variable] = value };
 
