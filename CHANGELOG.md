@@ -4,6 +4,8 @@ The notable changes in each release of lotsen, newest first. Versions follow [se
 
 ## Unreleased
 
+## v0.2.0 - 2026-11-13
+
 ### Added
 
 - **Dockable panels.** Drag a panel to any side of another, or into a group of tabs. The layout is saved and comes back on the next load. The Panels menu applies a ready-made arrangement (Default, Columns, or Explanation above the diff), saves and applies your own named layouts, and resets the layout.
