@@ -18,7 +18,7 @@ just check      # everything CI runs: formatting, lint, the UI's tests, the layo
 just --list     # every recipe
 ```
 
-[`ui/README.md`](ui/README.md) covers the web UI and its demo, which runs sample tours with no Claude Code session. [`docs/live-test.md`](docs/live-test.md) shows how to tour a real pull request with your own build, which needs access to an Azure DevOps repository.
+[`ui/README.md`](ui/README.md) covers the web UI and its demo, which runs sample tours with no Claude Code session. [`docs/live-test.md`](docs/live-test.md) shows how to tour a real pull request with your own build, which needs access to an Azure DevOps or GitHub repository.
 
 ## Make a change
 
