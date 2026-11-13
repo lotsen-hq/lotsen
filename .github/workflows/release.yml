@@ -42,11 +42,26 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # The plugin at the release's tag starts the npm version that plugin/.mcp.json names, so it must be the one that this release publishes.
       - name: Require plugin/.mcp.json to start this version
         run: node npm/check-release-version.mjs "$TAG"
+
+      # A stable release publishes its section of CHANGELOG.md as the release's notes, and the summary shows them to the reviewer who approves the npm job. A pre-release gets GitHub's
+      # generated notes.
+      - name: Write the release notes
+        if: ${{ !contains(inputs.version, '-') }}
+        run: |
+          node npm/release-notes.mjs "$TAG" > release-notes.md
+          { echo "## Release notes of $TAG"; echo; cat release-notes.md; } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !contains(inputs.version, '-') }}
+        with:
+          name: release-notes
+          path: release-notes.md
+          if-no-files-found: error
 
       - name: Require passing CI on this commit
         run: |
@@ -84,9 +99,9 @@ jobs:
       EXECUTABLE: ${{ matrix.executable }}
       ASSET: ${{ matrix.asset }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
 
@@ -95,7 +110,7 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang zlib1g-dev
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -141,7 +156,7 @@ jobs:
       - name: Name the executable after its platform
         run: mkdir asset && cp "$PUBLISH/$EXECUTABLE" "asset/$ASSET"
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.asset }}
           path: asset/${{ matrix.asset }}
@@ -149,15 +164,18 @@ jobs:
 
   npm:
     needs: build
+    # The npm environment's required reviewer approves the release here, before anything public: the npm packages, the tag, the GitHub release and the marketplace entry. Read the
+    # release notes in the check job's summary, and try the executables from the run's artifacts, before approving.
+    environment: npm
     # Trusted publishing proves the run to npm through OIDC, so no npm token exists, and this job cannot write to the repository: https://docs.npmjs.com/trusted-publishers
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
@@ -172,9 +190,10 @@ jobs:
               process.exit(1);
             }' "$(npm --version)"
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: assets
+          pattern: lotsen-*
           merge-multiple: true
 
       - name: Strip the v from the version
@@ -199,17 +218,43 @@ jobs:
             fi
           done < tarballs.txt
 
-  publish:
+  attest:
     needs: npm
+    # Each executable gets a provenance attestation that this workflow built it at this commit, which `gh attestation verify` checks. Trusted publishing gives the npm packages their
+    # own: https://docs.npmjs.com/trusted-publishers#automatic-provenance-generation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: assets
+          pattern: lotsen-*
+          merge-multiple: true
+
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: assets/lotsen-*
+
+  publish:
+    needs: attest
     # Only this job's token can write to the repository, so it runs nothing from the packages that the build installs.
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: assets
+          pattern: lotsen-*
           merge-multiple: true
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: ${{ !contains(inputs.version, '-') }}
+        with:
+          name: release-notes
 
       # The checksum file lets anyone who downloads an executable by hand check it.
       - name: Write the checksum file
@@ -221,9 +266,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          flags=(--repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$TAG" --generate-notes)
+          flags=(--repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$TAG")
           if [[ "$TAG" == *-* ]]; then
-            flags+=(--prerelease)
+            flags+=(--prerelease --generate-notes)
+          else
+            flags+=(--notes-file release-notes.md)
           fi
           gh release create "$TAG" assets/* "${flags[@]}"
 

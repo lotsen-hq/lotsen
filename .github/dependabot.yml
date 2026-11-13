@@ -1,0 +1,14 @@
+version: 2
+updates:
+  # The workflows pin each action to a commit SHA with its release in a comment on the same line, and Dependabot moves both:
+  # https://docs.github.com/en/actions/reference/security/secure-use#keeping-the-actions-in-your-workflows-secure-and-up-to-date
+  # The cooldown leaves a new release a week before the workflows take it.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]

@@ -33,9 +33,9 @@ jobs:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
 
@@ -43,7 +43,7 @@ jobs:
       - name: Install native toolchain
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang zlib1g-dev
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -115,7 +115,7 @@ jobs:
       - name: Check the npm packages
         run: node npm/check.mjs src/Lotsen/bin/Release/net11.0/linux-x64/publish/lotsen
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lotsen-linux-x64
           path: src/Lotsen/bin/Release/net11.0/linux-x64/publish/lotsen
@@ -135,13 +135,13 @@ jobs:
       PUBLISH: src/Lotsen/bin/Release/net11.0/win-x64/publish
     # The formatting, lint and type checks run in the linux job alone, because they check the same files on every platform.
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -178,7 +178,7 @@ jobs:
         # One worker, because a second worker's git processes on this runner slowed the test host's calls by seconds.
         run: npm run e2e -- --workers 1
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: layout-suite-traces-windows

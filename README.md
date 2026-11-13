@@ -127,4 +127,4 @@ Bug reports, ideas and pull requests are welcome: [`CONTRIBUTING.md`](CONTRIBUTI
 
 Lotsen is licensed under the [Apache License, Version 2.0](LICENSE). The third-party notices are built into the executable, and Settings in the web UI links to them. The UI build writes them from the packages that it bundles, the Seti notices in [`ui/src/seti/`](ui/src/seti) and [`ui/third-party/notices.txt`](ui/third-party/notices.txt), which covers the .NET runtime and the NuGet packages.
 
-Releases follow semantic versioning, as [`docs/versioning.md`](docs/versioning.md) describes.
+Releases follow semantic versioning, as [`docs/versioning.md`](docs/versioning.md) describes, and [`CHANGELOG.md`](CHANGELOG.md) lists what each one changed. `docs/versioning.md` also shows how to check that a downloaded executable came from the release workflow.
