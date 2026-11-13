@@ -298,6 +298,17 @@
       @apply inline-flex flex-wrap gap-1 align-baseline;
    }
 
+   /* A file heading's markers take the room that its file name leaves before its directory gets any, so their labels truncate before the name. */
+   .thread-markers.in-file-heading {
+      @apply w-0 max-w-fit flex-nowrap overflow-clip;
+      flex-grow: 1000;
+
+      /* The clip cuts what the markers cannot fit, so the focus ring and the forced-colors outline stay inside each marker. */
+      & .thread-marker {
+         @apply min-w-0 -outline-offset-2 ring-inset;
+      }
+   }
+
    /* Claude's name at the top of each of Claude's messages in a thread view. */
    .claude-name {
       @apply flex items-center gap-1.5 font-semibold text-claude-marker;

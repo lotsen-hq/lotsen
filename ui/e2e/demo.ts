@@ -8,6 +8,7 @@ export interface DemoSettings {
    viewMode?: 'wholePr' | 'stopFiles' | 'stepThrough';
    theme?: 'system' | 'light' | 'dark';
    messageStyle?: 'bubbles' | 'fullWidth';
+   fontSize?: 'small' | 'medium' | 'large';
 }
 
 /** The checkout sample tour, which pins the storefront change with every kind of stop. */
@@ -21,6 +22,7 @@ export async function openDemoTour(page: Page, tour: string, settings: DemoSetti
       'lotsen.defaultViewMode': settings.viewMode,
       'lotsen.theme': settings.theme,
       'lotsen.messageStyle': settings.messageStyle,
+      'lotsen.fontSize': settings.fontSize,
    };
    await page.addInitScript((values) => {
       for (const [key, value] of Object.entries(values)) {

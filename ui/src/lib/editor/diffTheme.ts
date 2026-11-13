@@ -56,11 +56,14 @@ const theme = EditorView.theme({
    '.cm-lineNumbers .cm-gutterElement.lotsen-passage-related': { color: 'var(--passage-related-marker)' },
    '.cm-lineNumbers .cm-gutterElement.lotsen-reference-hovered': { color: 'var(--reference-hovered-marker)' },
    '.cm-line.lotsen-dimmed, .cm-deletedLine.lotsen-dimmed, .cm-gutterElement.lotsen-dimmed': { opacity: 'var(--dimmed-opacity)' },
+   // CodeMirror's buffer beside a widget is 1em tall on the baseline, which reaches above the line at a fractional font size and makes the line taller, so it starts at the text's top.
+   '.cm-widgetBuffer': { verticalAlign: 'text-top' },
    // A label sticks to the right edge of the view when its line runs past it, so a long line in a narrow pane does not hide it.
    '.lotsen-passageLabels': { display: 'inline-block', position: 'sticky', right: '0', marginLeft: '2em' },
    // A line's thread markers stick to the right edge of the view, as its labels do.
    // A marker over the code is narrower than elsewhere, so it hides less of a long line.
-   '.lotsen-threadMarkers': { display: 'inline-flex', gap: '4px', position: 'sticky', right: '0', marginLeft: '1em' },
+   // The markers hang from the line's top, because on the baseline their box reaches above the line and makes it taller.
+   '.lotsen-threadMarkers': { display: 'inline-flex', gap: '4px', verticalAlign: 'top', position: 'sticky', right: '0', marginLeft: '1em' },
    '.lotsen-threadMarkers .thread-marker': { maxWidth: '14em' },
    '.cm-lineNumbers .cm-gutterElement.lotsen-thread': { boxShadow: 'inset -3px 0 0 var(--thread-marker)' },
    // A deleted chunk has one gutter element for all its lines, so a deleted line in a thread draws the stripe in the chunk's left padding, clear of a passage's bar.

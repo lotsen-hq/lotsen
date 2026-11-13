@@ -109,7 +109,9 @@
       {@render navigation()}
    </div>
    {#if unsentAnswers > 0}
-      <span class="rounded-sm bg-muted px-1.5 text-sm text-muted-foreground" role="status" data-unsent-answers>{unsentAnswers === 1 ? '1 unsent answer' : `${unsentAnswers} unsent answers`}</span>
+      <span class="shrink-0 rounded-sm bg-muted px-1.5 text-sm whitespace-nowrap text-muted-foreground" role="status" data-unsent-answers
+         >{unsentAnswers === 1 ? '1 unsent answer' : `${unsentAnswers} unsent answers`}</span
+      >
    {/if}
    {#if hasAnswersToSend(sendAnswers)}
       <Button

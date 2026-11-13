@@ -20,7 +20,7 @@
    } = $props();
 </script>
 
-<ThreadMarkers {threads} {onopenthread} />
+<ThreadMarkers {threads} {onopenthread} class="in-file-heading" />
 {#if onask !== null}
    <TooltipButton variant="ghost" size="icon-xs" class="shrink-0" tooltip="Ask Claude about this file" aria-label="Ask Claude about {name}" onclick={onask}>
       <MessageSquarePlus class="size-4" aria-hidden="true" />
