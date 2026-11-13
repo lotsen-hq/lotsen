@@ -1,13 +1,15 @@
 import { preference } from './preference';
 
 /** A syntax color family for the diff editors, with a light and a dark palette in `syntax-colors.css`. The theme picks the palette. */
-export type SyntaxColors = 'lotsen' | 'vscode' | 'visualStudio';
+export type SyntaxColors = 'lotsen' | 'vscode' | 'visualStudio' | 'catppuccin' | 'gruvbox';
 
 /** The families in the order that the settings offer them, with their labels. */
 export const syntaxColorChoices: readonly { value: SyntaxColors; label: string }[] = [
    { value: 'lotsen', label: 'Lotsen' },
    { value: 'vscode', label: 'Visual Studio Code' },
    { value: 'visualStudio', label: 'Visual Studio' },
+   { value: 'catppuccin', label: 'Catppuccin' },
+   { value: 'gruvbox', label: 'Gruvbox' },
 ];
 
 /** The family the reviewer last chose, Lotsen's own by default. */

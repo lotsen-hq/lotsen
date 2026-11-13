@@ -36,7 +36,7 @@
 }
 
 /*
- * The other families' values are the tokenColors of VS Code's default themes, Copyright (c) Microsoft Corporation, MIT License: extensions/theme-defaults/themes/ in
+ * The Visual Studio Code and Visual Studio families' values are the tokenColors of VS Code's default themes, Copyright (c) Microsoft Corporation, MIT License: extensions/theme-defaults/themes/ in
  * microsoft/vscode at 79749f565febf2216982fce236448995e0c4bde9. Visual Studio Code is Light Modern and Dark Modern, through the light_plus.json and dark_plus.json they include.
  * Visual Studio is light_vs.json and dark_vs.json, the closest published palettes, because Visual Studio's own are not published. Each role takes the color of one scope, as a
  * TextMate prefix match resolves it: keyword, keyword.control, string, constant.numeric, constant.language, comment, entity.name.type, entity.name.function, variable.other.property,
@@ -105,4 +105,79 @@
    --syntax-tag: #569cd6;
    --syntax-operator: #d4d4d4;
    --syntax-invalid: #f44747;
+}
+
+/*
+ * Catppuccin is the tokenColors of themes/latte.json for light and themes/mocha.json for dark in @catppuccin/vscode 3.18.1 on npm, from catppuccin/vscode, Copyright (c) 2021 Catppuccin,
+ * MIT License. Each role takes the color of its scope as above. variable.other.property and invalid have no color, so they take editor.foreground. The comment scope sets italic.
+ */
+
+:root[data-syntax-colors='catppuccin'] {
+   --syntax-keyword: #8839ef;
+   --syntax-control: #8839ef;
+   --syntax-string: #40a02b;
+   --syntax-number: #fe640b;
+   --syntax-constant: #d20f39;
+   --syntax-comment: #7c7f93;
+   --syntax-comment-style: italic;
+   --syntax-type: #df8e1d;
+   --syntax-function: #1e66f5;
+   --syntax-property: #4c4f69;
+   --syntax-tag: #1e66f5;
+   --syntax-operator: #179299;
+   --syntax-invalid: #4c4f69;
+}
+
+:root.dark[data-syntax-colors='catppuccin'] {
+   --syntax-keyword: #cba6f7;
+   --syntax-control: #cba6f7;
+   --syntax-string: #a6e3a1;
+   --syntax-number: #fab387;
+   --syntax-constant: #f38ba8;
+   --syntax-comment: #9399b2;
+   --syntax-comment-style: italic;
+   --syntax-type: #f9e2af;
+   --syntax-function: #89b4fa;
+   --syntax-property: #cdd6f4;
+   --syntax-tag: #89b4fa;
+   --syntax-operator: #94e2d5;
+   --syntax-invalid: #cdd6f4;
+}
+
+/*
+ * Gruvbox is the syntax groups of colors/gruvbox.vim in morhetz/gruvbox at ef8864bb42bf244f0295d1c5a403b27e3d139695, by Pavel Pertsev, MIT License as its README and package.json state. Light
+ * takes the faded accents and dark the bright ones, as gruvbox.vim does. The roles take Keyword, Conditional, String, Number, Boolean, Comment, Type, Function, Identifier, htmlTagName,
+ * Operator and Error, in the order of the scopes above. Operator links to Normal, so it takes fg1. Comments are italic, as gruvbox.vim draws them in the GUI by default.
+ */
+
+:root[data-syntax-colors='gruvbox'] {
+   --syntax-keyword: #9d0006;
+   --syntax-control: #9d0006;
+   --syntax-string: #79740e;
+   --syntax-number: #8f3f71;
+   --syntax-constant: #8f3f71;
+   --syntax-comment: #928374;
+   --syntax-comment-style: italic;
+   --syntax-type: #b57614;
+   --syntax-function: #79740e;
+   --syntax-property: #076678;
+   --syntax-tag: #427b58;
+   --syntax-operator: #3c3836;
+   --syntax-invalid: #9d0006;
+}
+
+:root.dark[data-syntax-colors='gruvbox'] {
+   --syntax-keyword: #fb4934;
+   --syntax-control: #fb4934;
+   --syntax-string: #b8bb26;
+   --syntax-number: #d3869b;
+   --syntax-constant: #d3869b;
+   --syntax-comment: #928374;
+   --syntax-comment-style: italic;
+   --syntax-type: #fabd2f;
+   --syntax-function: #b8bb26;
+   --syntax-property: #83a598;
+   --syntax-tag: #8ec07c;
+   --syntax-operator: #ebdbb2;
+   --syntax-invalid: #fb4934;
 }

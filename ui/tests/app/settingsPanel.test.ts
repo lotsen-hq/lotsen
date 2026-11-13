@@ -238,26 +238,30 @@ describe('the settings panel', () => {
          expect(checked(panel, 'Syntax colors', 'Lotsen')).toBe(true);
          const palettes = new Map<string, string[]>();
 
-         for (const family of ['Lotsen', 'Visual Studio Code', 'Visual Studio']) {
+         for (const family of ['Lotsen', 'Visual Studio Code', 'Visual Studio', 'Catppuccin', 'Gruvbox']) {
             fireEvent.click(radio(panel, 'Syntax colors', family));
             expect(checked(panel, 'Syntax colors', family)).toBe(true);
             for (const theme of ['Light', 'Dark']) {
                fireEvent.click(radio(panel, 'Theme', theme));
                palettes.set(`${family} ${theme}`, palette());
-               expect(commentStyle()).toBe(family === 'Lotsen' ? 'italic' : 'normal');
+               expect(commentStyle()).toBe(family.startsWith('Visual Studio') ? 'normal' : 'italic');
             }
          }
 
          for (const colors of palettes.values()) {
             expect(colors.every((color) => /^#[0-9a-f]{6}$/.test(color))).toBe(true);
          }
-         expect(new Set([...palettes.values()].map(String)).size).toBe(6);
+         expect(new Set([...palettes.values()].map(String)).size).toBe(10);
          expect(palettes.get('Lotsen Light')![0]).toBe('#8250df');
          expect(palettes.get('Visual Studio Code Light')![0]).toBe('#0000ff');
          expect(palettes.get('Visual Studio Code Dark')![4]).toBe('#4ec9b0');
          expect(palettes.get('Visual Studio Dark')![4]).toBe('#d4d4d4');
          expect(palettes.get('Visual Studio Code Light')!.slice(10)).toEqual(['#af00db', '#0000ff']);
          expect(palettes.get('Visual Studio Code Dark')!.slice(10)).toEqual(['#c586c0', '#569cd6']);
+         expect(palettes.get('Catppuccin Light')![0]).toBe('#8839ef');
+         expect(palettes.get('Catppuccin Dark')![5]).toBe('#89b4fa');
+         expect(palettes.get('Gruvbox Light')![0]).toBe('#9d0006');
+         expect(palettes.get('Gruvbox Dark')![4]).toBe('#fabd2f');
       });
 
       it('keeps the family in browser storage and opens with it the next time', async () => {
