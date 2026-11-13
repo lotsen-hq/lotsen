@@ -1,4 +1,3 @@
-using Lotsen.Git;
 using Lotsen.Tours;
 
 namespace Lotsen.Operations;
@@ -49,8 +48,8 @@ internal sealed class GitPhase
       }
    }
 
-   /// <summary>Runs a query on the read tour's clone at its pin, as <see cref="FileOperations.OnRepositoryAsync"/> does, and records the pin as <see cref="Pin"/> does.</summary>
-   public async Task<OperationResult<T>> OnRepositoryAsync<T>(FileOperations files, FieldPath field, Func<GitRepository, TourPin.Pinned, Task<OperationResult<T>>> query)
+   /// <summary>Runs passage checks on the read tour at its pin, as <see cref="FileOperations.OnFactsAsync"/> runs a query, and records the pin as <see cref="Pin"/> does.</summary>
+   public async Task<OperationResult<T>> OnPassagesAsync<T>(FileOperations files, FieldPath field, Func<StopPassages, Task<OperationResult<T>>> query)
       where T : class
    {
       var pin = Pin(field);
@@ -59,7 +58,7 @@ internal sealed class GitPhase
          return pin.Error!;
       }
 
-      return await files.OnRepositoryAsync(_tour, pinned, repository => query(repository, pinned), _cancellationToken);
+      return await files.OnFactsAsync(_tour, pinned, facts => query(new StopPassages(facts, pinned)));
    }
 
    // Returns the refusal when the latest tour's pin is not the one that the phase read at.

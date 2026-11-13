@@ -10,20 +10,19 @@ namespace Lotsen.Operations;
 /// </summary>
 /// <remarks>
 /// The file of a passage or a code reference must be a <see cref="ReadableFile"/> on its side, because the check reads the whole file. Each file is read once per instance, however many passages
-/// and references name it. A lookup downloads the content that the clone lacks, so a write downloads its files first with <see cref="GitPhase.DownloadAsync"/>, in one fetch.
+/// and references name it. The reads are git facts, so a file that the fact memo holds runs no git. A lookup downloads the content that the clone lacks, so a write downloads its files first
+/// with <see cref="GitPhase.DownloadAsync"/>, in one fetch.
 /// </remarks>
 internal sealed class StopPassages
 {
-   private readonly GitRepository _repository;
+   private readonly IFactScope _facts;
    private readonly TourPin.Pinned _pin;
    private readonly Dictionary<(FileSide Side, string Path), FileRead> _files = [];
-   private readonly PinDiffReader _diffs;
 
-   public StopPassages(GitRepository repository, TourPin.Pinned pin)
+   public StopPassages(IFactScope facts, TourPin.Pinned pin)
    {
-      _repository = repository;
+      _facts = facts;
       _pin = pin;
-      _diffs = new PinDiffReader(repository, pin.MergeBase, pin.Head);
    }
 
    /// <summary>Checks every passage and then every code reference of a stop, and returns the passages to store, each with its commit and text.</summary>
@@ -33,7 +32,7 @@ internal sealed class StopPassages
    /// <param name="cancellationToken">Stops the checks.</param>
    /// <returns>The passages in input order, or the error of the first passage or code reference that fails a check, under its field.</returns>
    /// <remarks>One lookup finds the files of the passages and the references, as <see cref="ReadAllAsync"/> describes.</remarks>
-   /// <exception cref="GitException">Git could not read the clone.</exception>
+   /// <exception cref="Platforms.ExternalFailureException">Git could not open or read the clone.</exception>
    public async Task<OperationResult<IReadOnlyList<StopPassage>>> CheckAsync(
       IReadOnlyList<PassageInput> passages, StopKind kind, IReadOnlyList<ProseReference> references, CancellationToken cancellationToken)
    {
@@ -78,7 +77,7 @@ internal sealed class StopPassages
    /// One lookup finds the references' files, as <see cref="ReadAllAsync"/> describes. A code reference may point at unchanged code on either side, so the diff rule of a primary passage does
    /// not apply.
    /// </remarks>
-   /// <exception cref="GitException">Git could not read the clone.</exception>
+   /// <exception cref="Platforms.ExternalFailureException">Git could not open or read the clone.</exception>
    public async Task<OperationError?> CheckReferencesAsync(IReadOnlyList<ProseReference> references, CancellationToken cancellationToken)
    {
       await ReadAllAsync(FilesOf(references), cancellationToken);
@@ -93,7 +92,7 @@ internal sealed class StopPassages
    /// <param name="field">The input field of the lines, which each error names with its own property, as in <c>passages[0].path</c>.</param>
    /// <param name="cancellationToken">Stops the read.</param>
    /// <returns>The whole file's lines, or the error that says which check failed.</returns>
-   /// <exception cref="GitException">Git could not read the clone.</exception>
+   /// <exception cref="Platforms.ExternalFailureException">Git could not open or read the clone.</exception>
    public async Task<OperationResult<FileLines>> ReadLinesAsync(FileSide side, string path, int startLine, int endLine, FieldPath field, CancellationToken cancellationToken)
    {
       var (lines, problem) = await ReadAsync(side, path, startLine, endLine, cancellationToken);
@@ -105,9 +104,9 @@ internal sealed class StopPassages
    /// <param name="path">The file's repository path, which follows <see cref="RepositoryPath.IsValid"/>.</param>
    /// <param name="field">The input field of the file, whose <c>path</c> property the error names, as in <c>anchor.path</c>.</param>
    /// <param name="cancellationToken">Stops the query.</param>
-   /// <exception cref="GitException">Git could not read the clone.</exception>
+   /// <exception cref="Platforms.ExternalFailureException">Git could not open or read the clone.</exception>
    public async Task<OperationResult<FileBlob>> FindFileAsync(FileSide side, string path, FieldPath field, CancellationToken cancellationToken) =>
-      await _repository.FindFileAsync(CommitOf(side), path, cancellationToken) is { } file ? file : OperationError.Invalid(field.Then("path"), NotAFile(side, path));
+      await _facts.FactAsync(new FactKey.Blob(CommitOf(side), path), cancellationToken) is { } file ? file : OperationError.Invalid(field.Then("path"), NotAFile(side, path));
 
    /// <inheritdoc cref="TourPin.Pinned.CommitOf"/>
    public CommitId CommitOf(FileSide side) => _pin.CommitOf(side);
@@ -120,13 +119,8 @@ internal sealed class StopPassages
 
    /// <summary>Looks up every file that the instance has not read with one lookup, and reads each text file that the lookup found.</summary>
    /// <remarks>
-   /// <para>
-   /// Every read comes before any diff check, because <see cref="GitRepository"/> keeps only the content that its latest lookup read ahead, and the diff check runs a lookup of its own.
-   /// </para>
-   /// <para>
-   /// When git fails, the instance keeps none of the lookup's files, so each check looks up its own file in input order. A git failure then reaches the caller at the turn of the file that
-   /// causes it, after the checks before it have run, and the first passage that fails a check is still the one reported.
-   /// </para>
+   /// When git fails, the instance keeps none of the lookup's files, so each check looks up its own file in input order. A git failure then reaches the caller at the turn of the file that causes
+   /// it, after the checks before it have run, and the first passage that fails a check is still the one reported.
    /// </remarks>
    private async Task ReadAllAsync(IEnumerable<(FileSide Side, string Path)> files, CancellationToken cancellationToken)
    {
@@ -136,23 +130,18 @@ internal sealed class StopPassages
          return;
       }
 
-      var reads = new FileRead[unread.Count];
       try
       {
-         var found = await _repository.FindFilesAsync([.. unread.Select(file => (CommitOf(file.Side), file.Path))], cancellationToken);
-         for (var i = 0; i < unread.Count; i++)
-         {
-            reads[i] = await ReadFoundAsync(found[i], cancellationToken);
-         }
+         await _facts.ReadAsync([.. unread.SelectMany(file => KeysOf(file.Side, file.Path))], cancellationToken);
       }
       catch (GitException)
       {
          return;
       }
 
-      for (var i = 0; i < unread.Count; i++)
+      foreach (var (side, path) in unread)
       {
-         _files[unread[i]] = reads[i];
+         _files[(side, path)] = ReadOf(side, path);
       }
    }
 
@@ -175,7 +164,8 @@ internal sealed class StopPassages
    {
       if (!_files.TryGetValue((side, path), out var read))
       {
-         read = await ReadFoundAsync(await _repository.FindFileAsync(CommitOf(side), path, cancellationToken), cancellationToken);
+         await _facts.ReadAsync(KeysOf(side, path), cancellationToken);
+         read = ReadOf(side, path);
          _files[(side, path)] = read;
       }
 
@@ -193,13 +183,16 @@ internal sealed class StopPassages
       };
    }
 
-   // Reads the lines of a file that a lookup found, or says why the file has none to read.
-   private async Task<FileRead> ReadFoundAsync(FileBlob? file, CancellationToken cancellationToken) => file switch
+   // The facts that a check of the file's lines reads. The lines of a file that is not readable read no content.
+   private FactKey[] KeysOf(FileSide side, string path) => [new FactKey.Blob(CommitOf(side), path), new FactKey.Lines(CommitOf(side), path)];
+
+   // Returns the lines of a file whose facts the scope read, or says why the file has none to read.
+   private FileRead ReadOf(FileSide side, string path) => _facts.Fact(new FactKey.Blob(CommitOf(side), path)) switch
    {
       null => new FileRead.NotAFile(),
       { Binary: true } => new FileRead.Binary(),
-      { Size: > ReadableFile.MaxSize } => new FileRead.TooLarge(file.Size),
-      _ => new FileRead.Text(new FileLines(await _repository.ReadTextAsync(file, cancellationToken))),
+      { Size: > ReadableFile.MaxSize } file => new FileRead.TooLarge(file.Size),
+      _ => new FileRead.Text(_facts.Fact(new FactKey.Lines(CommitOf(side), path))!),
    };
 
    private static string LineCount(FileLines lines) => lines.Count == 1 ? "1 line" : $"{lines.Count} lines";
@@ -215,9 +208,9 @@ internal sealed class StopPassages
    /// <param name="startLine">The first line, from 1.</param>
    /// <param name="endLine">The last line, not before <paramref name="startLine"/> and not after the file's last line.</param>
    /// <param name="cancellationToken">Stops the query.</param>
-   /// <exception cref="GitException">Git could not read the clone.</exception>
+   /// <exception cref="Platforms.ExternalFailureException">Git could not open or read the clone.</exception>
    public async Task<bool> TouchesDiffAsync(FileSide side, string path, int startLine, int endLine, CancellationToken cancellationToken) =>
-      (await _diffs.ReadAsync(side, path, cancellationToken)).Touches(startLine, endLine);
+      (await _facts.FactAsync(new FactKey.PinDiff(_pin.MergeBase, _pin.Head, side, path), cancellationToken)).Touches(startLine, endLine);
 }
 
 /// <summary>A failed check of the lines that a passage or a code reference names.</summary>

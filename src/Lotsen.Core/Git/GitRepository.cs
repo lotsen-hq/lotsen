@@ -225,6 +225,23 @@ internal sealed class GitRepository : IDisposable
    public async Task DownloadChangedFilesAsync(CommitId from, CommitId to, CancellationToken cancellationToken) =>
       await RunAsync($"Git could not download the changed files between {from} and {to}", ChangedFilesDiff(from, to), cancellationToken, timeout: _git.Options.TransferTimeout);
 
+   /// <summary>Returns the files whose blob the clone lacks, and the paths that name nothing at their commit, with one lookup that downloads nothing.</summary>
+   /// <param name="files">The files, each with its commit. The lookup skips a path that does not follow <see cref="RepositoryPath.IsValid"/>.</param>
+   /// <param name="cancellationToken">Stops git.</param>
+   /// <remarks>A path that names a directory or a submodule is not missing, because the clone holds the trees and git looks up no submodule.</remarks>
+   /// <exception cref="GitException">Git failed.</exception>
+   public async Task<IReadOnlyList<(CommitId Commit, string Path)>> FindMissingAsync(IReadOnlyList<(CommitId Commit, string Path)> files, CancellationToken cancellationToken)
+   {
+      List<(CommitId Commit, string Path)> named = [.. files.Where(file => RepositoryPath.IsValid(file.Path)).Distinct()];
+      if (named.Count == 0)
+      {
+         return [];
+      }
+
+      var objects = await LookUpAsync(named, lazyFetch: false, "Git could not look up the files in the clone", cancellationToken);
+      return [.. named.Where((_, i) => objects[i] is LookedUp.Missing)];
+   }
+
    /// <summary>Downloads into the clone the content of each named file at a commit, so <see cref="FindFileAsync"/> and <see cref="ReadTextAsync"/> of those files download nothing.</summary>
    /// <param name="commit">The commit to look in.</param>
    /// <param name="paths">The files' repository paths. A path that names no file at the commit, as <see cref="FindFileAsync"/> finds one, is skipped.</param>
@@ -504,6 +521,25 @@ internal sealed class GitRepository : IDisposable
 
       var content = await RunAsync($"Git could not read {file.Path} at {file.Commit}", ["cat-file", "blob", file.ObjectId], cancellationToken);
       return content.Text;
+   }
+
+   /// <summary>Returns the texts of several files by object ID, each decoded as <see cref="ReadTextAsync"/> decodes it, with at most one git run for all of them.</summary>
+   /// <remarks>It reads every blob into memory at once, so the caller checks each <see cref="FileBlob.Size"/> first.</remarks>
+   /// <exception cref="GitException">Git failed, as when the remote cannot be reached to download the content.</exception>
+   public async Task<IReadOnlyDictionary<string, string>> ReadTextsAsync(IReadOnlyCollection<FileBlob> files, CancellationToken cancellationToken)
+   {
+      Dictionary<string, byte[]> contents;
+      lock (_contentsLock)
+      {
+         contents = _contents;
+      }
+
+      var objectIds = files.Select(file => file.ObjectId).Distinct().ToList();
+      var unread = objectIds.Where(objectId => !contents.ContainsKey(objectId)).ToList();
+      var read = unread.Count == 0
+         ? []
+         : await ReadBlobsAsync(unread, $"Git could not read {string.Join(" and ", files.Where(file => unread.Contains(file.ObjectId)).Select(file => $"{file.Path} at {file.Commit}"))}", cancellationToken);
+      return objectIds.ToDictionary(objectId => objectId, objectId => Encoding.UTF8.GetString(contents.TryGetValue(objectId, out var content) ? content : read[objectId]), StringComparer.Ordinal);
    }
 
    /// <summary>Returns the regions where a file's lines differ between two commits, comparing every whitespace character.</summary>

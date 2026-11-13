@@ -631,11 +631,13 @@ public sealed class StopReferenceTests : IDisposable
       var head = _fixture.Commit("Head", ("a.txt", "one\n2\n"));
       var git = new RecordingGit(_fixture.ScratchPath);
       var cache = _fixture.NewCache(git.Options);
-      var repository = await cache.OpenAsync(_fixture.Remote(), [mergeBase, head], FetchPolicy.WhenMissing, TestContext.Current.CancellationToken);
+      using var repository = await cache.OpenAsync(_fixture.Remote(), [mergeBase, head], FetchPolicy.WhenMissing, TestContext.Current.CancellationToken);
       var runsBefore = Runs(git).Count;
       var prose = ProseRenderer.Render(string.Concat(Enumerable.Repeat("[a](ref:head/a.txt#L1-2) [b](ref:base/a.txt#L2-2) ", 100)));
 
-      var error = await new StopPassages(repository, new TourPin.Pinned(mergeBase, head, 1, _fixture.Url))
+      await using var facts = new CloneGitFacts(cache, NullLogger<CloneGitFacts>.Instance, budget: 1 << 20).Open(_fixture.Remote(), [mergeBase, head], FetchPolicy.WhenMissing);
+
+      var error = await new StopPassages(facts, new TourPin.Pinned(mergeBase, head, 1, _fixture.Url))
          .CheckReferencesAsync([.. prose.References.Select(reference => new ProseReference("how", reference))], TestContext.Current.CancellationToken);
 
       Assert.Null(error);

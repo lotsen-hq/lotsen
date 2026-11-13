@@ -403,7 +403,7 @@ public sealed class FileApiTests
 
    private static Task<OperationResult<ChangedFileList>> RepositoryQueryAsync(PinnedTourFixture fixture, Tour tour, Exception thrown) =>
       fixture.Harness.Server.Services.GetRequiredService<FileOperations>()
-         .OnRepositoryAsync<ChangedFileList>(tour, (TourPin.Pinned)tour.Pin, _ => Task.FromException<OperationResult<ChangedFileList>>(thrown), TestContext.Current.CancellationToken);
+         .OnFactsAsync<ChangedFileList>(tour, (TourPin.Pinned)tour.Pin, _ => Task.FromException<OperationResult<ChangedFileList>>(thrown));
 
    private static async Task<(int Status, JsonNode Body)> GetAsync(ServerHarness harness, OperationCall call, string input)
    {

@@ -30,6 +30,9 @@ internal sealed class FileLines
    /// <summary>The number of lines, 0 for an empty text.</summary>
    public int Count => _starts.Count;
 
+   /// <summary>The whole text, as the constructor took it.</summary>
+   public string Content => _text;
+
    /// <summary>The length of the text in UTF-16 code units.</summary>
    public int Length => _text.Length;
 

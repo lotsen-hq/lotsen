@@ -143,15 +143,17 @@ internal sealed class FileOperations
 
    private readonly TourWriter _writer;
    private readonly CloneCache _clones;
+   private readonly IGitFacts _facts;
    private readonly PullRequestPlatforms _platforms;
    private readonly BackgroundJobs _jobs;
    private readonly RunningDownloads<DownloadKey> _downloads;
    private readonly ILogger<FileOperations> _logger;
 
-   public FileOperations(TourWriter writer, CloneCache clones, PullRequestPlatforms platforms, BackgroundJobs jobs, ILogger<FileOperations> logger)
+   public FileOperations(TourWriter writer, CloneCache clones, IGitFacts facts, PullRequestPlatforms platforms, BackgroundJobs jobs, ILogger<FileOperations> logger)
    {
       _writer = writer;
       _clones = clones;
+      _facts = facts;
       _platforms = platforms;
       _jobs = jobs;
       _downloads = new RunningDownloads<DownloadKey>();
@@ -166,12 +168,13 @@ internal sealed class FileOperations
    /// object ID, counts while the file stays deleted. The object IDs come from the same git call as the list.
    /// </remarks>
    public Task<OperationResult<ChangedFileList>> ListChangedFilesAsync(ListChangedFilesInput input, CancellationToken cancellationToken) =>
-      OnPinnedTourAsync(
+      OnPinnedFactsAsync(
          input.TourId,
          paths: [],
-         async Task<OperationResult<ChangedFileList>> (repository, pin) =>
+         async Task<OperationResult<ChangedFileList>> (facts, pin) =>
          {
-            var files = (await repository.GetChangedFilesAsync(pin.MergeBase, pin.Head, cancellationToken)).Select(change => ChangedFile.Of(change, LargeFileSize)).ToList();
+            var changes = await facts.FactAsync(new FactKey.ChangedFiles(pin.MergeBase, pin.Head), cancellationToken);
+            var files = changes.Select(change => ChangedFile.Of(change, LargeFileSize)).ToList();
             var read = _writer.ReadMarks(input.TourId);
             if (read.Value is not { } marks)
             {
@@ -180,8 +183,7 @@ internal sealed class FileOperations
 
             var counted = marks.Select(mark => (mark.Path, mark.HeadObjectId)).ToHashSet();
             return new ChangedFileList(pin.MergeBase, pin.Head, files, [.. files.Where(file => counted.Contains((file.Path, file.HeadObjectId))).Select(file => file.Path)]);
-         },
-         cancellationToken);
+         });
 
    /// <summary>Sets the reviewer's review mark on a file of the tour, in place of any mark on the same path.</summary>
    /// <remarks>
@@ -227,7 +229,7 @@ internal sealed class FileOperations
    /// <summary>Returns the entries of one directory at one side of the tour.</summary>
    /// <remarks>The listing has no sizes and no binary marks, so <see cref="ReadFileTextAsync"/> applies the binary and large-file rules when a file is read.</remarks>
    public Task<OperationResult<DirectoryListing>> ListDirectoryAsync(ListDirectoryInput input, CancellationToken cancellationToken) =>
-      OnPinnedTourAsync(
+      OnPinnedRepositoryAsync(
          input.TourId,
          input.Path is null ? [] : [("path", input.Path)],
          async Task<OperationResult<DirectoryListing>> (repository, pin) =>
@@ -249,13 +251,13 @@ internal sealed class FileOperations
    /// <see cref="MaxFileSize"/> is refused.
    /// </remarks>
    public Task<OperationResult<FileText>> ReadFileTextAsync(ReadFileTextInput input, CancellationToken cancellationToken) =>
-      OnPinnedTourAsync(
+      OnPinnedFactsAsync(
          input.TourId,
          [("path", input.Path)],
-         async Task<OperationResult<FileText>> (repository, pin) =>
+         async Task<OperationResult<FileText>> (facts, pin) =>
          {
             var commit = pin.CommitOf(input.Side);
-            var file = await repository.FindFileAsync(commit, input.Path, cancellationToken);
+            var file = await facts.FactAsync(new FactKey.Blob(commit, input.Path), cancellationToken);
             if (file is null)
             {
                return OperationError.FileNotFound($"'{input.Path}' is not a file at the {SideName(input.Side)} of tour {input.TourId}, commit {commit}.");
@@ -270,10 +272,9 @@ internal sealed class FileOperations
             {
                SizeCheck.Withhold => new FileText.Large(input.Path, input.Side, commit, file.Size),
                SizeCheck.Refuse => TooLarge(input.Path, file.Size),
-               _ => new FileText.Decoded(input.Path, input.Side, commit, await repository.ReadTextAsync(file, cancellationToken)),
+               _ => new FileText.Decoded(input.Path, input.Side, commit, (await facts.FactAsync(new FactKey.Lines(commit, input.Path), cancellationToken))!.Content),
             };
-         },
-         cancellationToken);
+         });
 
    /// <summary>Returns the diff of a file between the tour's two commits, or across a rename when the input has an old path.</summary>
    /// <remarks>
@@ -282,13 +283,14 @@ internal sealed class FileOperations
    /// <see cref="MaxFileSize"/> is refused.
    /// </remarks>
    public Task<OperationResult<FileDiff>> DiffFileAsync(DiffFileInput input, CancellationToken cancellationToken) =>
-      OnPinnedTourAsync(
+      OnPinnedFactsAsync(
          input.TourId,
          input.OldPath is null ? [("path", input.Path)] : [("path", input.Path), ("oldPath", input.OldPath)],
-         async Task<OperationResult<FileDiff>> (repository, pin) =>
+         async Task<OperationResult<FileDiff>> (facts, pin) =>
          {
-            var found = await repository.FindFilesAsync([(pin.MergeBase, input.OldPath ?? input.Path), (pin.Head, input.Path)], cancellationToken);
-            var (baseFile, headFile) = (found[0], found[1]);
+            FactKey.Blob baseKey = new(pin.MergeBase, input.OldPath ?? input.Path), headKey = new(pin.Head, input.Path);
+            await facts.ReadAsync([baseKey, headKey], cancellationToken);
+            var (baseFile, headFile) = (facts.Fact(baseKey), facts.Fact(headKey));
             if (input.OldPath is { } oldPath && baseFile is null)
             {
                return OperationError.FileNotFound($"'{oldPath}' is not a file at the base of tour {input.TourId}. Give the oldPath that list_changed_files gives a renamed file.", "oldPath");
@@ -314,10 +316,9 @@ internal sealed class FileOperations
             {
                SizeCheck.Withhold => new FileDiff.Large(size),
                SizeCheck.Refuse => TooLarge(input.Path, size),
-               _ => await FileDiff.ReadTextAsync(repository, baseFile, headFile, input.Whitespace, cancellationToken),
+               _ => await FileDiff.ReadTextAsync(facts, baseFile, headFile, input.Whitespace, cancellationToken),
             };
-         },
-         cancellationToken);
+         });
 
    private OperationResult<ReviewMarkList> UpdateReviewMarks(Access.Reviewer.Pass pass, TourId id, Func<IReadOnlyList<ReviewMark>, IReadOnlyList<ReviewMark>> change)
    {
@@ -336,9 +337,31 @@ internal sealed class FileOperations
    private static OperationError TooLarge(string path, long size) =>
       OperationError.Invalid("large", $"'{path}' is {size} bytes, more than the {MaxFileSize} bytes that lotsen returns. Open the file in a clone of the repository instead.");
 
+   // Runs the query on the pinned tour's git facts, after the tour, its pin and the paths pass their checks.
+   private Task<OperationResult<T>> OnPinnedFactsAsync<T>(
+      TourId id, IReadOnlyList<(string Field, string Path)> paths, Func<IFactScope, TourPin.Pinned, Task<OperationResult<T>>> query)
+      where T : class =>
+      OnPinnedTourAsync(id, paths, (tour, pin) => OnFactsAsync(tour, pin, facts => query(facts, pin)));
+
    // Runs the query on the pinned tour's clone, after the tour, its pin and the paths pass their checks.
-   private async Task<OperationResult<T>> OnPinnedTourAsync<T>(
+   private Task<OperationResult<T>> OnPinnedRepositoryAsync<T>(
       TourId id, IReadOnlyList<(string Field, string Path)> paths, Func<GitRepository, TourPin.Pinned, Task<OperationResult<T>>> query, CancellationToken cancellationToken)
+      where T : class =>
+      OnPinnedTourAsync(id, paths, async (tour, pin) =>
+      {
+         try
+         {
+            using var repository = await _clones.OpenAsync(RemoteOf(tour, pin), [pin.MergeBase, pin.Head], FetchPolicy.WhenMissing, cancellationToken);
+            return await query(repository, pin);
+         }
+         catch (ExternalFailureException failure)
+         {
+            return Unavailable(tour, failure);
+         }
+      });
+
+   private async Task<OperationResult<T>> OnPinnedTourAsync<T>(
+      TourId id, IReadOnlyList<(string Field, string Path)> paths, Func<Tour, TourPin.Pinned, Task<OperationResult<T>>> query)
       where T : class
    {
       var read = _writer.Read(id);
@@ -357,25 +380,25 @@ internal sealed class FileOperations
          return OperationError.FileNotFound($"'{path}' is not a file path in the repository. Give {RepositoryPath.Expected}.", field);
       }
 
-      return await OnRepositoryAsync(tour, pin, repository => query(repository, pin), cancellationToken);
+      return await query(tour, pin);
    }
 
-   /// <summary>Runs a query on the clone of a pinned tour, which holds both of the tour's commits.</summary>
+   /// <summary>Runs a query on the git facts of a pinned tour, from a fact scope over its clone, which holds both of the tour's commits.</summary>
    /// <param name="tour">The tour, as the caller read it.</param>
    /// <param name="pin">The tour's pin.</param>
-   /// <param name="query">The query. An external failure inside it becomes the result's error too.</param>
-   /// <param name="cancellationToken">Stops the query.</param>
+   /// <param name="query">The query, which passes its own token to the scope's reads. An external failure inside it becomes the result's error too.</param>
    /// <returns>
    /// The query's result, or <see cref="OperationErrorCode.RepositoryUnavailable"/> with the failure's reason when an <see cref="ExternalFailureException"/> stopped the open or the query, as
    /// for a platform that lotsen does not know, a missing access token or a git failure.
    /// </returns>
-   public async Task<OperationResult<T>> OnRepositoryAsync<T>(Tour tour, TourPin.Pinned pin, Func<GitRepository, Task<OperationResult<T>>> query, CancellationToken cancellationToken)
+   /// <remarks>The scope opens the clone only for a fact that the fact memo lacks, so a query that the memo answers runs no git.</remarks>
+   public async Task<OperationResult<T>> OnFactsAsync<T>(Tour tour, TourPin.Pinned pin, Func<IFactScope, Task<OperationResult<T>>> query)
       where T : class
    {
       try
       {
-         using var repository = await _clones.OpenAsync(RemoteOf(tour, pin), [pin.MergeBase, pin.Head], FetchPolicy.WhenMissing, cancellationToken);
-         return await query(repository);
+         await using var facts = _facts.Open(RemoteOf(tour, pin), [pin.MergeBase, pin.Head], FetchPolicy.WhenMissing);
+         return await query(facts);
       }
       catch (ExternalFailureException failure)
       {
@@ -383,12 +406,17 @@ internal sealed class FileOperations
       }
    }
 
-   /// <summary>Downloads into a pinned tour's clone the content of each named file at its side, in one git run per side, so later reads of those files download nothing.</summary>
+   /// <summary>Downloads into a pinned tour's clone the content of each named file at its side that the clone lacks, so later reads of those files download nothing.</summary>
    /// <param name="tour">The tour, as the caller read it.</param>
    /// <param name="pin">The tour's pin.</param>
    /// <param name="files">The files, each with its side. A path that names no file at its side is skipped, as <see cref="GitRepository.DownloadFilesAsync"/> says.</param>
    /// <param name="cancellationToken">Stops the wait for the download, but not the download.</param>
    /// <remarks>
+   /// <para>
+   /// A file whose blob and lines the fact memo holds needs no content, so the download skips it, and a call that skips every file runs no git. The download first looks up the other files
+   /// without downloading, then downloads those that the clone lacks, in one git run per side, as <see cref="GitRepository.FindMissingAsync"/> and
+   /// <see cref="GitRepository.DownloadFilesAsync"/> do.
+   /// </para>
    /// <para>
    /// The download is a background job with a clone use of its own, which runs on the server's stop token with <see cref="GitOptions.TransferTimeout"/>. So a download whose caller stopped
    /// waiting still completes, and the caller's next try finds the files in the clone. A file that a download in progress fetches joins that download, as <see cref="RunningDownloads{TKey}"/> says.
@@ -401,6 +429,12 @@ internal sealed class FileOperations
    /// <exception cref="OperationCanceledException">The token was canceled, or the server's stop ended the download.</exception>
    public async Task DownloadFilesAsync(Tour tour, TourPin.Pinned pin, IReadOnlyCollection<(FileSide Side, string Path)> files, CancellationToken cancellationToken)
    {
+      files = [.. files.Where(file => !Known(pin.CommitOf(file.Side), file.Path))];
+      if (files.Count == 0)
+      {
+         return;
+      }
+
       TourRemote remote;
       try
       {
@@ -429,9 +463,10 @@ internal sealed class FileOperations
          try
          {
             using var repository = await _clones.OpenAsync(remote, [pin.MergeBase, pin.Head], FetchPolicy.WhenMissing, stopping);
-            foreach (var commit in download.Keys.GroupBy(key => key.Commit))
+            var missing = await repository.FindMissingAsync([.. download.Keys.Select(key => (key.Commit, key.Path))], stopping);
+            foreach (var commit in missing.GroupBy(file => file.Commit))
             {
-               await repository.DownloadFilesAsync(commit.Key, [.. commit.Select(key => key.Path)], stopping);
+               await repository.DownloadFilesAsync(commit.Key, [.. commit.Select(file => file.Path)], stopping);
             }
          }
          catch (ExternalFailureException failure)
@@ -451,6 +486,10 @@ internal sealed class FileOperations
          download.Cancel();
       }
    }
+
+   // A file whose blob the memo holds, and whose lines too when it is readable, needs no content from the clone.
+   private bool Known(CommitId commit, string path) =>
+      _facts.Known.TryGet(new FactKey.Blob(commit, path), out var file) && (!ReadableFile.Is(file) || _facts.Known.TryGet(new FactKey.Lines(commit, path), out _));
 
    private TourRemote RemoteOf(Tour tour, TourPin.Pinned pin) => TourRemote.OfPin(pin, _platforms.Of(tour.Target).GitCredential);
 

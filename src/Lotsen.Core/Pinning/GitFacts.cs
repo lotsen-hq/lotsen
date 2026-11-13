@@ -6,7 +6,9 @@ using Lotsen.Tours;
 namespace Lotsen.Pinning;
 
 /// <summary>The key of a git fact: a question about named commits, whose answer never changes once read, because commits are immutable.</summary>
-/// <remarks>Every git read that the remap and the iteration core decide from has a key here, so a fact that the memo holds stands for the read.</remarks>
+/// <remarks>
+/// Every git read that the remap, the iteration core, the passage checks and the file reads of a pinned tour decide from has a key here, so a fact that the memo holds stands for the read.
+/// </remarks>
 internal abstract record FactKey
 {
    private FactKey()
@@ -22,14 +24,19 @@ internal abstract record FactKey
    /// <summary>The paths that differ between two commits, renames followed, as <see cref="GitRepository.GetChangedPathsAsync"/> lists them.</summary>
    internal sealed record ChangedPaths(CommitId From, CommitId To) : Of<IReadOnlyList<ChangedPath>>;
 
+   /// <summary>The files that differ between two commits, with their sizes and marks, as <see cref="GitRepository.GetChangedFilesAsync"/> lists them.</summary>
+   internal sealed record ChangedFiles(CommitId From, CommitId To) : Of<IReadOnlyList<FileChange>>;
+
    /// <summary>The blob of a path at a commit, with its size and whether git treats it as binary, or null when the path names no file there.</summary>
    internal sealed record Blob(CommitId Commit, string Path) : Of<FileBlob?>;
 
    /// <summary>The lines of a path at a commit, or null when the path names no text file of a readable size there.</summary>
    internal sealed record Lines(CommitId Commit, string Path) : Of<FileLines?>;
 
-   /// <summary>The hunks of git's diff of a file from one commit to another, or null when either path names no text file of a readable size at its commit.</summary>
-   internal sealed record Hunks(CommitId From, string Path, CommitId To, string NewPath) : Of<IReadOnlyList<LineHunk>?>;
+   /// <summary>
+   /// The hunks of git's diff of a file from one commit to another, with whitespace compared as the key says, or null when either path names no text file of a readable size at its commit.
+   /// </summary>
+   internal sealed record Hunks(CommitId From, string Path, CommitId To, string NewPath, DiffWhitespace Whitespace = DiffWhitespace.Compare) : Of<IReadOnlyList<LineHunk>?>;
 
    /// <summary>What the diff of a pin from its merge base to its head shows of a path at one side.</summary>
    internal sealed record PinDiff(CommitId MergeBase, CommitId Head, FileSide Side, string Path) : Of<DiffTouch>;
@@ -242,6 +249,24 @@ internal interface IFactScope : IAsyncDisposable
    /// <exception cref="GitException">Git failed.</exception>
    /// <exception cref="AccessTokenUnavailableException">The clone needed a fetch, the remote asked for authentication, and the remote's git credential has none.</exception>
    Task WarmAsync(CommitId mergeBase, CommitId head, CancellationToken cancellationToken);
+}
+
+/// <summary>Provides reads of one fact at a time through an <see cref="IFactScope"/>.</summary>
+internal static class FactScopeReads
+{
+   /// <summary>Returns the fact of the key, which the scope reads from the clone when neither the scope nor the memo holds it.</summary>
+   /// <exception cref="GitException">Git failed.</exception>
+   /// <exception cref="AccessTokenUnavailableException">The clone needed a fetch, the remote asked for authentication, and the remote's git credential has none.</exception>
+   public static async Task<T> FactAsync<T>(this IFactScope scope, FactKey.Of<T> key, CancellationToken cancellationToken)
+   {
+      await scope.ReadAsync([key], cancellationToken);
+      return scope.Fact(key);
+   }
+
+   /// <summary>Returns the fact of a key that the scope read.</summary>
+   /// <exception cref="InvalidOperationException">The scope holds no fact of the key, because the caller did not read it first.</exception>
+   public static T Fact<T>(this IFactScope scope, FactKey.Of<T> key) =>
+      scope.Known.TryGet(key, out var value) ? value : throw new InvalidOperationException($"The fact scope holds no fact of {key}, so read it first.");
 }
 
 /// <summary>Runs passes of the pure core and reads the facts that each lacks, until a pass decides.</summary>

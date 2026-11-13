@@ -39,9 +39,9 @@ internal static class ProseLinks
 
       await git.DownloadAsync(files, [.. references.Select(link => (link.Reference.Side, link.Reference.Path)), .. laterReads]);
 
-      return await git.OnRepositoryAsync<IReadOnlyList<ProseReference>>(
+      return await git.OnPassagesAsync<IReadOnlyList<ProseReference>>(
          files,
          "text",
-         async (repository, pin) => await new StopPassages(repository, pin).CheckReferencesAsync(references, cancellationToken) is { } error ? error : references.ToList());
+         async checks => await checks.CheckReferencesAsync(references, cancellationToken) is { } error ? error : references.ToList());
    }
 }

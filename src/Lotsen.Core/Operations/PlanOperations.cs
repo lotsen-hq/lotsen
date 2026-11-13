@@ -197,10 +197,7 @@ internal sealed class PlanOperations
             var reads = (input.Passages ?? []).Select(passage => (passage.Side, passage.Path)).Concat(references.Select(link => (link.Reference.Side, link.Reference.Path)));
             await git.DownloadAsync(_files, reads);
 
-            var passages = await git.OnRepositoryAsync(
-               _files,
-               "passages",
-               (repository, pin) => new StopPassages(repository, pin).CheckAsync(input.Passages ?? [], kind, references, token));
+            var passages = await git.OnPassagesAsync(_files, "passages", checks => checks.CheckAsync(input.Passages ?? [], kind, references, token));
             return passages.Value is { } checkedPassages
                ? Gathered.Of(checkedPassages).Unless(latest => StopRules.ApplyPlanChange(latest, input).Value?.Stop.Kind != kind, PlanChangedWhileChecked)
                : passages.Error!;

@@ -34,6 +34,10 @@ internal static class GitRepositoryReads
       this GitRepository repository, CommitId from, string fromPath, CommitId to, string toPath, DiffWhitespace whitespace, CancellationToken cancellationToken)
    {
       var found = await repository.FindFilesAsync([(from, fromPath), (to, toPath)], cancellationToken);
-      return await FileDiff.ReadTextAsync(repository, found[0], found[1], whitespace, cancellationToken);
+      var (baseFile, headFile) = (found[0], found[1]);
+      var baseLines = baseFile is null ? null : new FileLines(await repository.ReadTextAsync(baseFile, cancellationToken));
+      var headLines = headFile is null ? null : new FileLines(await repository.ReadTextAsync(headFile, cancellationToken));
+      var hunks = baseFile is null || headFile is null ? [] : await repository.DiffLinesAsync(baseFile, headFile, whitespace, cancellationToken);
+      return FileDiff.Of(baseLines, headLines, hunks);
    }
 }

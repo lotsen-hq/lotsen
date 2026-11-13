@@ -108,9 +108,8 @@ internal static class ThreadOpener
             return new ThreadAnchor.WholeTour();
       }
 
-      return await git.OnRepositoryAsync<ThreadAnchor>(files, "anchor", async (repository, pin) =>
+      return await git.OnPassagesAsync<ThreadAnchor>(files, "anchor", async checks =>
       {
-         var checks = new StopPassages(repository, pin);
          if (anchor is AnchorInput.CodeRange code)
          {
             var lines = await checks.ReadLinesAsync(code.Side, code.Path, code.StartLine, code.EndLine, "anchor", cancellationToken);
