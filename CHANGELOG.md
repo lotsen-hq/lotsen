@@ -4,6 +4,10 @@ The notable changes in each release of lotsen, newest first. Versions follow [se
 
 ## Unreleased
 
+### Added
+
+- **Tours of GitHub pull requests.** Start a tour from any github.com URL of a pull request, such as its changed files. lotsen reads the pull request with your GitHub CLI sign-in, which `gh auth login` sets, also for a public repository. When the pull request's head changes, lotsen offers the new iteration, numbering the heads it sees from 1. lotsen shows a merged pull request as completed and a closed one as abandoned, and links mentions of issues and pull requests to GitHub. GitHub Enterprise Server and GHE.com are not supported.
+
 ### Changed
 
 - **Stops and diffs load faster, most of all on Windows, where each git process is slow.** lotsen keeps what git told it about a tour's commits in its git fact cache, so a stop that Claude writes again, a diff you open again and the list of changed files after pinning start no git process. The first stop that Claude writes on a pin starts fewer of them too.

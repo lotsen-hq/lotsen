@@ -10,7 +10,7 @@
   <a href="#install"><img alt="Claude Code plugin" src="https://img.shields.io/badge/Claude%20Code-plugin-blue"></a>
 </p>
 
-Lotsen layers a guided tour over an Azure DevOps pull request. Claude Code plans the tour and writes it stop by stop, and you read it in a local web UI, next to the code it talks about. You can ask Claude about any stop, answer the decisions it raises, and end with a summary of the review.
+Lotsen layers a guided tour over an Azure DevOps or GitHub pull request. Claude Code plans the tour and writes it stop by stop, and you read it in a local web UI, next to the code it talks about. You can ask Claude about any stop, answer the decisions it raises, and end with a summary of the review.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/tour-dark.png">
@@ -33,11 +33,12 @@ Everything stays on your machine. The UI runs on 127.0.0.1, Lotsen keeps its own
 - [Claude Code](https://code.claude.com/docs/en/overview), allowed to use channels. On a Team or Enterprise plan, your organization has to enable them with `channelsEnabled`.
 - git.
 - [Node.js](https://nodejs.org/) 18 or later, with npm. Claude Code starts Lotsen through npx.
-- The [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), signed in with `az login` to an account that can read the pull request's repository.
+- For Azure DevOps, the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), signed in with `az login` to an account that can read the pull request's repository.
+- For GitHub, the [GitHub CLI](https://cli.github.com/), signed in with `gh auth login` to an account that can read the pull request's repository. Lotsen needs the sign-in for a public repository too.
 
 ## Limits
 
-- **Azure DevOps Services only.** Lotsen tours pull requests at `dev.azure.com` or `<organization>.visualstudio.com`. It does not support Azure DevOps Server or any other hosting service for now.
+- **Azure DevOps Services and github.com.** Lotsen tours pull requests at `dev.azure.com`, `<organization>.visualstudio.com` and `github.com`. It does not support Azure DevOps Server, GitHub Enterprise Server, GitHub Enterprise on GHE.com or any other hosting service for now.
 - **Linux x64 and Windows x64.** On Linux it needs glibc, and WSL counts as Linux. Its npm packages hold no executable for any other system, such as macOS or Arm.
 - **The channel needs a flag or an allowlist.** Your questions reach Claude through a Claude Code channel, and Lotsen is not on Anthropic's list of allowed channel plugins. You start Claude Code with a development flag, or your organization adds Lotsen to its own list, as [Start a tour](#start-a-tour) shows.
 - **One reviewer per machine.** The UI serves only your own browser, on 127.0.0.1. A tour is a reading aid for you, not a review that your team shares.
@@ -77,7 +78,7 @@ Then ask for a tour:
 /lotsen:tour <pull-request-url> [familiar|some|new] [plan-first]
 ```
 
-The second word says how well you know the code, and Claude asks if you leave it out. With `plan-first`, you approve the plan before Claude writes any stop. Claude opens the tour in your browser.
+On GitHub, any page of the pull request works as its URL, such as its changed files. The second word says how well you know the code, and Claude asks if you leave it out. With `plan-first`, you approve the plan before Claude writes any stop. Claude opens the tour in your browser.
 
 ## Commands
 
