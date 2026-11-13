@@ -110,21 +110,22 @@
 /*
  * Catppuccin is the tokenColors of themes/latte.json for light and themes/mocha.json for dark in @catppuccin/vscode 3.18.1 on npm, from catppuccin/vscode, Copyright (c) 2021 Catppuccin,
  * MIT License. Each role takes the color of its scope as above. variable.other.property and invalid have no color, so they take editor.foreground. The comment scope sets italic.
+ * In light, string, number, comment, type and operator blend with editor.foreground (35%, 40%, 20%, 50%, 25%) to reach 4.5:1 on white, as the other families do.
  */
 
 :root[data-syntax-colors='catppuccin'] {
    --syntax-keyword: #8839ef;
    --syntax-control: #8839ef;
-   --syntax-string: #40a02b;
-   --syntax-number: #fe640b;
+   --syntax-string: #448441;
+   --syntax-number: #b75c31;
    --syntax-constant: #d20f39;
-   --syntax-comment: #7c7f93;
+   --syntax-comment: #72758b;
    --syntax-comment-style: italic;
-   --syntax-type: #df8e1d;
+   --syntax-type: #966e43;
    --syntax-function: #1e66f5;
    --syntax-property: #4c4f69;
    --syntax-tag: #1e66f5;
-   --syntax-operator: #179299;
+   --syntax-operator: #24818d;
    --syntax-invalid: #4c4f69;
 }
 
@@ -148,6 +149,7 @@
  * Gruvbox is the syntax groups of colors/gruvbox.vim in morhetz/gruvbox at ef8864bb42bf244f0295d1c5a403b27e3d139695, by Pavel Pertsev, MIT License as its README and package.json state. Light
  * takes the faded accents and dark the bright ones, as gruvbox.vim does. The roles take Keyword, Conditional, String, Number, Boolean, Comment, Type, Function, Identifier, htmlTagName,
  * Operator and Error, in the order of the scopes above. Operator links to Normal, so it takes fg1. Comments are italic, as gruvbox.vim draws them in the GUI by default.
+ * In light, comment and type blend 20% with fg1 to reach 4.5:1 on white, as the other families do.
  */
 
 :root[data-syntax-colors='gruvbox'] {
@@ -156,9 +158,9 @@
    --syntax-string: #79740e;
    --syntax-number: #8f3f71;
    --syntax-constant: #8f3f71;
-   --syntax-comment: #928374;
+   --syntax-comment: #817468;
    --syntax-comment-style: italic;
-   --syntax-type: #b57614;
+   --syntax-type: #9d6a1b;
    --syntax-function: #79740e;
    --syntax-property: #076678;
    --syntax-tag: #427b58;
