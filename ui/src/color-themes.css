@@ -276,3 +276,139 @@
    --state-finished-text: #0dbc79;
    --folder: #cca700;
 }
+
+/*
+ * Gruvbox is its light and dark palettes at medium contrast, from colors/gruvbox.vim in morhetz/gruvbox at ef8864bb42bf244f0295d1c5a403b27e3d139695, by Pavel Pertsev, MIT License as its README and
+ * package.json state. Light takes the faded accents and dark the bright ones, as gruvbox.vim does, except that light's warning bar, folder, ring and diff line tints take the neutral accents. The
+ * surfaces and borders take bg0 to bg4 and gray, with light0_soft (light) and dark0_hard (dark) for the card. The text takes fg1, and muted text fg3. The selection is bg3, as Visual is. Links take
+ * blue, success and inserted lines green, warnings yellow, and errors and deleted lines red.
+ *
+ * A role without a Gruvbox color takes an accent: aqua, blue, red and purple for the stop kinds, orange for a tour in progress and for threads, yellow for related passages and purple for Claude.
+ * A kind or state fill is its accent at 14% over bg0 in light and 16% in dark, written as hex, and the line tints and Claude's fill are an accent at an alpha. An accent drawn as text on such a fill
+ * blends with fg1, so it reads on the fill: half and half for green and aqua and 80% orange in light, 80% blue, purple and orange and 60% red in dark. In light, success, the warning mark and the
+ * related passages' marker blend green or yellow half and half with fg1.
+ */
+
+:root[data-color-theme='gruvbox'] {
+   color-scheme: light;
+   --background: #fbf1c7;
+   --foreground: #3c3836;
+   --card: #f2e5bc;
+   --card-foreground: var(--foreground);
+   --popover: var(--card);
+   --popover-foreground: var(--foreground);
+   --primary: #076678;
+   --primary-foreground: #fbf1c7;
+   --secondary: #ebdbb2;
+   --secondary-foreground: var(--foreground);
+   --muted: #ebdbb2;
+   --muted-foreground: #665c54;
+   --accent: #d5c4a1;
+   --accent-foreground: var(--foreground);
+   --destructive: #9d0006;
+   --success: #5a5622;
+   --warning: #d79921;
+   --warning-surface: #f7e8b6;
+   --warning-mark: #785725;
+   --border: #d5c4a1;
+   --input: #bdae93;
+   --ring: #458588;
+   --button-fill: #fbf1c7;
+   --button-border: #928374;
+   --button-hover: #d5c4a1;
+   --code-selection: #bdae93;
+   --code-special-char: #9d0006;
+   --diff-deleted-line: rgba(204, 36, 29, 0.14);
+   --diff-inserted-line: rgba(152, 151, 26, 0.2);
+   --diff-deleted-marker: #9d0006;
+   --diff-inserted-marker: #79740e;
+   --passage-primary-line: rgba(7, 102, 120, 0.1);
+   --passage-primary-marker: #076678;
+   --passage-related-line: rgba(181, 118, 20, 0.12);
+   --passage-related-marker: #785725;
+   --reference-hovered-line: rgba(143, 63, 113, 0.14);
+   --reference-hovered-marker: #8f3f71;
+   --ref-focused-background: rgba(7, 102, 120, 0.16);
+   --passage-label-foreground: #fbf1c7;
+   --dimmed-opacity: 0.45;
+   --thread-marker: #af3a03;
+   --claude-fill: rgba(143, 63, 113, 0.1);
+   --claude-marker: #8f3f71;
+   --kind-overview-fill: #d5c4a1;
+   --kind-overview-text: #3c3836;
+   --kind-context-fill: #e1e0b7;
+   --kind-context-text: #3f5a47;
+   --kind-inspect-fill: #d9debc;
+   --kind-inspect-text: #076678;
+   --kind-risk-fill: #eecfac;
+   --kind-risk-text: #9d0006;
+   --kind-question-fill: #ecd8bb;
+   --kind-question-text: #8f3f71;
+   --state-in-progress-fill: #f0d7ac;
+   --state-in-progress-text: #983a0d;
+   --state-finished-fill: #e9e0ad;
+   --state-finished-text: #5a5622;
+   --folder: #d79921;
+}
+
+:root[data-color-theme='gruvbox'].dark {
+   color-scheme: dark;
+   --background: #282828;
+   --foreground: #ebdbb2;
+   --card: #1d2021;
+   --card-foreground: var(--foreground);
+   --popover: var(--card);
+   --popover-foreground: var(--foreground);
+   --primary: #83a598;
+   --primary-foreground: #282828;
+   --secondary: #3c3836;
+   --secondary-foreground: var(--foreground);
+   --muted: #3c3836;
+   --muted-foreground: #bdae93;
+   --accent: #504945;
+   --accent-foreground: var(--foreground);
+   --destructive: #fb4934;
+   --success: #b8bb26;
+   --warning: #fabd2f;
+   --warning-surface: rgba(250, 189, 47, 0.1);
+   --warning-mark: #fabd2f;
+   --border: #3c3836;
+   --input: #504945;
+   --ring: #83a598;
+   --button-fill: #3c3836;
+   --button-border: #7c6f64;
+   --button-hover: #504945;
+   --code-selection: #665c54;
+   --code-special-char: #fb4934;
+   --diff-deleted-line: rgba(251, 73, 52, 0.16);
+   --diff-inserted-line: rgba(184, 187, 38, 0.14);
+   --diff-deleted-marker: #fb4934;
+   --diff-inserted-marker: #b8bb26;
+   --passage-primary-line: rgba(131, 165, 152, 0.16);
+   --passage-primary-marker: #83a598;
+   --passage-related-line: rgba(250, 189, 47, 0.14);
+   --passage-related-marker: #fabd2f;
+   --reference-hovered-line: rgba(211, 134, 155, 0.18);
+   --reference-hovered-marker: #d3869b;
+   --ref-focused-background: rgba(131, 165, 152, 0.28);
+   --passage-label-foreground: #282828;
+   --dimmed-opacity: 0.4;
+   --thread-marker: #fe8019;
+   --claude-fill: rgba(211, 134, 155, 0.1);
+   --claude-marker: #d3869b;
+   --kind-overview-fill: #504945;
+   --kind-overview-text: #ebdbb2;
+   --kind-context-fill: #384035;
+   --kind-context-text: #8ec07c;
+   --kind-inspect-fill: #373c3a;
+   --kind-inspect-text: #98b09d;
+   --kind-risk-fill: #4a2d2a;
+   --kind-risk-text: #f58366;
+   --kind-question-fill: #43373a;
+   --kind-question-text: #d897a0;
+   --state-in-progress-fill: #4a3626;
+   --state-in-progress-text: #fa9238;
+   --state-finished-fill: #3f4028;
+   --state-finished-text: #b8bb26;
+   --folder: #fabd2f;
+}

@@ -1,13 +1,14 @@
 import { preference } from './preference';
 
 /** A color theme family for the whole page, with a light and a dark palette. The theme picks the palette. */
-export type ColorTheme = 'lotsen' | 'catppuccin' | 'vscode';
+export type ColorTheme = 'lotsen' | 'catppuccin' | 'vscode' | 'gruvbox';
 
 /** The families in the order that the settings offer them, with their labels. */
 export const colorThemeChoices: readonly { value: ColorTheme; label: string }[] = [
    { value: 'lotsen', label: 'Lotsen' },
    { value: 'catppuccin', label: 'Catppuccin' },
    { value: 'vscode', label: 'Visual Studio Code' },
+   { value: 'gruvbox', label: 'Gruvbox' },
 ];
 
 /** The family the reviewer last chose, Lotsen's own by default. */

@@ -14,6 +14,9 @@ const mochaBase = '#1e1e2e';
 // Light Modern's and Dark Modern's editor.background, from color-themes.css.
 const lightModernBackground = '#ffffff';
 const darkModernBackground = '#1f1f1f';
+// Gruvbox's light and dark bg0 at medium contrast, from color-themes.css.
+const gruvboxLightBackground = '#fbf1c7';
+const gruvboxDarkBackground = '#282828';
 
 let settings: Settings | undefined;
 
@@ -95,6 +98,22 @@ describe('the color theme', () => {
 
       expect(shown()).toEqual({ family: 'vscode', dark: true });
       expect(background()).toBe(darkModernBackground);
+   });
+
+   it('offers Gruvbox, whose palettes are its light and dark at medium contrast', () => {
+      expect(colorThemeChoices).toContainEqual({ value: 'gruvbox', label: 'Gruvbox' });
+      localStorage.setItem('lotsen.theme', 'light');
+      settings = new Settings(fakeSystem(false).window);
+
+      settings.setColorTheme('gruvbox');
+
+      expect(shown()).toEqual({ family: 'gruvbox', dark: false });
+      expect(background()).toBe(gruvboxLightBackground);
+
+      settings.setTheme('dark');
+
+      expect(shown()).toEqual({ family: 'gruvbox', dark: true });
+      expect(background()).toBe(gruvboxDarkBackground);
    });
 
    it('starts with Lotsen when the stored family is not one', () => {
