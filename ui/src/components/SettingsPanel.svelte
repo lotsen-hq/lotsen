@@ -4,6 +4,7 @@
    import * as Sheet from '$lib/components/ui/sheet';
    import type { PruneOutcome } from '../lib/viewState';
    import type { Theme } from '../lib/colorScheme';
+   import { colorThemeChoices } from '../lib/colorThemes';
    import { fontSizeChoices } from '../lib/fontSize';
    import { messageStyles } from '../lib/messageStyle';
    import { mixedThresholdBounds, placementModes } from '../lib/placement';
@@ -66,6 +67,13 @@
       </Sheet.Header>
       <div class="scroll-box flex min-h-0 flex-1 flex-col gap-6 px-4 pb-4">
          <SettingChoice label="Theme" options={themes} value={settings.theme} onchange={(theme) => settings.setTheme(theme)} />
+         <SettingChoice
+            label="Color theme"
+            description="The theme picks the light or dark palette of the family."
+            options={colorThemeChoices}
+            value={settings.colorTheme}
+            onchange={(theme) => settings.setColorTheme(theme)}
+         />
          <SettingChoice
             label="Syntax colors"
             description="The theme picks the light or dark palette of the family."

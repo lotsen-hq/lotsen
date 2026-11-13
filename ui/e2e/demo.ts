@@ -1,5 +1,6 @@
 import { expect, type Browser, type Locator, type Page } from '@playwright/test';
 import { worldHeader, worldPath, type DemoWorld } from '../demo/pageWorld';
+import { colorThemeChoices, type ColorTheme } from '../src/lib/colorThemes';
 
 /** The settings that a test page starts with, by their keys in browser storage. */
 export interface DemoSettings {
@@ -7,12 +8,32 @@ export interface DemoSettings {
    layout?: 'sideBySide' | 'inline';
    viewMode?: 'wholePr' | 'stopFiles' | 'stepThrough';
    theme?: 'system' | 'light' | 'dark';
+   colorTheme?: ColorTheme;
    messageStyle?: 'bubbles' | 'fullWidth';
    fontSize?: 'small' | 'medium' | 'large';
 }
 
 /** The checkout sample tour, which pins the storefront change with every kind of stop. */
 export const checkoutTour = 'storefront #412';
+
+/** A color theme family in light or dark, as the contrast tests take each palette. */
+export interface Palette {
+   colorTheme: ColorTheme;
+   theme: 'light' | 'dark';
+}
+
+/** Every family that the settings offer, each in light and in dark. */
+export const palettes: readonly Palette[] = colorThemeChoices.flatMap(({ value }) => (['light', 'dark'] as const).map((theme) => ({ colorTheme: value, theme })));
+
+/** Returns the palette's name for a test's title, such as "the Lotsen light palette". */
+export const paletteName = ({ colorTheme, theme }: Palette): string => `the ${colorThemeChoices.find((choice) => choice.value === colorTheme)!.label} ${theme} palette`;
+
+/** Expects the page to show the palette: its family on the root element and the dark class for dark. */
+export async function expectPalette(page: Page, { colorTheme, theme }: Palette): Promise<void> {
+   const root = page.locator('html');
+   await expect(root).toHaveAttribute('data-color-theme', colorTheme);
+   await expect(root).toHaveAttribute('data-color-scheme', theme);
+}
 
 /** Loads the demo with the settings, on a world of its own, and opens a sample tour's plan once the tour has loaded. */
 export async function openDemoTour(page: Page, tour: string, settings: DemoSettings = {}): Promise<void> {
@@ -21,6 +42,7 @@ export async function openDemoTour(page: Page, tour: string, settings: DemoSetti
       'lotsen.diffLayout': settings.layout,
       'lotsen.defaultViewMode': settings.viewMode,
       'lotsen.theme': settings.theme,
+      'lotsen.colorTheme': settings.colorTheme,
       'lotsen.messageStyle': settings.messageStyle,
       'lotsen.fontSize': settings.fontSize,
    };

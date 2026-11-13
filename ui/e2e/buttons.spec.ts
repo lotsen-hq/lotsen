@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { checkoutTour, contrast, drawnColors, openDemoTour, openStop, over, themeColor, type Rgba } from './demo';
+import { checkoutTour, contrast, drawnColors, expectPalette, openDemoTour, openStop, over, paletteName, palettes, themeColor, type Rgba } from './demo';
 
 /** The colors that draw a button: its border, its own fill and the opaque surface behind it. */
 interface ButtonColors {
@@ -59,11 +59,11 @@ async function openOutdatedThread(page: Page): Promise<void> {
       .click();
 }
 
-for (const theme of ['light', 'dark'] as const) {
-   test.describe(`in the ${theme} theme`, () => {
+for (const palette of palettes) {
+   test.describe(`in ${paletteName(palette)}`, () => {
       test.beforeEach(async ({ page }) => {
-         await openDemoTour(page, checkoutTour, { theme, placement: 'mixed' });
-         await expect(page.locator('html')).toHaveAttribute('data-color-scheme', theme);
+         await openDemoTour(page, checkoutTour, { ...palette, placement: 'mixed' });
+         await expectPalette(page, palette);
       });
 
       test('gives every text-label button an edge that stands off the surface behind it', async ({ page }) => {

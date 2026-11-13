@@ -29,8 +29,8 @@ export default defineConfig({
    test: {
       environment: 'jsdom',
       setupFiles: ['tests/setup.ts'],
-      // Vitest gives every other stylesheet as an empty string. The settings tests apply this one to read the palettes it selects.
-      css: { include: [/\/src\/syntax-colors\.css/] },
+      // Vitest gives every other stylesheet as an empty string. The settings and color theme tests apply these two to read the palettes they select.
+      css: { include: [/\/src\/(syntax-colors|color-themes)\.css/] },
       // With a worker for nearly every CPU, the jsdom workers starve one another and tests that wait on the UI time out.
       maxWorkers: '50%',
    },

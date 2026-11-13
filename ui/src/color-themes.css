@@ -1,0 +1,136 @@
+/*
+ * The color theme families' palettes, one light and one dark block per family, each setting every variable of Lotsen's palettes in app.css. src/lib/colorThemes.ts sets data-color-theme on
+ * <html> from the reviewer's choice, and src/lib/colorScheme.ts sets the dark class. A family's selectors carry the attribute, so they win over the Lotsen palettes whatever their order.
+ */
+
+/*
+ * Catppuccin is Latte for light and Mocha for dark, from @catppuccin/palette 1.8.0 on npm, Copyright (c) 2021 Catppuccin, MIT License. The surfaces take base, mantle, crust and the
+ * surface colors, and the text takes text and subtext. Links take blue, success green, warnings yellow with a peach mark, and errors red. A role without a Catppuccin color takes an accent:
+ * teal, blue, red and mauve for the stop kinds, peach for a tour in progress and for related passages, mauve for Claude and pink for threads. A fill behind an accent is the accent
+ * blended over base, written as hex, or the accent at an alpha. In Latte, an accent that is drawn as text or as a marker blends with text, so it reads on Latte's light surfaces: half and
+ * half for the stop kinds, the states, the warning mark and the related passages' marker, 85% blue for primary, 60% pink for threads and 35% green for success.
+ */
+
+:root[data-color-theme='catppuccin'] {
+   color-scheme: light;
+   --background: #eff1f5;
+   --foreground: #4c4f69;
+   --card: #e6e9ef;
+   --card-foreground: var(--foreground);
+   --popover: var(--card);
+   --popover-foreground: var(--foreground);
+   --primary: #2563e0;
+   --primary-foreground: #eff1f5;
+   --secondary: #dce0e8;
+   --secondary-foreground: var(--foreground);
+   --muted: #dce0e8;
+   --muted-foreground: #5c5f77;
+   --accent: #ccd0da;
+   --accent-foreground: var(--foreground);
+   --destructive: #d20f39;
+   --success: #486b53;
+   --warning: #df8e1d;
+   --warning-surface: #ede5db;
+   --warning-mark: #a55a3a;
+   --border: #ccd0da;
+   --input: var(--border);
+   --ring: #7287fd;
+   --button-fill: #eff1f5;
+   --button-border: #9ca0b0;
+   --button-hover: #ccd0da;
+   --code-selection: rgba(30, 102, 245, 0.2);
+   --code-special-char: #d20f39;
+   --diff-deleted-line: rgba(210, 15, 57, 0.12);
+   --diff-inserted-line: rgba(64, 160, 43, 0.14);
+   --diff-deleted-marker: #d20f39;
+   --diff-inserted-marker: #40a02b;
+   --passage-primary-line: rgba(30, 102, 245, 0.1);
+   --passage-primary-marker: #1e66f5;
+   --passage-related-line: rgba(254, 100, 11, 0.1);
+   --passage-related-marker: #a55a3a;
+   --reference-hovered-line: rgba(136, 57, 239, 0.14);
+   --reference-hovered-marker: #8839ef;
+   --ref-focused-background: rgba(30, 102, 245, 0.16);
+   --passage-label-foreground: #eff1f5;
+   --dimmed-opacity: 0.45;
+   --thread-marker: #ab66a4;
+   --claude-fill: rgba(136, 57, 239, 0.08);
+   --claude-marker: #8839ef;
+   --kind-overview-fill: #ccd0da;
+   --kind-overview-text: #4c4f69;
+   --kind-context-fill: #cfe3e7;
+   --kind-context-text: #327081;
+   --kind-inspect-fill: #d0dcf5;
+   --kind-inspect-text: #355aaf;
+   --kind-risk-fill: #ebcfd9;
+   --kind-risk-text: #8f2f51;
+   --kind-question-fill: #e0d5f4;
+   --kind-question-text: #6a44ac;
+   --state-in-progress-fill: #f1dcd2;
+   --state-in-progress-text: #a55a3a;
+   --state-finished-fill: #d5e5d7;
+   --state-finished-text: #46784a;
+   --folder: #df8e1d;
+}
+
+:root[data-color-theme='catppuccin'].dark {
+   color-scheme: dark;
+   --background: #1e1e2e;
+   --foreground: #cdd6f4;
+   --card: #181825;
+   --card-foreground: var(--foreground);
+   --popover: var(--card);
+   --popover-foreground: var(--foreground);
+   --primary: #89b4fa;
+   --primary-foreground: #1e1e2e;
+   --secondary: #313244;
+   --secondary-foreground: var(--foreground);
+   --muted: #313244;
+   --muted-foreground: #a6adc8;
+   --accent: #45475a;
+   --accent-foreground: var(--foreground);
+   --destructive: #f38ba8;
+   --success: #a6e3a1;
+   --warning: #f9e2af;
+   --warning-surface: rgba(249, 226, 175, 0.1);
+   --warning-mark: #f9e2af;
+   --border: #313244;
+   --input: var(--border);
+   --ring: #b4befe;
+   --button-fill: #313244;
+   --button-border: #6c7086;
+   --button-hover: #45475a;
+   --code-selection: rgba(137, 180, 250, 0.3);
+   --code-special-char: #f38ba8;
+   --diff-deleted-line: rgba(243, 139, 168, 0.16);
+   --diff-inserted-line: rgba(166, 227, 161, 0.14);
+   --diff-deleted-marker: #f38ba8;
+   --diff-inserted-marker: #a6e3a1;
+   --passage-primary-line: rgba(137, 180, 250, 0.16);
+   --passage-primary-marker: #89b4fa;
+   --passage-related-line: rgba(250, 179, 135, 0.14);
+   --passage-related-marker: #fab387;
+   --reference-hovered-line: rgba(203, 166, 247, 0.18);
+   --reference-hovered-marker: #cba6f7;
+   --ref-focused-background: rgba(137, 180, 250, 0.28);
+   --passage-label-foreground: #11111b;
+   --dimmed-opacity: 0.4;
+   --thread-marker: #f5c2e7;
+   --claude-fill: rgba(203, 166, 247, 0.1);
+   --claude-marker: #cba6f7;
+   --kind-overview-fill: #313244;
+   --kind-overview-text: #bac2de;
+   --kind-context-fill: #36454f;
+   --kind-context-text: #94e2d5;
+   --kind-inspect-fill: #333c57;
+   --kind-inspect-text: #89b4fa;
+   --kind-risk-fill: #493446;
+   --kind-risk-text: #f38ba8;
+   --kind-question-fill: #413956;
+   --kind-question-text: #cba6f7;
+   --state-in-progress-fill: #4a3c40;
+   --state-in-progress-text: #fab387;
+   --state-finished-fill: #394545;
+   --state-finished-text: #a6e3a1;
+   --folder: #f9e2af;
+}

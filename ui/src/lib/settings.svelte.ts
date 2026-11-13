@@ -1,4 +1,5 @@
 import { ColorScheme, type ColorSchemeWindow, type Theme } from './colorScheme';
+import { applyColorTheme, colorThemePreference, type ColorTheme } from './colorThemes';
 import { diffLayoutPreference, type DiffLayout } from './diffLayout';
 import { applyFontSize, fontSizePreference, type FontSize } from './fontSize';
 import { messageStylePreference, type MessageStyle } from './messageStyle';
@@ -19,14 +20,17 @@ export class Settings {
    private readonly document: Document;
    private readonly disposeEffects: () => void;
 
-   /** Applies the stored theme, syntax colors and font size to the window's page at once, and again whenever their preferences change. */
+   /** Applies the stored theme, color theme, syntax colors and font size to the window's page at once, and again whenever their preferences change. */
    constructor(window: ColorSchemeWindow) {
-      this.colorScheme = new ColorScheme(window, this.theme);
       this.document = window.document;
+      // The family and the mode apply in one task, so no paint shows one without the other.
+      applyColorTheme(this.document, this.colorTheme);
+      this.colorScheme = new ColorScheme(window, this.theme);
       applySyntaxColors(this.document, this.syntaxColors);
       applyFontSize(this.document, this.fontSize);
       this.disposeEffects = $effect.root(() => {
          $effect(() => this.colorScheme.setTheme(this.theme));
+         $effect(() => applyColorTheme(this.document, this.colorTheme));
          $effect(() => applySyntaxColors(this.document, this.syntaxColors));
          $effect(() => applyFontSize(this.document, this.fontSize));
       });
@@ -39,6 +43,16 @@ export class Settings {
    setTheme(theme: Theme): void {
       themePreference.write(theme);
       this.colorScheme.setTheme(theme);
+   }
+
+   /** The family of the page's light and dark palettes. */
+   get colorTheme(): ColorTheme {
+      return colorThemePreference.read();
+   }
+
+   setColorTheme(theme: ColorTheme): void {
+      colorThemePreference.write(theme);
+      applyColorTheme(this.document, theme);
    }
 
    /** The family of the diff editors' syntax colors. */

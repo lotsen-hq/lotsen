@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { waitTimeout } from '../tests/app/waitTimeout.mjs';
-import { center, checkoutTour, contrast, drawnColors, editorLine, inScrollerView, openDemoTour, openStop, over, showPanel, themeColor, type Rgba } from './demo';
+import { center, checkoutTour, contrast, drawnColors, editorLine, expectPalette, inScrollerView, openDemoTour, openStop, over, paletteName, palettes, showPanel, themeColor, type Rgba } from './demo';
 
 const cartLineStop = 'A cart line needs at least one item';
 const paymentStop = 'The new payment step';
@@ -163,11 +163,14 @@ function hue([r, g, b]: Rgba): number {
    return (sector * 60 + 360) % 360;
 }
 
-for (const theme of ['light', 'dark'] as const) {
+// Lotsen's violet for Claude's messages, which the other families replace with a violet of their own.
+const lotsenViolet = { light: 'rgb(130, 80, 223)', dark: 'rgb(188, 140, 255)' };
+
+for (const palette of palettes) {
    for (const messageStyle of ['bubbles', 'fullWidth'] as const) {
-      test(`the message colors set Claude's violet messages apart from the reviewer's blue ones, in the ${theme} theme with ${messageStyle}`, async ({ page }) => {
-         await openDemoTour(page, checkoutTour, { theme, messageStyle });
-         await expect(page.locator('html')).toHaveAttribute('data-color-scheme', theme);
+      test(`the message colors set Claude's violet messages apart from the reviewer's blue ones, in ${paletteName(palette)} with ${messageStyle}`, async ({ page }) => {
+         await openDemoTour(page, checkoutTour, { ...palette, messageStyle });
+         await expectPalette(page, palette);
          const threads = page.getByRole('region', { name: 'Threads', exact: true });
          await threads.getByRole('listitem').filter({ hasText: 'Is the discount applied before tax?' }).getByRole('button').first().click();
          const view = threads.getByRole('article');
@@ -183,11 +186,31 @@ for (const theme of ['light', 'dark'] as const) {
          expect(contrast(reviewerFill, mine.behind), "the reviewer's fill against the card").toBeGreaterThanOrEqual(1.2);
 
          expect(await claude.evaluate((node) => getComputedStyle(node).borderLeftWidth)).toBe('3px');
-         const violet = theme === 'light' ? 'rgb(130, 80, 223)' : 'rgb(188, 140, 255)';
-         expect(await themeColor(claude, '--claude-marker')).toBe(violet);
+         const violet = await themeColor(claude, '--claude-marker');
+         if (palette.colorTheme === 'lotsen') {
+            expect(violet).toBe(lotsenViolet[palette.theme]);
+         }
          expect(await claude.evaluate((node) => getComputedStyle(node).borderLeftColor)).toBe(violet);
       });
    }
+}
+
+for (const palette of palettes) {
+   test(`a received answer's success text and a thread marker stand off their fills, in ${paletteName(palette)}`, async ({ page }) => {
+      await openDemoTour(page, checkoutTour, { ...palette, placement: 'side' });
+      await expectPalette(page, palette);
+      const stop = page.getByRole('region', { name: 'Stop', exact: true });
+
+      await openStop(page, cartLineStop);
+      const received = await drawnColors(stop.locator('[data-answer-state="received"]'), ['color', 'background-color']);
+      const pill = over(received.own['background-color'], received.behind);
+      expect(contrast(over(received.own.color, pill), pill), 'the received state against its fill').toBeGreaterThanOrEqual(4.5);
+
+      await openStop(page, paymentStop);
+      const marker = await drawnColors(stop.locator('.thread-marker').first(), ['border-top-color', 'background-color']);
+      const fill = over(marker.own['background-color'], marker.behind);
+      expect(contrast(over(marker.own['border-top-color'], fill), fill), 'the thread marker against its fill').toBeGreaterThanOrEqual(3);
+   });
 }
 
 /** Expects a warning notice's bar and fill to be the theme's warning colors, and its text and mark to read against the fill. */
@@ -205,10 +228,10 @@ async function expectWarningStyle(notice: Locator, name: string): Promise<void> 
    expect(contrast(over(markColor, fill), fill), `${name}: the mark against the fill`).toBeGreaterThanOrEqual(3);
 }
 
-for (const theme of ['light', 'dark'] as const) {
-   test(`warning notices are amber while the Stop version notice stays blue, in the ${theme} theme`, async ({ page }) => {
-      await openDemoTour(page, checkoutTour, { theme, placement: 'side' });
-      await expect(page.locator('html')).toHaveAttribute('data-color-scheme', theme);
+for (const palette of palettes) {
+   test(`warning notices are amber while the Stop version notice stays blue, in ${paletteName(palette)}`, async ({ page }) => {
+      await openDemoTour(page, checkoutTour, { ...palette, placement: 'side' });
+      await expectPalette(page, palette);
 
       // The keyboard opens the row, as in `openStop`.
       const summaryRow = page

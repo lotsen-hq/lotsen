@@ -285,6 +285,28 @@ describe('the settings panel', () => {
       });
    });
 
+   it('applies the color theme the reviewer chooses, and keeps it for the next time', async () => {
+      onTestFinished(() => {
+         delete root.dataset.colorTheme;
+      });
+      await startShell();
+      let panel = await openSettings();
+      expect(checked(panel, 'Color theme', 'Lotsen')).toBe(true);
+      expect(root.dataset.colorTheme).toBe('lotsen');
+
+      fireEvent.click(radio(panel, 'Color theme', 'Catppuccin'));
+
+      expect(root.dataset.colorTheme).toBe('catppuccin');
+      expect(localStorage.getItem('lotsen.colorTheme')).toBe('catppuccin');
+      delete root.dataset.colorTheme;
+
+      await restart();
+
+      expect(root.dataset.colorTheme).toBe('catppuccin');
+      panel = await openSettings();
+      expect(checked(panel, 'Color theme', 'Catppuccin')).toBe(true);
+   });
+
    describe('font size', () => {
       afterEach(() => {
          delete root.dataset.fontSize;
