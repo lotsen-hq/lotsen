@@ -3,6 +3,7 @@ using Lotsen.AzureDevOps;
 using Lotsen.Cli;
 using Lotsen.GitHub;
 using Lotsen.Hosting;
+using Lotsen.Platforms;
 
 namespace Lotsen;
 
@@ -15,5 +16,8 @@ internal static class Program
    /// <summary>The versions of this executable, which a server and an adapter of the same build agree on.</summary>
    internal static VersionInfo Version { get; } = VersionInfo.FromAssemblies(Assemblies);
 
-   public static Task<int> Main(string[] args) => Commands.RunAsync(args, Version, [AzureDevOpsPlatform.Factory(), GitHubPlatform.Factory()]);
+   /// <summary>The factories of the platforms that tours can target, in the order that the server tries a pull request URL on them.</summary>
+   internal static IReadOnlyList<Func<IServiceProvider, IPullRequestPlatform>> Platforms { get; } = [AzureDevOpsPlatform.Factory(), GitHubPlatform.Factory()];
+
+   public static Task<int> Main(string[] args) => Commands.RunAsync(args, Version, Platforms);
 }

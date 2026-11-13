@@ -1,6 +1,6 @@
 ---
 name: tour
-description: Plans and writes a guided tour of an Azure DevOps pull request and shows it in the lotsen web UI. Use when the user asks to tour a PR, walk them through a PR, or guide their review of a PR, such as "tour this PR <url>" or "walk me through PR <url> familiar".
+description: Plans and writes a guided tour of an Azure DevOps or GitHub pull request and shows it in the lotsen web UI. Use when the user asks to tour a PR, walk them through a PR, or guide their review of a PR, such as "tour this PR <url>" or "walk me through PR <url> familiar".
 argument-hint: <pr-url> [familiar|some|new] [plan-first]
 ---
 
@@ -8,9 +8,9 @@ argument-hint: <pr-url> [familiar|some|new] [plan-first]
 
 Arguments: $ARGUMENTS
 
-You write a tour of one Azure DevOps pull request with lotsen's tools. First you set a plan of chapters and stops,
-then you write each stop's content. The reviewer reads the tour in lotsen's web UI, asks you about it and answers its
-checks.
+You write a tour of one pull request on Azure DevOps or GitHub with lotsen's tools. First you set a plan of chapters
+and stops, then you write each stop's content. The reviewer reads the tour in lotsen's web UI, asks you about it and
+answers its checks.
 
 - Find, create and show the tour: `find_tours`, `create_tour`, `attach_tour`, `open_ui` and `pin_tour`.
 - Write and read the tour: `set_plan`, `put_stop` and `read_state`.
@@ -18,12 +18,40 @@ checks.
 - Write threads of your own: `start_thread`, `add_thread_message`, `outdate_thread` and `delete_thread`.
 - Sum up the review: `read_summary` and `write_synthesis`.
 
+## Platforms
+
+lotsen tours pull requests on Azure DevOps and GitHub. The PR's URL tells you its platform, and a tour's `target`
+names the platform's ID in `platform`. The rest of this skill says "work item" for what each platform calls one.
+
+### Azure DevOps (`azureDevOps`)
+
+- **PR URL:** `https://dev.azure.com/{organization}/{project}/_git/{repository}/pullrequest/{id}` or
+  `https://{organization}.visualstudio.com/{project}/_git/{repository}/pullrequest/{id}`.
+- **Sources:** the Azure DevOps MCP tools, or the Azure CLI's `az repos pr`.
+- **Work item:** an Azure DevOps work item. Label a mention of one with its ID, as `[#1234](workitem:1234)`, and a
+  mention of a pull request as `[!42](pullrequest:42)`.
+- **Sign-in:** lotsen reads the PR with the Azure CLI's sign-in, which `az login` sets.
+
+### GitHub (`github`)
+
+- **PR URL:** `https://github.com/{owner}/{repository}/pull/{number}`. A longer URL of the PR, such as its
+  `/files` tab, works too.
+- **Sources:** the GitHub CLI or the tools of a GitHub MCP server. `gh pr view <url>` shows the description,
+  `gh pr view <url> --comments` the discussion, `gh pr view <url> --json commits,closingIssuesReferences` the commits
+  and the linked issues, and `gh pr diff <url>` the diff.
+  `gh api --paginate repos/{owner}/{repository}/pulls/{number}/comments`, with all three values from the PR URL,
+  returns every review comment on the code. Only the PR's repository has the ref `pull/{number}/head`, which holds
+  the tip of the PR's source branch even for a PR from a fork. Fetch it with `git fetch <remote> pull/{number}/head`,
+  where `<remote>` is the remote of `github.com/{owner}/{repository}` or that repository's clone URL.
+- **Work item:** an issue in the PR's repository. Label a mention of one with its number, as `[#17](workitem:17)`.
+  Label a mention of a pull request with `#` and its number too, as GitHub does: `[#42](pullrequest:42)`.
+- **Sign-in:** lotsen reads the PR with the GitHub CLI's sign-in, which `gh auth login` sets.
+
 ## 1. Take the PR URL, the familiarity level and plan first
 
 Take them from the arguments, or from the user's request when the arguments are empty.
 
-- **PR URL:** `https://dev.azure.com/{organization}/{project}/_git/{repository}/pullrequest/{id}` or
-  `https://{organization}.visualstudio.com/{project}/_git/{repository}/pullrequest/{id}`. Without one, ask for it.
+- **PR URL:** a URL of a pull request in one of the forms that "Platforms" names. Without one, ask for it.
 - **Familiarity:** how well the reviewer knows the code, one of `familiar`, `some` or `new`.
 - **Plan first:** whether the reviewer approves the plan before you write any stop. It is on when the arguments hold
   `plan-first`, or when the reviewer asks to see or approve the plan first. It is off otherwise. Don't ask for it.
@@ -102,8 +130,8 @@ When a lotsen channel event says that another session took over a tour you write
 
 ## 3. Gather the PR
 
-Lotsen has no Azure DevOps tools. Use what you already have: Azure DevOps MCP tools, the Azure CLI (`az repos pr`),
-and git in a local checkout of the repository.
+Lotsen has no tools that read the PR. Use what you already have: the tools that "Platforms" names for the PR's
+platform, and git in a local checkout of the repository.
 
 - Read the title, the description, the linked work items, the commits, the existing threads and the diff.
 - Read the changed code locally where you can. Don't switch branches or change the working tree without asking the
@@ -238,9 +266,9 @@ the input you name. When you are unsure, leave the file unmarked, and give a sus
   alone and starts again a pin that stopped without a result. Then check `read_state` again between other work.
   You may read the code for the first stops meanwhile, but take their line numbers only once the tour is pinned, as
   section 7 says.
-- `failed`: tell the reviewer `pin.reason` in its own words, such as running `az login`, or checking the URL or their
-  access to the repository. When the reviewer says the cause is fixed, call `pin_tour` with the `tourId` to pin the
-  tour again, and check `read_state` again later.
+- `failed`: tell the reviewer `pin.reason` in its own words, such as running `az login` or `gh auth login`, or
+  checking the URL or their access to the repository. When the reviewer says the cause is fixed, call `pin_tour` with
+  the `tourId` to pin the tour again, and check `read_state` again later.
 
 ## 7. Read the code at the tour's commits
 
@@ -249,8 +277,8 @@ commit `pin.mergeBase`. The server checks each line number against the file at t
 from that commit only.
 
 - Keep the checkout you read from at `pin.head`. Compare `git rev-parse HEAD` with `pin.head`. When they differ, ask
-  before you change the user's working tree, and offer a worktree: `git worktree add <dir> <pin.head>`. Fetch the
-  PR's source branch first when git does not know the commit.
+  before you change the user's working tree, and offer a worktree: `git worktree add <dir> <pin.head>`. When git
+  does not know the commit, fetch the PR's source branch, or on GitHub the ref that "Platforms" names.
 - Read a file at the base with `git show <pin.mergeBase>:<path>`.
 - A file that the PR adds exists only at the head, and a file that it deletes only at the base. A renamed file has
   its old path at the base.
@@ -382,13 +410,15 @@ two links that compare the base and the head of the same code cover the same spa
 ### Work item and pull request links
 
 When a field mentions a work item or another pull request that you read from the PR, such as a linked work item or a
-pull request that the description names, link it with its own scheme and label it with its ID:
+pull request that the description names, link it with its own scheme and label it with its ID, as "Platforms" says
+for the PR's platform. On Azure DevOps:
 
 - A work item: `[#1234](workitem:1234)`.
 - A pull request in the PR's repository: `[!42](pullrequest:42)`.
 
-The UI opens each in a new tab on the PR's platform, with only its label shown. A pull request in another repository
-takes its full `https:` link instead. Write the ID as plain digits. A bare `#1234` or `!42` in the text stays text.
+The UI opens each in a new tab on the PR's platform, with only its label shown. A pull request in another
+repository, or a work item in another Azure DevOps project or GitHub repository, takes its full `https:` link
+instead. Write the ID as plain digits. A bare `#1234` or `!42` in the text stays text.
 
 ### Markdown
 
