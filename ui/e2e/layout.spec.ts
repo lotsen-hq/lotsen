@@ -213,6 +213,23 @@ for (const palette of palettes) {
    });
 }
 
+for (const palette of palettes) {
+   test(`a resolved thread's state label reads as muted text on the muted fill, in ${paletteName(palette)}`, async ({ page }) => {
+      await openDemoTour(page, checkoutTour, { ...palette, placement: 'mixed' });
+      await expectPalette(page, palette);
+
+      await openStop(page, 'Where totals come from');
+      await page
+         .getByRole('region', { name: 'Stop', exact: true })
+         .getByRole('button', { name: /Open the thread: .*round to cents/ })
+         .click();
+      const label = page.getByRole('region', { name: 'Threads', exact: true }).getByRole('article').getByText('Resolved', { exact: true });
+      const { own, behind } = await drawnColors(label, ['color', 'background-color']);
+      const pill = over(own['background-color'], behind);
+      expect(contrast(over(own.color, pill), pill), 'the state label against its fill').toBeGreaterThanOrEqual(4.5);
+   });
+}
+
 /** Expects a warning notice's bar and fill to be the theme's warning colors, and its text and mark to read against the fill. */
 async function expectWarningStyle(notice: Locator, name: string): Promise<void> {
    await expect(notice, `${name}: the bar`).toHaveCSS('border-left-color', await themeColor(notice, '--warning'));
