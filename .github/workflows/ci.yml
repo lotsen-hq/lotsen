@@ -186,9 +186,11 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+      # One test project at a time, because xUnit fails a test project whose process takes over 60 seconds to report its assembly, and that happened with three at once on this runner.
+      # https://github.com/xunit/xunit/blob/728c1dce012cd82193035dddfeaba184baaa88c6/src/xunit.v3.runner.utility/Frameworks/v3/TestProcessLauncherAdapter.cs#L113-L114
       - name: Test
         if: ${{ !cancelled() }}
-        run: dotnet test
+        run: dotnet test -m:1
 
       - name: Publish with Native AOT
         run: dotnet publish -c Release -p:PublishAot=true -p:TreatWarningsAsErrors=true
