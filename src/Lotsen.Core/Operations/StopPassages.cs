@@ -6,7 +6,8 @@ using Lotsen.Tours;
 namespace Lotsen.Operations;
 
 /// <summary>
-/// Checks a stop's passages and the code references in its prose against a pinned tour's commits, and reads the passages' text from the tour's clone. A question's code range and file anchors use the same checks.
+/// Checks a stop's passages and the code references in its prose against a pinned tour's commits, and reads the passages' text from the tour's clone. A question's code range and file anchors use the
+/// same checks.
 /// </summary>
 /// <remarks>
 /// The file of a passage or a code reference must be a <see cref="ReadableFile"/> on its side, because the check reads the whole file. Each file is read once per instance, however many passages
@@ -36,7 +37,7 @@ internal sealed class StopPassages
    public async Task<OperationResult<IReadOnlyList<StopPassage>>> CheckAsync(
       IReadOnlyList<PassageInput> passages, StopKind kind, IReadOnlyList<ProseReference> references, CancellationToken cancellationToken)
    {
-      await ReadAllAsync([.. passages.Select(passage => (passage.Side, passage.Path)), .. FilesOf(references)], cancellationToken);
+      await ReadAllAsync([.. passages.Select(passage => (passage.Side, passage.Path)), .. FilesOf(references), .. await OtherSidesAsync(passages, kind, cancellationToken)], cancellationToken);
       var stored = new List<StopPassage>(passages.Count);
       for (var i = 0; i < passages.Count; i++)
       {
@@ -143,6 +144,38 @@ internal sealed class StopPassages
       {
          _files[(side, path)] = ReadOf(side, path);
       }
+   }
+
+   // Returns the other side of each primary passage's file whose diff the check reads, so the one lookup of ReadAllAsync finds the files of the diff check too. A failed list returns none, and
+   // the diff check then fails at its turn.
+   private async Task<IReadOnlyList<(FileSide Side, string Path)>> OtherSidesAsync(IReadOnlyList<PassageInput> passages, StopKind kind, CancellationToken cancellationToken)
+   {
+      var primaries = passages.Where(passage => passage.Role == PassageRole.Primary).ToList();
+      if (primaries.Count == 0 || !StopContentRules.PrimaryTouchesDiff(kind))
+      {
+         return [];
+      }
+
+      IReadOnlyList<FileChange> changes;
+      try
+      {
+         changes = await _facts.FactAsync(new FactKey.ChangedFiles(_pin.MergeBase, _pin.Head), cancellationToken);
+      }
+      catch (GitException)
+      {
+         return [];
+      }
+
+      var others = new List<(FileSide Side, string Path)>();
+      foreach (var primary in primaries)
+      {
+         if (PinChanges.At(changes, primary.Side, primary.Path) is { Kind: FileChangeKind.Modified or FileChangeKind.Renamed, Binary: false, Size: <= ReadableFile.MaxSize } changed)
+         {
+            others.Add(primary.Side == FileSide.Head ? (FileSide.Base, changed.OldPath ?? changed.Path) : (FileSide.Head, changed.Path));
+         }
+      }
+
+      return [.. others.Where(other => RepositoryPath.IsValid(other.Path))];
    }
 
    private async Task<OperationError?> CheckEachReferenceAsync(IReadOnlyList<ProseReference> references, CancellationToken cancellationToken)

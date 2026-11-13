@@ -616,7 +616,7 @@ public sealed class GitQueryTests : IDisposable
       var git = new RecordingGit(_fixture.ScratchPath);
       var repository = await SyncAsync(git.Options);
       var token = TestContext.Current.CancellationToken;
-      await repository.DownloadChangedFilesAsync(baseCommit, head, token);
+      await repository.GetChangedFilesAsync(baseCommit, head, download: true, token);
       var before = GitRuns(git);
 
       var diff = await repository.DiffFileAsync(baseCommit, head, "a.txt", token);
@@ -762,7 +762,7 @@ public sealed class GitQueryTests : IDisposable
       var head = CommitSubmodule(new string('2', 40));
       var repository = await SyncAsync();
 
-      await repository.DownloadChangedFilesAsync(baseCommit, head, TestContext.Current.CancellationToken);
+      await repository.GetChangedFilesAsync(baseCommit, head, download: true, TestContext.Current.CancellationToken);
 
       Assert.Equal(["?" + _fixture.Git(_fixture.OriginPath, "rev-parse", $"{head}:kept.txt").Trim()], MissingObjects(repository, baseCommit, head));
    }
@@ -777,7 +777,7 @@ public sealed class GitQueryTests : IDisposable
       var head = _fixture.Commit("Binary");
       var repository = await SyncAsync();
       var token = TestContext.Current.CancellationToken;
-      await repository.DownloadChangedFilesAsync(baseCommit, head, token);
+      await repository.GetChangedFilesAsync(baseCommit, head, download: true, token);
       Directory.Move(_fixture.OriginPath, Path.Combine(_fixture.ScratchPath, "moved-origin"));
 
       var changed = await repository.ListChangedFilesAsync(baseCommit, head, 10, token);
@@ -794,17 +794,17 @@ public sealed class GitQueryTests : IDisposable
       Assert.Equal([new TextChange(8, 14, 8, 14)], diff.Changes);
    }
 
-   /// <summary>A query of one second would end the download, which the double delays by two.</summary>
+   /// <summary>A query of one second would end the downloading diff, which the double delays by two.</summary>
    [Fact]
    public async Task Download_of_the_changed_files_has_the_transfer_timeout()
    {
       var baseCommit = _fixture.Commit("Base", ("a.txt", "one\n"));
       var head = _fixture.Commit("Head", ("a.txt", "two\n"));
-      var git = GitDouble.Options(async run => run.Subcommand == "diff-tree" && await run.DelayAsync(TimeSpan.FromSeconds(2)) is { } ended ? ended : await run.GitAsync());
+      var git = GitDouble.Options(async run => run.Command.Arguments.Contains("--raw") && await run.DelayAsync(TimeSpan.FromSeconds(2)) is { } ended ? ended : await run.GitAsync());
 
       var repository = await _fixture.NewCache(git with { QueryTimeout = TimeSpan.FromSeconds(1) }).OpenAsync(_fixture.Remote(), [], FetchPolicy.Sync, TestContext.Current.CancellationToken);
 
-      await repository.DownloadChangedFilesAsync(baseCommit, head, TestContext.Current.CancellationToken);
+      await repository.GetChangedFilesAsync(baseCommit, head, download: true, TestContext.Current.CancellationToken);
 
       Assert.Empty(MissingObjects(repository, baseCommit, head));
    }
@@ -856,12 +856,12 @@ public sealed class GitQueryTests : IDisposable
       Assert.Empty(MissingObjects(repository, commit, commit));
    }
 
-   /// <summary>A query of one second would end the download, which the double delays by two.</summary>
+   /// <summary>A query of one second would end the downloading diff, which the double delays by two.</summary>
    [Fact]
    public async Task Download_of_named_files_has_the_transfer_timeout()
    {
       var commit = _fixture.Commit("Base", ("a.txt", "one\n"));
-      var git = GitDouble.Options(async run => run.Subcommand == "diff-tree" && await run.DelayAsync(TimeSpan.FromSeconds(2)) is { } ended ? ended : await run.GitAsync());
+      var git = GitDouble.Options(async run => run.Command.Arguments.Contains("--raw") && await run.DelayAsync(TimeSpan.FromSeconds(2)) is { } ended ? ended : await run.GitAsync());
 
       var repository = await _fixture.NewCache(git with { QueryTimeout = TimeSpan.FromSeconds(1) }).OpenAsync(_fixture.Remote(), [], FetchPolicy.Sync, TestContext.Current.CancellationToken);
 

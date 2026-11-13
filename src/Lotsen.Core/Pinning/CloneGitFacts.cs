@@ -92,7 +92,9 @@ internal sealed class CloneGitFacts : IGitFacts
       {
          if (!_downloaded.Contains((mergeBase, head)))
          {
-            await DownloadOnceAsync(await RepositoryAsync(cancellationToken), mergeBase, head, cancellationToken);
+            var repository = await RepositoryAsync(cancellationToken);
+            Add(new FactKey.ChangedFiles(mergeBase, head), await repository.GetChangedFilesAsync(mergeBase, head, download: true, cancellationToken));
+            RecordDownload(mergeBase, head);
          }
       }
 
@@ -199,7 +201,7 @@ internal sealed class CloneGitFacts : IGitFacts
             case FactKey.ChangedPaths(var from, var to):
                return await repository.GetChangedPathsAsync(from, to, cancellationToken);
             case FactKey.ChangedFiles(var from, var to):
-               return await repository.GetChangedFilesAsync(from, to, cancellationToken);
+               return await ReadChangedFilesAsync(repository, from, to, cancellationToken);
             case FactKey.Blob(var commit, var path):
                return await repository.FindFileAsync(commit, path, cancellationToken);
             case FactKey.Lines(var commit, var path):
@@ -219,16 +221,7 @@ internal sealed class CloneGitFacts : IGitFacts
 
       private async Task<DiffTouch> ReadPinDiffAsync(GitRepository repository, CommitId mergeBase, CommitId head, FileSide side, string path, CancellationToken cancellationToken)
       {
-         // The download of a pin's changed files lets the list read the clone alone. A scope runs one before it lists a pin that no scope downloaded into the current clone.
-         var changesKey = new FactKey.ChangedFiles(mergeBase, head);
-         if (!TryKeep(changesKey, out _))
-         {
-            await DownloadAsync(repository, mergeBase, head, cancellationToken);
-         }
-
-         var changed = (await FactAsync(repository, changesKey, cancellationToken)).FirstOrDefault(file => side == FileSide.Head
-            ? file.Kind != FileChangeKind.Deleted && file.Path == path
-            : file.Kind != FileChangeKind.Added && (file.OldPath ?? file.Path) == path);
+         var changed = PinChanges.At(await FactAsync(repository, new FactKey.ChangedFiles(mergeBase, head), cancellationToken), side, path);
          if (changed is null)
          {
             return new DiffTouch.Unchanged();
@@ -283,29 +276,32 @@ internal sealed class CloneGitFacts : IGitFacts
       private async Task<FileLines> LinesAsync(GitRepository repository, FileBlob file, CancellationToken cancellationToken) =>
          await FactAsync(repository, new FactKey.Lines(file.Commit, file.Path), cancellationToken) ?? new FileLines(await repository.ReadTextAsync(file, cancellationToken));
 
-      // The listing would download the changed files' contents within the query timeout, so the download runs first, within the transfer timeout. A failed download leaves that to the listing.
-      private async Task DownloadAsync(GitRepository repository, CommitId mergeBase, CommitId head, CancellationToken cancellationToken)
+      // On a pin that no scope downloaded into the current clone, the list downloads the changed files' contents within the transfer timeout and counts as the download. A failed download is
+      // logged, and the list then runs again within the query timeout.
+      private async Task<IReadOnlyList<FileChange>> ReadChangedFilesAsync(GitRepository repository, CommitId mergeBase, CommitId head, CancellationToken cancellationToken)
       {
          if (_downloaded.Contains((mergeBase, head)) || _owner.Downloaded(_remote.Url, mergeBase, head))
          {
-            return;
+            return await repository.GetChangedFilesAsync(mergeBase, head, cancellationToken);
          }
 
          try
          {
-            await DownloadOnceAsync(repository, mergeBase, head, cancellationToken);
+            var changes = await repository.GetChangedFilesAsync(mergeBase, head, download: true, cancellationToken);
+            RecordDownload(mergeBase, head);
+            return changes;
          }
          catch (ExternalFailureException failure)
          {
             _owner._logger.LogWarning(
                "The changed files between {MergeBase} and {Head} could not be downloaded, so listing them downloads them. {Reason}", mergeBase.Value, head.Value, failure.Reason);
+            return await repository.GetChangedFilesAsync(mergeBase, head, cancellationToken);
          }
       }
 
       // Records the download in the scope and in its owner, so neither downloads the pin again.
-      private async Task DownloadOnceAsync(GitRepository repository, CommitId mergeBase, CommitId head, CancellationToken cancellationToken)
+      private void RecordDownload(CommitId mergeBase, CommitId head)
       {
-         await repository.DownloadChangedFilesAsync(mergeBase, head, cancellationToken);
          _downloaded.Add((mergeBase, head));
          lock (_owner._downloaded)
          {

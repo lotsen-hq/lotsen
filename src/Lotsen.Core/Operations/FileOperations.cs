@@ -161,7 +161,8 @@ internal sealed class FileOperations
    }
 
    /// <summary>
-   /// Returns the tour's changed files, with the marks that <see cref="GitRepository.GetChangedFilesAsync"/> finds with <see cref="LargeFileSize"/>, and the paths of those whose review mark counts.
+   /// Returns the tour's changed files, with the marks that <see cref="GitRepository.GetChangedFilesAsync(CommitId, CommitId, bool, CancellationToken)"/> finds with <see cref="LargeFileSize"/>, and
+   /// the paths of those whose review mark counts.
    /// </summary>
    /// <remarks>
    /// A review mark counts while its object ID is the file's <see cref="ChangedFile.HeadObjectId"/> at the pinned head, so a head that changes the file clears it. A deleted file's mark, without an

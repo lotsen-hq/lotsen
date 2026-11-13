@@ -595,7 +595,10 @@ public sealed class StopReferenceTests : IDisposable
 {
    private readonly GitFixture _fixture = new();
 
-   /// <summary>The merge base holds the three files of the related passages and the link, so the pin downloaded none of them. The primary passage's diff check runs a lookup of its own.</summary>
+   /// <summary>
+   /// The merge base holds the three files of the related passages and the link, so the pin downloaded none of them. The one lookup also finds the base side of the primary passage's file, which
+   /// its diff check reads.
+   /// </summary>
    [Fact]
    public async Task Put_stop_reads_the_files_of_its_passages_and_ref_links_with_one_lookup()
    {
@@ -620,7 +623,7 @@ public sealed class StopReferenceTests : IDisposable
 
       Assert.Equal(["2", "one", "two"], stored["content"]!["passages"]!.AsArray().Select(passage => (string)passage!["text"]!));
       var runs = Runs(git).Skip(runsBefore).ToList();
-      Assert.Equal(2, runs.Count(run => run == "cat-file -Z --batch"));
+      Assert.Equal(1, runs.Count(run => run == "cat-file -Z --batch"));
       Assert.DoesNotContain(runs, run => run.StartsWith("cat-file blob ", StringComparison.Ordinal));
    }
 

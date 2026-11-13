@@ -33,7 +33,8 @@ internal sealed class UnsupportedRemoteException : ExternalFailureException
 /// <remarks>
 /// <para>
 /// A clone holds every commit and tree, and only the file contents that git downloaded. Git downloads a file's content when a query first reads it, or in advance with
-/// <see cref="GitRepository.DownloadChangedFilesAsync"/>. The cache keeps all its state in the instance, so one instance per data directory must be the only writer of its clones. The server's
+/// <see cref="GitRepository.GetChangedFilesAsync(CommitId, CommitId, bool, CancellationToken)"/>. The cache keeps all its state in the instance, so one instance per data directory must be the only
+/// writer of its clones. The server's
 /// claim lock makes it one per process, and tests share a cache by sharing the instance.
 /// </para>
 /// <para>

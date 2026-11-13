@@ -24,7 +24,9 @@ internal abstract record FactKey
    /// <summary>The paths that differ between two commits, renames followed, as <see cref="GitRepository.GetChangedPathsAsync"/> lists them.</summary>
    internal sealed record ChangedPaths(CommitId From, CommitId To) : Of<IReadOnlyList<ChangedPath>>;
 
-   /// <summary>The files that differ between two commits, with their sizes and marks, as <see cref="GitRepository.GetChangedFilesAsync"/> lists them.</summary>
+   /// <summary>
+   /// The files that differ between two commits, with their sizes and marks, as <see cref="GitRepository.GetChangedFilesAsync(CommitId, CommitId, bool, CancellationToken)"/> lists them.
+   /// </summary>
    internal sealed record ChangedFiles(CommitId From, CommitId To) : Of<IReadOnlyList<FileChange>>;
 
    /// <summary>The blob of a path at a commit, with its size and whether git treats it as binary, or null when the path names no file there.</summary>
@@ -82,6 +84,18 @@ internal closed record DiffTouch
          return Changed.Any(region => region.From == region.To ? from <= region.From && region.From <= to : region.From < to && region.To > from);
       }
    }
+}
+
+/// <summary>Finds a pin's changed files by the side and path that a passage names.</summary>
+internal static class PinChanges
+{
+   /// <summary>Returns the changed file with the path at the side, or null when the diff does not change a file there.</summary>
+   /// <param name="changes">The pin's changed files, as <see cref="FactKey.ChangedFiles"/> lists them.</param>
+   /// <param name="side">The side of the path.</param>
+   /// <param name="path">The repository path at the side. A renamed file has its old path at the base.</param>
+   public static FileChange? At(IReadOnlyList<FileChange> changes, FileSide side, string path) => changes.FirstOrDefault(file => side == FileSide.Head
+      ? file.Kind != FileChangeKind.Deleted && file.Path == path
+      : file.Kind != FileChangeKind.Added && (file.OldPath ?? file.Path) == path);
 }
 
 /// <summary>A set of git facts by key. A fact may be null, which is an answer too, as each <see cref="FactKey"/> says.</summary>
@@ -245,7 +259,10 @@ internal interface IFactScope : IAsyncDisposable
    /// <exception cref="AccessTokenUnavailableException">The clone needed a fetch, the remote asked for authentication, and the remote's git credential has none.</exception>
    Task ReadAsync(IReadOnlyCollection<FactKey> keys, CancellationToken cancellationToken);
 
-   /// <summary>Downloads the contents of the files that differ between the commits into the clone, as <see cref="GitRepository.DownloadChangedFilesAsync"/> does, unless the scope downloaded them already.</summary>
+   /// <summary>
+   /// Downloads the contents of the files that differ between the commits into the clone, unless the scope downloaded them already, and adds their <see cref="FactKey.ChangedFiles"/> fact.
+   /// </summary>
+   /// <remarks>The list's first git run is the download, as <see cref="GitRepository.GetChangedFilesAsync(CommitId, CommitId, bool, CancellationToken)"/> says.</remarks>
    /// <exception cref="GitException">Git failed.</exception>
    /// <exception cref="AccessTokenUnavailableException">The clone needed a fetch, the remote asked for authentication, and the remote's git credential has none.</exception>
    Task WarmAsync(CommitId mergeBase, CommitId head, CancellationToken cancellationToken);

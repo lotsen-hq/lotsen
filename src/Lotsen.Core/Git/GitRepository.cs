@@ -35,7 +35,7 @@ internal enum DiffWhitespace
 /// <param name="OldPath">The path of a renamed file at the base commit, or null for every other kind.</param>
 /// <param name="Binary">Whether git treats the file's content as binary on either side.</param>
 /// <param name="Size">The size in bytes of the larger of the file's blobs, or 0 for a submodule.</param>
-/// <param name="LineEndingsOnly">Whether the file's only change is its line endings, as <see cref="GitRepository.GetChangedFilesAsync"/> finds it.</param>
+/// <param name="LineEndingsOnly">Whether the file's only change is its line endings, as <see cref="GitRepository.GetChangedFilesAsync(CommitId, CommitId, bool, CancellationToken)"/> finds it.</param>
 /// <param name="HeadObjectId">
 /// The object ID of the file's entry at the head commit, or null for a deleted file. A submodule's names the submodule's commit. It is the ID that <c>git rev-parse &lt;head&gt;:&lt;path&gt;</c>
 /// returns, as <c>GitQueryTests.Changed_files_carry_the_object_id_of_their_entry_at_the_head</c> pins.
@@ -134,16 +134,21 @@ internal sealed class GitRepository : IDisposable
    /// <summary>Returns the files that differ between two commits.</summary>
    /// <param name="from">The base commit.</param>
    /// <param name="to">The head commit.</param>
+   /// <param name="download">
+   /// Whether the clone may lack the changed files' contents. The first diff, which downloads them, then has the transfer timeout, because it can download far more than one query, as
+   /// <c>GitQueryTests.Download_of_the_changed_files_has_the_transfer_timeout</c> pins.
+   /// </param>
    /// <param name="cancellationToken">Stops the query.</param>
    /// <returns>
-   /// The changed files, in git's path order. A moved file is one renamed file when git's rename detection pairs its two paths. A file is binary when <see cref="FindFileAsync"/> would find either of its blobs binary.
+   /// The changed files, in git's path order. A moved file is one renamed file when git's rename detection pairs its two paths. A file is binary when <see cref="FindFileAsync"/> would find either of
+   /// its blobs binary.
    /// A modified or renamed text file whose mode stays is line-endings-only when git, comparing lines without the carriage return before their line feeds, finds no changed line.
    /// </returns>
    /// <remarks>
    /// <para>
    /// Git pairs a deleted file with an added one when at least half of the file is unchanged, the default threshold of <c>-M</c> (https://git-scm.com/docs/git-diff-tree, option <c>-M</c>).
    /// To compare the files and count their lines, git downloads the content of every changed file that the clone lacks, as
-   /// <c>GitQueryTests.Changed_files_download_the_content_of_every_changed_file_and_no_other</c> pins. <see cref="DownloadChangedFilesAsync"/> downloads the same contents in advance.
+   /// <c>GitQueryTests.Changed_files_download_the_content_of_every_changed_file_and_no_other</c> pins.
    /// A blob-less clone learns a blob's size only from the blob itself.
    /// </para>
    /// <para>
@@ -152,10 +157,10 @@ internal sealed class GitRepository : IDisposable
    /// </para>
    /// </remarks>
    /// <exception cref="GitException">Git failed, as when the clone lacks one of the commits.</exception>
-   public async Task<IReadOnlyList<FileChange>> GetChangedFilesAsync(CommitId from, CommitId to, CancellationToken cancellationToken)
+   public async Task<IReadOnlyList<FileChange>> GetChangedFilesAsync(CommitId from, CommitId to, bool download, CancellationToken cancellationToken)
    {
       var failure = $"Git could not list the changes between {from} and {to}";
-      var output = await RunAsync(failure, ChangedFilesDiff(from, to), cancellationToken);
+      var output = await RunAsync(failure, ChangedFilesDiff(from, to), cancellationToken, timeout: download ? _git.Options.TransferTimeout : null);
 
       // With -z each field ends in NUL. Git writes every raw record, then every numstat record, and a renamed file's records hold its old path, then its new path.
       var fields = output.Text.Split('\0');
@@ -188,11 +193,19 @@ internal sealed class GitRepository : IDisposable
       ];
    }
 
+   /// <summary>
+   /// Returns the files that differ between two commits, from a clone that holds their contents, as <see cref="GetChangedFilesAsync(CommitId, CommitId, bool, CancellationToken)"/> does.
+   /// </summary>
+   /// <exception cref="GitException">Git failed, as when the clone lacks one of the commits.</exception>
+   public Task<IReadOnlyList<FileChange>> GetChangedFilesAsync(CommitId from, CommitId to, CancellationToken cancellationToken) => GetChangedFilesAsync(from, to, download: false, cancellationToken);
+
    /// <summary>Returns the paths that differ between two commits and how each changed, without what the files' content tells.</summary>
    /// <param name="from">The base commit.</param>
    /// <param name="to">The head commit.</param>
    /// <param name="cancellationToken">Stops the query.</param>
-   /// <returns>The changed paths. A moved file is one renamed path when git's rename detection pairs its two paths, as in <see cref="GetChangedFilesAsync"/>.</returns>
+   /// <returns>
+   /// The changed paths. A moved file is one renamed path when git's rename detection pairs its two paths, as in <see cref="GetChangedFilesAsync(CommitId, CommitId, bool, CancellationToken)"/>.
+   /// </returns>
    /// <remarks>
    /// Git downloads only the content of the added and deleted files that the clone lacks, which rename detection compares. It reads no modified file, as
    /// <c>TourRemapTests.Remap_downloads_no_content_of_a_changed_file_that_nothing_in_the_tour_names</c> pins.
@@ -214,16 +227,6 @@ internal sealed class GitRepository : IDisposable
 
       return changes;
    }
-
-   /// <summary>Downloads into the clone the content of every file that differs between two commits, so <see cref="GetChangedFilesAsync"/> and the diffs of those files download nothing.</summary>
-   /// <remarks>
-   /// It runs the diff of <see cref="GetChangedFilesAsync"/>, which downloads every blob that the diff reads and no other, as
-   /// <c>GitQueryTests.Download_of_the_changed_files_fetches_the_content_of_every_changed_file_and_no_other</c> pins. It has the transfer timeout, because it can download far more than one query.
-   /// </remarks>
-   /// <exception cref="GitException">Git failed or did not finish within <see cref="GitOptions.TransferTimeout"/>.</exception>
-   /// <exception cref="Credentials.AccessTokenUnavailableException">The remote asked for authentication, and the remote's credential has none.</exception>
-   public async Task DownloadChangedFilesAsync(CommitId from, CommitId to, CancellationToken cancellationToken) =>
-      await RunAsync($"Git could not download the changed files between {from} and {to}", ChangedFilesDiff(from, to), cancellationToken, timeout: _git.Options.TransferTimeout);
 
    /// <summary>Returns the files whose blob the clone lacks, and the paths that name nothing at their commit, with one lookup that downloads nothing.</summary>
    /// <param name="files">The files, each with its commit. The lookup skips a path that does not follow <see cref="RepositoryPath.IsValid"/>.</param>
@@ -319,7 +322,9 @@ internal sealed class GitRepository : IDisposable
       return results;
    }
 
-   /// <summary>Returns the files of a change at the two commits that <see cref="GetChangedFilesAsync"/> compared, as <see cref="FindFileAsync"/> finds a file.</summary>
+   /// <summary>
+   /// Returns the files of a change at the two commits that <see cref="GetChangedFilesAsync(CommitId, CommitId, bool, CancellationToken)"/> compared, as <see cref="FindFileAsync"/> finds a file.
+   /// </summary>
    /// <param name="from">The base commit of the list that holds the change.</param>
    /// <param name="to">The head commit of that list.</param>
    /// <param name="change">The change, from that list.</param>

@@ -36,6 +36,20 @@ public sealed class FactReuseTests : IDisposable
       Assert.Equal(runsBefore, Runs(git));
    }
 
+   /// <summary>The first pin downloads the changed files by listing them, so the fact memo holds the list once the tour is pinned.</summary>
+   [Fact]
+   public async Task Changed_file_list_after_the_first_pin_runs_no_git()
+   {
+      var git = new RecordingGit(_fixture.ScratchPath);
+      await using var tour = await PinnedTourFixture.StartAsync(git.Options, []);
+      var runsBefore = Runs(git);
+
+      var listed = await tour.Harness.CallAsync(On("list_changed_files", tour.TourId));
+
+      Assert.NotEmpty(listed["files"]!.AsArray());
+      Assert.Equal(runsBefore, Runs(git));
+   }
+
    [Theory]
    [InlineData("""{ "path": "src/modified.txt" }""")]
    [InlineData("""{ "path": "src/modified.txt", "whitespace": "ignore" }""")]
