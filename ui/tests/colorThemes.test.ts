@@ -11,6 +11,9 @@ const shown = () => ({ family: root.dataset.colorTheme, dark: root.classList.con
 // Latte's and Mocha's base, from color-themes.css.
 const latteBase = '#eff1f5';
 const mochaBase = '#1e1e2e';
+// Light Modern's and Dark Modern's editor.background, from color-themes.css.
+const lightModernBackground = '#ffffff';
+const darkModernBackground = '#1f1f1f';
 
 let settings: Settings | undefined;
 
@@ -76,6 +79,22 @@ describe('the color theme', () => {
 
       expect(shown()).toEqual({ family: 'catppuccin', dark: false });
       expect(background()).toBe(latteBase);
+   });
+
+   it('offers Visual Studio Code, whose palettes are Light Modern and Dark Modern', () => {
+      expect(colorThemeChoices).toContainEqual({ value: 'vscode', label: 'Visual Studio Code' });
+      localStorage.setItem('lotsen.theme', 'light');
+      settings = new Settings(fakeSystem(false).window);
+
+      settings.setColorTheme('vscode');
+
+      expect(shown()).toEqual({ family: 'vscode', dark: false });
+      expect(background()).toBe(lightModernBackground);
+
+      settings.setTheme('dark');
+
+      expect(shown()).toEqual({ family: 'vscode', dark: true });
+      expect(background()).toBe(darkModernBackground);
    });
 
    it('starts with Lotsen when the stored family is not one', () => {

@@ -134,3 +134,145 @@
    --state-finished-text: #a6e3a1;
    --folder: #f9e2af;
 }
+
+/*
+ * Visual Studio Code is Light Modern for light and Dark Modern for dark, Copyright (c) Microsoft Corporation, MIT License: extensions/theme-defaults/themes/ in microsoft/vscode at
+ * 79749f565febf2216982fce236448995e0c4bde9, with the light_vs.json and dark_vs.json they include, and for keys that no theme file sets, the defaults in the same commit's terminalColorRegistry.ts,
+ * chartsColors.ts and editorColors.ts. Each role takes one key, and where dark takes another key, it follows in parentheses: background editor.background, card sideBar.background, popover
+ * editorWidget.background, secondary button.secondaryBackground (textCodeBlock.background), muted list.hoverBackground (textCodeBlock.background), accent list.activeSelectionBackground
+ * (tab.selectedBackground), border panel.border, input input.border, foreground editor.foreground, muted-foreground tab.inactiveForeground, primary button.background (textLink.foreground), ring
+ * focusBorder, button-fill input.background, button-border editorIndentGuide.activeBackground1, button-hover button.secondaryHoverBackground (menu.border), code-selection editor.selectionBackground,
+ * warning and folder editorWarning.foreground, warning-surface that color at 10%, warning-mark chat.editedFileForeground (editorWarning.foreground), destructive terminal.ansiRed (errorForeground),
+ * the diff lines diffEditor.insertedLineBackground and diffEditor.removedLineBackground, and the diff markers editorGutter.addedBackground and editorGutter.deletedBackground. Dark's primary is the
+ * link blue, because button.background at the reviewer's 18% tint does not stand off the card.
+ *
+ * A role without a source color takes a terminal ANSI or charts color: terminal green for success and finished, the destructive red for risk, cyan (bright cyan) for context, charts orange for a
+ * tour in progress and for related passages, with chat.editedFileForeground for the state's text and for the related marker in light, charts purple for Claude and questions, and terminal magenta
+ * for threads. Inspect is chat.slashCommandBackground with chat.slashCommandForeground, and overview is badge.background with badge.foreground. The other kind and state fills are the accent at 14%
+ * over editor.background in light and 16% in dark, written as hex, and the line tints and Claude's fill are an accent at an alpha. An accent drawn as text on such a fill blends with
+ * editor.foreground, so it reads on the fill: half and half for cyan and green in light, 70% red in light and dark, and 70% purple in dark.
+ */
+
+:root[data-color-theme='vscode'] {
+   color-scheme: light;
+   --background: #ffffff;
+   --foreground: #3b3b3b;
+   --card: #f8f8f8;
+   --card-foreground: var(--foreground);
+   --popover: var(--card);
+   --popover-foreground: var(--foreground);
+   --primary: #005fb8;
+   --primary-foreground: #ffffff;
+   --secondary: #e5e5e5;
+   --secondary-foreground: var(--foreground);
+   --muted: #f2f2f2;
+   --muted-foreground: #616161;
+   --accent: #e8e8e8;
+   --accent-foreground: var(--foreground);
+   --destructive: #cd3131;
+   --success: #107c10;
+   --warning: #bf8803;
+   --warning-surface: #f9f3e6;
+   --warning-mark: #895503;
+   --border: #e5e5e5;
+   --input: #cecece;
+   --ring: #005fb8;
+   --button-fill: #ffffff;
+   --button-border: #939393;
+   --button-hover: #cccccc;
+   --code-selection: #add6ff;
+   --code-special-char: #cd3131;
+   --diff-deleted-line: rgba(255, 0, 0, 0.2);
+   --diff-inserted-line: rgba(155, 185, 85, 0.2);
+   --diff-deleted-marker: #f85149;
+   --diff-inserted-marker: #2ea043;
+   --passage-primary-line: rgba(0, 95, 184, 0.1);
+   --passage-primary-marker: #005fb8;
+   --passage-related-line: rgba(209, 134, 22, 0.1);
+   --passage-related-marker: #895503;
+   --reference-hovered-line: rgba(101, 45, 144, 0.14);
+   --reference-hovered-marker: #652d90;
+   --ref-focused-background: rgba(0, 95, 184, 0.16);
+   --passage-label-foreground: #ffffff;
+   --dimmed-opacity: 0.45;
+   --thread-marker: #bc05bc;
+   --claude-fill: rgba(101, 45, 144, 0.08);
+   --claude-marker: #652d90;
+   --kind-overview-fill: #cccccc;
+   --kind-overview-text: #3b3b3b;
+   --kind-context-fill: #dcf1f6;
+   --kind-context-text: #206a7c;
+   --kind-inspect-fill: #d8e8ff;
+   --kind-inspect-text: #26569e;
+   --kind-risk-fill: #f8e2e2;
+   --kind-risk-text: #a13434;
+   --kind-question-fill: #e9e2ef;
+   --kind-question-text: #652d90;
+   --state-in-progress-fill: #f9eede;
+   --state-in-progress-text: #895503;
+   --state-finished-fill: #deedde;
+   --state-finished-text: #265c26;
+   --folder: #bf8803;
+}
+
+:root[data-color-theme='vscode'].dark {
+   color-scheme: dark;
+   --background: #1f1f1f;
+   --foreground: #cccccc;
+   --card: #181818;
+   --card-foreground: var(--foreground);
+   --popover: #202020;
+   --popover-foreground: var(--foreground);
+   --primary: #4daafc;
+   --primary-foreground: #1f1f1f;
+   --secondary: #2b2b2b;
+   --secondary-foreground: var(--foreground);
+   --muted: #2b2b2b;
+   --muted-foreground: #9d9d9d;
+   --accent: #37373d;
+   --accent-foreground: var(--foreground);
+   --destructive: #f85149;
+   --success: #0dbc79;
+   --warning: #cca700;
+   --warning-surface: rgba(204, 167, 0, 0.1);
+   --warning-mark: #cca700;
+   --border: #2b2b2b;
+   --input: #3c3c3c;
+   --ring: #0078d4;
+   --button-fill: #313131;
+   --button-border: #707070;
+   --button-hover: #454545;
+   --code-selection: #264f78;
+   --code-special-char: #f85149;
+   --diff-deleted-line: rgba(255, 0, 0, 0.2);
+   --diff-inserted-line: rgba(155, 185, 85, 0.2);
+   --diff-deleted-marker: #f85149;
+   --diff-inserted-marker: #2ea043;
+   --passage-primary-line: rgba(0, 120, 212, 0.16);
+   --passage-primary-marker: #4daafc;
+   --passage-related-line: rgba(209, 134, 22, 0.14);
+   --passage-related-marker: #d18616;
+   --reference-hovered-line: rgba(177, 128, 215, 0.18);
+   --reference-hovered-marker: #b180d7;
+   --ref-focused-background: rgba(0, 120, 212, 0.28);
+   --passage-label-foreground: #1f1f1f;
+   --dimmed-opacity: 0.4;
+   --thread-marker: #bc3fbc;
+   --claude-fill: rgba(177, 128, 215, 0.1);
+   --claude-marker: #b180d7;
+   --kind-overview-fill: #616161;
+   --kind-overview-text: #f8f8f8;
+   --kind-context-fill: #21373d;
+   --kind-context-text: #29b8db;
+   --kind-inspect-fill: #222f43;
+   --kind-inspect-text: #85b6ff;
+   --kind-risk-fill: #422726;
+   --kind-risk-text: #eb7670;
+   --kind-question-fill: #362f3c;
+   --kind-question-text: #b997d4;
+   --state-in-progress-fill: #3b2f1e;
+   --state-in-progress-text: #e2c08d;
+   --state-finished-fill: #1c382d;
+   --state-finished-text: #0dbc79;
+   --folder: #cca700;
+}
