@@ -59,7 +59,8 @@ public interface IPullRequestPlatform
 /// <param name="TargetCommit">The head of the target branch in the iteration.</param>
 /// <param name="Iteration">
 /// The platform's number for the iteration, from 1. It rises by at least one with each change of the source head, a change back to an earlier head included, and never falls for one pull
-/// request. A platform without native numbers counts the changes of the source head that it has resolved for the pull request, and keeps that count in its own storage.
+/// request. A platform without native numbers counts the changes of the source head that it has resolved for the pull request, and keeps that count in its own storage. Such a platform keeps
+/// the promise only while its storage keeps the count. A lost count restarts the numbering at 1, so a later iteration can show a lower number or one that an earlier iteration showed.
 /// </param>
 /// <param name="State">Whether the pull request is open, completed or abandoned.</param>
 public sealed record ResolvedPullRequest(Uri RemoteUrl, CommitId SourceCommit, CommitId TargetCommit, int Iteration, PullRequestState State);
