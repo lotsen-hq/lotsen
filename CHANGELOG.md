@@ -4,8 +4,13 @@ The notable changes in each release of lotsen, newest first. Versions follow [se
 
 ## Unreleased
 
+### Added
+
+- **Choose the size of the page's text.** Settings offers Small, Medium and Large, and the code in the diffs scales with the rest. Medium keeps the sizes of earlier versions.
+
 ### Changed
 
+- **A diff line with thread markers is as tall as any other line**, so its code sits level with its line number.
 - **Stops and diffs load faster, most of all on Windows, where each git process is slow.** lotsen keeps what git told it about a tour's commits in its git fact cache, so a stop that Claude writes again, a diff you open again and the list of changed files after pinning start no git process. The first stop that Claude writes on a pin starts fewer of them too.
 
 ## v0.2.0 - 2026-11-13
