@@ -5,23 +5,24 @@ namespace Lotsen.GitHub;
 
 /// <summary>Provides the pull requests of repositories on github.com.</summary>
 /// <remarks>
-/// It recognizes, labels and compares pull request URLs and builds mention URLs without a network call. It neither resolves a pull request nor supplies a git credential, so
-/// <see cref="ResolveAsync"/> and <see cref="GitCredential"/> throw <see cref="NotSupportedException"/>.
+/// It recognizes, labels and compares pull request URLs and builds mention URLs without a network call. Git receives the token provider's token through <see cref="GitHubGitCredential"/>.
+/// It does not resolve a pull request, so <see cref="ResolveAsync"/> throws <see cref="NotSupportedException"/>.
 /// </remarks>
 public sealed class GitHubPlatform : IPullRequestPlatform
 {
    /// <summary>The platform ID that GitHub targets store.</summary>
    public const string PlatformId = "github";
 
-   internal GitHubPlatform()
+   internal GitHubPlatform(IAccessTokenProvider accessTokens)
    {
+      GitCredential = new GitHubGitCredential(accessTokens);
    }
 
    public string Id => PlatformId;
 
    public string ExpectedForms => GitHubPullRequest.ExpectedForms;
 
-   public IGitCredential GitCredential => throw new NotSupportedException("The GitHub platform supplies no git credential.");
+   public IGitCredential GitCredential { get; }
 
    public Uri? Recognize(string text) => GitHubPullRequest.TryParse(text, out var pullRequest) ? pullRequest.Url : null;
 
