@@ -11,7 +11,7 @@ usage() {
    cat <<EOF
 Usage: scripts/live-test.sh <command>
 
-  check                       Report what is ready: publish, server, MCP registration, Azure CLI sign-in.
+  check                       Report what is ready: publish, server, MCP registration, Azure CLI and GitHub CLI sign-ins.
   build                       Build the UI, then publish lotsen.
   serve                       Run lotsen serve in this terminal.
   register                    Register the lotsen MCP server in user scope, replacing an older entry.
@@ -22,7 +22,24 @@ Usage: scripts/live-test.sh <command>
                               Tour the PR in an interactive session in dir (default: a new empty directory), with a server on
                               the demo data directory ($demo_data). Publishes first when the sources changed.
   demo-link                   Print a new link to the UI of the demo's server, which works once.
+
+A pr-url is an Azure DevOps or a github.com pull request URL. For github.com, demo and pin check the GitHub CLI's sign-in:
+demo refuses to start without it, and pin warns. For Azure DevOps, demo checks the Azure CLI's sign-in.
 EOF
+}
+
+# lotsen reads a github.com pull request with the GitHub CLI's sign-in, and an Azure DevOps one with the Azure CLI's.
+is_github() {
+   [[ ${1,,} =~ ^https?://(www\.)?github\.com/ ]]
+}
+
+az_signed_in() {
+   az account show -o none 2>/dev/null
+}
+
+# Only the active account matters, because lotsen asks the GitHub CLI for that account's token.
+gh_signed_in() {
+   gh auth status --active --hostname github.com >/dev/null 2>&1
 }
 
 need_publish() {
@@ -48,7 +65,8 @@ check() {
       "$lotsen") echo "registration: yes" ;;
       *) echo "registration: $registered is not this checkout's publish (run register)" ;;
    esac
-   az account show -o none 2>/dev/null && echo "az:           signed in" || echo "az:           not signed in (run az login)"
+   az_signed_in && echo "az:           signed in" || echo "az:           not signed in (run az login)"
+   gh_signed_in && echo "gh:           signed in to github.com" || echo "gh:           not signed in to github.com (run gh auth login)"
 }
 
 build() {
@@ -59,6 +77,10 @@ build() {
 pin() {
    local url=${1:?pin needs a pull request URL} familiarity=${2:-familiar}
    need_publish
+   # Only a warning, so a pin after a sign-out still shows how the pin fails.
+   if is_github "$url" && ! gh_signed_in; then
+      echo "Warning: the GitHub CLI is not signed in to github.com, so a newly started server cannot pin the PR. Run: gh auth login" >&2
+   fi
    # An empty directory keeps the session out of any project, and the pin needs no checkout.
    cd "$(mktemp -d)"
    claude -p "/lotsen:tour $url $familiarity. After create_tour, call read_state until pin.state is pinned or failed. Then stop and print the pin section of read_state verbatim." \
@@ -80,7 +102,11 @@ demo() {
       familiar | some | new) ;;
       *) echo "Familiarity '$familiarity' is not one of familiar, some or new." >&2; exit 2 ;;
    esac
-   az account show -o none 2>/dev/null || { echo "The Azure CLI is not signed in, so the server cannot pin the PR. Run: az login" >&2; exit 1; }
+   if is_github "$url"; then
+      gh_signed_in || { echo "The GitHub CLI is not signed in to github.com, so the server cannot pin the PR. Run: gh auth login" >&2; exit 1; }
+   else
+      az_signed_in || { echo "The Azure CLI is not signed in, so the server cannot pin the PR. Run: az login" >&2; exit 1; }
+   fi
    if stale; then
       build
       # A demo server that still runs the earlier build refuses the new adapter.

@@ -2,20 +2,23 @@
 
 How to check by hand that a live Claude Code session creates a tour, its plan and its stops, and that they appear in the
 browser without a reload. Sections 7 to 11 then follow that tour through answers, revisions, a new update and the
-end-of-tour summary. The session uses the tour skill in [`plugin/`](../plugin) and runs `lotsen mcp` as a development
-channel.
+end-of-tour summary. Section 12 checks on github.com what no test can show for a GitHub PR. The session uses the tour
+skill in [`plugin/`](../plugin) and runs `lotsen mcp` as a development channel.
 
 The steps below write `<lotsen>` for the absolute path of this repository's checkout.
 
 ## Requirements
 
-- git 2.46 or newer. lotsen passes its Azure DevOps credential to git through a credential helper, and git 2.46 added
-  the helper answer that it uses. An older git makes lotsen refuse to run git.
+- git 2.46 or newer. lotsen passes its Azure DevOps or GitHub credential to git through a credential helper, and git
+  2.46 added the helper answer that it uses. An older git makes lotsen refuse to run git.
 - The .NET 11 SDK, the version that `global.json` names or a later feature band of it.
 - clang and the zlib development files (`clang` and `zlib1g-dev` on Debian and Ubuntu), which the Native AOT publish
   links with.
 - Node.js 24.15 or newer in the 24 line, or 26 or newer, as `ui/package.json` requires.
-- The Azure CLI, signed in with `az login` to an account that can read the pull request's repository.
+- For an Azure DevOps PR, the Azure CLI, signed in with `az login` to an account that can read the pull request's
+  repository.
+- For a GitHub PR, the GitHub CLI (`gh`), signed in with `gh auth login` to a github.com account that can read the pull
+  request's repository.
 - Claude Code, with the lotsen plugin from [`plugin/`](../plugin).
 
 ## Shortcuts
@@ -24,7 +27,7 @@ The steps below write `<lotsen>` for the absolute path of this repository's chec
 
 | Command                             | Does                                                                                                                                                               |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `check`                             | Reports whether the publish, the server, the MCP registration and the Azure CLI sign-in are ready.                                                                 |
+| `check`                             | Reports whether the publish, the server, the MCP registration, the Azure CLI sign-in and the GitHub CLI sign-in are ready.                                         |
 | `build`                             | Step 1.                                                                                                                                                            |
 | `serve`                             | Step 2, when you want the server in the foreground.                                                                                                                |
 | `register`                          | Step 3, replacing an older entry.                                                                                                                                  |
@@ -34,14 +37,14 @@ The steps below write `<lotsen>` for the absolute path of this repository's chec
 | `demo <pr-url> [familiarity] [dir]` | Steps 1 to 5 in one command: tours the PR in an interactive session with the development channel. See below.                                                       |
 | `demo-link`                         | Prints a new link to the UI of the demo's server, which works once. `just demo-print-link` runs it.                                                                |
 
-`just demo <pr-url> [familiarity] [dir]` runs `demo` from any directory. It publishes lotsen first when the publish is missing or older than its sources. It refuses to start while the Azure
-CLI is not signed in. The session loads this checkout's publish through `--mcp-config`, which replaces the user-scope `lotsen` from step 3 for that session, so `demo` needs no registration.
+`just demo <pr-url> [familiarity] [dir]` runs `demo` from any directory. It publishes lotsen first when the publish is missing or older than its sources. It refuses to start while the sign-in
+that the PR needs is missing: the GitHub CLI's for a github.com PR, and the Azure CLI's for an Azure DevOps PR. The session loads this checkout's publish through `--mcp-config`, which replaces the user-scope `lotsen` from step 3 for that session, so `demo` needs no registration.
 Its server keeps its tours, clones and the UI's preferences in a data directory of its own, `~/.local/share/lotsen-demo` (under `$XDG_DATA_HOME` when that is set), and never touches your other tours. Delete that
 directory to start the next demo with no tours. Claude runs in `dir`, by default a new empty directory, and starts with `/lotsen:tour <pr-url> <familiarity>`, `familiar` when you give none.
 Pass a checkout of the PR's repository as `dir` to let Claude read the code with git. For a new link to the UI, run `just demo-print-link`, which prints one that works once, or
 `LOTSEN_DATA_DIR=~/.local/share/lotsen-demo lotsen open` to open it in the browser.
 
-`pin` checks the MCP tools and the pinning without a person at the keyboard: compare `head` and `mergeBase` with the pull request, and run it again after `az logout` and a server restart for the failure path. It does not check the channel, because the channels documentation says that Claude Code ignores
+`pin` checks the MCP tools and the pinning without a person at the keyboard: compare `head` and `mergeBase` with the pull request, and run it again after `az logout` and a server restart for the failure path. For a github.com PR, `pin` warns while the GitHub CLI is not signed in, and runs anyway, so the failure path works after `gh auth logout` too. It does not check the channel, because the channels documentation says that Claude Code ignores
 `--dangerously-load-development-channels` with `-p` ([Unverified] on 2.1.310), and it does not check the browser. Use `claude` and step 5 for those.
 
 ## 1. Build
@@ -151,6 +154,7 @@ Check before you go on:
 ## 5. Tour a PR
 
 Use a real Azure DevOps PR in this repository. Claude reads it with your Azure DevOps MCP tools, the Azure CLI or git.
+Section 12 sets up GitHub PRs and covers what differs for them.
 
 **With a familiarity level.** Ask `/lotsen:tour <pr-url> familiar`, or in words: "tour this PR <pr-url>, familiar".
 
@@ -492,7 +496,128 @@ By now the tour holds answers, threads, skipped and stale stops.
 - For about 60 seconds, `lotsen open` still opens the UI. Then it says that no server is running, even with the tour
   open in the browser.
 
-## 12. Delete tours and prune clones
+## 12. GitHub pull requests
+
+Sections 1 to 11 also work with a GitHub PR, except where they name Azure DevOps or the Azure CLI. The checks below
+cover what only github.com can show: that a private repository clones with the GitHub CLI's sign-in, that a PR from a
+fork pins, how lotsen numbers a PR's updates and reads its state, where a mention link leads, and what a change of the
+`gh` account does to a running server.
+
+**Setup: a throwaway private repository.** Create it under your account, with an issue and one PR that changes a few
+files:
+
+```sh
+gh repo create lotsen-live-test --private --add-readme --clone
+cd lotsen-live-test
+git switch -c change
+# Add or change two or three files.
+git add -A && git commit -m "A change to tour"
+git push -u origin change
+gh issue create --title "A live-test issue" --body "The target of a mention link."
+gh pr create --fill
+```
+
+`gh issue create` and `gh pr create` print the URLs of the issue and the PR; the PR's URL is `<private-pr-url>` below.
+The teardown at the end of this section deletes the repository.
+
+**Setup: an open fork PR on a public repository.** Pick any open PR on a public repository whose source branch is in
+a fork. A small repository keeps the first clone short. This command lists the open fork PRs of a repository:
+
+```sh
+gh pr list --repo <owner>/<repository> --json url,isCrossRepository --jq '.[] | select(.isCrossRepository) | .url'
+```
+
+A tour only reads the PR, as long as you don't run the follow-up actions of section 11 on it.
+
+**Setup: a second GitHub account, for the account checks.** It must not be able to read the private repository. A second
+`gh auth login` adds it beside your account and makes it the active one, and `gh auth switch --hostname github.com
+--user <second account>` changes the active account. lotsen reads a PR with the active account's token, so switch back
+with `gh auth switch --hostname github.com --user <you>` before the next check. Without a second account, skip those
+checks and record that, and leave out the teardown's `gh auth logout`.
+
+**The private repository clones and pins.** Start from no tours: delete `~/.local/share/lotsen-demo` first. Run
+`just demo <private-pr-url> familiar <checkout of lotsen-live-test>`, and let Claude create the tour and write the plan.
+
+- `just demo` refuses to start while the GitHub CLI is not signed in, and says to run `gh auth login`.
+- Ask Claude for the tour's `read_state`. Its `pin.state` reaches `pinned`. `pin.head` is the commit that
+  `gh pr view <private-pr-url> --json headRefOid --jq .headRefOid` prints, and `pin.iteration` is 1.
+- `~/.local/share/lotsen-demo/clones` holds the clone.
+- lotsen gives git the token as the password of the user `x-access-token`. No test shows that github.com accepts it,
+  so when the pin fails, record its reason.
+
+Keep the tour attached and its session open. Run the checks below in their order: the last one merges the PR.
+
+**A mention link.** Ask Claude in the tour's session to add a sentence to a stop's prose that mentions the issue from
+the setup, as `[#<issue>](workitem:<issue>)`, and the PR, as `[#<pr>](pullrequest:<pr>)`.
+
+- Click the issue's link. It opens `https://github.com/<you>/lotsen-live-test/issues/<issue>`.
+- Click the PR's link. It opens `https://github.com/<you>/lotsen-live-test/pull/<pr>`.
+
+**New updates.** GitHub does not number a PR's updates, so lotsen counts the head commits that it sees. Open a stop
+whose lines your push will change.
+
+- Push a commit to the branch `change` that changes lines of that stop. Click "Check the PR for a new update". A notice
+  says "Update 2 is available: …".
+- Click "Move to update 2". `read_state` shows `pin.iteration` 2, and `pin.head` is the commit that you pushed.
+- Make two commits and push them at once, then check again. The notice says update 3, not 4, because lotsen counts the
+  new head, not the commits.
+
+**The target commit.** lotsen takes the target commit from the PR's `base.sha`. Push a commit to `main` alone: switch
+to `main`, change a file that the PR leaves alone, commit and push, then switch back to `change`.
+
+- Click "Check the PR for a new update". No notice appears for it.
+- `gh api repos/<you>/lotsen-live-test/pulls/<pr> --jq .base.sha` prints the commit that you pushed, the one that
+  `git rev-parse origin/main` prints. Record whether it did so at once or only later.
+- If `base.sha` stays at the earlier commit, it is stale. The planned fallback is that the GitHub library takes the head
+  of the PR's base branch as the target commit instead.
+
+**A fork PR.** Run `scripts/live-test.sh pin <fork-pr-url>`. It needs the registration from step 3.
+
+- The pin section shows `state` `pinned`, and `head` is the commit that
+  `gh pr view <fork-pr-url> --json headRefOid --jq .headRefOid` prints.
+- lotsen fetches the fork's head commit by its ID from the base repository, and no test shows that GitHub serves it
+  there. When the pin fails, record its reason. The planned fallback is a refspec from the GitHub library that fetches
+  `refs/pull/<number>/head`.
+
+**The gh account and a running server.** These checks need the second account. First run `lotsen stop`, because the
+fork check's `pin` can leave a server running on the default data directory. Then run
+`lotsen serve --log-level Information` in its own terminal, so its log shows when the server asks the GitHub CLI for a
+token. Start a session in the checkout of `lotsen-live-test` as in step 4.
+
+- Ask Claude to tour the private PR. The pin reaches `pinned`, and the log says "The GitHub CLI gave a token for
+  github.com."
+- Run `gh auth switch --hostname github.com --user <second account>`, and click "Check the PR for a new update". lotsen
+  keeps its token until GitHub or git refuses it, so the check is expected to pass with your account's token. Record
+  what the UI and the log show.
+- Stop `lotsen serve` with Ctrl-C and start it again, so the server holds no token. Ask Claude to tour the PR again,
+  as a new tour. `read_state` shows `pin.state` `failed`, and the reason names GitHub's answer. Record its status.
+  lotsen expects "GitHub answered 404: the pull request was not found, or your gh sign-in has no access to it". A 401
+  says "the token of your gh sign-in was refused" instead. Either drops the token, and the log says "The GitHub CLI's
+  token was dropped, so the next request asks the GitHub CLI again."
+- Run `gh auth switch --hostname github.com --user <you>` and tell Claude. Claude calls `pin_tour`. With no
+  restart, the log says "The GitHub CLI gave a token for github.com." again, and the pin reaches `pinned`.
+
+**Closed and merged.** Run these last, in the demo's tour from the first check, because merging ends the PR. GitHub
+has no abandoned state, so lotsen calls a PR closed without a merge abandoned, and a merged PR completed.
+
+- Run `gh pr close <private-pr-url>`, then click "Check the PR for a new update". The tour leaves the list, and "Show
+  hidden tours (1)" appears. Tick it. The tour shows "PR abandoned".
+- Run `gh pr reopen <private-pr-url>` and check again. The flag goes, and the tour is listed again.
+- Run `gh pr merge <private-pr-url> --merge` and check again. The tour shows "PR completed".
+
+**Teardown.** Switch back to your account, delete the repository, and remove what the checks added to your sign-in:
+
+```sh
+gh auth switch --hostname github.com --user <you>
+gh auth refresh --hostname github.com --scopes delete_repo
+gh repo delete <you>/lotsen-live-test --yes
+gh auth refresh --hostname github.com --remove-scopes delete_repo
+gh auth logout --hostname github.com --user <second account>
+```
+
+`gh repo delete` needs the `delete_repo` scope, which the first `gh auth refresh` adds and the second removes.
+
+## 13. Delete tours and prune clones
 
 These checks delete the tour from step 5, so run them last. Keep the UI open in a second browser tab as well.
 
@@ -509,13 +634,15 @@ These checks delete the tour from step 5, so run them last. Keep the UI open in 
 - Create a tour of a large repository and click "Prune unused clones" while the tour pins. The pin still reaches
   `pinned`, and the clone stays.
 
-## 13. Record
+## 14. Record
 
 Record the date, the Claude Code version (`claude --version`), the lotsen build (`lotsen --version`), the MCP
 registration that worked (user scope, project `.mcp.json` or `just demo`), and the result of each check above. For the stops, record any stop that did not appear and any `ref:` link that landed on the wrong
 lines. For the pin, also record whether the Azure DevOps organization served the blob-less clone, and
 whether a pin of a PR whose source branch was deleted reached `pinned`. For the background server, record whether
-Claude Code started it and whether it exited about 60 seconds after the session ended.
+Claude Code started it and whether it exited about 60 seconds after the session ended. For GitHub, record whether the
+private repository's PR and the fork PR reached `pinned`, whether `base.sha` was stale, and the status that GitHub
+answered for the second account.
 
 ## When something fails
 
@@ -535,6 +662,8 @@ Claude Code started it and whether it exited about 60 seconds after the session 
 - No browser opened: Claude gives a link that works once, for a few minutes. `lotsen open` opens a fresh one, and `lotsen open --print-link` prints a fresh link to open by hand.
 - The lotsen tools are missing: check `/mcp`, and the registration in step 3.
 - The pin stays `failed`: its reason says what failed. `lotsen serve` also prints it as a warning.
+- A GitHub PR's pin fails with "Run 'gh auth login', then try again": sign in with `gh auth login`, then ask Claude to
+  pin the tour again.
 - "Another lotsen server (PID …) is running": stop that server first with `lotsen stop`, or set `LOTSEN_DATA_DIR` to another data directory.
 - "Port … of 127.0.0.1 is in use": choose another port with `--port` or `LOTSEN_PORT`, or set neither.
 - "LOTSEN_FACT_CACHE_MB is '…', which is not a size in MiB": set it to a whole number from 1 to 2147483647, or unset it for 64 MiB.

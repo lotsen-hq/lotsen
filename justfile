@@ -172,7 +172,7 @@ npm-check:
 live *ARGS:
    scripts/live-test.sh {{ARGS}}
 
-# Tour a real Azure DevOps PR with a live Claude Code session and a server of this checkout, e.g. `just demo <pr-url> new`. See docs/live-test.md.
+# Tour a real Azure DevOps or GitHub PR with a live Claude Code session and a server of this checkout, e.g. `just demo <pr-url> new`. See docs/live-test.md.
 [unix]
 [no-cd]
 demo url familiarity='familiar' dir='':
