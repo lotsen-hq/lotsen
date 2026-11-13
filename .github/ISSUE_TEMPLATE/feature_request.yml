@@ -1,0 +1,17 @@
+name: Idea
+description: Suggest a feature or a change. For anything larger than a small fix, start here, so we can agree on the approach before you write the code.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you're trying to do, and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How Lotsen could solve it. Rough is fine.
+    validations:
+      required: true

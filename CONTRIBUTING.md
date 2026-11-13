@@ -6,12 +6,7 @@ Everyone who takes part follows the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Report a bug
 
-Open an issue with:
-
-- What you did, what you expected and what happened instead.
-- The output of `lotsen --version` (or `npx -y lotsen@<version> --version`) and of `claude --version`.
-- Your system: Linux, WSL or Windows.
-- The end of the server's log, `server.log` in `~/.local/share/lotsen` on Linux or in `%LOCALAPPDATA%\lotsen` on Windows. It holds no credential, but it can name your pull requests and repositories, so remove what you'd rather keep private.
+Open a [bug report](https://github.com/lotsen-hq/lotsen/issues/new?template=bug_report.yml). The form asks for your versions, your system and the end of the server's log.
 
 ## Set up
 

@@ -13,6 +13,8 @@ on:
       - CONTRIBUTING.md
       - CODE_OF_CONDUCT.md
       - SECURITY.md
+      - .github/ISSUE_TEMPLATE/**
+      - .github/pull_request_template.md
   pull_request:
     paths-ignore: *notes-and-docs
   workflow_dispatch:

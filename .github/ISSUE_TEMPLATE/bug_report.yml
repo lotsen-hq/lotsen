@@ -1,0 +1,45 @@
+name: Bug report
+description: Lotsen did something it shouldn't, or failed to do what it should.
+body:
+  - type: markdown
+    attributes:
+      value: Don't report a security problem here. Report it privately on the [Security tab](https://github.com/lotsen-hq/lotsen/security/advisories/new) instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: lotsen-version
+    attributes:
+      label: Lotsen version
+      description: The output of `lotsen --version`, or of `npx -y lotsen@<version> --version`.
+    validations:
+      required: true
+  - type: input
+    id: claude-version
+    attributes:
+      label: Claude Code version
+      description: The output of `claude --version`.
+    validations:
+      required: true
+  - type: dropdown
+    id: system
+    attributes:
+      label: System
+      options:
+        - Linux
+        - WSL
+        - Windows
+    validations:
+      required: true
+  - type: textarea
+    id: server-log
+    attributes:
+      label: Server log
+      description: >-
+        The end of `server.log`, in `~/.local/share/lotsen` on Linux or in `%LOCALAPPDATA%\lotsen` on Windows.
+        It holds no credential, but it can name your pull requests and repositories, so remove what you'd rather keep private.
+      render: text
