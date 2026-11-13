@@ -175,7 +175,8 @@ jobs:
         working-directory: ui
         env:
           LOTSEN_TEST_HOST: ${{ github.workspace }}/tests/Lotsen.TestHost/bin/Debug/net11.0/Lotsen.TestHost.dll
-        run: npm run e2e
+        # One worker, because a second worker's git processes on this runner slowed the test host's calls by seconds.
+        run: npm run e2e -- --workers 1
 
       - uses: actions/upload-artifact@v7
         if: failure()
