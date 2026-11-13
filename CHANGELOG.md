@@ -6,6 +6,7 @@ The notable changes in each release of lotsen, newest first. Versions follow [se
 
 ### Added
 
+- **Tours of GitHub pull requests.** Start a tour from any github.com URL of a pull request, such as its changed files. lotsen reads the pull request with your GitHub CLI sign-in, which `gh auth login` sets, also for a public repository. When the pull request's head changes, lotsen offers the new iteration, numbering the heads it sees from 1. lotsen shows a merged pull request as completed and a closed one as abandoned, and links mentions of issues and pull requests to GitHub. GitHub Enterprise Server and GHE.com are not supported.
 - **Choose the size of the page's text.** Settings offers Small, Medium and Large, and the code in the diffs scales with the rest. Medium keeps the sizes of earlier versions.
 - **Choose a color theme.** Settings offers Catppuccin, Visual Studio Code and Gruvbox beside Lotsen's own colors. Each has a light and a dark palette, so the Theme setting still picks light, dark or the system's choice.
 - **Catppuccin and Gruvbox syntax colors** join the Syntax colors setting. It stays separate from the color theme, so you can combine any two.

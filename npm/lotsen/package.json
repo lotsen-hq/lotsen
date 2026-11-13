@@ -1,7 +1,7 @@
 {
   "name": "lotsen",
   "version": "0.0.0",
-  "description": "Guided tours of Azure DevOps pull requests that Claude Code writes, in a local web UI",
+  "description": "Guided tours of Azure DevOps and GitHub pull requests that Claude Code writes, in a local web UI",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

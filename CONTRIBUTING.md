@@ -24,7 +24,7 @@ just --list     # every recipe
 
 - **`just check` passes.** Every warning is an error, and the formatting is checked: `just format` formats the C# and the UI.
 - **Behavior comes with tests.** A fix gets a test that fails without it. A new command or option of the CLI gets a test in `tests/Lotsen.Tests/CliTests.cs`.
-- **Hosting services stay behind their platform.** Code that knows Azure DevOps lives in `src/Lotsen.AzureDevOps/`, and `src/Lotsen.Core/` references no platform library.
+- **Hosting services stay behind their platform.** Code that knows Azure DevOps lives in `src/Lotsen.AzureDevOps/`, code that knows GitHub in `src/Lotsen.GitHub/`, and `src/Lotsen.Core/` references no platform library.
 - **Comments explain why.** A comment states the reason for the code as it is now, not how it got there. That history belongs in the commit message.
 - **One change per pull request.** Its description says what changed and why, and links the issue it settles.
 
