@@ -13,7 +13,7 @@ export interface DemoSettings {
 /** The checkout sample tour, which pins the storefront change with every kind of stop. */
 export const checkoutTour = 'storefront #412';
 
-/** Loads the demo with the settings, on a world of its own, and opens a sample tour's plan. */
+/** Loads the demo with the settings, on a world of its own, and opens a sample tour's plan once the tour has loaded. */
 export async function openDemoTour(page: Page, tour: string, settings: DemoSettings = {}): Promise<void> {
    const stored = {
       'lotsen.placement': settings.placement,
@@ -37,6 +37,8 @@ export async function openDemoTour(page: Page, tour: string, settings: DemoSetti
       .first()
       .click();
    await page.getByRole('tab', { name: 'Plan' }).click();
+   // The tour's state arrives later, and its notice of a newer update moves every panel down.
+   await expect(page.getByRole('tabpanel', { name: 'Plan' })).not.toContainText(/Loading the plan…|Select a tour to see its plan\./);
 }
 
 /** Returns the world that the page's next load gets, once the demo answers the page's request for one. */

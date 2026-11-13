@@ -110,6 +110,8 @@ test.describe('the workspace', () => {
          .click();
       // The tour opens on the Files tab, which the page selects on its own.
       await expect(page.getByRole('tab', { name: 'Files' })).toHaveAttribute('aria-selected', 'true');
+      // The drag below waits for the tour's state, whose notice of a newer update moves every panel down.
+      await expect(page.getByRole('navigation', { name: 'Stops' })).toContainText('7 stops');
       await page.setViewportSize({ width: 1100, height: 700 });
       await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 300)));
       expect(await saved()).toBeNull();
