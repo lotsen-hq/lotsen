@@ -76,6 +76,22 @@ describe('the preferences on the server', () => {
       await waitFor(() => expect(dark()).toBe(false));
    });
 
+   it('change the page’s font size when another page changes it', async () => {
+      onTestFinished(() => {
+         delete root.dataset.fontSize;
+      });
+      const world = await backend().world();
+      await world.reviewer.call('write_preference', { key: 'lotsen.fontSize', value: 'small' });
+      await startApp(world);
+      await waitFor(() => expect(root.dataset.fontSize).toBe('small'));
+
+      await world.reviewer.call('write_preference', { key: 'lotsen.fontSize', value: 'large' });
+
+      await waitFor(() => expect(root.dataset.fontSize).toBe('large'));
+      await world.reviewer.call('write_preference', { key: 'lotsen.fontSize', value: null });
+      await waitFor(() => expect(root.dataset.fontSize).toBe('medium'));
+   });
+
    it('open a tour that the address names in the server’s default view mode', async () => {
       const world = await backend().world({ template: oneTour });
       const tourId = world.seed as string;

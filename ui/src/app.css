@@ -191,7 +191,7 @@
 /* The small-caps label of a heading, such as a section of a stop's explanation or a chapter of the plan. */
 @utility caps-label {
    @apply font-semibold text-muted-foreground uppercase;
-   font-size: 12px;
+   font-size: calc(12px * var(--font-scale));
    letter-spacing: 0.06em;
 }
 
@@ -240,9 +240,19 @@
       @apply border-border;
    }
 
+   /* Every fixed text size multiplies by --font-scale, so the reviewer's font size scales them all, and Medium keeps them at their base. Small and Large make the root 13px and 17px. */
    html {
-      font-size: 15px;
+      --font-scale: 1;
+      font-size: calc(15px * var(--font-scale));
       line-height: 1.4;
+   }
+
+   html[data-font-size='small'] {
+      --font-scale: calc(13 / 15);
+   }
+
+   html[data-font-size='large'] {
+      --font-scale: calc(17 / 15);
    }
 
    html,
@@ -291,7 +301,7 @@
    /* Claude's name at the top of each of Claude's messages in a thread view. */
    .claude-name {
       @apply flex items-center gap-1.5 font-semibold text-claude-marker;
-      font-size: 12px;
+      font-size: calc(12px * var(--font-scale));
    }
 
    /* The rows of the changed-file tree and the whole-repository tree. */
@@ -325,7 +335,7 @@
 
       & .number {
          @apply text-right text-muted-foreground tabular-nums;
-         font-size: 12px;
+         font-size: calc(12px * var(--font-scale));
       }
 
       & .kind-pill {
@@ -363,7 +373,7 @@
    :is(.plan .stop-row, .stop-order-row) {
       & .status {
          @apply ml-1.5 inline-flex items-baseline gap-1 whitespace-nowrap text-muted-foreground;
-         font-size: 12px;
+         font-size: calc(12px * var(--font-scale));
       }
 
       & .skipped svg {
@@ -476,7 +486,7 @@
 
       & .number {
          @apply text-right text-muted-foreground tabular-nums;
-         font-size: 12px;
+         font-size: calc(12px * var(--font-scale));
       }
 
       & .kind-pill {
@@ -485,7 +495,7 @@
 
       & .chapter {
          @apply block text-muted-foreground;
-         font-size: 12px;
+         font-size: calc(12px * var(--font-scale));
       }
 
       & > :last-child {
@@ -524,12 +534,12 @@
       }
    }
 
-   /* A stop's kind, which sits on its title's baseline. The text is 70% of the container's font size, and never below 10.5px. The font and line height are its own, because an editor's explanation block sets others. */
+   /* A stop's kind, which sits on its title's baseline. The text is 70% of the container's font size, and never below 10.5px times the font scale. The font and line height are its own, because an editor's explanation block sets others. */
    .kind-pill {
       @apply inline-block font-sans font-semibold uppercase;
       padding: 0.095em 0.476em;
       border-radius: 2px;
-      font-size: max(10.5px, 0.7em);
+      font-size: max(calc(10.5px * var(--font-scale)), 0.7em);
       line-height: 1.4;
       letter-spacing: 0.05em;
       vertical-align: baseline;
@@ -567,7 +577,7 @@
       @apply inline-block font-sans font-semibold whitespace-nowrap;
       padding: 0 5px;
       border-radius: 2px;
-      font-size: 11px;
+      font-size: calc(11px * var(--font-scale));
       line-height: 1.5;
       background-color: var(--state-fill);
       color: var(--state-text);
@@ -600,7 +610,7 @@
       padding: 0 4px;
       border: 1px solid currentColor;
       border-radius: 2px;
-      font-size: 11px;
+      font-size: calc(11px * var(--font-scale));
       line-height: 1.4;
       color: var(--kind-overview-text);
 
@@ -711,7 +721,7 @@
    /* The marker sits on the row's first line in a line box as tall as that line, as an icon does, so the monospace font's ascent and descent never make the row taller. */
    .tree .marker {
       @apply w-3.5 shrink-0 self-start text-center font-mono font-semibold;
-      font-size: 14px;
+      font-size: calc(14px * var(--font-scale));
       line-height: 1lh;
    }
 
@@ -752,7 +762,7 @@
 
    /* Server-rendered Markdown, whose elements the base reset leaves without spacing, list markers or heading sizes. */
    .markdown {
-      font-size: 15px;
+      font-size: calc(15px * var(--font-scale));
       line-height: 1.65;
 
       & > * + * {
@@ -843,7 +853,7 @@
       & :not(pre) > code {
          @apply bg-muted px-1 py-0.5;
          border-radius: 4px;
-         font-size: 13.5px;
+         font-size: calc(13.5px * var(--font-scale));
       }
 
       & pre {
@@ -872,7 +882,7 @@
    .stop-explanation {
       & .headline {
          @apply mt-2;
-         font-size: 16px;
+         font-size: calc(16px * var(--font-scale));
       }
 
       & .section {
@@ -889,7 +899,7 @@
 
       & .checks {
          @apply list-decimal pl-6;
-         font-size: 15px;
+         font-size: calc(15px * var(--font-scale));
          line-height: 1.65;
 
          & li + li {
@@ -907,7 +917,7 @@
 
          & .answer {
             @apply flex flex-col gap-1.5;
-            font-size: 14px;
+            font-size: calc(14px * var(--font-scale));
             line-height: 1.4;
          }
 
@@ -947,7 +957,7 @@
 
       & .summary-item {
          @apply flex flex-col gap-1.5 rounded-md border bg-card px-3 py-2;
-         font-size: 15px;
+         font-size: calc(15px * var(--font-scale));
          line-height: 1.5;
       }
 
@@ -1011,7 +1021,7 @@
       }
 
       & .label {
-         font-size: 14px;
+         font-size: calc(14px * var(--font-scale));
          @apply font-semibold;
       }
 
@@ -1021,12 +1031,12 @@
 
       & .file {
          @apply truncate font-mono;
-         font-size: 13px;
+         font-size: calc(13px * var(--font-scale));
       }
 
       & .lines {
          @apply text-right whitespace-nowrap text-muted-foreground tabular-nums;
-         font-size: 13px;
+         font-size: calc(13px * var(--font-scale));
       }
    }
 }

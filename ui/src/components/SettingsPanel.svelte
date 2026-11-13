@@ -4,6 +4,7 @@
    import * as Sheet from '$lib/components/ui/sheet';
    import type { PruneOutcome } from '../lib/viewState';
    import type { Theme } from '../lib/colorScheme';
+   import { fontSizeChoices } from '../lib/fontSize';
    import { messageStyles } from '../lib/messageStyle';
    import { mixedThresholdBounds, placementModes } from '../lib/placement';
    import type { Settings } from '../lib/settings.svelte';
@@ -72,6 +73,7 @@
             value={settings.syntaxColors}
             onchange={(colors) => settings.setSyntaxColors(colors)}
          />
+         <SettingChoice label="Font size" options={fontSizeChoices} value={settings.fontSize} onchange={(size) => settings.setFontSize(size)} />
          <SettingChoice
             label="Default view mode"
             description="Each tour opens in this mode. A mode you choose in the diff toolbar lasts until another tour opens."

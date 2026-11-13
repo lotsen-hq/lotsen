@@ -1,5 +1,6 @@
 import { ColorScheme, type ColorSchemeWindow, type Theme } from './colorScheme';
 import { diffLayoutPreference, type DiffLayout } from './diffLayout';
+import { applyFontSize, fontSizePreference, type FontSize } from './fontSize';
 import { messageStylePreference, type MessageStyle } from './messageStyle';
 import { mixedThresholdPreference, placementModePreference, type PlacementMode } from './placement';
 import { preference } from './preference';
@@ -18,14 +19,16 @@ export class Settings {
    private readonly document: Document;
    private readonly disposeEffects: () => void;
 
-   /** Applies the stored theme and syntax colors to the window's page at once, and again whenever their preferences change. */
+   /** Applies the stored theme, syntax colors and font size to the window's page at once, and again whenever their preferences change. */
    constructor(window: ColorSchemeWindow) {
       this.colorScheme = new ColorScheme(window, this.theme);
       this.document = window.document;
       applySyntaxColors(this.document, this.syntaxColors);
+      applyFontSize(this.document, this.fontSize);
       this.disposeEffects = $effect.root(() => {
          $effect(() => this.colorScheme.setTheme(this.theme));
          $effect(() => applySyntaxColors(this.document, this.syntaxColors));
+         $effect(() => applyFontSize(this.document, this.fontSize));
       });
    }
 
@@ -46,6 +49,16 @@ export class Settings {
    setSyntaxColors(colors: SyntaxColors): void {
       syntaxColorsPreference.write(colors);
       applySyntaxColors(this.document, colors);
+   }
+
+   /** The size of the page's text, the diff editors' code included. */
+   get fontSize(): FontSize {
+      return fontSizePreference.read();
+   }
+
+   setFontSize(size: FontSize): void {
+      fontSizePreference.write(size);
+      applyFontSize(this.document, size);
    }
 
    get diffLayout(): DiffLayout {

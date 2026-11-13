@@ -1,5 +1,6 @@
 import { flushSync } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fontSizePreference } from '../src/lib/fontSize';
 import { applyPreference, booleanPreference, detachPreferences, preference, preferenceFamily, storedPreference, syncPreferences, type PreferenceWriter } from '../src/lib/preference';
 
 const fruit = preference<'apple' | 'pear'>('test.fruit', ['apple', 'pear'], 'apple');
@@ -447,5 +448,27 @@ describe('the keys of the preferences and the families', () => {
    it('takes the same key or the same family again', () => {
       expect(() => booleanPreference('test.lit', true)).not.toThrow();
       expect(() => preferenceFamily('test.counts/', parse, String)).not.toThrow();
+   });
+});
+
+describe('the font size preference', () => {
+   it.each<[string, string | null]>([
+      ['nothing', null],
+      ['a size that is not a choice', 'huge'],
+   ])('reads Medium when storage holds %s', (_case, stored) => {
+      if (stored !== null) {
+         localStorage.setItem('lotsen.fontSize', stored);
+      }
+
+      expect(fontSizePreference.read()).toBe('medium');
+   });
+
+   it('reads each size it offers', () => {
+      for (const size of ['small', 'large', 'medium'] as const) {
+         fontSizePreference.write(size);
+
+         expect(localStorage.getItem('lotsen.fontSize')).toBe(size);
+         expect(fontSizePreference.read()).toBe(size);
+      }
    });
 });

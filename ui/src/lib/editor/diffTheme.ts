@@ -8,12 +8,13 @@ export const collapsedMarkerHeight = 26;
 
 // The colors are the page's theme variables, which switch with its light and dark palettes, so the theme also replaces the base themes' light-only and dark-only colors.
 // It sits on each editor's own class, so its rules win over the merge package's base theme.
+// Each fixed text size and line height multiplies by the page's `--font-scale` from `app.css`, so the code follows the reviewer's font size.
 const theme = EditorView.theme({
    '&': {
       height: '100%',
       backgroundColor: 'var(--background)',
       color: 'var(--foreground)',
-      fontSize: '13px',
+      fontSize: 'calc(13px * var(--font-scale))',
    },
    '.cm-scroller': {
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
@@ -80,7 +81,7 @@ const theme = EditorView.theme({
       padding: '0 0.5em',
       borderRadius: '3px',
       fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-      fontSize: '11px',
+      fontSize: 'calc(11px * var(--font-scale))',
       lineHeight: '1.5',
       verticalAlign: 'top',
       color: 'var(--passage-label-foreground)',
@@ -99,7 +100,7 @@ const theme = EditorView.theme({
       backgroundColor: 'var(--muted)',
       color: 'var(--muted-foreground)',
       fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-      fontSize: '12px',
+      fontSize: 'calc(12px * var(--font-scale))',
    },
    '.lotsen-expand': {
       padding: '0 0.5em',
@@ -108,7 +109,7 @@ const theme = EditorView.theme({
       backgroundColor: 'var(--background)',
       color: 'var(--foreground)',
       font: 'inherit',
-      lineHeight: '18px',
+      lineHeight: 'calc(18px * var(--font-scale))',
       cursor: 'pointer',
    },
    '.lotsen-expand:hover': { backgroundColor: 'var(--accent)' },
@@ -121,7 +122,7 @@ const theme = EditorView.theme({
       padding: '6px 12px 8px 8px',
       whiteSpace: 'normal',
       fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-      fontSize: '14px',
+      fontSize: 'calc(14px * var(--font-scale))',
       lineHeight: '1.5',
       cursor: 'auto',
    },

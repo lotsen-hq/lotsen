@@ -285,6 +285,41 @@ describe('the settings panel', () => {
       });
    });
 
+   describe('font size', () => {
+      afterEach(() => {
+         delete root.dataset.fontSize;
+      });
+
+      it('starts at Medium, and keeps the size the reviewer chooses for the next time', async () => {
+         await startShell();
+         let panel = await openSettings();
+         expect(checked(panel, 'Font size', 'Medium')).toBe(true);
+         expect(root.dataset.fontSize).toBe('medium');
+
+         fireEvent.click(radio(panel, 'Font size', 'Large'));
+
+         expect(root.dataset.fontSize).toBe('large');
+         expect(checked(panel, 'Font size', 'Large')).toBe(true);
+         expect(localStorage.getItem('lotsen.fontSize')).toBe('large');
+         delete root.dataset.fontSize;
+
+         await restart();
+
+         expect(root.dataset.fontSize).toBe('large');
+         panel = await openSettings();
+         expect(checked(panel, 'Font size', 'Large')).toBe(true);
+      });
+
+      it('starts at Medium when the stored size is not one', async () => {
+         localStorage.setItem('lotsen.fontSize', 'huge');
+
+         await startShell();
+
+         expect(root.dataset.fontSize).toBe('medium');
+         expect(checked(await openSettings(), 'Font size', 'Medium')).toBe(true);
+      });
+   });
+
    it('starts with the system theme and side by side when browser storage throws', async () => {
       const { getItem, setItem } = Storage.prototype;
       vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key: string) {
