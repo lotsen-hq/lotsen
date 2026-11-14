@@ -8,15 +8,15 @@ const root = document.documentElement;
 const background = () => getComputedStyle(root).getPropertyValue('--background').trim().toLowerCase();
 const shown = () => ({ family: root.dataset.colorTheme, dark: root.classList.contains('dark') });
 
-// Latte's and Mocha's base, from color-themes.css.
+// Latte's base and Mocha's mantle, from color-themes.css.
 const latteBase = '#eff1f5';
-const mochaBase = '#1e1e2e';
-// Light Modern's and Dark Modern's editor.background, from color-themes.css.
-const lightModernBackground = '#ffffff';
-const darkModernBackground = '#1f1f1f';
-// Gruvbox's light and dark bg0 at medium contrast, from color-themes.css.
+const mochaMantle = '#181825';
+// Light 2026's and Dark 2026's editor.background, from color-themes.css.
+const light2026Background = '#ffffff';
+const dark2026Background = '#121314';
+// Gruvbox's light bg0 and dark dark0_hard at medium contrast, from color-themes.css.
 const gruvboxLightBackground = '#fbf1c7';
-const gruvboxDarkBackground = '#282828';
+const gruvboxDarkBackground = '#1d2021';
 
 let settings: Settings | undefined;
 
@@ -51,7 +51,7 @@ describe('the color theme', () => {
       settings = new Settings(fakeSystem(true).window);
 
       expect(shown()).toEqual({ family: 'catppuccin', dark: true });
-      expect(background()).toBe(mochaBase);
+      expect(background()).toBe(mochaMantle);
    });
 
    it('applies a new family at once and keeps the mode', () => {
@@ -76,7 +76,7 @@ describe('the color theme', () => {
       change(false);
 
       expect(shown()).toEqual({ family: 'catppuccin', dark: true });
-      expect(background()).toBe(mochaBase);
+      expect(background()).toBe(mochaMantle);
 
       change(true);
 
@@ -84,7 +84,7 @@ describe('the color theme', () => {
       expect(background()).toBe(latteBase);
    });
 
-   it('offers Visual Studio Code, whose palettes are Light Modern and Dark Modern', () => {
+   it('offers Visual Studio Code, whose palettes are Light 2026 and Dark 2026', () => {
       expect(colorThemeChoices).toContainEqual({ value: 'vscode', label: 'Visual Studio Code' });
       localStorage.setItem('lotsen.theme', 'light');
       settings = new Settings(fakeSystem(false).window);
@@ -92,12 +92,12 @@ describe('the color theme', () => {
       settings.setColorTheme('vscode');
 
       expect(shown()).toEqual({ family: 'vscode', dark: false });
-      expect(background()).toBe(lightModernBackground);
+      expect(background()).toBe(light2026Background);
 
       settings.setTheme('dark');
 
       expect(shown()).toEqual({ family: 'vscode', dark: true });
-      expect(background()).toBe(darkModernBackground);
+      expect(background()).toBe(dark2026Background);
    });
 
    it('offers Gruvbox, whose palettes are its light and dark at medium contrast', () => {

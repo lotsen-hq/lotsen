@@ -1,6 +1,9 @@
 /*
  * The color theme families' palettes, one light and one dark block per family, each setting every variable of Lotsen's palettes in app.css. src/lib/colorThemes.ts sets data-color-theme on
  * <html> from the reviewer's choice, and src/lib/colorScheme.ts sets the dark class. A family's selectors carry the attribute, so they win over the Lotsen palettes whatever their order.
+ *
+ * A dark palette's background, behind the code, the plan and the files, is darker than its card, behind the stop, the threads and the bars, as in Lotsen's dark palette. A light palette's
+ * background is the lighter one.
  */
 
 /*
@@ -75,9 +78,9 @@
 
 :root[data-color-theme='catppuccin'].dark {
    color-scheme: dark;
-   --background: #1e1e2e;
+   --background: #181825;
    --foreground: #cdd6f4;
-   --card: #181825;
+   --card: #1e1e2e;
    --card-foreground: var(--foreground);
    --popover: var(--card);
    --popover-foreground: var(--foreground);
@@ -136,143 +139,145 @@
 }
 
 /*
- * Visual Studio Code is Light Modern for light and Dark Modern for dark, Copyright (c) Microsoft Corporation, MIT License: extensions/theme-defaults/themes/ in microsoft/vscode at
- * 79749f565febf2216982fce236448995e0c4bde9, with the light_vs.json and dark_vs.json they include, and for keys that no theme file sets, the defaults in the same commit's terminalColorRegistry.ts,
- * chartsColors.ts and editorColors.ts. Each role takes one key, and where dark takes another key, it follows in parentheses: background editor.background, card sideBar.background, popover
- * editorWidget.background, secondary button.secondaryBackground (textCodeBlock.background), muted list.hoverBackground (textCodeBlock.background), accent list.activeSelectionBackground
- * (tab.selectedBackground), border panel.border, input input.border, foreground editor.foreground, muted-foreground tab.inactiveForeground, primary button.background (textLink.foreground), ring
- * focusBorder, button-fill input.background, button-border editorIndentGuide.activeBackground1, button-hover button.secondaryHoverBackground (menu.border), code-selection editor.selectionBackground,
- * warning and folder editorWarning.foreground, warning-surface that color at 10%, warning-mark chat.editedFileForeground (editorWarning.foreground), destructive terminal.ansiRed (errorForeground),
- * the diff lines diffEditor.insertedLineBackground and diffEditor.removedLineBackground, and the diff markers editorGutter.addedBackground and editorGutter.deletedBackground. Dark's primary is the
- * link blue, because button.background at the reviewer's 18% tint does not stand off the card.
+ * Visual Studio Code is Light 2026 for light and Dark 2026 for dark, its default themes, Copyright (c) Microsoft Corporation, MIT License: extensions/theme-defaults/themes/2026-light.json and
+ * 2026-dark.json in microsoft/vscode at ff9acdc74d3fbc338a6e50da2c31695eb0176a33, with the Modern, Plus and Visual Studio themes they include, and for keys that no theme file sets, the defaults in
+ * the same commit's terminalColorRegistry.ts, chartsColors.ts and editorColors.ts. Each role takes one key, and where dark takes another key, it follows in parentheses: background
+ * editor.background, card sideBar.background, popover editorWidget.background, secondary button.secondaryBackground (textCodeBlock.background), muted list.hoverBackground
+ * (textCodeBlock.background), accent list.activeSelectionBackground (tab.selectedBackground), border panel.border, input dropdown.border, foreground editor.foreground, muted-foreground
+ * tab.inactiveForeground, primary button.background (textLink.foreground), ring focusBorder, button-fill input.background, button-border checkbox.border, button-hover toolbar.hoverBackground,
+ * code-selection editor.selectionBackground, warning and folder editorWarning.foreground, warning-surface that color at 10%, warning-mark chat.editedFileForeground (editorWarning.foreground),
+ * destructive terminal.ansiRed (errorForeground), the diff lines diffEditor.insertedLineBackground and diffEditor.removedLineBackground, and the diff markers editorGutter.addedBackground and
+ * editorGutter.deletedBackground. A translucent key is written as the color it shows: the list colors over sideBar.background, toolbar.hoverBackground over input.background, and the others over
+ * editor.background. Dark's primary is the link blue, because button.background at the reviewer's 18% tint does not stand off the card.
  *
  * A role without a source color takes a terminal ANSI or charts color: terminal green for success and finished, the destructive red for risk, cyan (bright cyan) for context, charts orange for a
  * tour in progress and for related passages, with chat.editedFileForeground for the state's text and for the related marker in light, charts purple for Claude and questions, and terminal magenta
  * for threads. Inspect is chat.slashCommandBackground with chat.slashCommandForeground, and overview is badge.background with badge.foreground. The other kind and state fills are the accent at 14%
  * over editor.background in light and 16% in dark, written as hex, and the line tints and Claude's fill are an accent at an alpha. An accent drawn as text on such a fill blends with
- * editor.foreground, so it reads on the fill: half and half for cyan and green in light, 70% red in light and dark, and 70% purple in dark.
+ * editor.foreground, so it reads on the fill: half and half for cyan and green in light, 70% red in light and dark, and 70% purple in dark. Light's success blends 85% green with
+ * editor.foreground, so it reads on the muted fill.
  */
 
 :root[data-color-theme='vscode'] {
    color-scheme: light;
    --background: #ffffff;
-   --foreground: #3b3b3b;
-   --card: #f8f8f8;
+   --foreground: #202020;
+   --card: #fafafd;
    --card-foreground: var(--foreground);
    --popover: var(--card);
    --popover-foreground: var(--foreground);
-   --primary: #005fb8;
+   --primary: #0069cc;
    --primary-foreground: #ffffff;
-   --secondary: #e5e5e5;
+   --secondary: #eaeaea;
    --secondary-foreground: var(--foreground);
-   --muted: #f2f2f2;
-   --muted-foreground: #616161;
-   --accent: #e8e8e8;
+   --muted: #e6e6e9;
+   --muted-foreground: #606060;
+   --accent: #d6d6d8;
    --accent-foreground: var(--foreground);
    --destructive: #cd3131;
-   --success: #107c10;
+   --success: #126e12;
    --warning: #bf8803;
    --warning-surface: #f9f3e6;
    --warning-mark: #895503;
-   --border: #e5e5e5;
-   --input: #cecece;
-   --ring: #005fb8;
+   --border: #f0f1f2;
+   --input: #d8d8d8;
+   --ring: #0069cc;
    --button-fill: #ffffff;
-   --button-border: #939393;
-   --button-hover: #cccccc;
-   --code-selection: #add6ff;
+   --button-border: #868686;
+   --button-hover: #e0e0e0;
+   --code-selection: #bfd9f2;
    --code-special-char: #cd3131;
    --diff-deleted-line: rgba(255, 0, 0, 0.2);
    --diff-inserted-line: rgba(155, 185, 85, 0.2);
-   --diff-deleted-marker: #f85149;
-   --diff-inserted-marker: #2ea043;
-   --passage-primary-line: rgba(0, 95, 184, 0.1);
-   --passage-primary-marker: #005fb8;
+   --diff-deleted-marker: #ad0707;
+   --diff-inserted-marker: #587c0c;
+   --passage-primary-line: rgba(0, 105, 204, 0.1);
+   --passage-primary-marker: #0069cc;
    --passage-related-line: rgba(209, 134, 22, 0.1);
    --passage-related-marker: #895503;
    --reference-hovered-line: rgba(101, 45, 144, 0.14);
    --reference-hovered-marker: #652d90;
-   --ref-focused-background: rgba(0, 95, 184, 0.16);
+   --ref-focused-background: rgba(0, 105, 204, 0.16);
    --passage-label-foreground: #ffffff;
    --dimmed-opacity: 0.45;
    --thread-marker: #bc05bc;
    --claude-fill: rgba(101, 45, 144, 0.08);
    --claude-marker: #652d90;
-   --kind-overview-fill: #cccccc;
-   --kind-overview-text: #3b3b3b;
+   --kind-overview-fill: #0069cc;
+   --kind-overview-text: #ffffff;
    --kind-context-fill: #dcf1f6;
-   --kind-context-text: #206a7c;
+   --kind-context-text: #135c6e;
    --kind-inspect-fill: #d8e8ff;
    --kind-inspect-text: #26569e;
    --kind-risk-fill: #f8e2e2;
-   --kind-risk-text: #a13434;
+   --kind-risk-text: #992c2c;
    --kind-question-fill: #e9e2ef;
    --kind-question-text: #652d90;
    --state-in-progress-fill: #f9eede;
    --state-in-progress-text: #895503;
    --state-finished-fill: #deedde;
-   --state-finished-text: #265c26;
+   --state-finished-text: #184e18;
    --folder: #bf8803;
 }
 
 :root[data-color-theme='vscode'].dark {
    color-scheme: dark;
-   --background: #1f1f1f;
-   --foreground: #cccccc;
-   --card: #181818;
+   --background: #121314;
+   --foreground: #bbbebf;
+   --card: #191a1b;
    --card-foreground: var(--foreground);
-   --popover: #202020;
+   --popover: #202122;
    --popover-foreground: var(--foreground);
-   --primary: #4daafc;
-   --primary-foreground: #1f1f1f;
-   --secondary: #2b2b2b;
+   --primary: #48a0c7;
+   --primary-foreground: #121314;
+   --secondary: #242526;
    --secondary-foreground: var(--foreground);
-   --muted: #2b2b2b;
-   --muted-foreground: #9d9d9d;
+   --muted: #242526;
+   --muted-foreground: #8c8c8c;
    --accent: #37373d;
    --accent-foreground: var(--foreground);
-   --destructive: #f85149;
+   --destructive: #f48771;
    --success: #0dbc79;
    --warning: #cca700;
    --warning-surface: rgba(204, 167, 0, 0.1);
    --warning-mark: #cca700;
-   --border: #2b2b2b;
-   --input: #3c3c3c;
-   --ring: #0078d4;
-   --button-fill: #313131;
+   --border: #2a2b2c;
+   --input: #333536;
+   --ring: #2d6e8a;
+   --button-fill: #191a1b;
    --button-border: #707070;
-   --button-hover: #454545;
-   --code-selection: #264f78;
-   --code-special-char: #f85149;
-   --diff-deleted-line: rgba(255, 0, 0, 0.2);
-   --diff-inserted-line: rgba(155, 185, 85, 0.2);
-   --diff-deleted-marker: #f85149;
-   --diff-inserted-marker: #2ea043;
-   --passage-primary-line: rgba(0, 120, 212, 0.16);
-   --passage-primary-marker: #4daafc;
-   --passage-related-line: rgba(209, 134, 22, 0.14);
-   --passage-related-marker: #d18616;
-   --reference-hovered-line: rgba(177, 128, 215, 0.18);
-   --reference-hovered-marker: #b180d7;
-   --ref-focused-background: rgba(0, 120, 212, 0.28);
-   --passage-label-foreground: #1f1f1f;
+   --button-hover: #474849;
+   --code-selection: #245c73;
+   --code-special-char: #f48771;
+   --diff-deleted-line: rgba(201, 60, 55, 0.15);
+   --diff-inserted-line: rgba(52, 125, 57, 0.15);
+   --diff-deleted-marker: #f28772;
+   --diff-inserted-marker: #72c892;
+   --passage-primary-line: rgba(41, 122, 160, 0.16);
+   --passage-primary-marker: #48a0c7;
+   --passage-related-line: rgba(205, 134, 26, 0.14);
+   --passage-related-marker: #cd861a;
+   --reference-hovered-line: rgba(173, 128, 215, 0.18);
+   --reference-hovered-marker: #ad80d7;
+   --ref-focused-background: rgba(41, 122, 160, 0.28);
+   --passage-label-foreground: #121314;
    --dimmed-opacity: 0.4;
    --thread-marker: #bc3fbc;
-   --claude-fill: rgba(177, 128, 215, 0.1);
-   --claude-marker: #b180d7;
-   --kind-overview-fill: #616161;
-   --kind-overview-text: #f8f8f8;
-   --kind-context-fill: #21373d;
+   --claude-fill: rgba(173, 128, 215, 0.1);
+   --claude-marker: #ad80d7;
+   --kind-overview-fill: #307e9f;
+   --kind-overview-text: #ffffff;
+   --kind-context-fill: #162d34;
    --kind-context-text: #29b8db;
-   --kind-inspect-fill: #222f43;
+   --kind-inspect-fill: #1a283c;
    --kind-inspect-text: #85b6ff;
-   --kind-risk-fill: #422726;
-   --kind-risk-text: #eb7670;
-   --kind-question-fill: #362f3c;
-   --kind-question-text: #b997d4;
-   --state-in-progress-fill: #3b2f1e;
+   --kind-risk-fill: #362623;
+   --kind-risk-text: #e39888;
+   --kind-question-fill: #2b2433;
+   --kind-question-text: #b193d0;
+   --state-in-progress-fill: #302515;
    --state-in-progress-text: #e2c08d;
-   --state-finished-fill: #1c382d;
+   --state-finished-fill: #112e24;
    --state-finished-text: #0dbc79;
    --folder: #cca700;
 }
@@ -280,7 +285,7 @@
 /*
  * Gruvbox is its light and dark palettes at medium contrast, from colors/gruvbox.vim in morhetz/gruvbox at ef8864bb42bf244f0295d1c5a403b27e3d139695, by Pavel Pertsev, MIT License as its README and
  * package.json state. Light takes the faded accents and dark the bright ones, as gruvbox.vim does, except that light's warning bar, folder, ring and diff line tints take the neutral accents. The
- * surfaces and borders take bg0 to bg4 and gray, with light0_soft (light) and dark0_hard (dark) for the card. The text takes fg1, and muted text fg3. The selection is bg3, as Visual is. Links take
+ * surfaces and borders take bg0 to bg4 and gray, with light0_soft for light's card and dark0_hard for dark's background. The text takes fg1, and muted text fg3. The selection is bg3, as Visual is. Links take
  * blue, success and inserted lines green, warnings yellow, and errors and deleted lines red.
  *
  * A role without a Gruvbox color takes an accent: aqua, blue, red and purple for the stop kinds, orange for a tour in progress and for threads, yellow for related passages and purple for Claude.
@@ -353,9 +358,9 @@
 
 :root[data-color-theme='gruvbox'].dark {
    color-scheme: dark;
-   --background: #282828;
+   --background: #1d2021;
    --foreground: #ebdbb2;
-   --card: #1d2021;
+   --card: #282828;
    --card-foreground: var(--foreground);
    --popover: var(--card);
    --popover-foreground: var(--foreground);

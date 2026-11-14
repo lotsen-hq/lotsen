@@ -224,15 +224,17 @@ export function over(top: Rgba, under: Rgba): Rgba {
    return [r!, g!, b!, 1];
 }
 
+/** Returns the WCAG relative luminance of an opaque color, from 0 for black to 1 for white. */
+export function luminance([r, g, b]: Rgba): number {
+   const linear = (channel: number) => {
+      const value = channel / 255;
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+   };
+   return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+}
+
 /** Returns the WCAG contrast ratio of two opaque colors. */
 export function contrast(first: Rgba, second: Rgba): number {
-   const luminance = ([r, g, b]: Rgba) => {
-      const linear = (channel: number) => {
-         const value = channel / 255;
-         return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-      };
-      return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
-   };
    const [light, dark] = [luminance(first), luminance(second)].sort((a, b) => b - a);
    return (light! + 0.05) / (dark! + 0.05);
 }

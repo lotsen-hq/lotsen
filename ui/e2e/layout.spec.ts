@@ -1,6 +1,23 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { waitTimeout } from '../tests/app/waitTimeout.mjs';
-import { center, checkoutTour, contrast, drawnColors, editorLine, expectPalette, inScrollerView, openDemoTour, openStop, over, paletteName, palettes, showPanel, themeColor, type Rgba } from './demo';
+import {
+   center,
+   checkoutTour,
+   contrast,
+   drawnColors,
+   editorLine,
+   expectPalette,
+   inScrollerView,
+   luminance,
+   openDemoTour,
+   openStop,
+   over,
+   paletteName,
+   palettes,
+   showPanel,
+   themeColor,
+   type Rgba,
+} from './demo';
 
 const cartLineStop = 'A cart line needs at least one item';
 const paymentStop = 'The new payment step';
@@ -193,6 +210,23 @@ for (const palette of palettes) {
          expect(await claude.evaluate((node) => getComputedStyle(node).borderLeftColor)).toBe(violet);
       });
    }
+}
+
+for (const palette of palettes) {
+   const order = palette.theme === 'dark' ? 'darker' : 'lighter';
+   test(`the code sits on a ${order} surface than the Stop panel, in ${paletteName(palette)}`, async ({ page }) => {
+      await openDemoTour(page, checkoutTour, { ...palette, placement: 'side' });
+      await expectPalette(page, palette);
+      await openStop(page, cartLineStop);
+
+      const code = luminance((await drawnColors(center(page), ['background-color'])).own['background-color']);
+      const stop = luminance((await drawnColors(page.getByRole('region', { name: 'Stop', exact: true }).getByRole('heading').first(), [])).behind);
+      if (palette.theme === 'dark') {
+         expect(code).toBeLessThan(stop);
+      } else {
+         expect(code).toBeGreaterThan(stop);
+      }
+   });
 }
 
 for (const palette of palettes) {
