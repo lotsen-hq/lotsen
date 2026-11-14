@@ -24,6 +24,7 @@ interface Seed {
 
 const rounding = {
    question: 'Is rounding per line right?',
+   recommendation: 'Round each line, as the invoice does.',
    suggestions: [
       { text: 'Round per line.', type: 'decision' },
       { text: 'Totals may drift by a cent.', type: 'concern' },
@@ -117,7 +118,7 @@ const expectCollapsed = (number: number) => {
    const group = answerGroup(number);
    expect(group.queryByRole('textbox')).toBeNull();
    expect(group.queryByRole('list', { name: 'Suggested answers' })).toBeNull();
-   expect(group.queryByText(/Pick a suggested answer or write your own/)).toBeNull();
+   expect(group.queryByText(/Pick an answer or write your own/)).toBeNull();
    expect(group.queryByRole('button', { name: 'Save' })).toBeNull();
    expect(group.queryByRole('button', { name: 'Cancel' })).toBeNull();
    expect(groupElement(number).hasAttribute('aria-describedby')).toBe(false);
@@ -125,7 +126,8 @@ const expectCollapsed = (number: number) => {
    expect(group.getByRole('button', { name: 'Clear' })).toBeTruthy();
 };
 const unsent = () => document.querySelector('[data-unsent-answers]')?.textContent ?? null;
-const answerState = (number: number) => answerGroup(number).queryByText(/./, { selector: '[data-answer-state]' });
+const checkOf = (number: number) => within(groupElement(number).closest<HTMLElement>('[data-check-id]')!);
+const answerState = (number: number) => checkOf(number).queryByText(/./, { selector: '[data-answer-state]' });
 const topBar = () => within(screen.getAllByRole('banner')[0]!);
 const sendButton = () => topBar().getByRole('button', { name: 'Send answers' }) as HTMLButtonElement;
 const sendButtonGone = () => topBar().queryByRole('button', { name: 'Send answers' }) === null;
@@ -142,10 +144,56 @@ describe('answering a check in the Stop panel', () => {
       const group = answerGroup(1);
       expect(group.getAllByRole('button', { pressed: false }).map((button) => button.textContent)).toEqual(['Round per line.', 'Totals may drift by a cent.']);
       expect(group.getByRole('textbox', { name: 'Your own answer' })).toBeTruthy();
-      expect(group.getByText(/Pick a suggested answer or write your own/)).toBeTruthy();
+      expect(group.getByText(/Pick an answer or write your own/)).toBeTruthy();
       expect(group.queryByRole('combobox', { name: 'Answer type' })).toBeNull();
       expect(stopPanel().getByRole('group', { name: 'Your answer to check 1' }).textContent).not.toMatch(/decision|concern|open question/i);
       expect(unsent()).toBeNull();
+   });
+
+   it('heads an unanswered check with Needs answer and an answered one with its answer state, and counts the answered checks by the heading', async () => {
+      const { world, ...seed } = await checksWorld();
+      await open(world, seed);
+
+      expect(checkOf(1).getByText('Needs answer')).toBeTruthy();
+      expect(answerState(1)).toBeNull();
+      expect(stopPanel().getByText('0 of 2 answered')).toBeTruthy();
+
+      await fireEvent.click(answerGroup(1).getByRole('button', { name: 'Round per line.' }));
+
+      await waitFor(() => expect(answerState(1)?.textContent).toBe('Draft'));
+      expect(checkOf(1).queryByText('Needs answer')).toBeNull();
+      expect(checkOf(2).getByText('Needs answer')).toBeTruthy();
+      expect(stopPanel().getByText('1 of 2 answered')).toBeTruthy();
+   });
+
+   it("shows an unanswered check's recommendation, and folds it once the check has an answer", async () => {
+      const { world, ...seed } = await checksWorld();
+      await open(world, seed);
+
+      expect(checkOf(1).getByText('Claude recommends')).toBeTruthy();
+      expect(checkOf(1).getByText('Round each line, as the invoice does.')).toBeTruthy();
+      expect(checkOf(1).queryByRole('button', { name: 'Show recommendation' })).toBeNull();
+
+      await fireEvent.click(answerGroup(1).getByRole('button', { name: 'Round per line.' }));
+
+      const toggle = await checkOf(1).findByRole('button', { name: 'Show recommendation' });
+      const folded = document.getElementById(toggle.getAttribute('aria-controls')!)!;
+      expect(folded.hidden).toBe(true);
+      await fireEvent.click(toggle);
+      await waitFor(() => expect(folded.hidden).toBe(false));
+      expect(within(folded).getByText('Round each line, as the invoice does.')).toBeTruthy();
+      expect(toggle.textContent?.trim()).toBe('Hide recommendation');
+   });
+
+   it('leaves the hint out for a check without suggestions, and asks for the answer in its box', async () => {
+      const { world, ...seed } = await checksWorld();
+      await open(world, seed);
+
+      expect(answerGroup(1).getByText('Pick an answer or write your own.')).toBeTruthy();
+      expect(ownAnswer(1).placeholder).toBe('Or write your own answer');
+      expect(answerGroup(2).queryByText(/Pick an answer/)).toBeNull();
+      expect(groupElement(2).hasAttribute('aria-describedby')).toBe(false);
+      expect(ownAnswer(2).placeholder).toBe('Write your answer');
    });
 
    it("shows a picked suggestion as the answer with the suggestion's type on its chip, and counts it as unsent", async () => {
@@ -156,7 +204,7 @@ describe('answering a check in the Stop panel', () => {
 
       await waitFor(() => expect(typeChip(1).value).toBe('concern'));
       expect(answerGroup(1).getByText('Totals may drift by a cent.', { selector: 'p' })).toBeTruthy();
-      expect(answerGroup(1).getByText('Draft')).toBeTruthy();
+      expect(answerState(1)?.textContent).toBe('Draft');
       await waitFor(async () => expect(await stored(world, seed.tourId)).toMatchObject([{ checkId: seed.checks.rounding, text: 'Totals may drift by a cent.', type: 'concern', state: 'draft' }]));
       expect(unsent()).toBe('1 unsent answer');
    });
@@ -519,7 +567,7 @@ describe('editing an answered check', () => {
       expect(group.queryByRole('button', { name: 'Edit' })).toBeNull();
       expect(typeChip(1).value).toBe('decision');
       expect(answerState(1)?.textContent).toBe('Draft');
-      expect(group.queryByText(/Pick a suggested answer or write your own/)).toBeNull();
+      expect(group.queryByText(/Pick an answer or write your own/)).toBeNull();
       expect(groupElement(1).hasAttribute('aria-describedby')).toBe(false);
       const buttons = Array.from(groupElement(1).querySelectorAll('button')).map((button) => button.textContent);
       expect(buttons.slice(-2)).toEqual(['Cancel', 'Save']);
@@ -731,7 +779,7 @@ describe('editing an answered check', () => {
       expect(ownAnswer(1).value).toBe('');
       expect(answerGroup(1).getByRole('button', { name: 'Answer' })).toBeTruthy();
       expect(answerGroup(1).queryByRole('button', { name: 'Save' })).toBeNull();
-      expect(answerGroup(1).getByText(/Pick a suggested answer or write your own/)).toBeTruthy();
+      expect(answerGroup(1).getByText(/Pick an answer or write your own/)).toBeTruthy();
 
       await answer(world, seed, seed.checks.rounding, 'Answered again.');
 
@@ -1211,7 +1259,7 @@ describe('the send row under the checks of a stop', () => {
 
       expect(groupElement(1).textContent).not.toMatch(/from the top bar/);
       expect(groupElement(2).textContent).not.toMatch(/from the top bar/);
-      expect(answerGroup(2).getByText('Pick a suggested answer or write your own.')).toBeTruthy();
+      expect(answerGroup(2).getByRole('textbox', { name: 'Your own answer' })).toBeTruthy();
    });
 });
 

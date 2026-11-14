@@ -415,7 +415,7 @@ describe('the stop under view', () => {
       expect(within(banner()!).getByText(/version 1 of 2/)).toBeDefined();
       const dropped = answerGroup(2);
       expect(dropped.getByText('Dropped words.')).toBeDefined();
-      expect(dropped.getByText('Outdated')).toBeDefined();
+      expect(within(stopPanel().getByRole('group', { name: 'Your answer to check 2' }).closest<HTMLElement>('[data-check-id]')!).getByText('Outdated')).toBeDefined();
       expect(dropped.queryByRole('textbox')).toBeNull();
       expect(dropped.queryByRole('button')).toBeNull();
       expect(dropped.queryByRole('combobox')).toBeNull();

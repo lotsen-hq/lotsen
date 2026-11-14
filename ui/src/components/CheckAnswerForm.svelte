@@ -7,7 +7,7 @@
    import { tick } from 'svelte';
    import Check from '@lucide/svelte/icons/check';
    import { Button } from '$lib/components/ui/button';
-   import { answerStateText, answerTypes, type CheckAnswerWrites } from '../lib/answers';
+   import { answerTypes, type CheckAnswerWrites } from '../lib/answers';
    import { sendOnModifiedEnter } from '../lib/dom';
    import { panelDocument } from '../lib/panelDocument.svelte';
    import { maxQuestionLength } from '../lib/threadView';
@@ -17,7 +17,6 @@
       check,
       number,
       answer,
-      boundSessionId = null,
       writes,
    }: {
       check: StopCheck;
@@ -25,14 +24,11 @@
       number: number;
       /** The check's answer, or undefined when the reviewer has not answered it. */
       answer: CheckAnswer | undefined;
-      /** The ID of the session bound to the tour, or null when none is. */
-      boundSessionId?: string | null;
       /** The writes of the answer, or null when the check takes no answers here. */
       writes: CheckAnswerWrites | null;
    } = $props();
 
    const id = $props.id();
-   const stateText = $derived(answer ? answerStateText(answer, boundSessionId) : null);
    let text = $state('');
    let refusal = $state<string | null>(null);
    let busy = $state(false);
@@ -41,7 +37,8 @@
    let editButton = $state<HTMLElement | null>(null);
    let group = $state<HTMLElement | null>(null);
    const home = panelDocument();
-   const hintShown = $derived(writes !== null && answer === undefined);
+   const hasSuggestions = $derived((check.suggestions?.length ?? 0) > 0);
+   const hintShown = $derived(writes !== null && answer === undefined && hasSuggestions);
 
    // An answer that another view clears ends the edit, so that a later answer stays collapsed.
    $effect.pre(() => {
@@ -151,7 +148,7 @@
    }
 </script>
 
-{#snippet typeAndState(current: CheckAnswer)}
+{#snippet answerType(current: CheckAnswer)}
    {#if writes === null}
       <span class="rounded-full border border-input px-2 text-xs font-medium">{answerTypes.find((option) => option.type === current.type)?.label}</span>
    {:else}
@@ -159,7 +156,7 @@
       <label for="{id}-type" class="sr-only">Answer type</label>
       <select
          id="{id}-type"
-         class="h-6 rounded-full border border-input bg-background px-2 text-xs font-medium focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden"
+         class="h-8 max-w-full rounded-full border border-input bg-background px-3 text-sm font-medium focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden"
          value={current.type}
          onchange={(event) => void setType(chipWrites, event.currentTarget)}
       >
@@ -168,18 +165,11 @@
          {/each}
       </select>
    {/if}
-   <span
-      class={['rounded-sm bg-muted px-1.5 text-xs', current.state === 'received' && current.outdatedOn === undefined ? 'text-success' : 'text-muted-foreground']}
-      title={stateText?.explanation}
-      data-answer-state={current.outdatedOn === undefined ? current.state : 'outdated'}>{stateText?.label}</span
-   >
-   <span class="sr-only">{stateText?.explanation}</span>
 {/snippet}
 
 {#snippet suggestionPicks(pickWrites: CheckAnswerWrites)}
    {#if check.suggestions?.length}
       <div class="suggestions">
-         <span class="caps-label" aria-hidden="true">Suggested answers</span>
          <ul aria-label="Suggested answers">
             {#each check.suggestions as suggestion, position (position)}
                {@const chosen = answer?.text === suggestion.text}
@@ -200,19 +190,18 @@
       id="{id}-own"
       rows="2"
       maxlength={maxQuestionLength}
-      placeholder="Write your own answer"
+      placeholder={hasSuggestions ? 'Or write your own answer' : 'Write your answer'}
       class="min-h-10 w-full resize-y rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden dark:bg-input/30"
       onkeydown={sendOnModifiedEnter}></textarea>
 {/snippet}
 
 <div bind:this={group} class="answer" role="group" aria-label="Your answer to check {number}" aria-describedby={hintShown ? `${id}-hint` : undefined}>
-   <span class="caps-label" aria-hidden="true">Your answer</span>
    {#if answer && writes !== null && editing}
       {@const editWrites = writes}
       <form class="chosen-answer" onsubmit={(event) => save(editWrites, event)}>
          {@render ownWords()}
          <div class="flex flex-wrap items-center gap-2">
-            {@render typeAndState(answer)}
+            {@render answerType(answer)}
          </div>
          {@render suggestionPicks(editWrites)}
          <div class="flex justify-end gap-2">
@@ -225,7 +214,7 @@
       <div class="chosen-answer">
          <p class="whitespace-pre-wrap">{shown.text}</p>
          <div class="flex flex-wrap items-center gap-2">
-            {@render typeAndState(shown)}
+            {@render answerType(shown)}
             {#if writes !== null}
                <Button variant="outline" size="sm" class="ml-auto" aria-disabled={busy} bind:ref={editButton} onclick={() => void startEdit(shown)}>Edit</Button>
                <Button variant="outline" size="sm" aria-disabled={busy} onclick={() => void run(writes.onclear)}>Clear</Button>
@@ -249,12 +238,14 @@
    {:else}
       {#if !answer}
          {@const formWrites = writes}
-         <p id="{id}-hint" class="text-sm text-muted-foreground">Pick a suggested answer or write your own.</p>
+         {#if hintShown}
+            <p id="{id}-hint" class="text-sm text-muted-foreground">Pick an answer or write your own.</p>
+         {/if}
          {@render suggestionPicks(formWrites)}
          <form class="flex flex-col gap-1.5" onsubmit={(event) => write(formWrites, event)}>
             {@render ownWords()}
             <div class="flex justify-end">
-               <Button type="submit" variant="outline" size="sm" disabled={text.trim() === ''} aria-disabled={busy}>Answer</Button>
+               <Button type="submit" variant={text.trim() === '' ? 'outline' : 'default'} size="sm" disabled={text.trim() === ''} aria-disabled={busy}>Answer</Button>
             </div>
          </form>
       {/if}

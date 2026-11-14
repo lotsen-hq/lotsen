@@ -1,10 +1,11 @@
 <!--
    A stop's headline, prose sections and checks, which the Stop panel and the inline block both show, with the markers of the threads asked about text in each and the ask that a selection offers.
-   A check shows its question, Claude's recommendation and the reviewer's answer, or the suggested answers as plain text where the page offers no answering.
+   Each check is a card with its question, the state of its answer, Claude's recommendation and the reviewer's answer, or the suggested answers as plain text where the page offers no answering.
 -->
 <script lang="ts">
    import { tick } from 'svelte';
    import ChevronRight from '@lucide/svelte/icons/chevron-right';
+   import Sparkles from '@lucide/svelte/icons/sparkles';
    import * as Collapsible from '$lib/components/ui/collapsible';
    import type { CheckOpening, PickHandler } from '../lib/viewState';
    import type { AnswerWrites, CheckAnswers, CheckAnswerWrites } from '../lib/answers';
@@ -16,6 +17,7 @@
    import type { ThreadMarker } from '../lib/threadView';
    import type { CodeReference, StopContent } from '../lib/types';
    import CheckAnswerForm from './CheckAnswerForm.svelte';
+   import CheckState from './CheckState.svelte';
    import Prose from './Prose.svelte';
    import SendAnswersRow from './SendAnswersRow.svelte';
    import SelectionAsk from './SelectionAsk.svelte';
@@ -112,11 +114,21 @@
       });
    });
 
+   const answeredCount = $derived(answers === null ? 0 : checks.filter(({ check }) => answers.byCheck.has(check.id)).length);
+
    const sections = $derived.by(() => {
       const texts = textSections.flatMap(({ field, title }) => (html[field] ? [{ id: field, title, html: html[field], checks: null }] : []));
       return checks.length ? [...texts, { id: 'checks', title: 'Checks', html: null, checks }] : texts;
    });
 </script>
+
+{#snippet recommendation(field: string, recommendationHtml: string, visible: boolean)}
+   <div class="recommendation">
+      <span class="recommendation-label"><Sparkles class="size-3" aria-hidden="true" />Claude recommends</span>
+      <Prose {field} html={recommendationHtml} onopenreference={onfollowreference} {focusedPassage} {hover} {atPin} shown={visible} />
+      <ThreadMarkers threads={markersOf(field)} {onopenthread} />
+   </div>
+{/snippet}
 
 <div class="stop-explanation relative" bind:this={root}>
    <Prose class="headline" field="headline" html={html.headline} onopenreference={onfollowreference} {focusedPassage} {hover} {atPin} />
@@ -130,6 +142,9 @@
                <ChevronRight class="size-3 transition-transform group-aria-expanded:rotate-90" />
                {section.title}
             </Collapsible.Trigger>
+            {#if section.checks && answers !== null}
+               <span class="text-sm text-muted-foreground">{answeredCount} of {section.checks.length} answered</span>
+            {/if}
             <ThreadMarkers threads={section.checks ? (shown ? [] : threads.filter((thread) => thread.field.startsWith('checks['))) : markersOf(section.id)} {onopenthread} />
          </div>
          <Collapsible.Content class="section-body">
@@ -137,34 +152,54 @@
                <ol class="checks">
                   <!-- Keyed by check ID, so a rewrite that moves or drops a check takes the unsent words in its answer form with it. The store refuses a tour whose check IDs repeat. -->
                   {#each section.checks as { check, html: checkHtml, index } (check.id)}
-                     <li data-check-id={check.id} tabindex="-1">
-                        <Prose field="checks[{check.id}].question" html={checkHtml.question} onopenreference={onfollowreference} {focusedPassage} {hover} {atPin} {shown} />
-                        <ThreadMarkers threads={markersOf(`checks[${check.id}].question`)} {onopenthread} />
-                        {#if checkHtml.recommendation}
-                           <div class="recommendation">
-                              <span class="caps-label">Recommendation</span>
-                              <Prose field="checks[{check.id}].recommendation" html={checkHtml.recommendation} onopenreference={onfollowreference} {focusedPassage} {hover} {atPin} {shown} />
-                              <ThreadMarkers threads={markersOf(`checks[${check.id}].recommendation`)} {onopenthread} />
+                     {@const answer = answers?.byCheck.get(check.id)}
+                     {@const recommendationField = `checks[${check.id}].recommendation`}
+                     <li class="check" data-check-id={check.id} tabindex="-1">
+                        <div class="check-head">
+                           <span class="check-number" aria-hidden="true">{index + 1}</span>
+                           <div class="check-question">
+                              <Prose field="checks[{check.id}].question" html={checkHtml.question} onopenreference={onfollowreference} {focusedPassage} {hover} {atPin} {shown} />
+                              <ThreadMarkers threads={markersOf(`checks[${check.id}].question`)} {onopenthread} />
                            </div>
-                        {/if}
-                        {#if answers !== null}
-                           <CheckAnswerForm
-                              {check}
-                              number={index + 1}
-                              answer={answers.byCheck.get(check.id)}
-                              boundSessionId={answers.boundSessionId}
-                              writes={answers.writes === null ? null : checkWrites(answers.writes, check.id)}
-                           />
-                        {:else if check.suggestions?.length}
-                           <div class="suggestions">
-                              <span class="caps-label" aria-hidden="true">Suggested answers</span>
-                              <ul aria-label="Suggested answers">
-                                 {#each check.suggestions as suggestion, position (position)}
-                                    <li>{suggestion.text}</li>
-                                 {/each}
-                              </ul>
-                           </div>
-                        {/if}
+                           {#if answers !== null}
+                              <CheckState {answer} boundSessionId={answers.boundSessionId} answerable={answers.writes !== null} />
+                           {/if}
+                        </div>
+                        <div class="check-body">
+                           {#if checkHtml.recommendation}
+                              {@const recommendationHtml = checkHtml.recommendation}
+                              {#if answer === undefined}
+                                 {@render recommendation(recommendationField, recommendationHtml, shown)}
+                              {:else}
+                                 <!-- An answered check folds its recommendation, so the checks that still wait stand out. -->
+                                 {@const recommendationShown = opened.get(recommendationField) ?? false}
+                                 <Collapsible.Root bind:open={() => recommendationShown, (open) => opened.set(recommendationField, open)}>
+                                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                       <Collapsible.Trigger class="group recommendation-toggle">
+                                          <ChevronRight class="size-3 transition-transform group-aria-expanded:rotate-90" />
+                                          {recommendationShown ? 'Hide recommendation' : 'Show recommendation'}
+                                       </Collapsible.Trigger>
+                                       <ThreadMarkers threads={recommendationShown ? [] : markersOf(recommendationField)} {onopenthread} />
+                                    </div>
+                                    <Collapsible.Content class="mt-1">
+                                       {@render recommendation(recommendationField, recommendationHtml, shown && recommendationShown)}
+                                    </Collapsible.Content>
+                                 </Collapsible.Root>
+                              {/if}
+                           {/if}
+                           {#if answers !== null}
+                              <CheckAnswerForm {check} number={index + 1} {answer} writes={answers.writes === null ? null : checkWrites(answers.writes, check.id)} />
+                           {:else if check.suggestions?.length}
+                              <div class="suggestions">
+                                 <span class="caps-label" aria-hidden="true">Suggested answers</span>
+                                 <ul aria-label="Suggested answers">
+                                    {#each check.suggestions as suggestion, position (position)}
+                                       <li>{suggestion.text}</li>
+                                    {/each}
+                                 </ul>
+                              </div>
+                           {/if}
+                        </div>
                      </li>
                   {/each}
                </ol>

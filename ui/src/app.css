@@ -927,22 +927,88 @@
          margin-top: 6px;
       }
 
+      /* Each check is a card, so the checks stand apart from the prose sections and from each other. The number badge's width and the head's gap set the body's indent. */
       & .checks {
-         @apply list-decimal pl-6;
+         @apply flex flex-col gap-3;
+         --check-number-size: 1.5em;
+         --check-head-gap: 10px;
          font-size: calc(15px * var(--font-scale));
          line-height: 1.65;
 
-         & li + li {
-            margin-top: 8px;
+         /* A long link in a check breaks, so it stays inside the card in a narrow panel. */
+         & .check {
+            @apply flex flex-col gap-2 rounded-lg border bg-card px-3.5 py-3 shadow-xs;
+            container: check / inline-size;
+            overflow-wrap: break-word;
          }
 
-         & li::marker {
-            @apply text-muted-foreground;
+         & .check-head {
+            @apply grid items-start;
+            grid-template-columns: var(--check-number-size) minmax(0, 1fr) auto;
+            gap: 4px var(--check-head-gap);
          }
 
-         & .recommendation,
-         & .answer {
-            margin-top: 4px;
+         & .check-number {
+            @apply inline-grid place-items-center rounded-full bg-muted text-foreground tabular-nums;
+            width: var(--check-number-size);
+            height: var(--check-number-size);
+            margin-top: 0.1em;
+            font-size: calc(12px * var(--font-scale));
+            font-weight: 600;
+         }
+
+         & .check-question {
+            @apply min-w-0 font-semibold text-foreground;
+            line-height: 1.5;
+         }
+
+         & .check-state {
+            @apply rounded-full px-2 whitespace-nowrap;
+            margin-top: 0.15em;
+            font-size: calc(12px * var(--font-scale));
+            line-height: 1.6;
+         }
+
+         & .check-body {
+            @apply flex flex-col gap-2;
+            margin-left: calc(var(--check-number-size) + var(--check-head-gap));
+         }
+
+         & .recommendation {
+            @apply flex flex-col gap-0.5 rounded-md px-2.5 py-1.5;
+            background: var(--claude-fill);
+            font-size: calc(14px * var(--font-scale));
+            line-height: 1.5;
+         }
+
+         /* The Claude marker and the primary color alone stand below 4.5:1 on a check in some light palettes, so each text mixes in the foreground, as e2e/layout.spec.ts checks. */
+         & .recommendation-label {
+            @apply inline-flex items-center gap-1.5;
+            color: color-mix(in oklab, var(--claude-marker), var(--foreground) 40%);
+            font-size: calc(12px * var(--font-scale));
+            font-weight: 600;
+         }
+
+         & .check-state.waiting {
+            @apply border border-primary;
+            color: color-mix(in oklab, var(--primary), var(--foreground) 30%);
+         }
+
+         & .recommendation-toggle {
+            @apply flex items-center gap-1 rounded-sm text-left text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden;
+            font-size: calc(13px * var(--font-scale));
+         }
+
+         /* A narrow check, such as one in an inline block, puts the state under the question and gives the body the card's whole width. */
+         @container check (width < 22em) {
+            & .check-state {
+               grid-area: 2 / 2;
+               justify-self: start;
+            }
+
+            & .check-body {
+               margin-left: 0;
+            }
          }
 
          & .answer {
@@ -952,7 +1018,7 @@
          }
 
          & .chosen-answer {
-            @apply flex flex-col gap-1.5 rounded-md border border-l-4 border-l-primary bg-card px-3 py-2;
+            @apply flex flex-col gap-1.5 rounded-md border border-l-4 border-l-primary bg-background px-3 py-2;
          }
 
          & .suggestions ul {

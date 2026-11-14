@@ -21,6 +21,7 @@ import {
 
 const cartLineStop = 'A cart line needs at least one item';
 const paymentStop = 'The new payment step';
+const gatewayStop = 'Gateway errors reach the customer as they are';
 
 /** The editors of the center's diff, base first side by side. */
 const editors = (page: Page) => center(page).locator('.cm-editor');
@@ -248,6 +249,33 @@ for (const palette of palettes) {
 }
 
 for (const palette of palettes) {
+   test(`a check's recommendation label and its Needs answer pill stand off their fills, in ${paletteName(palette)}`, async ({ page }) => {
+      await openDemoTour(page, checkoutTour, { ...palette, placement: 'side' });
+      await expectPalette(page, palette);
+      const stop = page.getByRole('region', { name: 'Stop', exact: true });
+      await openStop(page, gatewayStop);
+
+      await stop.getByRole('button', { name: 'Show recommendation' }).click();
+      const label = await drawnColors(stop.getByText('Claude recommends'), ['color']);
+      expect(contrast(over(label.own.color, label.behind), label.behind), 'the recommendation label against its fill').toBeGreaterThanOrEqual(4.5);
+
+      const pill = await drawnColors(stop.getByText('Needs answer'), ['color', 'border-top-color']);
+      expect(contrast(over(pill.own.color, pill.behind), pill.behind), 'the Needs answer text against the check').toBeGreaterThanOrEqual(4.5);
+      expect(contrast(over(pill.own['border-top-color'], pill.behind), pill.behind), 'the Needs answer border against the check').toBeGreaterThanOrEqual(3);
+   });
+}
+
+test("an answered check's type select is as high as its Edit button", async ({ page }) => {
+   await openDemoTour(page, checkoutTour, { placement: 'side' });
+   await openStop(page, gatewayStop);
+   const group = page.getByRole('region', { name: 'Stop', exact: true }).getByRole('group', { name: 'Your answer to check 1' });
+
+   const select = (await group.getByRole('combobox', { name: 'Answer type' }).boundingBox())!;
+   const edit = (await group.getByRole('button', { name: 'Edit' }).boundingBox())!;
+   expect(select.height).toBeCloseTo(edit.height, 0);
+});
+
+for (const palette of palettes) {
    test(`a resolved thread's state label reads as muted text on the muted fill, in ${paletteName(palette)}`, async ({ page }) => {
       await openDemoTour(page, checkoutTour, { ...palette, placement: 'mixed' });
       await expectPalette(page, palette);
@@ -422,7 +450,6 @@ test('the stop bar shows once the header and the stop toolbar have scrolled away
    const lineHeight = (element: Locator) => element.evaluate((node) => parseFloat(getComputedStyle(node).lineHeight));
    const height = async (element: Locator) => (await element.boundingBox())!.height;
 
-   const gatewayStop = 'Gateway errors reach the customer as they are';
    await openStop(page, gatewayStop);
    await expect(bar).toBeHidden();
    expect(await scroller.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);

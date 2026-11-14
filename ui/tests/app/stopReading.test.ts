@@ -212,7 +212,7 @@ describe('the stops of a tour', () => {
       expect(items).toHaveLength(2);
       const [first, second] = items as [HTMLElement, HTMLElement];
       expect(within(first).getByText('Is a zero quantity an error?')).toBeTruthy();
-      expect(within(first).getByText('Recommendation')).toBeTruthy();
+      expect(within(first).getByText('Claude recommends')).toBeTruthy();
       expect(within(first).getByText('Yes: a zero line is noise.')).toBeTruthy();
       const answers = within(first).getByRole('list', { name: 'Suggested answers' });
       expect(
@@ -222,7 +222,7 @@ describe('the stops of a tour', () => {
       ).toEqual(['Refuse a zero quantity.', 'Zero may mean a removal.', 'What does the shop expect?']);
       expect(section.textContent).not.toMatch(/decision|concern|openQuestion|open question/i);
       expect(within(second).getByText('Should remove check too?')).toBeTruthy();
-      expect(within(second).queryByText('Recommendation')).toBeNull();
+      expect(within(second).queryByText('Claude recommends')).toBeNull();
       expect(within(second).queryByRole('list', { name: 'Suggested answers' })).toBeNull();
    });
 
