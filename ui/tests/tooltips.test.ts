@@ -65,7 +65,7 @@ describe('an icon button tooltip', () => {
    it('keeps the handlers of an outer trigger, so the settings button opens the settings and shows its tooltip', async () => {
       const settings = new Settings(window);
       onTestFinished(() => settings.dispose());
-      render(SettingsPanel, { props: { settings, onprune: async () => ({ removed: 0 }) } });
+      render(SettingsPanel, { props: { settings, onprune: async () => ({ removed: 0 }), onversion: async () => null } });
       const button = screen.getByRole('button', { name: 'Settings' });
 
       expect(await hoverTooltip(button)).toBe('Settings');

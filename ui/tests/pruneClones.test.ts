@@ -5,7 +5,7 @@ import type { PruneOutcome } from '../src/lib/viewState';
 import { Settings } from '../src/lib/settings.svelte';
 
 async function prune(outcome: PruneOutcome) {
-   render(SettingsPanel, { props: { settings: new Settings(window), onprune: () => Promise.resolve(outcome) } });
+   render(SettingsPanel, { props: { settings: new Settings(window), onprune: () => Promise.resolve(outcome), onversion: () => Promise.resolve(null) } });
    await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
    const settings = within(await screen.findByRole('dialog', { name: 'Settings' }));
    await fireEvent.click(settings.getByRole('button', { name: 'Prune unused clones' }));

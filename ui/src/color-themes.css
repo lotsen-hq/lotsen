@@ -2,6 +2,8 @@
  * The color theme families' palettes, one light and one dark block per family, each setting every variable of Lotsen's palettes in app.css. src/lib/colorThemes.ts sets data-color-theme on
  * <html> from the reviewer's choice, and src/lib/colorScheme.ts sets the dark class. A family's selectors carry the attribute, so they win over the Lotsen palettes whatever their order.
  *
+ * An element with data-color-swatch takes the named family's palette, light or dark as the page is, whatever family the page shows. The settings draw their swatches with it.
+ *
  * A dark palette's background, behind the code, the plan and the files, is darker than its card, behind the stop, the threads and the bars, as in Lotsen's dark palette. A light palette's
  * background is the lighter one.
  */
@@ -14,7 +16,8 @@
  * half for the stop kinds, the states, the warning mark and the related passages' marker, 85% blue for primary, 60% pink for threads and 35% green for success.
  */
 
-:root[data-color-theme='catppuccin'] {
+:root[data-color-theme='catppuccin'],
+[data-color-swatch='catppuccin'] {
    color-scheme: light;
    --background: #eff1f5;
    --foreground: #4c4f69;
@@ -76,7 +79,8 @@
    --folder: #df8e1d;
 }
 
-:root[data-color-theme='catppuccin'].dark {
+:root[data-color-theme='catppuccin'].dark,
+.dark [data-color-swatch='catppuccin'] {
    color-scheme: dark;
    --background: #181825;
    --foreground: #cdd6f4;
@@ -158,7 +162,8 @@
  * editor.foreground, so it reads on the muted fill.
  */
 
-:root[data-color-theme='vscode'] {
+:root[data-color-theme='vscode'],
+[data-color-swatch='vscode'] {
    color-scheme: light;
    --background: #ffffff;
    --foreground: #202020;
@@ -220,7 +225,8 @@
    --folder: #bf8803;
 }
 
-:root[data-color-theme='vscode'].dark {
+:root[data-color-theme='vscode'].dark,
+.dark [data-color-swatch='vscode'] {
    color-scheme: dark;
    --background: #121314;
    --foreground: #bbbebf;
@@ -294,7 +300,8 @@
  * related passages' marker blend green or yellow half and half with fg1.
  */
 
-:root[data-color-theme='gruvbox'] {
+:root[data-color-theme='gruvbox'],
+[data-color-swatch='gruvbox'] {
    color-scheme: light;
    --background: #fbf1c7;
    --foreground: #3c3836;
@@ -356,7 +363,8 @@
    --folder: #d79921;
 }
 
-:root[data-color-theme='gruvbox'].dark {
+:root[data-color-theme='gruvbox'].dark,
+.dark [data-color-swatch='gruvbox'] {
    color-scheme: dark;
    --background: #1d2021;
    --foreground: #ebdbb2;

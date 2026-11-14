@@ -134,6 +134,25 @@ describe('the operation wire', () => {
    });
 });
 
+describe('the version read', () => {
+   it('gets the versions with the UI credential and returns them', async () => {
+      const versions = { build: '0.3.0+abc (0123)', protocol: 2 };
+      const fetchFn = answering(200, versions);
+
+      expect(await createApi(fetchFn, 'token').readVersion()).toEqual(versions);
+
+      const [url, init] = fetchFn.mock.calls[0]!;
+      expect(url).toBe('/api/version');
+      expect(init?.method ?? 'GET').toBe('GET');
+      expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer token');
+   });
+
+   it('throws an UnauthorizedError when the server refuses the UI credential, and an ApiError for any other error status', async () => {
+      await expect(createApi(answering(401, {}), 'token').readVersion()).rejects.toBeInstanceOf(UnauthorizedError);
+      await expect(createApi(answering(500, {}), 'token').readVersion()).rejects.toMatchObject({ status: 500 });
+   });
+});
+
 describe('file API', () => {
    it('reads a file text at a side, with its path as it is', async () => {
       const body = { content: 'text', path: 'src/a b&c.ts', side: 'base', commit: 'a'.repeat(40), text: 'x\n' };

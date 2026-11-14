@@ -220,9 +220,10 @@ describe('the view modes', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
       const settings = within(await screen.findByRole('dialog', { name: 'Settings' }));
       const group = settings.getByRole('radiogroup', { name: 'Default view mode' });
-      expect(document.getElementById(group.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+      expect((group.getAttribute('aria-describedby') ?? '').split(' ').map((id) => document.getElementById(id)?.textContent)).toEqual([
          'Each tour opens in this mode. A mode you choose in the diff toolbar lasts until another tour opens.',
-      );
+         "One of the stop's passages at a time.",
+      ]);
       const defaults = within(group);
       expect(defaults.getByRole('radio', { name: 'Step through' }).getAttribute('aria-checked')).toBe('true');
       fireEvent.click(defaults.getByRole('radio', { name: 'Whole PR' }));

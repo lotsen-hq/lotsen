@@ -438,6 +438,7 @@ export class LotsenApp {
 
    private readonly options: AppOptions;
    private api: Api | null = null;
+   private serverBuild: Promise<string | null> | null = null;
    private stream: EventStreamConnection | null = null;
    private listGeneration = 0;
    /** The number of times the event stream opened, so a load can tell whether a stream opened while it was in flight. */
@@ -695,6 +696,24 @@ export class LotsenApp {
       } catch (error) {
          return { failure: this.refusalOf(error, 'The clones could not be pruned.') };
       }
+   }
+
+   /**
+    * Returns the server's build, as `GET /api/version` names it. The page asks the server once, and again only after a failed read.
+    *
+    * @returns The build, or null when the server could not be read.
+    */
+   readVersion(): Promise<string | null> {
+      this.serverBuild ??= this.requireApi()
+         .readVersion()
+         .then(
+            (version) => version.build,
+            () => {
+               this.serverBuild = null;
+               return null;
+            },
+         );
+      return this.serverBuild;
    }
 
    /** Forgets a deleted tour's row and its record, and leaves the tour when the page shows it. */

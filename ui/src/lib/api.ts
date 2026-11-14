@@ -71,6 +71,14 @@ export function refusalReason(error: unknown, failure: string): string {
    return error instanceof ApiError && error.error !== null ? error.error.reason : failure;
 }
 
+/** The server's versions, from `GET /api/version`. */
+export interface ServerVersion {
+   /** The build of the executable: its informational version and a digest of its assemblies, as `0.3.0+e23502b… (8549f42b…)`. */
+   build: string;
+   /** The version of the HTTP API contract between the adapter and the server. */
+   protocol: number;
+}
+
 /** The lotsen operations that the UI calls, each with the UI credential. */
 export interface Api {
    listTours(): Promise<TourList>;
@@ -150,6 +158,8 @@ export interface Api {
    deleteTour(tourId: string): Promise<DeletedTour>;
    /** Removes the repository clones that no tour refers to, and the temporary clones that an interrupted clone left, and returns how many it removed. */
    pruneClones(): Promise<PrunedClones>;
+   /** Returns the server's versions. */
+   readVersion(): Promise<ServerVersion>;
    /** Returns every preference that the server stores, each key with its text. */
    readPreferences(): Promise<PreferenceList>;
    /**
@@ -368,6 +378,19 @@ export function createApi(fetchFn: typeof fetch, credential: string, onControls:
       setTourArchived: (tourId, archived) => call('set_tour_archived', { tourId, archived }),
       deleteTour: (tourId) => call('delete_tour', { tourId }),
       pruneClones: () => call('prune_clones', {}),
+      readVersion: async () => {
+         const response = await fetchFn('/api/version', { headers: { Authorization: `Bearer ${credential}`, Accept: 'application/json' }, cache: 'no-store' });
+         if (response.status === 401) {
+            throw new UnauthorizedError();
+         }
+
+         if (!response.ok) {
+            throw new ApiError(response.status);
+         }
+
+         // The server and the UI ship as one build, so the body has the shape of VersionInfo.
+         return (await response.json()) as ServerVersion;
+      },
       readPreferences: () => call('read_preferences', {}),
       writePreference: (key, value) => call('write_preference', { key, value }),
       changeFamiliarity: (tourId, familiarity, stopId, text) => revised('change_familiarity', { tourId, familiarity, ...(stopId === null ? {} : { stopId }), ...(text === undefined ? {} : { text }) }),

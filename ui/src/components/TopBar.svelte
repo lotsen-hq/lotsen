@@ -38,6 +38,7 @@
       layout,
       settings,
       onprune,
+      onversion,
       picker,
       navigation,
       iteration,
@@ -59,6 +60,8 @@
       settings: Settings;
       /** Removes the clones that no tour refers to, as the settings panel offers. */
       onprune: () => Promise<PruneOutcome>;
+      /** Returns the server's build, or null when it could not be read, for the settings panel's footer. */
+      onversion: () => Promise<string | null>;
       /** The tour switcher. */
       picker: Snippet;
       /** The stop navigation, which starts at the same place whatever the tour switcher shows. */
@@ -193,5 +196,5 @@
    </DropdownMenu.Root>
    <SaveLayoutDialog bind:open={saving} snapshot={() => layout.snapshot()} onCloseAutoFocus={focusPanelsMenu} />
    <ManageLayoutsDialog bind:open={managing} onCloseAutoFocus={focusPanelsMenu} />
-   <SettingsPanel {settings} {onprune} />
+   <SettingsPanel {settings} {onprune} {onversion} />
 </header>

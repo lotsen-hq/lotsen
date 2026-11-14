@@ -8,7 +8,8 @@
 /* src/lib/colorScheme.ts sets the dark class on <html> from the reviewer's theme. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-:root {
+:root,
+[data-color-swatch='lotsen'] {
    color-scheme: light;
    --background: oklch(1 0 0);
    --foreground: oklch(12.9% 0.042 264.695);
@@ -83,7 +84,8 @@
    }
 }
 
-.dark {
+.dark,
+.dark [data-color-swatch='lotsen'] {
    color-scheme: dark;
    --background: #16181d;
    --foreground: #e3e6eb;
@@ -180,6 +182,16 @@
    --color-claude-marker: var(--claude-marker);
    /* The marker and the label of a thread row in which Claude waits on the reviewer, in the tour list's color of a tour in progress. */
    --color-your-turn: var(--state-in-progress-text);
+   /* The syntax and diff colors that the settings' samples and preview draw with outside the diff editors. */
+   --color-syntax-keyword: var(--syntax-keyword);
+   --color-syntax-string: var(--syntax-string);
+   --color-syntax-number: var(--syntax-number);
+   --color-syntax-type: var(--syntax-type);
+   --color-syntax-function: var(--syntax-function);
+   --color-diff-deleted-line: var(--diff-deleted-line);
+   --color-diff-deleted-marker: var(--diff-deleted-marker);
+   --color-diff-inserted-line: var(--diff-inserted-line);
+   --color-diff-inserted-marker: var(--diff-inserted-marker);
 }
 
 /* VS Code's Seti file icon theme. src/seti/ holds its notices, and scripts/generate-seti.mjs writes the folder. */
@@ -187,6 +199,12 @@
    font-family: seti;
    src: url('./seti/seti.woff') format('woff');
    font-display: block;
+}
+
+/* A comment in a code sample, in the syntax colors' comment color and style. */
+@utility syntax-comment {
+   color: var(--syntax-comment);
+   font-style: var(--syntax-comment-style);
 }
 
 /* The small-caps label of a heading, such as a section of a stop's explanation or a chapter of the plan. */

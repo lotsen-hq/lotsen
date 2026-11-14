@@ -13,6 +13,7 @@ The notable changes in each release of lotsen, newest first. Versions follow [se
 
 ### Changed
 
+- **A tidier Settings panel.** The settings sit under Appearance, Tour, Threads and Storage. Color theme and Syntax colors are dropdowns that show each family's colors, Placement and Thread messages show a small picture of each choice, and a preview shows the chosen colors and font size on a few diff lines. Mixed threshold shows only while Placement is Mixed, and the panel's footer shows the lotsen version.
 - **A diff line with thread markers is as tall as any other line**, so its code sits level with its line number.
 - **Gray text in the light theme is darker**, so small labels such as a thread's "Resolved" read clearly on their gray fill.
 - **Stops and diffs load faster, most of all on Windows, where each git process is slow.** lotsen keeps what git told it about a tour's commits in its git fact cache, so a stop that Claude writes again, a diff you open again and the list of changed files after pinning start no git process. The first stop that Claude writes on a pin starts fewer of them too.

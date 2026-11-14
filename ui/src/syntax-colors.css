@@ -1,9 +1,12 @@
 /*
  * The diff editors' syntax colors (src/lib/editor/diffTheme.ts), one palette per syntax color family and theme. src/lib/syntaxColors.ts sets data-syntax-colors on <html> from the reviewer's
  * choice, and src/lib/colorScheme.ts sets the dark class. A family's selectors carry the attribute, so they win over the Lotsen palettes whatever their order.
+ *
+ * An element with data-syntax-swatch takes the named family's palette, light or dark as the page is, whatever family the page shows. The settings draw their samples with it.
  */
 
-:root {
+:root,
+[data-syntax-swatch='lotsen'] {
    --syntax-keyword: #8250df;
    --syntax-control: #8250df;
    --syntax-string: #116329;
@@ -19,7 +22,8 @@
    --syntax-invalid: #d1242f;
 }
 
-.dark {
+.dark,
+.dark [data-syntax-swatch='lotsen'] {
    --syntax-keyword: #c792ea;
    --syntax-control: #c792ea;
    --syntax-string: #a5d6a7;
@@ -43,7 +47,8 @@
  * entity.name.tag, keyword.operator and invalid. A role whose scope has no color takes the theme's editor.foreground. No scope sets a fontStyle on comments, so they are not italic.
  */
 
-:root[data-syntax-colors='vscode'] {
+:root[data-syntax-colors='vscode'],
+[data-syntax-swatch='vscode'] {
    --syntax-keyword: #0000ff;
    --syntax-control: #af00db;
    --syntax-string: #a31515;
@@ -59,7 +64,8 @@
    --syntax-invalid: #cd3131;
 }
 
-:root.dark[data-syntax-colors='vscode'] {
+:root.dark[data-syntax-colors='vscode'],
+.dark [data-syntax-swatch='vscode'] {
    --syntax-keyword: #569cd6;
    --syntax-control: #c586c0;
    --syntax-string: #ce9178;
@@ -75,7 +81,8 @@
    --syntax-invalid: #f44747;
 }
 
-:root[data-syntax-colors='visualStudio'] {
+:root[data-syntax-colors='visualStudio'],
+[data-syntax-swatch='visualStudio'] {
    --syntax-keyword: #0000ff;
    --syntax-control: #0000ff;
    --syntax-string: #a31515;
@@ -91,7 +98,8 @@
    --syntax-invalid: #cd3131;
 }
 
-:root.dark[data-syntax-colors='visualStudio'] {
+:root.dark[data-syntax-colors='visualStudio'],
+.dark [data-syntax-swatch='visualStudio'] {
    --syntax-keyword: #569cd6;
    --syntax-control: #569cd6;
    --syntax-string: #ce9178;
@@ -113,7 +121,8 @@
  * In light, string, number, comment, type and operator blend with editor.foreground (35%, 40%, 20%, 50%, 25%) to reach 4.5:1 on white, as the other families do.
  */
 
-:root[data-syntax-colors='catppuccin'] {
+:root[data-syntax-colors='catppuccin'],
+[data-syntax-swatch='catppuccin'] {
    --syntax-keyword: #8839ef;
    --syntax-control: #8839ef;
    --syntax-string: #448441;
@@ -129,7 +138,8 @@
    --syntax-invalid: #4c4f69;
 }
 
-:root.dark[data-syntax-colors='catppuccin'] {
+:root.dark[data-syntax-colors='catppuccin'],
+.dark [data-syntax-swatch='catppuccin'] {
    --syntax-keyword: #cba6f7;
    --syntax-control: #cba6f7;
    --syntax-string: #a6e3a1;
@@ -152,7 +162,8 @@
  * In light, comment and type blend 20% with fg1 to reach 4.5:1 on white, as the other families do.
  */
 
-:root[data-syntax-colors='gruvbox'] {
+:root[data-syntax-colors='gruvbox'],
+[data-syntax-swatch='gruvbox'] {
    --syntax-keyword: #9d0006;
    --syntax-control: #9d0006;
    --syntax-string: #79740e;
@@ -168,7 +179,8 @@
    --syntax-invalid: #9d0006;
 }
 
-:root.dark[data-syntax-colors='gruvbox'] {
+:root.dark[data-syntax-colors='gruvbox'],
+.dark [data-syntax-swatch='gruvbox'] {
    --syntax-keyword: #fb4934;
    --syntax-control: #fb4934;
    --syntax-string: #b8bb26;

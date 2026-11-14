@@ -44,7 +44,7 @@ describe('the third-party notices', () => {
    });
 
    it('is linked from the settings', async () => {
-      render(SettingsPanel, { props: { settings: new Settings(window), onprune: () => Promise.resolve({ removed: 0 }) } });
+      render(SettingsPanel, { props: { settings: new Settings(window), onprune: () => Promise.resolve({ removed: 0 }), onversion: () => Promise.resolve(null) } });
       await fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
       const settings = within(await screen.findByRole('dialog', { name: 'Settings' }));
 

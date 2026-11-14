@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { CodeMirrorSurface } from '../../src/lib/editor/codeMirrorSurface';
+import colorThemesCss from '../../src/color-themes.css?raw';
 import syntaxColorsCss from '../../src/syntax-colors.css?raw';
 import type { LotsenApp } from '../../src/lib/app.svelte';
 import type { World } from '../backend/backend';
@@ -46,6 +47,8 @@ const oneFile = backend().template('settingsPanel-one-file', async (world) => {
 const dark = () => root.classList.contains('dark');
 const radio = (panel: ReturnType<typeof within>, group: string, name: string) => within(panel.getByRole('radiogroup', { name: group })).getByRole('radio', { name });
 const checked = (panel: ReturnType<typeof within>, group: string, name: string) => radio(panel, group, name).getAttribute('aria-checked') === 'true';
+const select = (panel: ReturnType<typeof within>, name: string) => panel.getByRole('combobox', { name });
+const shows = (panel: ReturnType<typeof within>, name: string) => select(panel, name).textContent?.trim();
 const layoutToggle = () => within(screen.getByRole('main', { name: 'Diff' })).getByRole('button', { name: 'Side by side' });
 
 let world: World;
@@ -66,6 +69,18 @@ async function restart(): Promise<void> {
 async function openSettings() {
    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
    return within(await screen.findByRole('dialog', { name: 'Settings' }));
+}
+
+/** Opens the dropdown's list, which renders outside the panel, and returns its options. */
+async function openList(panel: ReturnType<typeof within>, name: string): Promise<HTMLElement[]> {
+   fireEvent.click(select(panel, name));
+   return screen.findAllByRole('option');
+}
+
+async function choose(panel: ReturnType<typeof within>, name: string, option: string): Promise<void> {
+   await openList(panel, name);
+   fireEvent.pointerUp(screen.getByRole('option', { name: option }));
+   await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
 }
 
 async function openFile(): Promise<void> {
@@ -174,15 +189,54 @@ describe('the settings panel', () => {
       const threshold = () => panel.getByRole('spinbutton', { name: 'Mixed threshold' }) as HTMLInputElement;
       expect(threshold().value).toBe('600');
 
-      fireEvent.click(radio(panel, 'Placement', 'Inline'));
       fireEvent.input(threshold(), { target: { value: '250' } });
+      fireEvent.click(radio(panel, 'Placement', 'Inline'));
 
       expect(localStorage.getItem('lotsen.placement')).toBe('inline');
       expect(localStorage.getItem('lotsen.mixedThreshold')).toBe('250');
       await restart();
       panel = await openSettings();
       expect(checked(panel, 'Placement', 'Inline')).toBe(true);
+      await fireEvent.click(radio(panel, 'Placement', 'Mixed'));
       expect(threshold().value).toBe('250');
+   });
+
+   it("shows the server's version beside the third-party notices, with its whole build in the tooltip", async () => {
+      await startShell();
+      const panel = await openSettings();
+
+      const version = await panel.findByText(/^lotsen \S+$/);
+
+      const build = version.getAttribute('title') ?? '';
+      expect(build).toMatch(/^\S+ \([0-9a-f]{32}\)$/);
+      expect(version.textContent).toBe(`lotsen ${build.split(/[+ ]/, 1)[0]}`);
+   });
+
+   it('shows the mixed threshold only while the placement is mixed', async () => {
+      await startShell();
+      const panel = await openSettings();
+
+      for (const placement of ['Side panel', 'Inline']) {
+         await fireEvent.click(radio(panel, 'Placement', placement));
+         expect(panel.queryByRole('spinbutton', { name: 'Mixed threshold' })).toBeNull();
+      }
+      await fireEvent.click(radio(panel, 'Placement', 'Mixed'));
+      expect(panel.getByRole('spinbutton', { name: 'Mixed threshold' })).toBeTruthy();
+   });
+
+   it('describes the selected option of a choice below it', async () => {
+      await startShell();
+      const panel = await openSettings();
+      const description = () => {
+         const ids = panel.getByRole('radiogroup', { name: 'Placement' }).getAttribute('aria-describedby') ?? '';
+         return ids.split(' ').map((id) => document.getElementById(id)?.textContent);
+      };
+
+      await fireEvent.click(radio(panel, 'Placement', 'Side panel'));
+      expect(description()).toEqual(['Every explanation shows in the Stop panel.']);
+
+      await fireEvent.click(radio(panel, 'Placement', 'Inline'));
+      expect(description()).toEqual(['Each explanation shows below its primary passage. A stop without one shows in the Stop panel.']);
    });
 
    it("shows the thread messages as chat bubbles by default, and keeps the reviewer's choice of full width in browser storage for the next time", async () => {
@@ -235,12 +289,12 @@ describe('the settings panel', () => {
       it('gives each family its own light and dark palette, which the theme picks', async () => {
          await startShell();
          const panel = await openSettings();
-         expect(checked(panel, 'Syntax colors', 'Lotsen')).toBe(true);
+         expect(shows(panel, 'Syntax colors')).toBe('Lotsen');
          const palettes = new Map<string, string[]>();
 
          for (const family of ['Lotsen', 'Visual Studio Code', 'Visual Studio', 'Catppuccin', 'Gruvbox']) {
-            fireEvent.click(radio(panel, 'Syntax colors', family));
-            expect(checked(panel, 'Syntax colors', family)).toBe(true);
+            await choose(panel, 'Syntax colors', family);
+            expect(shows(panel, 'Syntax colors')).toBe(family);
             for (const theme of ['Light', 'Dark']) {
                fireEvent.click(radio(panel, 'Theme', theme));
                palettes.set(`${family} ${theme}`, palette());
@@ -268,7 +322,7 @@ describe('the settings panel', () => {
          await startShell();
          let panel = await openSettings();
          fireEvent.click(radio(panel, 'Theme', 'Dark'));
-         fireEvent.click(radio(panel, 'Syntax colors', 'Visual Studio'));
+         await choose(panel, 'Syntax colors', 'Visual Studio');
          expect(localStorage.getItem('lotsen.syntaxColors')).toBe('visualStudio');
          delete root.dataset.syntaxColors;
 
@@ -276,7 +330,7 @@ describe('the settings panel', () => {
 
          expect(palette()[4]).toBe('#d4d4d4');
          panel = await openSettings();
-         expect(checked(panel, 'Syntax colors', 'Visual Studio')).toBe(true);
+         expect(shows(panel, 'Syntax colors')).toBe('Visual Studio');
       });
 
       it('starts with the Lotsen colors when the stored family is not one', async () => {
@@ -285,7 +339,26 @@ describe('the settings panel', () => {
          await startShell();
 
          expect(palette()[0]).toBe('#8250df');
-         expect(checked(await openSettings(), 'Syntax colors', 'Lotsen')).toBe(true);
+         expect(shows(await openSettings(), 'Syntax colors')).toBe('Lotsen');
+      });
+
+      it("draws each family's sample in the family's own palette, whatever family the page shows", async () => {
+         await startShell();
+         const panel = await openSettings();
+         await choose(panel, 'Syntax colors', 'Gruvbox');
+         const keywords = async () => {
+            const colors = (await openList(panel, 'Syntax colors')).map((option) =>
+               getComputedStyle(option.querySelector<HTMLElement>('[data-syntax-swatch]')!).getPropertyValue('--syntax-keyword').trim().toLowerCase(),
+            );
+            fireEvent.pointerUp(screen.getByRole('option', { name: 'Gruvbox' }));
+            await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+            return colors;
+         };
+
+         fireEvent.click(radio(panel, 'Theme', 'Light'));
+         expect(await keywords()).toEqual(['#8250df', '#0000ff', '#0000ff', '#8839ef', '#9d0006']);
+         fireEvent.click(radio(panel, 'Theme', 'Dark'));
+         expect(await keywords()).toEqual(['#c792ea', '#569cd6', '#569cd6', '#cba6f7', '#fb4934']);
       });
    });
 
@@ -295,10 +368,10 @@ describe('the settings panel', () => {
       });
       await startShell();
       let panel = await openSettings();
-      expect(checked(panel, 'Color theme', 'Lotsen')).toBe(true);
+      expect(shows(panel, 'Color theme')).toBe('Lotsen');
       expect(root.dataset.colorTheme).toBe('lotsen');
 
-      fireEvent.click(radio(panel, 'Color theme', 'Catppuccin'));
+      await choose(panel, 'Color theme', 'Catppuccin');
 
       expect(root.dataset.colorTheme).toBe('catppuccin');
       expect(localStorage.getItem('lotsen.colorTheme')).toBe('catppuccin');
@@ -308,7 +381,33 @@ describe('the settings panel', () => {
 
       expect(root.dataset.colorTheme).toBe('catppuccin');
       panel = await openSettings();
-      expect(checked(panel, 'Color theme', 'Catppuccin')).toBe(true);
+      expect(shows(panel, 'Color theme')).toBe('Catppuccin');
+   });
+
+   it("draws each color theme's swatch in the family's own palette, whatever family the page shows", async () => {
+      const sheet = document.createElement('style');
+      sheet.textContent = colorThemesCss;
+      document.head.append(sheet);
+      onTestFinished(() => {
+         sheet.remove();
+         root.classList.remove('dark');
+         delete root.dataset.colorTheme;
+      });
+      await startShell();
+      const panel = await openSettings();
+      await choose(panel, 'Color theme', 'Gruvbox');
+      const backgrounds = async () => {
+         const options = await openList(panel, 'Color theme');
+         const colors = options.slice(1).map((option) => getComputedStyle(option.querySelector<HTMLElement>('[data-color-swatch]')!).getPropertyValue('--background').trim().toLowerCase());
+         fireEvent.pointerUp(screen.getByRole('option', { name: 'Gruvbox' }));
+         await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+         return colors;
+      };
+
+      fireEvent.click(radio(panel, 'Theme', 'Light'));
+      expect(await backgrounds()).toEqual(['#eff1f5', '#ffffff', '#fbf1c7']);
+      fireEvent.click(radio(panel, 'Theme', 'Dark'));
+      expect(await backgrounds()).toEqual(['#181825', '#121314', '#1d2021']);
    });
 
    describe('font size', () => {
@@ -368,7 +467,7 @@ describe('the settings panel', () => {
       const panel = await openSettings();
 
       expect(checked(panel, 'Theme', 'System')).toBe(true);
-      expect(checked(panel, 'Syntax colors', 'Lotsen')).toBe(true);
+      expect(shows(panel, 'Syntax colors')).toBe('Lotsen');
       expect(root.dataset.syntaxColors).toBe('lotsen');
       expect(layoutToggle().getAttribute('aria-pressed')).toBe('true');
       fireEvent.click(layoutToggle());

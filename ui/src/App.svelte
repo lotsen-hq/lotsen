@@ -229,6 +229,7 @@
             answerSend={app.selectedAnswerSend}
             onsendanswers={() => app.sendAnswers('topBar')}
             onprune={() => app.pruneClones()}
+            onversion={() => app.readVersion()}
             {layout}
             {settings}
          >
