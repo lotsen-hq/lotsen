@@ -25,6 +25,7 @@ internal sealed class FakeGitHub : IAsyncDisposable
    private bool _draft;
    private Uri _headCloneUrl = CloneUrl;
    private HttpAnswer? _answer;
+   private readonly Dictionary<string, string> _redirects = [];
 
    /// <param name="hold">Whether every answer waits for <see cref="RecordingHttpServer.Release"/>.</param>
    public FakeGitHub(bool hold = false) => Server = new RecordingHttpServer(hold, Answer);
@@ -52,6 +53,15 @@ internal sealed class FakeGitHub : IAsyncDisposable
    /// <summary>Makes every request get this status and an error answer with the message, as GitHub's refusals do.</summary>
    public void Refuse(int status, string message = "Refused by the fake.") =>
       Respond(new HttpAnswer(status, new JsonObject { ["message"] = message, ["documentation_url"] = "https://docs.github.com/rest" }.ToJsonString()));
+
+   /// <summary>Makes a request for the target get a 301 to the location, as GitHub answers for a renamed repository. Every other target that ends in the pull request's number answers it.</summary>
+   public void Redirect(string target, string location)
+   {
+      lock (_lock)
+      {
+         _redirects[target] = location;
+      }
+   }
 
    /// <summary>Makes every request get this answer.</summary>
    public void Respond(HttpAnswer answer)
@@ -91,7 +101,12 @@ internal sealed class FakeGitHub : IAsyncDisposable
             return answer;
          }
 
-         if (target != PullRequestPath)
+         if (_redirects.TryGetValue(target, out var location))
+         {
+            return new HttpAnswer(301, """{ "message": "Moved Permanently", "documentation_url": "https://docs.github.com/rest" }""", Location: location);
+         }
+
+         if (target != PullRequestPath && !(_redirects.Count > 0 && target.EndsWith("/pulls/42", StringComparison.Ordinal)))
          {
             return new HttpAnswer(404, """{ "message": "Not Found", "documentation_url": "https://docs.github.com/rest" }""");
          }

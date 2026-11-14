@@ -35,6 +35,7 @@ public sealed class GitHubSecretsTests : IDisposable
       await using var services = new ServiceCollection()
          .AddLogging(logging => logging.SetMinimumLevel(LogLevel.Trace).AddProvider(_logs))
          .AddSingleton(dataDirectory)
+         .AddSingleton(TimeProvider.System)
          .BuildServiceProvider();
       var factory = GitHubPlatform.Factory(new GitHubOptions { ApiBaseUrl = gitHub.Server.BaseUrl }, new GhCliOptions { Executable = _gh.Executable }, accessTokens: null);
       using var platform = Assert.IsType<GitHubPlatform>(factory(services));

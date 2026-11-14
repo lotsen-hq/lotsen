@@ -1,3 +1,4 @@
+using System.Globalization;
 using Lotsen.Credentials;
 using Lotsen.Git;
 using Lotsen.GitHub;
@@ -18,6 +19,10 @@ public sealed class GitHubPlatformTests : IAsyncDisposable
    private static readonly CommitId Head = CommitId.Parse(new string('1', 40));
    private static readonly CommitId Base = CommitId.Parse(new string('a', 40));
    private static readonly Uri PrUrl = new(FakeGitHub.PrUrl);
+
+   private static readonly string MovedReason =
+      $"lotsen could not read the pull request {FakeGitHub.PrUrl}. GitHub answered 301: the pull request's repository has moved to an address that lotsen does not follow. "
+      + "Start a new tour from the pull request's current URL.";
 
    private readonly string _root = Directory.CreateTempSubdirectory("lotsen-tests-").FullName;
    private readonly DataDirectory _dataDirectory;
@@ -173,18 +178,61 @@ public sealed class GitHubPlatformTests : IAsyncDisposable
       Assert.Contains("rate limit", thrown.Reason, StringComparison.Ordinal);
    }
 
-   /// <summary>The client follows no redirect, so a permanent one fails the resolve.</summary>
+   /// <summary>GitHub answers a renamed or transferred repository's old path with a redirect, absolute or relative, which the client follows with the token.</summary>
+   [Theory]
+   [InlineData(true)]
+   [InlineData(false)]
+   public async Task Redirect_within_the_api_is_followed_with_the_token(bool absolute)
+   {
+      const string Moved = "/repositories/7/pulls/42";
+      _gitHub.PullRequest(Head, Base);
+      _gitHub.Redirect(FakeGitHub.PullRequestPath, absolute ? new Uri(_gitHub.Server.BaseUrl, Moved).AbsoluteUri : Moved);
+
+      var resolved = await _platform.ResolveAsync(PrUrl, Cancellation);
+
+      Assert.Equal(Head, resolved.SourceCommit);
+      Assert.Equal(2, _gitHub.Server.Requests.Count);
+      Assert.StartsWith($"GET {Moved} HTTP/1.1\r\n", _gitHub.Server.Requests[1], StringComparison.Ordinal);
+      Assert.Contains($"Authorization: Bearer {Token}\r\n", _gitHub.Server.Requests[1], StringComparison.Ordinal);
+   }
+
+   /// <summary>Each location differs from the API's origin in one part: the host, the scheme or the port.</summary>
+   [Theory]
+   [InlineData("http://localhost:{0}/repositories/7/pulls/42")]
+   [InlineData("https://127.0.0.1:{0}/repositories/7/pulls/42")]
+   [InlineData("http://127.0.0.1:9/repositories/7/pulls/42")]
+   public async Task Redirect_out_of_the_api_origin_is_not_followed(string location)
+   {
+      _gitHub.PullRequest(Head, Base);
+      _gitHub.Redirect(FakeGitHub.PullRequestPath, string.Format(CultureInfo.InvariantCulture, location, _gitHub.Server.BaseUrl.Port));
+
+      var thrown = await Assert.ThrowsAsync<PlatformException>(() => _platform.ResolveAsync(PrUrl, Cancellation));
+
+      Assert.Equal(MovedReason, thrown.Reason);
+      Assert.Single(_gitHub.Server.Requests);
+   }
+
    [Fact]
-   public async Task Moved_repository_names_a_new_tour_from_the_current_url_as_the_fix()
+   public async Task Second_redirect_is_not_followed()
+   {
+      _gitHub.PullRequest(Head, Base);
+      _gitHub.Redirect(FakeGitHub.PullRequestPath, "/repositories/7/pulls/42");
+      _gitHub.Redirect("/repositories/7/pulls/42", "/repositories/8/pulls/42");
+
+      var thrown = await Assert.ThrowsAsync<PlatformException>(() => _platform.ResolveAsync(PrUrl, Cancellation));
+
+      Assert.Equal(MovedReason, thrown.Reason);
+      Assert.Equal(2, _gitHub.Server.Requests.Count);
+   }
+
+   [Fact]
+   public async Task Moved_repository_without_a_location_names_a_new_tour_from_the_current_url_as_the_fix()
    {
       _gitHub.Refuse(301, "Moved Permanently");
 
       var thrown = await Assert.ThrowsAsync<PlatformException>(() => _platform.ResolveAsync(PrUrl, Cancellation));
 
-      Assert.Equal(
-         $"lotsen could not read the pull request {FakeGitHub.PrUrl}. GitHub answered 301: the pull request's repository has moved, so this URL no longer resolves. "
-         + "Start a new tour from the pull request's current URL.",
-         thrown.Reason);
+      Assert.Equal(MovedReason, thrown.Reason);
    }
 
    [Fact]
@@ -239,7 +287,7 @@ public sealed class GitHubPlatformTests : IAsyncDisposable
    [Fact]
    public async Task Missing_token_stops_the_request()
    {
-      using var platform = _gitHub.Platform(new GhCliTokenProvider(new GhCliOptions { Executable = Path.Combine(_root, "no-gh") }, NullLogger<GhCliTokenProvider>.Instance), _dataDirectory);
+      using var platform = _gitHub.Platform(new GhCliTokenProvider(new GhCliOptions { Executable = Path.Combine(_root, "no-gh") }, TimeProvider.System, NullLogger<GhCliTokenProvider>.Instance), _dataDirectory);
 
       await Assert.ThrowsAsync<AccessTokenUnavailableException>(() => platform.ResolveAsync(PrUrl, Cancellation));
 
@@ -274,7 +322,7 @@ public sealed class GitHubPlatformTests : IAsyncDisposable
       using var gh = new FakeGhCli();
       gh.SignedIn(Token);
       _gitHub.PullRequest(Head, Base);
-      await using var services = new ServiceCollection().AddLogging().AddSingleton(_dataDirectory).BuildServiceProvider();
+      await using var services = new ServiceCollection().AddLogging().AddSingleton(_dataDirectory).AddSingleton(TimeProvider.System).BuildServiceProvider();
 
       var factory = GitHubPlatform.Factory(new GitHubOptions { ApiBaseUrl = _gitHub.Server.BaseUrl }, new GhCliOptions { Executable = gh.Executable }, accessTokens: null);
       using var platform = Assert.IsType<GitHubPlatform>(factory(services));

@@ -575,9 +575,8 @@ to `main`, change a file that the PR leaves alone, commit and push, then switch 
 
 - The pin section shows `state` `pinned`, and `head` is the commit that
   `gh pr view <fork-pr-url> --json headRefOid --jq .headRefOid` prints.
-- lotsen fetches the fork's head commit by its ID from the base repository, and no test shows that GitHub serves it
-  there. When the pin fails, record its reason. The planned fallback is a refspec from the GitHub library that fetches
-  `refs/pull/<number>/head`.
+- lotsen fetches the fork's head commit by its ID from the base repository. When the pin fails, record its reason.
+  The planned fallback is a refspec from the GitHub library that fetches `refs/pull/<number>/head`.
 
 **The gh account and a running server.** These checks need the second account. First run `lotsen stop`, because the
 fork check's `pin` can leave a server running on the default data directory. Then run
@@ -586,16 +585,16 @@ token. Start a session in the checkout of `lotsen-live-test` as in step 4.
 
 - Ask Claude to tour the private PR. The pin reaches `pinned`, and the log says "The GitHub CLI gave a token for
   github.com."
-- Run `gh auth switch --hostname github.com --user <second account>`, and click "Check the PR for a new update". lotsen
-  keeps its token until GitHub or git refuses it, so the check is expected to pass with your account's token. Record
-  what the UI and the log show.
-- Stop `lotsen serve` with Ctrl-C and start it again, so the server holds no token. Ask Claude to tour the PR again,
-  as a new tour. `read_state` shows `pin.state` `failed`, and the reason names GitHub's answer. Record its status.
-  lotsen expects "GitHub answered 404: the pull request was not found, or your gh sign-in has no access to it". A 401
-  says "the token of your gh sign-in was refused" instead. Either drops the token, and the log says "The GitHub CLI's
+- Run `gh auth switch --hostname github.com --user <second account>`, and click "Check the PR for a new update" at
+  once. lotsen reuses a token from the GitHub CLI for 5 minutes, so the check is expected to pass with your account's
+  token.
+- Wait 5 minutes and click it again. The log says "The GitHub CLI gave a token for github.com.", and the check fails
+  with GitHub's answer for the second account. Record what the UI and the log show, and GitHub's status. lotsen
+  expects "GitHub answered 404: the pull request was not found, or your gh sign-in has no access to it". A 401 says
+  "the token of your gh sign-in was refused" instead. Either drops the token, and the log says "The GitHub CLI's
   token was dropped, so the next request asks the GitHub CLI again."
-- Run `gh auth switch --hostname github.com --user <you>` and tell Claude. Claude calls `pin_tour`. With no
-  restart, the log says "The GitHub CLI gave a token for github.com." again, and the pin reaches `pinned`.
+- Run `gh auth switch --hostname github.com --user <you>`, and click the check again. With no restart, the log says
+  "The GitHub CLI gave a token for github.com." again, and the check passes.
 
 **Closed and merged.** Run these last, in the demo's tour from the first check, because merging ends the PR. GitHub
 has no abandoned state, so lotsen calls a PR closed without a merge abandoned, and a merged PR completed.

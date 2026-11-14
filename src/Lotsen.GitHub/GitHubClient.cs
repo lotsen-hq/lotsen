@@ -30,7 +30,7 @@ internal sealed record GitHubPullRequestDetails(Uri RemoteUrl, CommitId Head, Co
 
 /// <summary>Reads GitHub pull requests through the REST API, as the user that the token provider signs in.</summary>
 /// <remarks>
-/// The client sends the token as a bearer header and puts it in no log line or exception message. Each request asks the provider for the token. A 401, 403 or 404 rejects the token at the
+/// The client sends the token as a bearer header and puts it in no log line or exception message. Each resolve asks the provider for the token. A 401, 403 or 404 rejects the token at the
 /// provider, because a new <c>gh auth login</c> may fix it, so the next request sends whatever token the GitHub CLI then gives.
 /// </remarks>
 internal sealed class GitHubClient : IDisposable
@@ -61,32 +61,18 @@ internal sealed class GitHubClient : IDisposable
    {
       var token = await _tokens.GetTokenAsync(_options.Timeout, cancellationToken);
       var url = new Uri(_options.ApiBaseUrl, $"repos/{Uri.EscapeDataString(pullRequest.Owner)}/{Uri.EscapeDataString(pullRequest.Repository)}/pulls/{pullRequest.Number}");
-      using var request = new HttpRequestMessage(HttpMethod.Get, url);
-      request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-      request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-      request.Headers.Add("X-GitHub-Api-Version", ApiVersion);
+      var response = await SendAsync(pullRequest, url, token, cancellationToken);
 
-      // GitHub refuses a request without a User-Agent: https://docs.github.com/en/rest/using-the-rest-api/getting-started-with-the-rest-api
-      request.Headers.UserAgent.ParseAdd("lotsen");
-
-      var started = Stopwatch.GetTimestamp();
-      HttpResponseMessage response;
-      try
+      // GitHub asks clients to follow its redirects: https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#follow-redirects
+      // Only one, and only within the API's own origin, so the token reaches no other server.
+      if (SameOriginRedirect(url, response) is { } target)
       {
-         response = await _http.SendAsync(request, cancellationToken);
-      }
-      catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
-      {
-         throw Failure(pullRequest, string.Create(CultureInfo.InvariantCulture, $"GitHub did not answer within {_options.Timeout.TotalSeconds:0.#} seconds."));
-      }
-      catch (HttpRequestException exception)
-      {
-         throw Failure(pullRequest, $"lotsen could not reach GitHub at {url.Authority}: {exception.Message}");
+         response.Dispose();
+         response = await SendAsync(pullRequest, target, token, cancellationToken);
       }
 
       using (response)
       {
-         _logger.LogDebug("GET {Url} answered {Status} in {Milliseconds} ms.", url, (int)response.StatusCode, (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
          if (response.StatusCode != HttpStatusCode.OK)
          {
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
@@ -119,6 +105,44 @@ internal sealed class GitHubClient : IDisposable
 
    public void Dispose() => _http.Dispose();
 
+   private async Task<HttpResponseMessage> SendAsync(GitHubPullRequest pullRequest, Uri url, AccessToken token, CancellationToken cancellationToken)
+   {
+      using var request = new HttpRequestMessage(HttpMethod.Get, url);
+      request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+      request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+      request.Headers.Add("X-GitHub-Api-Version", ApiVersion);
+
+      // GitHub refuses a request without a User-Agent: https://docs.github.com/en/rest/using-the-rest-api/getting-started-with-the-rest-api
+      request.Headers.UserAgent.ParseAdd("lotsen");
+
+      var started = Stopwatch.GetTimestamp();
+      HttpResponseMessage response;
+      try
+      {
+         response = await _http.SendAsync(request, cancellationToken);
+      }
+      catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+      {
+         throw Failure(pullRequest, string.Create(CultureInfo.InvariantCulture, $"GitHub did not answer within {_options.Timeout.TotalSeconds:0.#} seconds."));
+      }
+      catch (HttpRequestException exception)
+      {
+         throw Failure(pullRequest, $"lotsen could not reach GitHub at {url.Authority}: {exception.Message}");
+      }
+
+      _logger.LogDebug("GET {Url} answered {Status} in {Milliseconds} ms.", url, (int)response.StatusCode, (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+      return response;
+   }
+
+   /// <summary>Returns the target of a redirect answer when it has the API's scheme, host and port, or null for any other answer or target.</summary>
+   private Uri? SameOriginRedirect(Uri url, HttpResponseMessage response) =>
+      response.StatusCode is HttpStatusCode.MovedPermanently or HttpStatusCode.Found or HttpStatusCode.TemporaryRedirect or HttpStatusCode.PermanentRedirect
+      && response.Headers.Location is { } location
+      && new Uri(url, location) is var target
+      && Uri.Compare(target, _options.ApiBaseUrl, UriComponents.SchemeAndServer, UriFormat.UriEscaped, StringComparison.OrdinalIgnoreCase) == 0
+         ? target
+         : null;
+
    private static async Task<PlatformException> RefusalAsync(GitHubPullRequest pullRequest, HttpResponseMessage response, AccessToken token, CancellationToken cancellationToken)
    {
       var status = (int)response.StatusCode;
@@ -136,7 +160,7 @@ internal sealed class GitHubClient : IDisposable
             $"GitHub answered {status}: {Sentence(message ?? "access refused")} Check that your gh sign-in has access to the repository, or wait until a rate limit that GitHub names resets, then try again."),
          HttpStatusCode.MovedPermanently => Failure(
             pullRequest,
-            $"GitHub answered {status}: the pull request's repository has moved, so this URL no longer resolves. Start a new tour from the pull request's current URL."),
+            $"GitHub answered {status}: the pull request's repository has moved to an address that lotsen does not follow. Start a new tour from the pull request's current URL."),
          _ => Failure(pullRequest, $"GitHub answered {status}" + (message is null ? "." : ": " + Sentence(message))),
       };
    }
