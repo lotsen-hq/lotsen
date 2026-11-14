@@ -61,14 +61,21 @@ test("at Large, the code toolbar shows the whole file name and truncates a threa
    expect((await label.boundingBox())!.width).toBeGreaterThan(0);
 });
 
-test('at Large, the top bar shows the count of unsent answers on one line', async ({ page }) => {
+test('at Large, the top bar shows Send answers and its count on one line, inside the button', async ({ page }) => {
    await openDemoTour(page, checkoutTour, { placement: 'side', layout: 'sideBySide', fontSize: 'large' });
    await openStop(page, gatewayStop);
-   const pill = page.locator('[data-unsent-answers]');
-   await expect(pill).toHaveText(/unsent answers?$/);
-   const lineHeight = parseFloat(await pill.evaluate((node) => getComputedStyle(node).lineHeight));
+   const button = page.getByRole('banner').getByRole('button', { name: 'Send answers' });
+   const label = button.locator('[data-send-label]');
+   await expect(label).toHaveText('Send answers');
+   const lineHeight = parseFloat(await label.evaluate((node) => getComputedStyle(node).lineHeight));
+   const box = (await button.boundingBox())!;
+   const count = (await button.locator('[data-unsent-count]').boundingBox())!;
 
-   expect((await pill.boundingBox())!.height).toBeCloseTo(lineHeight, 0);
+   expect((await label.boundingBox())!.height).toBeCloseTo(lineHeight, 0);
+   expect(count.x, "the count's left edge").toBeGreaterThanOrEqual(box.x);
+   expect(count.x + count.width, "the count's right edge").toBeLessThanOrEqual(box.x + box.width);
+   expect(count.y, "the count's top").toBeGreaterThanOrEqual(box.y);
+   expect(count.y + count.height, "the count's bottom").toBeLessThanOrEqual(box.y + box.height);
 });
 
 for (const fontSize of ['small', 'medium', 'large'] as const) {

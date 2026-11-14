@@ -131,6 +131,17 @@ const answerState = (number: number) => checkOf(number).queryByText(/./, { selec
 const topBar = () => within(screen.getAllByRole('banner')[0]!);
 const sendButton = () => topBar().getByRole('button', { name: 'Send answers' }) as HTMLButtonElement;
 const sendButtonGone = () => topBar().queryByRole('button', { name: 'Send answers' }) === null;
+// The bar's button reads "Sending N…" while a send is in flight.
+const busySendButton = () => topBar().getByRole('button', { name: /^Sending \d+…$/ }) as HTMLButtonElement;
+const refusalStrip = () => document.querySelector<HTMLElement>('[data-answer-refusal]');
+const strip = () => within(refusalStrip()!);
+const findStrip = async () =>
+   within(
+      await waitFor(() => {
+         expect(refusalStrip()).not.toBeNull();
+         return refusalStrip()!;
+      }),
+   );
 const sendRow = () => document.querySelector<HTMLElement>('[data-send-row]');
 const rowButton = () => within(sendRow()!).getByRole('button', { name: 'Send answers' }) as HTMLButtonElement;
 const sendRequests = (transport: Transport) => transport.requests.filter((request) => request.operation === 'send_answers');
@@ -845,20 +856,21 @@ describe('sending the answers from the top bar', () => {
       expect(answerState(2)?.getAttribute('data-answer-state')).toBe('received');
    });
 
-   it("disables Send with the server's reason in visible text when no session is attached, sends nothing on a click, and drafting still works", async () => {
+   it("disables Send with the server's reason for screen readers alone when no session is attached, sends nothing on a click, and drafting still works", async () => {
       const { world, ...seed } = await checksWorld();
       await answer(world, seed, seed.checks.rounding, 'Round per line.', { fromSuggestion: true });
       const { transport } = await open(world, seed);
       await waitFor(() => expect(unsent()).toBe('1 unsent answer'));
 
       const button = sendButton();
-      await waitFor(() => expect(button.disabled).toBe(true));
-      const reason = document.getElementById(button.getAttribute('aria-describedby')!.split(' ')[0]!)!;
+      await waitFor(() => expect(button.getAttribute('aria-disabled')).toBe('true'));
+      const reason = document.getElementById(button.getAttribute('aria-describedby')!.split(' ').at(-1)!)!;
       await fireEvent.click(button);
       await fireEvent.input(ownAnswer(2), { target: { value: 'It covers both scopes.' } });
       await fireEvent.click(answerGroup(2).getByRole('button', { name: 'Answer' }));
 
-      expect(reason.closest('.sr-only')).toBeNull();
+      // The button's tooltip shows the reason on hover.
+      expect(reason.closest('.sr-only')).not.toBeNull();
       expect(reason.textContent).toMatch(/is attached to no Claude Code session/);
       await waitFor(() => expect(unsent()).toBe('2 unsent answers'));
       expect(transport.requests.some((request) => request.operation === 'send_answers')).toBe(false);
@@ -871,8 +883,8 @@ describe('sending the answers from the top bar', () => {
       await open(world, seed);
       await waitFor(() => expect(unsent()).toBe('1 unsent answer'));
 
-      await waitFor(() => expect(sendButton().disabled).toBe(false));
-      expect(sendButton().hasAttribute('aria-describedby')).toBe(false);
+      await waitFor(() => expect(sendButton().getAttribute('aria-disabled')).toBe('false'));
+      expect(sendButton().getAttribute('aria-describedby')!.split(' ')).toHaveLength(1);
       expect(topBar().queryByText(/is attached to no Claude Code session/)).toBeNull();
       await fireEvent.click(sendButton());
 
@@ -892,7 +904,7 @@ describe('sending the answers from the top bar', () => {
       const { world, claude, ...seed } = await boundWorld();
       await answer(world, seed, seed.checks.rounding, 'Round per line.', { fromSuggestion: true });
       const { transport } = await open(world, seed);
-      await waitFor(() => expect(sendButton().disabled).toBe(false));
+      await waitFor(() => expect(sendButton().getAttribute('aria-disabled')).toBe('false'));
       const release = transport.hold('send_answers', 'request');
 
       await fireEvent.click(sendButton());
@@ -901,7 +913,7 @@ describe('sending the answers from the top bar', () => {
       await claude.drop();
       release();
 
-      expect((await screen.findByRole('alert')).textContent).toContain('is attached to no Claude Code session');
+      expect((await findStrip()).getByRole('alert').textContent).toContain('is attached to no Claude Code session');
       expect(answerState(1)?.getAttribute('data-answer-state')).toBe('draft');
    });
 
@@ -909,7 +921,7 @@ describe('sending the answers from the top bar', () => {
       const { world, claude, ...seed } = await boundWorld();
       await answer(world, seed, seed.checks.rounding, 'Round per line.', { fromSuggestion: true });
       const { transport } = await open(world, seed);
-      await waitFor(() => expect(sendButton().disabled).toBe(false));
+      await waitFor(() => expect(sendButton().getAttribute('aria-disabled')).toBe('false'));
       const release = transport.hold('send_answers');
 
       await fireEvent.click(sendButton());
@@ -932,7 +944,7 @@ describe('sending the answers from the top bar', () => {
       await answer(world, seed, seed.checks.rounding, 'Round per line.', { fromSuggestion: true });
       const transport = withHolds(world.transport());
       const { app } = await open(world, seed, transport);
-      await waitFor(() => expect(sendButton().disabled).toBe(false));
+      await waitFor(() => expect(sendButton().getAttribute('aria-disabled')).toBe('false'));
       await fireEvent.click(sendButton());
       await waitFor(() => expect(answerState(1)?.textContent).toBe('Sent'));
       const load = transport.holdAnswered('read_state');
@@ -1030,7 +1042,7 @@ describe('the send row under the checks of a stop', () => {
    });
 
    it.each([
-      { first: 'the row', second: 'the top bar', click: [() => rowButton(), () => sendButton()] },
+      { first: 'the row', second: 'the top bar', click: [() => rowButton(), () => busySendButton()] },
       { first: 'the top bar', second: 'the row', click: [() => sendButton(), () => rowButton()] },
    ])('starts no second send from $second while a send from $first is in flight', async ({ click }) => {
       const { world, ...seed } = await boundWorld();
@@ -1043,7 +1055,8 @@ describe('the send row under the checks of a stop', () => {
       await fireEvent.click(click[0]!());
       await waitFor(() => expect(sendRequests(transport)).toHaveLength(1));
       await waitFor(() => expect(rowButton().getAttribute('aria-disabled')).toBe('true'));
-      expect(sendButton().getAttribute('aria-disabled')).toBe('true');
+      expect(busySendButton().textContent.trim()).toBe('Sending 1…');
+      expect(busySendButton().getAttribute('aria-disabled')).toBe('true');
       await fireEvent.click(click[1]!());
       release();
 
@@ -1082,17 +1095,19 @@ describe('the send row under the checks of a stop', () => {
       await screen.findByRole('alert');
    }
 
-   it("shows the server's reason in the row when it refuses a send from the row", async () => {
+   it("shows the server's reason in the row when it refuses a send from the row, and in the strip under the top bar without an alert", async () => {
       await refusedSend(rowButton);
 
       expect(within(sendRow()!).getByRole('alert').textContent).toContain('is attached to no Claude Code session');
+      expect(strip().getByText(/is attached to no Claude Code session/)).toBeTruthy();
+      expect(strip().queryByRole('alert')).toBeNull();
       expect(topBar().queryByRole('alert')).toBeNull();
    });
 
    it.each([
-      { name: 'the row', start: () => rowButton(), starter: () => within(sendRow()!), other: () => topBar() },
-      { name: 'the top bar', start: () => sendButton(), starter: () => topBar(), other: () => within(sendRow()!) },
-   ])('shows a refused send at both controls, and only $name, which started it, alerts', async ({ start, starter, other }) => {
+      { name: 'the row', start: () => rowButton(), starter: async () => within(sendRow()!), other: strip },
+      { name: 'the top bar', start: () => sendButton(), starter: findStrip, other: () => within(sendRow()!) },
+   ])('shows a refused send in the row and in the strip under the top bar, and only the place of $name, which started it, alerts', async ({ start, starter, other }) => {
       const { world, ...seed } = await boundWorld();
       await answer(world, seed, seed.checks.rounding, 'Round per line.', { fromSuggestion: true });
       const { transport } = await open(world, seed);
@@ -1103,13 +1118,13 @@ describe('the send row under the checks of a stop', () => {
       await fireEvent.click(start());
 
       const reason = 'The answers could not be sent.';
-      expect((await starter().findByRole('alert')).textContent).toBe(reason);
+      expect((await (await starter()).findByRole('alert')).textContent).toBe(reason);
       expect(other().getByText(reason)).toBeTruthy();
       expect(other().queryByRole('alert')).toBeNull();
       expect(screen.getAllByRole('alert')).toHaveLength(1);
    });
 
-   it('keeps the reason of a send from the row visible in the top bar when the reviewer moves to a stop without a row', async () => {
+   it('keeps the reason of a send from the row visible under the top bar when the reviewer moves to a stop without a row', async () => {
       const { world, claude, ...seed } = await boundWorld();
       await answer(world, seed, seed.checks.rounding, 'Round per line.', { fromSuggestion: true });
       const { app, transport } = await open(world, seed);
@@ -1124,8 +1139,8 @@ describe('the send row under the checks of a stop', () => {
       await claude.drop();
       release();
 
-      // A closed offer shows the same words in muted text, so the selector picks the refusal.
-      expect(await topBar().findByText(/is attached to no Claude Code session/, { selector: '.text-destructive' })).toBeTruthy();
+      expect((await findStrip()).getByText(/is attached to no Claude Code session/)).toBeTruthy();
+      expect(refusalStrip()!.previousElementSibling).toBe(screen.getAllByRole('banner')[0]);
       expect(sendRow()).toBeNull();
    });
 
@@ -1134,19 +1149,56 @@ describe('the send row under the checks of a stop', () => {
       await answer(world, seed, seed.checks.rounding, 'Round per line.', { fromSuggestion: true });
       const { transport } = await open(world, seed);
       await openedRow('1 answer waits to be sent.');
-      await waitFor(() => expect(sendButton().disabled).toBe(false));
+      await waitFor(() => expect(sendButton().getAttribute('aria-disabled')).toBe('false'));
       transport.fail('send_answers', { status: 500 });
       await fireEvent.click(sendButton());
-      await topBar().findByRole('alert');
+      (await findStrip()).getByRole('alert');
       const release = transport.hold('send_answers', 'request');
 
       await fireEvent.click(rowButton());
 
       await waitFor(() => expect(sendRequests(transport)).toHaveLength(2));
-      expect(topBar().queryByText('The answers could not be sent.')).toBeNull();
+      expect(refusalStrip()).toBeNull();
       expect(within(sendRow()!).queryByText('The answers could not be sent.')).toBeNull();
       release();
       await waitFor(() => expect(answerState(1)?.textContent).toBe('Sent'));
+   });
+
+   it.each([
+      { name: 'the row', start: () => rowButton() },
+      { name: 'the top bar', start: () => sendButton() },
+   ])('clears a refused send from $name in the strip and in the row on Dismiss, keeps the count, and moves the focus to Send answers', async ({ start }) => {
+      const { world, ...seed } = await boundWorld();
+      await answer(world, seed, seed.checks.rounding, 'Round per line.', { fromSuggestion: true });
+      const { app, transport } = await open(world, seed);
+      await openedRow('1 answer waits to be sent.');
+      await waitFor(() => expect(rowButton().disabled).toBe(false));
+      transport.fail('send_answers', { status: 500 });
+      await fireEvent.click(start());
+      const dismiss = (await findStrip()).getByRole('button', { name: 'Dismiss' });
+      expect(strip().getByText('The answers could not be sent.')).toBeTruthy();
+      dismiss.focus();
+
+      await fireEvent.click(dismiss);
+
+      await waitFor(() => expect(refusalStrip()).toBeNull());
+      expect(within(sendRow()!).queryByText('The answers could not be sent.')).toBeNull();
+      expect(app.selectedAnswerSend.refusal).toBeNull();
+      expect(document.activeElement).toBe(sendButton());
+      expect(within(sendButton()).getByText('1')).toBeTruthy();
+      expect(unsent()).toBe('1 unsent answer');
+   });
+
+   it('moves the focus from Dismiss to Send answers when the send was refused because the session ended, though Send answers is unavailable then', async () => {
+      await refusedSend(sendButton);
+      await waitFor(() => expect(sendButton().getAttribute('aria-disabled')).toBe('true'));
+      const dismiss = strip().getByRole('button', { name: 'Dismiss' });
+      dismiss.focus();
+
+      await fireEvent.click(dismiss);
+
+      await waitFor(() => expect(refusalStrip()).toBeNull());
+      expect(document.activeElement).toBe(sendButton());
    });
 
    describe('the focus when a send ends', () => {

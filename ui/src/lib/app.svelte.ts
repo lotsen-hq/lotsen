@@ -1649,6 +1649,14 @@ export class LotsenApp {
       }
    }
 
+   /** Clears the selected tour's standing refusal of a send of its answers, at every send control. The answers stay unsent. */
+   dismissAnswerRefusal(): void {
+      const record = this.selectedTourId === null ? undefined : this.recordOf(this.selectedTourId);
+      if (record !== undefined && record.answerSend.refusal !== null) {
+         record.answerSend = { ...record.answerSend, refusal: null };
+      }
+   }
+
    /**
     * Skips a stop of the selected tour, or takes its skip back, with or without a bound session. Nothing reaches Claude as an event, and the reviewer stays on the open stop.
     *

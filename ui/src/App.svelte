@@ -228,6 +228,7 @@
             unsentAnswers={app.unsentAnswers}
             answerSend={app.selectedAnswerSend}
             onsendanswers={() => app.sendAnswers('topBar')}
+            ondismissrefusal={() => app.dismissAnswerRefusal()}
             onprune={() => app.pruneClones()}
             onversion={() => app.readVersion()}
             {layout}

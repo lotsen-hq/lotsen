@@ -330,8 +330,8 @@ suggested answers, and one check to another stop.
 
 - Answer a check on the first stop by picking a suggested answer, and a check on the second stop by writing your own.
   Change one answer's type, from "Decision" to "Concern". Each answer shows "Draft".
-- The top bar shows "2 unsent answers" and "Send answers". The button is disabled, and beside it a reason says that
-  the tour is attached to no Claude Code session.
+- The top bar shows "Send answers" with a count of 2. The button is dimmed, a click on it sends nothing, and its tooltip
+  says that the tour is attached to no Claude Code session.
 
 **Send with a session.** Reattach the tour, as section 7 says.
 

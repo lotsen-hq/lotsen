@@ -9,7 +9,7 @@
    import { Button, buttonVariants } from '$lib/components/ui/button';
    import { DropdownMenu as DropdownMenuPrimitive } from 'bits-ui';
    import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-   import { announcesRefusal, idleAnswerSend, type AnswerSendState } from '../lib/answers';
+   import { idleAnswerSend, type AnswerSendState } from '../lib/answers';
    import { disabledReason, hasAnswersToSend } from '../lib/controls';
    import type { GenerationStatus } from '../lib/generationStatus';
    import type { Attachment } from '../lib/labels';
@@ -26,6 +26,8 @@
    import SettingsPanel from './SettingsPanel.svelte';
    import Wordmark from './Wordmark.svelte';
    import AttachmentState from './AttachmentState.svelte';
+   import AnswerRefusalNotice from './AnswerRefusalNotice.svelte';
+   import WithTooltip from './WithTooltip.svelte';
 
    let {
       connection,
@@ -35,6 +37,7 @@
       unsentAnswers = 0,
       answerSend = idleAnswerSend,
       onsendanswers = async () => null,
+      ondismissrefusal = () => {},
       layout,
       settings,
       onprune,
@@ -56,6 +59,8 @@
       answerSend?: AnswerSendState;
       /** Sends the open tour's answers to send as one batch. The outcome reaches the bar through `answerSend`. */
       onsendanswers?: () => Promise<string | null>;
+      /** Clears the open tour's standing refusal of a send, which the strip under the bar shows. */
+      ondismissrefusal?: () => void;
       layout: WorkspaceLayout;
       settings: Settings;
       /** Removes the clones that no tour refers to, as the settings panel offers. */
@@ -72,12 +77,20 @@
 
    const id = $props.id();
    const unavailable = $derived(attachment === null ? null : disabledReason(sendAnswers));
-   const refusal = $derived(answerSend.refusal?.reason ?? null);
+   const unsentLabel = $derived(unsentAnswers === 1 ? '1 unsent answer' : `${unsentAnswers} unsent answers`);
+   let sendButton = $state<HTMLElement | null>(null);
+   let bar = $state<HTMLElement | null>(null);
 
    function send(): void {
       if (unavailable === null) {
          void onsendanswers();
       }
+   }
+
+   // Dismiss leaves with the strip, so the focus moves to Send answers, or to the bar while the bar shows none.
+   function dismissRefusal(): void {
+      ondismissrefusal();
+      (sendButton ?? bar)?.focus();
    }
 
    let panelsMenu = $state<HTMLElement | null>(null);
@@ -101,7 +114,7 @@
    };
 </script>
 
-<header class="flex items-center gap-4 border-b bg-card px-4 py-1.5">
+<header bind:this={bar} class="flex items-center gap-4 border-b bg-card px-4 py-1.5 outline-hidden" tabindex="-1">
    <Wordmark />
    <!-- The bar has three zones: which tour, where in it, then Claude and the workspace. The update check sits in the tour zone, so only the label moves it. -->
    <div class="flex max-w-72 min-w-0 shrink-0 items-center gap-2" data-tour-zone>
@@ -118,27 +131,50 @@
    {#if attachment !== null}
       <div class="h-5 w-px shrink-0 bg-border" aria-hidden="true" data-zone-divider></div>
    {/if}
+   <!-- One live region holds the count in words, so the visible count, in the button or alone, stays hidden from screen readers. -->
    {#if unsentAnswers > 0}
-      <span class="shrink-0 rounded-sm bg-muted px-1.5 text-sm whitespace-nowrap text-muted-foreground" role="status" data-unsent-answers
-         >{unsentAnswers === 1 ? '1 unsent answer' : `${unsentAnswers} unsent answers`}</span
-      >
+      <span id="{id}-count" class="sr-only" role="status" data-unsent-answers>{unsentLabel}</span>
    {/if}
    {#if hasAnswersToSend(sendAnswers)}
-      <Button
-         variant="outline"
-         size="sm"
-         class="shrink-0"
-         disabled={unavailable !== null}
-         aria-disabled={answerSend.sending}
-         aria-describedby={[unavailable === null ? null : `${id}-unavailable`, refusal === null ? null : `${id}-refusal`].filter((part) => part !== null).join(' ') || undefined}
-         onclick={send}>Send answers</Button
-      >
+      <!-- The tooltip never turns null, because a change to or from null mounts the button again and drops its focus. -->
+      <WithTooltip text={unavailable ?? 'Send your answers to Claude'}>
+         {#snippet trigger({ props })}
+            <!-- An unavailable send stays focusable, so the keyboard reaches its reason, and send() ignores its click.
+               The label and the count are elements of their own, so a narrow bar can hide the label and keep the count. -->
+            <Button
+               {...props}
+               bind:ref={sendButton}
+               variant="outline"
+               size="sm"
+               class={['shrink-0', unavailable !== null && 'opacity-50']}
+               aria-disabled={unavailable !== null || answerSend.sending}
+               aria-describedby={[unsentAnswers > 0 ? `${id}-count` : null, unavailable === null ? null : `${id}-unavailable`, answerSend.refusal === null ? null : `${id}-refusal`]
+                  .filter((part) => part !== null)
+                  .join(' ') || undefined}
+               onclick={send}
+            >
+               {#if answerSend.sending}
+                  <LoaderCircle class="animate-spin" aria-hidden="true" />
+                  <span data-send-label>{unsentAnswers > 0 ? `Sending ${unsentAnswers}…` : 'Sending…'}</span>
+               {:else}
+                  <span data-send-label>Send answers</span>
+                  {#if unsentAnswers > 0}
+                     {@render count()}
+                  {/if}
+               {/if}
+            </Button>
+         {/snippet}
+      </WithTooltip>
+      <!-- The button's description replaces the tooltip's, which exists only while the tooltip shows, so the reason also lives here. -->
       {#if unavailable !== null}
-         <span id="{id}-unavailable" class="max-w-64 truncate text-sm text-muted-foreground" title={unavailable}>{unavailable}</span>
+         <span id="{id}-unavailable" class="sr-only">{unavailable}</span>
       {/if}
-      {#if refusal !== null}
-         <span id="{id}-refusal" class="max-w-64 truncate text-sm text-destructive" role={announcesRefusal(answerSend, 'topBar') ? 'alert' : undefined} title={refusal}>{refusal}</span>
-      {/if}
+   {:else if unsentAnswers > 0}
+      <WithTooltip text={unsentLabel}>
+         {#snippet trigger({ props })}
+            {@render count(props)}
+         {/snippet}
+      </WithTooltip>
    {/if}
    {#if generation !== null}
       <div class="flex max-w-96 min-w-0 items-center gap-1.5 text-sm text-muted-foreground" role="status" data-generation-status>
@@ -204,3 +240,13 @@
    <ManageLayoutsDialog bind:open={managing} onCloseAutoFocus={focusPanelsMenu} />
    <SettingsPanel {settings} {onprune} {onversion} />
 </header>
+<AnswerRefusalNotice {answerSend} reasonId="{id}-refusal" ondismiss={dismissRefusal} />
+
+{#snippet count(props: Record<string, unknown> = {})}
+   <span
+      {...props}
+      class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-muted px-1.5 text-xs font-semibold text-muted-foreground tabular-nums"
+      aria-hidden="true"
+      data-unsent-count>{unsentAnswers}</span
+   >
+{/snippet}

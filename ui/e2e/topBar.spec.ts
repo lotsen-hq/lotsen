@@ -4,6 +4,7 @@ import { checkoutTour, openDemoTour, openStop } from './demo';
 const header = (page: Page) => page.getByRole('banner');
 const tourZone = (page: Page) => header(page).locator('[data-tour-zone]');
 const updateCheck = (page: Page) => header(page).getByRole('button', { name: 'Check the PR for a new update' });
+const sendAnswers = (page: Page) => header(page).getByRole('button', { name: 'Send answers' });
 
 /** The icon-only actions of the bar, by their accessible names. */
 const iconActions = ['Check the PR for a new update', 'Settings', 'Choose another tour'];
@@ -121,7 +122,8 @@ test.describe("the top bar's zones", () => {
       const first = await box(dividers.nth(0));
       const stops = await box(header(page).getByRole('navigation', { name: 'Stops' }));
       const second = await box(dividers.nth(1));
-      const answers = await box(header(page).locator('[data-unsent-answers]'));
+      // The checkout tour has unsent answers and a confirmed session, so Send answers opens the third zone.
+      const answers = await box(sendAnswers(page));
       expect(first.x).toBeGreaterThanOrEqual(zone.x + zone.width);
       expect(first.x + first.width).toBeLessThanOrEqual(stops.x);
       expect(second.x).toBeGreaterThanOrEqual(stops.x + stops.width);
@@ -137,6 +139,27 @@ test.describe("the top bar's zones", () => {
       await page.goto('/');
       await expect(header(page).getByRole('button', { name: 'Choose a tour', exact: true })).toBeVisible();
       await expect(header(page).locator('[data-zone-divider]')).toHaveCount(0);
+   });
+});
+
+test.describe("the refusal of the answers' send", () => {
+   test('shows in a strip right under the bar, above the update notice, until Dismiss, which returns the focus to Send answers', async ({ page }) => {
+      await openDemoTour(page, checkoutTour, { fontSize: 'medium' });
+      await page.route('**/api/ops/send_answers', (route) => route.fulfill({ status: 500, body: 'The store failed.' }));
+      await sendAnswers(page).click();
+
+      const strip = page.locator('[data-answer-refusal]');
+      await expect(strip.getByRole('alert')).toHaveText('The answers could not be sent.');
+      const bar = (await header(page).boundingBox())!;
+      const shown = (await strip.boundingBox())!;
+      expect(shown.y, "the strip's top beside the bar's bottom").toBeCloseTo(bar.y + bar.height, 0);
+      expect(shown.width, "the strip's width").toBeCloseTo(bar.width, 0);
+      expect((await page.locator('[data-iteration-notice]').boundingBox())!.y, "the update notice's top").toBeGreaterThanOrEqual(shown.y + shown.height - 0.5);
+
+      await strip.getByRole('button', { name: 'Dismiss' }).click();
+      await expect(strip).toHaveCount(0);
+      await expect(sendAnswers(page)).toBeFocused();
+      await expect(sendAnswers(page).locator('[data-unsent-count]')).toBeVisible();
    });
 });
 
