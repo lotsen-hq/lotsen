@@ -1,5 +1,8 @@
 <script lang="ts">
    import ChevronDown from '@lucide/svelte/icons/chevron-down';
+   import ExternalLink from '@lucide/svelte/icons/external-link';
+   import GitPullRequest from '@lucide/svelte/icons/git-pull-request';
+   import { buttonVariants } from '$lib/components/ui/button';
    import * as AlertDialog from '$lib/components/ui/alert-dialog';
    import * as Popover from '$lib/components/ui/popover';
    import type { TourSummary } from '../lib/types';
@@ -85,22 +88,29 @@
    {#if selectedTour && pullRequestUrl !== null}
       <WithTooltip text={`Open the pull request in a new tab\n${pullRequestUrl}`}>
          {#snippet trigger({ props })}
+            <!-- The underline shows without hover, so the label reads as a link. -->
             <a
                {...props}
                href={pullRequestUrl}
                target="_blank"
                rel="noopener noreferrer"
-               class="min-w-0 truncate rounded-sm underline-offset-4 hover:underline focus-visible:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden"
-               >{selectedTour.label}</a
+               class="inline-flex h-8 min-w-0 items-center gap-1.5 rounded-sm underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-current focus-visible:decoration-current focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden"
             >
+               <GitPullRequest class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+               <span class="min-w-0 truncate">{selectedTour.label}</span>
+               <ExternalLink class="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+            </a>
          {/snippet}
       </WithTooltip>
    {:else if selectedTour}
-      <WithTooltip text={`${selectedTour.label}\n${selectedTour.target.url}`}>
-         {#snippet trigger({ props })}
-            <span {...props} class="min-w-0 truncate">{selectedTour.label}</span>
-         {/snippet}
-      </WithTooltip>
+      <span class="flex min-w-0 items-center gap-1.5">
+         <GitPullRequest class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+         <WithTooltip text={`${selectedTour.label}\n${selectedTour.target.url}`}>
+            {#snippet trigger({ props })}
+               <span {...props} class="min-w-0 truncate">{selectedTour.label}</span>
+            {/snippet}
+         </WithTooltip>
+      </span>
    {/if}
    <Popover.Root bind:open>
       <Popover.Trigger>
@@ -112,10 +122,7 @@
                      {...props}
                      bind:this={listTrigger}
                      type="button"
-                     class={[
-                        'flex items-center rounded-md border hover:bg-accent focus-visible:border-ring',
-                        selectedTour ? 'size-8 shrink-0 justify-center shadow-xs' : 'max-w-full min-w-0 gap-1 px-2 py-1',
-                     ]}
+                     class={selectedTour ? buttonVariants({ variant: 'ghost', size: 'icon-sm' }) : buttonVariants({ variant: 'outline', size: 'sm', class: 'max-w-full min-w-0 shrink font-normal' })}
                      aria-label={triggerName}
                   >
                      {#if !selectedTour}

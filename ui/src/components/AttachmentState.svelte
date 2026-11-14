@@ -18,12 +18,13 @@
 
 <WithTooltip text={`Claude session: ${text.label}\n${text.explanation}`}>
    {#snippet trigger({ props })}
-      <!-- A button, so keyboard focus reaches the tooltip. The description replaces the tooltip's, which exists only while the tooltip is open. -->
+      <!-- A button, so keyboard focus reaches the tooltip. The description replaces the tooltip's, which exists only while the tooltip is open.
+         The pill's text keeps its color on hover, so the pill reads as a status beside the bar's actions. -->
       <Button
          {...props}
          variant="ghost"
          size="sm"
-         class={['shrink-0 font-normal', attachment === 'confirmed' ? 'text-success' : 'text-muted-foreground']}
+         class={['shrink-0 rounded-full border-input font-normal', attachment === 'confirmed' ? 'text-success hover:text-success' : 'text-muted-foreground hover:text-muted-foreground']}
          aria-label="Claude session: {text.label}"
          aria-describedby="{id}-explanation"
       >

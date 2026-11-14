@@ -149,7 +149,7 @@
    {#if layout.popoutFailure !== null}
       <div class="flex max-w-80 min-w-0 items-center gap-0.5" data-popout-failure>
          <span class="truncate text-sm text-destructive" role="alert" title={layout.popoutFailure}>{layout.popoutFailure}</span>
-         <Button variant="ghost" size="icon-xs" class="shrink-0" aria-label="Dismiss the popout notice" onclick={() => (layout.popoutFailure = null)}><X aria-hidden="true" /></Button>
+         <Button variant="ghost" size="icon-sm" class="shrink-0" aria-label="Dismiss the popout notice" onclick={() => (layout.popoutFailure = null)}><X aria-hidden="true" /></Button>
       </div>
    {/if}
    {#if attachment !== null}
