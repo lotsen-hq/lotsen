@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { displayedText } from '../displayedText';
 import { attachClaude, backend, readTour, startApp } from '../harness';
 import { filesPanel, planPanel, resetPageEachTest, tab, worldOf } from './appPanels';
 import { buildTour, createTour, openPinnedTour, rounding, scrolledTo, type EditorSpies } from './fourStopTour';
@@ -122,7 +123,7 @@ describe('the stops of a tour', () => {
 
       fireEvent.click(planStop('Cart totals'));
 
-      await waitFor(() => expect(screen.getByRole('navigation', { name: 'Stops' }).textContent?.replace(/\s+/g, ' ').trim()).toBe('Stop 2 of 4 · Chapter · Cart totals'));
+      await waitFor(() => expect(displayedText(screen.getByRole('navigation', { name: 'Stops' }))).toBe('Stop 2 of 4 · Chapter · Cart totals'));
    });
 
    it('opens the first stop from the top bar when no stop is open', async () => {

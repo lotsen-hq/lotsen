@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { LotsenApp } from '../../src/lib/app.svelte';
 import { skippedIn } from '../../src/lib/stops';
 import type { Transport, World } from '../backend/backend';
+import { displayedText } from '../displayedText';
 import { attachClaude, backend, cartContent, openStop, openTour, readTour, seedTour, startApp, type SeededTour } from '../harness';
 import { hoverTooltip } from '../tooltip';
 import { openTourList, tourButton } from '../tourPicker';
@@ -65,7 +66,7 @@ async function showPlanPanel(): Promise<void> {
 const planPanel = () => within(screen.getByRole('tabpanel', { name: 'Plan' }));
 const stopPanel = () => within(screen.getByRole('region', { name: 'Stop' }));
 const navigation = () => screen.getByRole('navigation', { name: 'Stops' });
-const navigationText = () => navigation().querySelector('p')!.textContent.replace(/\s+/g, ' ').trim();
+const navigationText = () => displayedText(navigation().querySelector('p')!);
 const row = (number: number) => planPanel().getByRole('button', { name: new RegExp(`^${number} `) });
 
 function skipWrites(transport: Transport): { stopId: unknown; skipped: unknown }[] {

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import StopNavigation from '../src/components/StopNavigation.svelte';
 import type { Plan, Stop } from '../src/lib/types';
+import { displayedText } from './displayedText';
 import { hoverTooltip, openTooltip } from './tooltip';
 
 function stop(id: string, title: string, chapter: string): Stop {
@@ -17,13 +18,13 @@ const plan: Plan = {
    fileMarks: [],
 };
 
-function renderNavigation(index: number, shown: Plan | null | undefined = plan, summary = false) {
+function renderNavigation(index: number, shown: Plan | null | undefined = plan, summary = false, skipped: ReadonlySet<string> = new Set()) {
    const onprevious = vi.fn();
    const onnext = vi.fn();
-   const result = render(StopNavigation, { props: { plan: shown, index, summary, summaryFollows: true, onprevious, onnext } });
+   const result = render(StopNavigation, { props: { plan: shown, index, summary, skipped, summaryFollows: true, onprevious, onnext } });
    const element = screen.getByRole('navigation', { name: 'Stops' });
    const text = () => element.querySelector('p')!;
-   return { ...result, navigation: within(element), element, text, shown: () => text().textContent.replace(/\s+/g, ' ').trim(), onprevious, onnext };
+   return { ...result, navigation: within(element), element, text, shown: () => displayedText(text()), onprevious, onnext };
 }
 
 describe('the stop navigation', () => {
@@ -79,11 +80,31 @@ describe('the stop navigation', () => {
 
       await rerender({ index: 0 });
       expect(live.isConnected).toBe(true);
-      expect(live.textContent.replace(/\s+/g, ' ').trim()).toBe('Stop 1 of 3 · Paying · The new payment step');
+      expect(displayedText(live)).toBe('Stop 1 of 3 · Paying · The new payment step');
 
       await rerender({ index: -1 });
       expect(live.isConnected).toBe(true);
-      expect(live.textContent.replace(/\s+/g, ' ').trim()).toBe('3 stops');
+      expect(displayedText(live)).toBe('3 stops');
+   });
+
+   it('keeps the full line of a skipped stop, chapter included, in the tooltip and the live region', async () => {
+      const { element, shown, text } = renderNavigation(0, plan, false, new Set(['s1']));
+
+      expect(shown()).toBe('Stop 1 of 3 · Skipped · Paying · The new payment step');
+      expect(displayedText(element.querySelector('[aria-live="polite"]')!)).toBe('Stop 1 of 3 · Skipped · Paying · The new payment step');
+      expect(await hoverTooltip(text())).toBe('Stop 1 of 3 · Skipped · Paying · The new payment step');
+   });
+
+   it('holds the short position beside the long one, hidden', () => {
+      const { text } = renderNavigation(1);
+      const long = text().querySelector('[data-stop-position="long"]')!;
+      const short = text().querySelector('[data-stop-position="short"]')!;
+
+      expect(long.textContent).toBe('Stop 2 of 3');
+      expect(long.classList.contains('hidden')).toBe(false);
+      expect(short.textContent).toBe('2/3');
+      expect(short.classList.contains('hidden')).toBe(true);
+      expect(short.parentElement).toBe(long.parentElement);
    });
 
    it('disables Previous stop at the first stop, and asks for the stop beside the open one', () => {
