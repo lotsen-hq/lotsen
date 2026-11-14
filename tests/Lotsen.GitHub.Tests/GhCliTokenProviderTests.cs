@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Lotsen.Tests;
 
 /// <summary>
-/// Covers how the GitHub CLI token provider asks <c>gh</c> for the github.com token, keeps it until GitHub rejects it, and turns each way <c>gh</c> fails into a reason that names the fix.
+/// Covers how the GitHub CLI token provider asks <c>gh</c> for the github.com token, keeps it for a reuse window or until GitHub rejects it, and turns each way <c>gh</c> fails into a reason that names the fix.
 /// </summary>
 [Trait("Category", "GitHub")]
 public sealed class GhCliTokenProviderTests : IDisposable
@@ -16,6 +16,7 @@ public sealed class GhCliTokenProviderTests : IDisposable
    private static readonly TimeSpan Validity = TimeSpan.FromMinutes(10);
 
    private readonly FakeGhCli _gh = new();
+   private readonly ManualTimeProvider _clock = new();
 
    private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
@@ -44,7 +45,7 @@ public sealed class GhCliTokenProviderTests : IDisposable
    [Fact]
    public async Task Cached_token_is_reused_whatever_validity_a_request_asks()
    {
-      var provider = _gh.Provider();
+      var provider = _gh.Provider(clock: _clock);
       _gh.SignedIn("token-one");
 
       Assert.Equal("token-one", (await provider.GetTokenAsync(Validity, Cancellation)).Value);
@@ -52,6 +53,38 @@ public sealed class GhCliTokenProviderTests : IDisposable
       Assert.Equal("token-one", (await provider.GetTokenAsync(TimeSpan.FromDays(365), Cancellation)).Value);
       Assert.Equal("token-one", (await provider.GetTokenAsync(TimeSpan.Zero, Cancellation)).Value);
       Assert.Single(_gh.Runs);
+   }
+
+   /// <summary>A sign-out or account switch in the GitHub CLI reaches lotsen once the window ends, with no refusal from GitHub.</summary>
+   [Fact]
+   public async Task Cached_token_is_reused_until_the_reuse_window_ends()
+   {
+      var provider = _gh.Provider(clock: _clock);
+      _gh.SignedIn("token-one");
+
+      Assert.Equal("token-one", (await provider.GetTokenAsync(Validity, Cancellation)).Value);
+      _gh.SignedIn("token-two");
+      _clock.Advance(GhCliTokenProvider.ReuseWindow - TimeSpan.FromTicks(1));
+      Assert.Equal("token-one", (await provider.GetTokenAsync(Validity, Cancellation)).Value);
+      _clock.Advance(TimeSpan.FromTicks(1));
+      Assert.Equal("token-two", (await provider.GetTokenAsync(Validity, Cancellation)).Value);
+      Assert.Equal(2, _gh.Runs.Count);
+   }
+
+   /// <summary>A window counts from the run of <c>gh</c> that gave its token, so a request late in the window leaves the next run where it was.</summary>
+   [Fact]
+   public async Task Reuse_does_not_extend_the_window()
+   {
+      var provider = _gh.Provider(clock: _clock);
+      _gh.SignedIn("token-one");
+
+      await provider.GetTokenAsync(Validity, Cancellation);
+      _clock.Advance(GhCliTokenProvider.ReuseWindow - TimeSpan.FromSeconds(1));
+      await provider.GetTokenAsync(Validity, Cancellation);
+      _gh.SignedIn("token-two");
+      _clock.Advance(TimeSpan.FromSeconds(1));
+
+      Assert.Equal("token-two", (await provider.GetTokenAsync(Validity, Cancellation)).Value);
    }
 
    [Fact]
@@ -97,7 +130,7 @@ public sealed class GhCliTokenProviderTests : IDisposable
    [Fact]
    public async Task Missing_gh_names_its_install_and_gh_auth_login()
    {
-      var provider = new GhCliTokenProvider(new GhCliOptions { Executable = Path.Combine(_gh.Root, "missing", "gh") }, NullLogger<GhCliTokenProvider>.Instance);
+      var provider = new GhCliTokenProvider(new GhCliOptions { Executable = Path.Combine(_gh.Root, "missing", "gh") }, TimeProvider.System, NullLogger<GhCliTokenProvider>.Instance);
 
       var exception = await Assert.ThrowsAsync<AccessTokenUnavailableException>(() => provider.GetTokenAsync(Validity, Cancellation).AsTask());
 

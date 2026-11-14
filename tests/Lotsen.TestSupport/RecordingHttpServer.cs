@@ -4,8 +4,8 @@ using System.Text;
 
 namespace Lotsen.Tests;
 
-/// <summary>An answer of <see cref="RecordingHttpServer"/>: a status code, a body and its content type, JSON in UTF-8 unless the test names another.</summary>
-internal sealed record HttpAnswer(int Status, string Body = "", string ContentType = "application/json; charset=utf-8");
+/// <summary>An answer of <see cref="RecordingHttpServer"/>: a status code, a body and its content type, JSON in UTF-8 unless the test names another, and a <c>Location</c> header when not null.</summary>
+internal sealed record HttpAnswer(int Status, string Body = "", string ContentType = "application/json; charset=utf-8", string? Location = null);
 
 /// <summary>A loopback HTTP server that records the head of every request and answers each, or holds every answer until <see cref="Release"/>.</summary>
 /// <remarks>
@@ -108,7 +108,8 @@ internal sealed class RecordingHttpServer : IAsyncDisposable
             await _released.Task.WaitAsync(_stop.Token);
             var answer = _answer(head.Split(' ', 3) is [_, var target, ..] ? target : "");
             var body = Encoding.UTF8.GetBytes(answer.Body);
-            var answerHead = $"HTTP/1.1 {answer.Status} Answer\r\nContent-Type: {answer.ContentType}\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n";
+            var location = answer.Location is null ? "" : $"Location: {answer.Location}\r\n";
+            var answerHead = $"HTTP/1.1 {answer.Status} Answer\r\nContent-Type: {answer.ContentType}\r\nContent-Length: {body.Length}\r\n{location}Connection: close\r\n\r\n";
             await stream.WriteAsync(Encoding.ASCII.GetBytes(answerHead), _stop.Token);
             await stream.WriteAsync(body, _stop.Token);
 

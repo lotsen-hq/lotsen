@@ -38,7 +38,7 @@ public sealed class GitHubPlatform : IPullRequestPlatform, IDisposable
    /// <param name="accessTokens">The token provider, or null for the user's GitHub CLI sign-in.</param>
    internal static Func<IServiceProvider, IPullRequestPlatform> Factory(GitHubOptions options, GhCliOptions ghCli, IAccessTokenProvider? accessTokens) => services =>
    {
-      var tokens = accessTokens ?? new GhCliTokenProvider(ghCli, services.GetRequiredService<ILogger<GhCliTokenProvider>>());
+      var tokens = accessTokens ?? new GhCliTokenProvider(ghCli, services.GetRequiredService<TimeProvider>(), services.GetRequiredService<ILogger<GhCliTokenProvider>>());
       return new GitHubPlatform(
          new GitHubClient(tokens, options, services.GetRequiredService<ILogger<GitHubClient>>()),
          new GitHubIterationStore(services.GetRequiredService<DataDirectory>(), services.GetRequiredService<ILogger<GitHubIterationStore>>()),
@@ -59,7 +59,6 @@ public sealed class GitHubPlatform : IPullRequestPlatform, IDisposable
 
    /// <remarks>
    /// The remote is the base repository's, also for a fork's pull request, which relies on GitHub serving the fork's head commit by its ID there.
-   /// That is unverified until a tour of a live fork pull request pins.
    /// The iteration number comes from the pull request's iteration record.
    /// </remarks>
    public async Task<ResolvedPullRequest> ResolveAsync(Uri url, CancellationToken cancellationToken)

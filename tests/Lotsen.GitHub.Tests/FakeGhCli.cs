@@ -48,8 +48,8 @@ internal sealed class FakeGhCli : IDisposable
    /// <summary>Makes the program wait a minute without an answer.</summary>
    public void Hang() => File.WriteAllText(HangPath, "");
 
-   public GhCliTokenProvider Provider(ILogger<GhCliTokenProvider>? logger = null, TimeSpan? timeout = null) =>
-      new(new GhCliOptions { Executable = Executable, Timeout = timeout ?? TimeSpan.FromSeconds(30) }, logger ?? NullLogger<GhCliTokenProvider>.Instance);
+   public GhCliTokenProvider Provider(ILogger<GhCliTokenProvider>? logger = null, TimeSpan? timeout = null, TimeProvider? clock = null) =>
+      new(new GhCliOptions { Executable = Executable, Timeout = timeout ?? TimeSpan.FromSeconds(30) }, clock ?? TimeProvider.System, logger ?? NullLogger<GhCliTokenProvider>.Instance);
 
    public void Dispose() => TestDirectories.Delete(_root, TimeSpan.FromSeconds(5));
 }
