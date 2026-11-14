@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Lotsen.Tests;
 
-/// <summary>A <see cref="RecordingHttpServer"/> that answers as the GitHub REST API for one pull request, <see cref="PrUrl"/>, whose commits and state the test chooses.</summary>
+/// <summary>A <see cref="RecordingHttpServer"/> that answers as the GitHub REST API for one pull request, <see cref="PrUrl"/>, and its base branch, whose commits and state the test chooses.</summary>
 internal sealed class FakeGitHub : IAsyncDisposable
 {
    public const string PrUrl = "https://github.com/octo-org/hello-world/pull/42";
@@ -17,6 +17,10 @@ internal sealed class FakeGitHub : IAsyncDisposable
 
    public static readonly Uri CloneUrl = new("https://github.com/octo-org/hello-world.git");
 
+   private const string RepositoryPath = "/repos/octo-org/hello-world";
+
+   private static readonly HttpAnswer NotFound = new(404, """{ "message": "Not Found", "documentation_url": "https://docs.github.com/rest" }""");
+
    private readonly Lock _lock = new();
    private CommitId _head = CommitId.Parse(new string('1', 40));
    private CommitId _base = CommitId.Parse(new string('a', 40));
@@ -24,6 +28,8 @@ internal sealed class FakeGitHub : IAsyncDisposable
    private bool _merged;
    private bool _draft;
    private Uri _headCloneUrl = CloneUrl;
+   private string _baseRef = "main";
+   private HttpAnswer? _baseBranchAnswer;
    private HttpAnswer? _answer;
    private readonly Dictionary<string, string> _redirects = [];
 
@@ -33,13 +39,29 @@ internal sealed class FakeGitHub : IAsyncDisposable
    public RecordingHttpServer Server { get; }
 
    /// <summary>Makes the pull request report these commits and this state, from a head branch in the base repository, and answer every request again.</summary>
+   /// <remarks>The base branch <c>main</c> then points to <paramref name="base"/>, the commit that the pull request reports as its <c>base.sha</c>.</remarks>
    public void PullRequest(CommitId head, CommitId @base, string state = "open", bool merged = false, bool draft = false)
    {
       lock (_lock)
       {
-         (_head, _base, _state, _merged, _draft, _headCloneUrl, _answer) = (head, @base, state, merged, draft, CloneUrl, null);
+         (_head, _base, _state, _merged, _draft, _headCloneUrl, _answer, _baseRef, _baseBranchAnswer) = (head, @base, state, merged, draft, CloneUrl, null, "main", null);
       }
    }
+
+   /// <summary>Makes the pull request's base branch have this name and point to this commit, or makes the branch missing when <paramref name="commit"/> is null.</summary>
+   public void BaseBranch(CommitId? commit, string name = "main") => BaseBranch(commit is { } found ? BranchAnswer(found, name) : NotFound, name);
+
+   /// <summary>Makes a request for the base branch's reference get this answer.</summary>
+   public void BaseBranch(HttpAnswer answer, string name = "main")
+   {
+      lock (_lock)
+      {
+         (_baseRef, _baseBranchAnswer) = (name, answer);
+      }
+   }
+
+   /// <summary>Returns the request target of the base branch's reference.</summary>
+   public static string BaseBranchPath(string name = "main") => $"{RepositoryPath}/git/ref/heads/{string.Join('/', name.Split('/').Select(Uri.EscapeDataString))}";
 
    /// <summary>Makes the pull request's head branch live in the fork at this clone URL.</summary>
    public void FromFork(Uri headCloneUrl)
@@ -106,9 +128,14 @@ internal sealed class FakeGitHub : IAsyncDisposable
             return new HttpAnswer(301, """{ "message": "Moved Permanently", "documentation_url": "https://docs.github.com/rest" }""", Location: location);
          }
 
+         if (target == BaseBranchPath(_baseRef))
+         {
+            return _baseBranchAnswer ?? BranchAnswer(_base, _baseRef);
+         }
+
          if (target != PullRequestPath && !(_redirects.Count > 0 && target.EndsWith("/pulls/42", StringComparison.Ordinal)))
          {
-            return new HttpAnswer(404, """{ "message": "Not Found", "documentation_url": "https://docs.github.com/rest" }""");
+            return NotFound;
          }
 
          // The answer carries more than the client reads, as GitHub's does.
@@ -131,7 +158,7 @@ internal sealed class FakeGitHub : IAsyncDisposable
               },
               "base": {
                 "label": "octo-org:main",
-                "ref": "main",
+                "ref": "{{_baseRef}}",
                 "sha": "{{_base}}",
                 "repo": { "full_name": "octo-org/hello-world", "private": false, "clone_url": "{{CloneUrl.AbsoluteUri}}" }
               }
@@ -139,4 +166,13 @@ internal sealed class FakeGitHub : IAsyncDisposable
             """);
       }
    }
+
+   private static HttpAnswer BranchAnswer(CommitId commit, string name) => new(200, $$"""
+      {
+        "ref": "refs/heads/{{name}}",
+        "node_id": "REF_kwDOABCDEFG",
+        "url": "https://api.github.com/repos/octo-org/hello-world/git/refs/heads/{{name}}",
+        "object": { "sha": "{{commit}}", "type": "commit", "url": "https://api.github.com/repos/octo-org/hello-world/git/commits/{{commit}}" }
+      }
+      """);
 }

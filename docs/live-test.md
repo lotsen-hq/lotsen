@@ -562,14 +562,16 @@ whose lines your push will change.
 - Make two commits and push them at once, then check again. The notice says update 3, not 4, because lotsen counts the
   new head, not the commits.
 
-**The target commit.** lotsen takes the target commit from the PR's `base.sha`. Push a commit to `main` alone: switch
-to `main`, change a file that the PR leaves alone, commit and push, then switch back to `change`.
+**The target commit.** lotsen takes the target commit from the head of the PR's base branch, because GitHub's `base.sha`
+can stay at an earlier commit of that branch. A merged PR keeps `base.sha`. Push a commit to `main` alone: switch to
+`main`, change a file that the PR leaves alone, commit and push, then switch back to `change`.
 
-- Click "Check the PR for a new update". No notice appears for it.
-- `gh api repos/<you>/lotsen-live-test/pulls/<pr> --jq .base.sha` prints the commit that you pushed, the one that
-  `git rev-parse origin/main` prints. Record whether it did so at once or only later.
-- If `base.sha` stays at the earlier commit, it is stale. The planned fallback is that the GitHub library takes the head
-  of the PR's base branch as the target commit instead.
+- Click "Check the PR for a new update". No notice appears for it, because the PR's head did not change.
+- Merge `main` into `change` with `git merge origin/main` and push. Check again and move to the new update.
+  `read_state` shows `pin.mergeBase` equal to the commit that you pushed to `main`, the one that
+  `git rev-parse origin/main` prints.
+- The Files panel lists the same files as the PR's "Files changed" on github.com, without the file that the commit on
+  `main` changed.
 
 **A fork PR.** Run `scripts/live-test.sh pin <fork-pr-url>`. It needs the registration from step 3.
 
@@ -640,7 +642,8 @@ registration that worked (user scope, project `.mcp.json` or `just demo`), and t
 lines. For the pin, also record whether the Azure DevOps organization served the blob-less clone, and
 whether a pin of a PR whose source branch was deleted reached `pinned`. For the background server, record whether
 Claude Code started it and whether it exited about 60 seconds after the session ended. For GitHub, record whether the
-private repository's PR and the fork PR reached `pinned`, whether `base.sha` was stale, and the status that GitHub
+private repository's PR and the fork PR reached `pinned`, whether the merge base followed `main` after the merge of
+`main` into the PR's branch, and the status that GitHub
 answered for the second account.
 
 ## When something fails

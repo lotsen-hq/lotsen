@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Lotsen.Tests;
 
-/// <summary>Covers how the GitHub platform resolves a pull request through the REST API: the request it sends, the commits, remote and state it reads, and the reason it gives for each failure.</summary>
+/// <summary>Covers how the GitHub platform resolves a pull request through the REST API: the requests it sends, the commits, remote and state it reads, and the reason it gives for each failure.</summary>
 [Trait("Category", "GitHub")]
 public sealed class GitHubPlatformTests : IAsyncDisposable
 {
@@ -18,6 +18,7 @@ public sealed class GitHubPlatformTests : IAsyncDisposable
 
    private static readonly CommitId Head = CommitId.Parse(new string('1', 40));
    private static readonly CommitId Base = CommitId.Parse(new string('a', 40));
+   private static readonly CommitId BranchCommit = CommitId.Parse(new string('b', 40));
    private static readonly Uri PrUrl = new(FakeGitHub.PrUrl);
 
    private static readonly string MovedReason =
@@ -39,18 +40,23 @@ public sealed class GitHubPlatformTests : IAsyncDisposable
    private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
    [Fact]
-   public async Task Request_names_the_pull_request_and_sends_the_token_and_the_headers_that_GitHub_asks()
+   public async Task Requests_name_the_pull_request_and_its_base_branch_and_send_the_token_and_the_headers_that_GitHub_asks()
    {
       _gitHub.PullRequest(Head, Base);
 
       await _platform.ResolveAsync(PrUrl, Cancellation);
 
-      var request = Assert.Single(_gitHub.Server.Requests);
-      Assert.StartsWith($"GET {FakeGitHub.PullRequestPath} HTTP/1.1\r\n", request, StringComparison.Ordinal);
-      Assert.Contains($"Authorization: Bearer {Token}\r\n", request, StringComparison.Ordinal);
-      Assert.Contains("Accept: application/vnd.github+json\r\n", request, StringComparison.Ordinal);
-      Assert.Contains("X-GitHub-Api-Version: 2022-11-28\r\n", request, StringComparison.Ordinal);
-      Assert.Contains("User-Agent: lotsen\r\n", request, StringComparison.Ordinal);
+      Assert.Collection(
+         _gitHub.Server.Requests,
+         request => Assert.StartsWith($"GET {FakeGitHub.PullRequestPath} HTTP/1.1\r\n", request, StringComparison.Ordinal),
+         request => Assert.StartsWith($"GET {FakeGitHub.BaseBranchPath()} HTTP/1.1\r\n", request, StringComparison.Ordinal));
+      Assert.All(_gitHub.Server.Requests, request =>
+      {
+         Assert.Contains($"Authorization: Bearer {Token}\r\n", request, StringComparison.Ordinal);
+         Assert.Contains("Accept: application/vnd.github+json\r\n", request, StringComparison.Ordinal);
+         Assert.Contains("X-GitHub-Api-Version: 2022-11-28\r\n", request, StringComparison.Ordinal);
+         Assert.Contains("User-Agent: lotsen\r\n", request, StringComparison.Ordinal);
+      });
    }
 
    [Fact]
@@ -61,6 +67,86 @@ public sealed class GitHubPlatformTests : IAsyncDisposable
       var resolved = await _platform.ResolveAsync(PrUrl, Cancellation);
 
       Assert.Equal(new ResolvedPullRequest(FakeGitHub.CloneUrl, Head, Base, 1, PullRequestState.Active), resolved);
+   }
+
+   /// <summary>The base branch moved after GitHub last set the pull request's <c>base.sha</c>.</summary>
+   [Theory]
+   [InlineData("open")]
+   [InlineData("closed")]
+   public async Task Unmerged_pull_request_targets_the_commit_that_its_base_branch_points_to(string state)
+   {
+      _gitHub.PullRequest(Head, Base, state);
+      _gitHub.BaseBranch(BranchCommit);
+
+      var resolved = await _platform.ResolveAsync(PrUrl, Cancellation);
+
+      Assert.Equal(BranchCommit, resolved.TargetCommit);
+   }
+
+   /// <summary>The base branch holds the merge, so it contains the pull request's head.</summary>
+   [Fact]
+   public async Task Merged_pull_request_targets_the_base_commit_that_GitHub_reports()
+   {
+      _gitHub.PullRequest(Head, Base, "closed", merged: true);
+      _gitHub.BaseBranch(BranchCommit);
+
+      var resolved = await _platform.ResolveAsync(PrUrl, Cancellation);
+
+      Assert.Equal(Base, resolved.TargetCommit);
+      Assert.Single(_gitHub.Server.Requests);
+   }
+
+   /// <summary>The base branch was deleted after the pull request was closed.</summary>
+   [Fact]
+   public async Task Missing_base_branch_targets_the_base_commit_that_GitHub_reports_and_keeps_the_token()
+   {
+      _gitHub.PullRequest(Head, Base, "closed");
+      _gitHub.BaseBranch(commit: null);
+
+      var resolved = await _platform.ResolveAsync(PrUrl, Cancellation);
+
+      Assert.Equal(Base, resolved.TargetCommit);
+      Assert.Empty(_tokens.Rejected);
+   }
+
+   [Theory]
+   [InlineData("release/1.0", "/repos/octo-org/hello-world/git/ref/heads/release/1.0")]
+   [InlineData("fix#2 a", "/repos/octo-org/hello-world/git/ref/heads/fix%232%20a")]
+   public async Task Base_branch_name_is_escaped_in_each_segment_of_the_reference_path(string name, string path)
+   {
+      _gitHub.PullRequest(Head, Base);
+      _gitHub.BaseBranch(BranchCommit, name);
+
+      var resolved = await _platform.ResolveAsync(PrUrl, Cancellation);
+
+      Assert.Equal(BranchCommit, resolved.TargetCommit);
+      Assert.StartsWith($"GET {path} HTTP/1.1\r\n", _gitHub.Server.Requests[1], StringComparison.Ordinal);
+   }
+
+   [Fact]
+   public async Task Refusal_of_the_base_branch_gives_the_status_and_rejects_the_token()
+   {
+      _gitHub.PullRequest(Head, Base);
+      _gitHub.BaseBranch(new HttpAnswer(403, """{ "message": "Resource not accessible by integration" }"""));
+
+      var thrown = await Assert.ThrowsAsync<PlatformException>(() => _platform.ResolveAsync(PrUrl, Cancellation));
+
+      Assert.StartsWith($"lotsen could not read the pull request {FakeGitHub.PrUrl}. GitHub answered 403: Resource not accessible by integration.", thrown.Reason, StringComparison.Ordinal);
+      Assert.Equal([Token], _tokens.Rejected);
+   }
+
+   [Theory]
+   [InlineData("<html>not json</html>")]
+   [InlineData("""{ "ref": "refs/heads/main" }""")]
+   [InlineData("""{ "ref": "refs/heads/main", "object": { "sha": "abc", "type": "commit" } }""")]
+   public async Task Unreadable_base_branch_is_a_failure_with_a_reason(string body)
+   {
+      _gitHub.PullRequest(Head, Base);
+      _gitHub.BaseBranch(new HttpAnswer(200, body));
+
+      var thrown = await Assert.ThrowsAsync<PlatformException>(() => _platform.ResolveAsync(PrUrl, Cancellation));
+
+      Assert.Equal($"lotsen could not read the pull request {FakeGitHub.PrUrl}. GitHub sent an answer that lotsen cannot read.", thrown.Reason);
    }
 
    [Fact]
@@ -191,7 +277,7 @@ public sealed class GitHubPlatformTests : IAsyncDisposable
       var resolved = await _platform.ResolveAsync(PrUrl, Cancellation);
 
       Assert.Equal(Head, resolved.SourceCommit);
-      Assert.Equal(2, _gitHub.Server.Requests.Count);
+      Assert.Equal(3, _gitHub.Server.Requests.Count);
       Assert.StartsWith($"GET {Moved} HTTP/1.1\r\n", _gitHub.Server.Requests[1], StringComparison.Ordinal);
       Assert.Contains($"Authorization: Bearer {Token}\r\n", _gitHub.Server.Requests[1], StringComparison.Ordinal);
    }
@@ -248,11 +334,13 @@ public sealed class GitHubPlatformTests : IAsyncDisposable
    [Theory]
    [InlineData("<html>not json</html>")]
    [InlineData("""{ "state": "open" }""")]
-   [InlineData("""{ "state": "open", "merged": false, "head": { "sha": "1111111111111111111111111111111111111111" }, "base": { "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } }""")]
-   [InlineData("""{ "state": "open", "merged": false, "head": { "sha": "abc" }, "base": { "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "repo": { "clone_url": "https://github.com/a/b.git" } } }""")]
-   [InlineData("""{ "state": "open", "merged": false, "head": { "sha": "1111111111111111111111111111111111111111" }, "base": { "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "repo": { "clone_url": "b.git" } } }""")]
-   [InlineData("""{ "state": "open", "merged": false, "head": { "sha": "1111111111111111111111111111111111111111" }, "base": { "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "repo": { "clone_url": "https://user:secret@github.com/a/b.git" } } }""")]
-   [InlineData("""{ "state": null, "merged": false, "head": { "sha": "1111111111111111111111111111111111111111" }, "base": { "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "repo": { "clone_url": "https://github.com/a/b.git" } } }""")]
+   [InlineData("""{ "state": "open", "merged": false, "head": { "sha": "1111111111111111111111111111111111111111" }, "base": { "ref": "main", "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } }""")]
+   [InlineData("""{ "state": "open", "merged": false, "head": { "sha": "1111111111111111111111111111111111111111" }, "base": { "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "repo": { "full_name": "a/b", "clone_url": "https://github.com/a/b.git" } } }""")]
+   [InlineData("""{ "state": "open", "merged": false, "head": { "sha": "1111111111111111111111111111111111111111" }, "base": { "ref": "main", "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "repo": { "clone_url": "https://github.com/a/b.git" } } }""")]
+   [InlineData("""{ "state": "open", "merged": false, "head": { "sha": "abc" }, "base": { "ref": "main", "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "repo": { "full_name": "a/b", "clone_url": "https://github.com/a/b.git" } } }""")]
+   [InlineData("""{ "state": "open", "merged": false, "head": { "sha": "1111111111111111111111111111111111111111" }, "base": { "ref": "main", "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "repo": { "full_name": "a/b", "clone_url": "b.git" } } }""")]
+   [InlineData("""{ "state": "open", "merged": false, "head": { "sha": "1111111111111111111111111111111111111111" }, "base": { "ref": "main", "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "repo": { "full_name": "a/b", "clone_url": "https://user:secret@github.com/a/b.git" } } }""")]
+   [InlineData("""{ "state": null, "merged": false, "head": { "sha": "1111111111111111111111111111111111111111" }, "base": { "ref": "main", "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "repo": { "full_name": "a/b", "clone_url": "https://github.com/a/b.git" } } }""")]
    public async Task Unreadable_answer_is_a_failure_with_a_reason(string body)
    {
       _gitHub.Respond(new HttpAnswer(200, body));
@@ -330,7 +418,7 @@ public sealed class GitHubPlatformTests : IAsyncDisposable
 
       Assert.Equal(GitHubPlatform.PlatformId, platform.Id);
       Assert.Equal(new ResolvedPullRequest(FakeGitHub.CloneUrl, Head, Base, 1, PullRequestState.Active), resolved);
-      Assert.Contains($"Authorization: Bearer {Token}\r\n", Assert.Single(_gitHub.Server.Requests), StringComparison.Ordinal);
+      Assert.All(_gitHub.Server.Requests, request => Assert.Contains($"Authorization: Bearer {Token}\r\n", request, StringComparison.Ordinal));
       Assert.True(File.Exists(new GitHubIterationStore(_dataDirectory, services.GetRequiredService<ILogger<GitHubIterationStore>>()).PathOf(Parse(FakeGitHub.PrUrl))));
    }
 

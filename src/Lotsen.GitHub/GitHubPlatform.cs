@@ -81,7 +81,7 @@ public sealed class GitHubPlatform : IPullRequestPlatform, IDisposable
             exception);
       }
 
-      return new ResolvedPullRequest(details.RemoteUrl, details.Head, details.Base, iteration, StateOf(details));
+      return new ResolvedPullRequest(details.RemoteUrl, details.Head, details.Target, iteration, StateOf(details));
    }
 
    public void Dispose() => _client.Dispose();

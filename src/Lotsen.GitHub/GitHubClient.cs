@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Lotsen.Credentials;
 using Lotsen.Git;
 using Lotsen.Platforms;
@@ -23,10 +24,10 @@ internal sealed record GitHubOptions
 /// <summary>The details of a pull request that resolving it needs.</summary>
 /// <param name="RemoteUrl">The clone URL of the base repository, without user information.</param>
 /// <param name="Head">The head commit of the pull request's source branch.</param>
-/// <param name="Base">The commit of the target branch that GitHub reports with the pull request.</param>
+/// <param name="Target">The commit of the target branch that the pull request's changes are shown from, as <see cref="GitHubClient.GetPullRequestAsync"/> chooses it.</param>
 /// <param name="State">GitHub's state of the pull request, <c>open</c> or <c>closed</c>.</param>
 /// <param name="Merged">Whether the pull request was merged.</param>
-internal sealed record GitHubPullRequestDetails(Uri RemoteUrl, CommitId Head, CommitId Base, string State, bool Merged);
+internal sealed record GitHubPullRequestDetails(Uri RemoteUrl, CommitId Head, CommitId Target, string State, bool Merged);
 
 /// <summary>Reads GitHub pull requests through the REST API, as the user that the token provider signs in.</summary>
 /// <remarks>
@@ -55,12 +56,48 @@ internal sealed class GitHubClient : IDisposable
    }
 
    /// <summary>Returns the pull request's commits, base repository and state.</summary>
-   /// <exception cref="PlatformException">The request failed or GitHub's answer could not be read.</exception>
+   /// <remarks>
+   /// The target commit is the commit that the base branch points to, because GitHub's <c>base.sha</c> can lag behind the branch. A merged pull request takes <c>base.sha</c>, because after a
+   /// merge commit the base branch contains the pull request's head, so their merge base is the head itself and shows no change. A base branch that no longer exists also leaves <c>base.sha</c>.
+   /// </remarks>
+   /// <exception cref="PlatformException">A request failed or one of GitHub's answers could not be read.</exception>
    /// <exception cref="AccessTokenUnavailableException">The token provider has no token. No request was sent then.</exception>
    public async Task<GitHubPullRequestDetails> GetPullRequestAsync(GitHubPullRequest pullRequest, CancellationToken cancellationToken)
    {
       var token = await _tokens.GetTokenAsync(_options.Timeout, cancellationToken);
-      var url = new Uri(_options.ApiBaseUrl, $"repos/{Uri.EscapeDataString(pullRequest.Owner)}/{Uri.EscapeDataString(pullRequest.Repository)}/pulls/{pullRequest.Number}");
+      var answer = await GetAsync(pullRequest, $"repos/{PathOf(pullRequest.Owner)}/{PathOf(pullRequest.Repository)}/pulls/{pullRequest.Number}", token, GitHubJsonContext.Default.PullResponse,
+         absentOnNotFound: false, cancellationToken);
+      if (answer is null
+         || !CommitId.TryParse(answer.Head.Sha, out var head)
+         || !CommitId.TryParse(answer.Base.Sha, out var reported)
+         || !Uri.TryCreate(answer.Base.Repo.CloneUrl, UriKind.Absolute, out var remoteUrl)
+         || remoteUrl.UserInfo.Length != 0)
+      {
+         throw Unreadable(pullRequest);
+      }
+
+      var target = answer.Merged ? reported : await BaseBranchCommitAsync(pullRequest, answer.Base, token, cancellationToken) ?? reported;
+      return new GitHubPullRequestDetails(remoteUrl, head, target, answer.State, answer.Merged);
+   }
+
+   public void Dispose() => _http.Dispose();
+
+   /// <summary>Returns the commit that the pull request's base branch points to, or null when the branch does not exist.</summary>
+   private async Task<CommitId?> BaseBranchCommitAsync(GitHubPullRequest pullRequest, BaseResponse @base, AccessToken token, CancellationToken cancellationToken)
+   {
+      // GitHub answers 404 for a name that is not an existing ref: https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#get-a-reference
+      var reference = await GetAsync(pullRequest, $"repos/{PathOf(@base.Repo.FullName)}/git/ref/heads/{PathOf(@base.Ref)}", token, GitHubJsonContext.Default.ReferenceResponse,
+         absentOnNotFound: true, cancellationToken);
+      return reference is null ? null : CommitId.TryParse(reference.Object.Sha, out var commit) ? commit : throw Unreadable(pullRequest);
+   }
+
+   /// <summary>Returns GitHub's answer to a GET of the path below the API's base URL, or null for a 404 when <paramref name="absentOnNotFound"/> is true.</summary>
+   /// <remarks>A 401, 403 or 404 that the method throws for rejects the token at the provider. A 404 that it returns null for keeps the token, because the request before it succeeded with it.</remarks>
+   /// <exception cref="PlatformException">GitHub refused the request, could not be reached, or sent an answer that cannot be read.</exception>
+   private async Task<T?> GetAsync<T>(GitHubPullRequest pullRequest, string path, AccessToken token, JsonTypeInfo<T> answerType, bool absentOnNotFound, CancellationToken cancellationToken)
+      where T : class
+   {
+      var url = new Uri(_options.ApiBaseUrl, path);
       var response = await SendAsync(pullRequest, url, token, cancellationToken);
 
       // GitHub asks clients to follow its redirects: https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#follow-redirects
@@ -73,6 +110,11 @@ internal sealed class GitHubClient : IDisposable
 
       using (response)
       {
+         if (response.StatusCode == HttpStatusCode.NotFound && absentOnNotFound)
+         {
+            return null;
+         }
+
          if (response.StatusCode != HttpStatusCode.OK)
          {
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
@@ -83,27 +125,19 @@ internal sealed class GitHubClient : IDisposable
             throw await RefusalAsync(pullRequest, response, token, cancellationToken);
          }
 
-         PullResponse? answer;
          try
          {
-            answer = await JsonSerializer.DeserializeAsync(await response.Content.ReadAsStreamAsync(cancellationToken), GitHubJsonContext.Default.PullResponse, cancellationToken);
+            return await JsonSerializer.DeserializeAsync(await response.Content.ReadAsStreamAsync(cancellationToken), answerType, cancellationToken) ?? throw Unreadable(pullRequest);
          }
          catch (JsonException)
          {
             throw Unreadable(pullRequest);
          }
-
-         return answer is not null
-            && CommitId.TryParse(answer.Head.Sha, out var head)
-            && CommitId.TryParse(answer.Base.Sha, out var @base)
-            && Uri.TryCreate(answer.Base.Repo.CloneUrl, UriKind.Absolute, out var remoteUrl)
-            && remoteUrl.UserInfo.Length == 0
-            ? new GitHubPullRequestDetails(remoteUrl, head, @base, answer.State, answer.Merged)
-            : throw Unreadable(pullRequest);
       }
    }
 
-   public void Dispose() => _http.Dispose();
+   /// <summary>Returns a name such as <c>owner/repository</c> or a branch name with each segment escaped, for a request path.</summary>
+   private static string PathOf(string name) => string.Join('/', name.Split('/').Select(Uri.EscapeDataString));
 
    private async Task<HttpResponseMessage> SendAsync(GitHubPullRequest pullRequest, Uri url, AccessToken token, CancellationToken cancellationToken)
    {
@@ -191,9 +225,13 @@ internal sealed record PullResponse(string State, bool Merged, HeadResponse Head
 
 internal sealed record HeadResponse(string Sha);
 
-internal sealed record BaseResponse(string Sha, RepositoryResponse Repo);
+internal sealed record BaseResponse(string Ref, string Sha, RepositoryResponse Repo);
 
-internal sealed record RepositoryResponse(string CloneUrl);
+internal sealed record RepositoryResponse(string FullName, string CloneUrl);
+
+internal sealed record ReferenceResponse(ObjectResponse Object);
+
+internal sealed record ObjectResponse(string Sha);
 
 internal sealed record ErrorResponse(string? Message = null);
 
@@ -205,5 +243,6 @@ internal sealed record ErrorResponse(string? Message = null);
    RespectNullableAnnotations = true,
    RespectRequiredConstructorParameters = true)]
 [JsonSerializable(typeof(PullResponse))]
+[JsonSerializable(typeof(ReferenceResponse))]
 [JsonSerializable(typeof(ErrorResponse))]
 internal sealed partial class GitHubJsonContext : JsonSerializerContext;
