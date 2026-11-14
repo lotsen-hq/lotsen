@@ -64,9 +64,9 @@
       onversion: () => Promise<string | null>;
       /** The tour switcher. */
       picker: Snippet;
-      /** The stop navigation, which starts at the same place whatever the tour switcher shows. */
+      /** The stop navigation. */
       navigation: Snippet;
-      /** The open tour's iteration check, absent while it has none. */
+      /** The open tour's iteration check, which the bar shows beside the tour switcher, absent while it has none. */
       iteration?: Snippet;
    } = $props();
 
@@ -103,14 +103,21 @@
 
 <header class="flex items-center gap-4 border-b bg-card px-4 py-1.5">
    <Wordmark />
-   <!-- A fixed share of the bar, so a longer or shorter tour label moves nothing to its right. -->
-   <div class="flex w-1/4 shrink-0 items-center">
+   <!-- The bar has three zones: which tour, where in it, then Claude and the workspace. The update check sits in the tour zone, so only the label moves it. -->
+   <div class="flex max-w-72 min-w-0 shrink-0 items-center gap-2" data-tour-zone>
       {@render picker()}
+      {@render iteration?.()}
    </div>
+   {#if attachment !== null}
+      <div class="h-5 w-px shrink-0 bg-border" aria-hidden="true" data-zone-divider></div>
+   {/if}
    <!-- The floor keeps the buttons and some of the text, so a tight bar shrinks the line beside them first. It drops in a narrow window, where the higher floor pushes the bar's last controls out. -->
    <div class="flex min-w-32 flex-1 xl:min-w-44">
       {@render navigation()}
    </div>
+   {#if attachment !== null}
+      <div class="h-5 w-px shrink-0 bg-border" aria-hidden="true" data-zone-divider></div>
+   {/if}
    {#if unsentAnswers > 0}
       <span class="shrink-0 rounded-sm bg-muted px-1.5 text-sm whitespace-nowrap text-muted-foreground" role="status" data-unsent-answers
          >{unsentAnswers === 1 ? '1 unsent answer' : `${unsentAnswers} unsent answers`}</span
@@ -133,7 +140,6 @@
          <span id="{id}-refusal" class="max-w-64 truncate text-sm text-destructive" role={announcesRefusal(answerSend, 'topBar') ? 'alert' : undefined} title={refusal}>{refusal}</span>
       {/if}
    {/if}
-   {@render iteration?.()}
    {#if generation !== null}
       <div class="flex max-w-96 min-w-0 items-center gap-1.5 text-sm text-muted-foreground" role="status" data-generation-status>
          {#if generation.phase === 'awaitingApproval'}

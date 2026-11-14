@@ -2,6 +2,8 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { checkoutTour, openDemoTour, openStop } from './demo';
 
 const header = (page: Page) => page.getByRole('banner');
+const tourZone = (page: Page) => header(page).locator('[data-tour-zone]');
+const updateCheck = (page: Page) => header(page).getByRole('button', { name: 'Check the PR for a new update' });
 
 /** The icon-only actions of the bar, by their accessible names. */
 const iconActions = ['Check the PR for a new update', 'Settings', 'Choose another tour'];
@@ -68,5 +70,72 @@ test.describe("the top bar's controls", () => {
       expect(parseFloat(style['border-top-left-radius'])).toBeGreaterThanOrEqual(height / 2);
       expect(style['border-top-width']).not.toBe('0px');
       expect(transparent(style['border-top-color']), `the pill's edge, ${style['border-top-color']}`).toBe(false);
+   });
+});
+
+test.describe("the top bar's zones", () => {
+   const gatewayStop = 'Gateway errors reach the customer as they are';
+
+   test('give the tour zone its content width at 1600px, so the stop line shows the start of the stop title', async ({ page }) => {
+      await page.setViewportSize({ width: 1600, height: 1000 });
+      await openDemoTour(page, checkoutTour, { fontSize: 'medium' });
+      await openStop(page, gatewayStop);
+
+      const { zone, content } = await tourZone(page).evaluate((node) => {
+         const boxes = [...node.querySelectorAll('*')].map((child) => child.getBoundingClientRect()).filter((box) => box.width > 0);
+         return { zone: node.getBoundingClientRect().width, content: Math.max(...boxes.map((box) => box.right)) - Math.min(...boxes.map((box) => box.left)) };
+      });
+      expect.soft(zone, `the tour zone's width beside its content's ${content}px`).toBeLessThanOrEqual(content + 1);
+
+      const line = header(page).getByRole('navigation', { name: 'Stops' }).locator('p');
+      const { lineRight, wordRight } = await line.evaluate((node, title) => {
+         const text = [...node.querySelectorAll('span')].find((span) => span.textContent === title)!.firstChild!;
+         const word = document.createRange();
+         word.setStart(text, 0);
+         word.setEnd(text, title.indexOf(' '));
+         return { lineRight: node.getBoundingClientRect().right, wordRight: word.getBoundingClientRect().right };
+      }, gatewayStop);
+      expect(wordRight, "the right edge of the title's first word beside the line's").toBeLessThanOrEqual(lineRight);
+   });
+
+   test('keep the update check at one x on tours whose bars show different items', async ({ page }) => {
+      const edges: number[] = [];
+      for (const tour of [checkoutTour, 'storefront #428', 'storefront #433']) {
+         await openDemoTour(page, tour, { fontSize: 'medium' });
+         await expect(header(page).getByRole('link', { name: tour, exact: true })).toBeVisible();
+         edges.push((await updateCheck(page).boundingBox())!.x);
+      }
+
+      for (const edge of edges.slice(1)) {
+         expect(Math.abs(edge - edges[0]!), `the update check's left edges, ${edges.join(', ')}`).toBeLessThanOrEqual(1);
+      }
+   });
+
+   test('separate the tour, the stop navigation, and Claude and the workspace with two dividers that take no focus', async ({ page }) => {
+      await openDemoTour(page, checkoutTour, { fontSize: 'medium' });
+      const dividers = header(page).locator('[data-zone-divider]');
+      await expect(dividers).toHaveCount(2);
+
+      const box = async (element: Locator) => (await element.boundingBox())!;
+      const zone = await box(tourZone(page));
+      const first = await box(dividers.nth(0));
+      const stops = await box(header(page).getByRole('navigation', { name: 'Stops' }));
+      const second = await box(dividers.nth(1));
+      const answers = await box(header(page).locator('[data-unsent-answers]'));
+      expect(first.x).toBeGreaterThanOrEqual(zone.x + zone.width);
+      expect(first.x + first.width).toBeLessThanOrEqual(stops.x);
+      expect(second.x).toBeGreaterThanOrEqual(stops.x + stops.width);
+      expect(second.x + second.width).toBeLessThanOrEqual(answers.x);
+
+      for (const divider of await dividers.all()) {
+         await expect(divider).toHaveAttribute('aria-hidden', 'true');
+         expect(await divider.evaluate((node: HTMLElement) => (node.focus(), document.activeElement === node))).toBe(false);
+      }
+   });
+
+   test('show no dividers while no tour is open', async ({ page }) => {
+      await page.goto('/');
+      await expect(header(page).getByRole('button', { name: 'Choose a tour', exact: true })).toBeVisible();
+      await expect(header(page).locator('[data-zone-divider]')).toHaveCount(0);
    });
 });
