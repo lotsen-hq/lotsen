@@ -527,7 +527,6 @@ test.describe('the top bar in a narrow window', () => {
 
    /** The items that give way, in the order that they do, each by the element that leaves the view. */
    const steps = [
-      { item: 'the chapter', selector: '[data-stop-chapter]' },
       { item: 'the status chip', selector: '[data-chip-label]' },
       { item: 'the generation line', selector: '[data-generation-status]' },
       { item: 'Panels', selector: '[data-panels-label]' },
@@ -647,13 +646,6 @@ test.describe('the top bar in a narrow window', () => {
       const fullLine = `Stop 4 of 7 · Paying · ${gatewayStop}`;
       const at = await stepWidths(page);
       const shows = (element: Locator) => element.evaluate((node) => getComputedStyle(node).position !== 'absolute' && getComputedStyle(node).display !== 'none');
-
-      const chapter = header(page).locator('[data-stop-chapter]');
-      const atChapter = at['the chapter'];
-      await page.setViewportSize({ width: atChapter + 10, height: 1000 });
-      expect(await shows(chapter), 'the chapter just above its step').toBe(true);
-      await page.setViewportSize({ width: atChapter, height: 1000 });
-      expect(await spokenText(live)).toBe(fullLine);
 
       const atChip = at['the status chip'];
       await page.setViewportSize({ width: atChip + 10, height: 1000 });

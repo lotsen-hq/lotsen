@@ -79,8 +79,8 @@
                      {/if}
                   </span>
                   {#if chapter}
-                     <!-- The chapter grows from zero into the room the other items leave, so it gives way before the title truncates. A narrow bar leaves it to the live region. -->
-                     <span class="max-w-max min-w-0 grow basis-0 truncate text-muted-foreground @max-bar-chapter:sr-only" data-stop-chapter>{@render separator()}{chapter.title}</span>
+                     <!-- The chapter grows from zero into the room the other items leave, so it gives way before the title truncates. -->
+                     <span class="max-w-max min-w-0 grow basis-0 truncate text-muted-foreground" data-stop-chapter>{@render separator()}{chapter.title}</span>
                   {/if}
                   <span class="min-w-0 truncate">{@render separator()}<span>{stop.title}</span></span>
                {:else}

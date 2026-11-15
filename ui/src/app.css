@@ -150,7 +150,6 @@
    /* The body text size keeps the page's line height. */
    --text-base--line-height: 1.4;
    /* The top bar's content widths below which its items give way, widest first, in rem so they follow the font size. e2e/topBar.spec.ts checks the fit at each width. */
-   --container-bar-chapter: 110rem;
    --container-bar-chip: 91rem;
    --container-bar-generation: 85.5rem;
    --container-bar-panels: 72rem;
