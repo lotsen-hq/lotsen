@@ -488,6 +488,29 @@ test.describe("the top bar's Review the plan button", () => {
       await expect(page.getByRole('button', { name: 'Maximize the stop' })).toBeVisible();
       await expectPlanFocused(page);
    });
+
+   test("asks a popped-out Plan panel's window forward and moves the focus to Approve plan there", async ({ page }) => {
+      await openDemoTour(page, waitingTour, { fontSize: 'medium' });
+      const opened = page.waitForEvent('popup');
+      await page.getByRole('button', { name: 'Pop out the plan' }).click();
+      const popout = await opened;
+      await expect(approve(popout)).toBeVisible();
+      await page.mouse.move(0, 0);
+      // Headless Chromium raises no window, so the test counts the requests to raise the popout.
+      await popout.evaluate(() => {
+         const raise = window.focus.bind(window);
+         Object.assign(window, { raised: 0 });
+         window.focus = () => {
+            Object.assign(window, { raised: (window as unknown as { raised: number }).raised + 1 });
+            raise();
+         };
+      });
+
+      await reviewPlan(page).click();
+
+      await expect(approve(popout)).toBeFocused();
+      expect(await popout.evaluate(() => (window as unknown as { raised: number }).raised)).toBe(1);
+   });
 });
 
 for (const palette of palettes) {

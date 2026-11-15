@@ -8,7 +8,7 @@
    import { tick, untrack, type Snippet } from 'svelte';
    import { Button } from '$lib/components/ui/button';
    import { disabledReason } from '../lib/controls';
-   import { panelDocument } from '../lib/panelDocument.svelte';
+   import { mainPage, panelDocument } from '../lib/panelDocument.svelte';
    import { skipBeforeApprovalNote } from '../lib/labels';
    import { isReordered, reconciledOrder } from '../lib/stopOrder';
    import { planApprovalPlaceholder, planApprovalPrompt } from '../lib/tourActions';
@@ -62,6 +62,10 @@
    $effect(() => {
       if (focusRequests !== followed) {
          followed = focusRequests;
+         // A popout window stays behind the main window unless asked forward, and a browser may refuse.
+         if (home.window !== mainPage.window) {
+            home.window.focus();
+         }
          void tick().then(() => home.window.requestAnimationFrame(() => (approveButton?.disabled === false ? approveButton : region)?.focus()));
       }
    });
