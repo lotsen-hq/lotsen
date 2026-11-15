@@ -112,6 +112,56 @@ test.describe("the top bar's status chip", () => {
       await page.keyboard.press('Enter');
       await expect(popover(page).locator('dt')).toHaveText(['Session', 'Connection', 'Now']);
    });
+
+   test('opened from the keyboard, shows no tooltip over the popover past its delay, and closes the popover on one Escape', async ({ page }) => {
+      await page.keyboard.press('Shift');
+      await statusChip(page).focus();
+      await expect(page.locator('[data-tooltip-content]')).toBeVisible();
+      await page.keyboard.press('Enter');
+      await expect(popover(page)).toBeVisible();
+
+      await page.waitForTimeout(800);
+      await expect(page.locator('[data-tooltip-content]')).toHaveCount(0);
+      await page.keyboard.press('Escape');
+      await expect(popover(page)).toHaveCount(0);
+      await expect(statusChip(page)).toBeFocused();
+   });
+});
+
+test.describe("the top bar's Panels menu", () => {
+   test.beforeEach(async ({ page }) => {
+      await openDemoTour(page, checkoutTour, { fontSize: 'medium' });
+      await page.mouse.move(0, 500);
+   });
+
+   const panels = (page: Page) => header(page).getByRole('button', { name: 'Panels', exact: true });
+   const menu = (page: Page) => page.getByRole('menu');
+
+   // The pointer stays on Panels past the tooltip's delay, as a slow page keeps it there between the click and the next step.
+   test('opened with a click, shows no tooltip over the menu past its delay, and closes the menu on one Escape', async ({ page }) => {
+      await panels(page).click();
+      await expect(menu(page)).toBeVisible();
+
+      await page.waitForTimeout(800);
+      await expect(page.locator('[data-tooltip-content]')).toHaveCount(0);
+      await page.keyboard.press('Escape');
+      await expect(menu(page)).toHaveCount(0);
+      await expect(panels(page)).toBeFocused();
+   });
+
+   test('opened from the keyboard, shows no tooltip over the menu past its delay, and closes the menu on one Escape', async ({ page }) => {
+      await page.keyboard.press('Shift');
+      await panels(page).focus();
+      await expect(page.locator('[data-tooltip-content]')).toBeVisible();
+      await page.keyboard.press('Enter');
+      await expect(menu(page)).toBeVisible();
+
+      await page.waitForTimeout(800);
+      await expect(page.locator('[data-tooltip-content]')).toHaveCount(0);
+      await page.keyboard.press('Escape');
+      await expect(menu(page)).toHaveCount(0);
+      await expect(panels(page)).toBeFocused();
+   });
 });
 
 test.describe("the top bar's zones", () => {

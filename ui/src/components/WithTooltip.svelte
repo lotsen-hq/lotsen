@@ -28,6 +28,14 @@
    // So `Tooltip.Trigger` gets only values that never change, such as this payload. `attributes`, whose reads run the callers' expressions, merge into the props that `trigger` receives.
    const readText = () => text ?? '';
 
+   // A suppressed tooltip stays closed, also when its open delay ends after the suppression starts, so it never takes an Escape from the popover or menu above it.
+   let open = $state(false);
+   $effect.pre(() => {
+      if (suppressed) {
+         open = false;
+      }
+   });
+
    // The element keeps its own focusability and type, or those that `attributes` give it: the trigger's would make a tree row a tab stop and give a span a button's type.
    function withoutFocusAndType(props: Record<string, unknown>): Record<string, unknown> {
       const rest = { ...props };
@@ -51,7 +59,7 @@
    {@render triggerFor(group)}
 {:else}
    <TooltipScope>
-      <Tooltip.Root disabled={suppressed}>
+      <Tooltip.Root disabled={suppressed} bind:open={() => open && !suppressed, (next) => (open = next && !suppressed)}>
          {@render triggerFor(undefined)}
          <Tooltip.Content class="whitespace-pre-line" escapeKeydownBehavior={deferEscape ? 'defer-otherwise-close' : 'close'}>{text}</Tooltip.Content>
       </Tooltip.Root>
