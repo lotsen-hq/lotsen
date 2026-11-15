@@ -2,6 +2,7 @@
    import LoaderCircle from '@lucide/svelte/icons/loader-circle';
    import ChevronDown from '@lucide/svelte/icons/chevron-down';
    import PanelsTopLeft from '@lucide/svelte/icons/panels-top-left';
+   import Send from '@lucide/svelte/icons/send';
    import X from '@lucide/svelte/icons/x';
    import type { Snippet } from 'svelte';
    import { Button, buttonVariants } from '$lib/components/ui/button';
@@ -93,6 +94,7 @@
    }
 
    let panelsMenu = $state<HTMLElement | null>(null);
+   let panelsOpen = $state(false);
    $effect(() => (panelsMenu ? layout.registerMenu(panelsMenu) : undefined));
 
    // Another page's change of a named layout changes the menu and never this page's workspace.
@@ -107,8 +109,10 @@
    }
 </script>
 
-<header bind:this={bar} class="flex items-center gap-4 border-b bg-card px-4 py-1.5 outline-hidden" tabindex="-1">
-   <Wordmark />
+<!-- The bar is a size container, so its items give way at widths in rem, in the order of the bar-* container sizes in app.css.
+   A collapsed label turns sr-only, so it stays a control's accessible name or a live region's text. -->
+<header bind:this={bar} class="@container flex items-center gap-4 border-b bg-card px-4 py-1.5 outline-hidden" tabindex="-1">
+   <Wordmark class="@max-bar-wordmark:hidden" />
    <!-- The bar has three zones: which tour, where in it, then Claude and the workspace. The update check sits in the tour zone, so only the label moves it. -->
    <div class="flex max-w-72 min-w-0 shrink-0 items-center gap-2" data-tour-zone>
       {@render picker()}
@@ -117,8 +121,8 @@
    {#if attachment !== null}
       <div class="h-5 w-px shrink-0 bg-border" aria-hidden="true" data-zone-divider></div>
    {/if}
-   <!-- The floor keeps the buttons and some of the text, so a tight bar shrinks the line beside them first. It drops in a narrow window, where the higher floor pushes the bar's last controls out. -->
-   <div class="flex min-w-32 flex-1 xl:min-w-44">
+   <!-- The other items keep their widths, all but a popout notice, so the stop line takes the bar's slack. The floor keeps both stop buttons in it. -->
+   <div class="flex min-w-24 flex-1">
       {@render navigation()}
    </div>
    {#if attachment !== null}
@@ -148,9 +152,10 @@
             >
                {#if answerSend.sending}
                   <LoaderCircle class="animate-spin" aria-hidden="true" />
-                  <span data-send-label>{unsentAnswers > 0 ? `Sending ${unsentAnswers}…` : 'Sending…'}</span>
+                  <span class="@max-bar-send:sr-only" data-send-label>{unsentAnswers > 0 ? `Sending ${unsentAnswers}…` : 'Sending…'}</span>
                {:else}
-                  <span data-send-label>Send answers</span>
+                  <Send class="hidden @max-bar-send:block" aria-hidden="true" />
+                  <span class="@max-bar-send:sr-only" data-send-label>Send answers</span>
                   {#if unsentAnswers > 0}
                      {@render count()}
                   {/if}
@@ -171,21 +176,35 @@
    {/if}
    {#if generation !== null}
       {@const awaiting = generation.phase === 'awaitingApproval'}
-      <div class="flex max-w-96 min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+      <div class="flex max-w-96 min-w-0 shrink-0 items-center gap-1.5 text-sm text-muted-foreground" data-generation-item>
          {#if awaiting}
-            <WithTooltip text={generation.line}>
+            <WithTooltip text={`Review the plan\n${generation.line}`}>
                {#snippet trigger({ props })}
-                  <Button {...props} variant="outline" size="sm" class="shrink-0 border-primary/50 text-primary-text" aria-describedby="{id}-generation" onclick={() => layout.reveal('plan', true)}>
+                  <Button
+                     {...props}
+                     variant="outline"
+                     size="sm"
+                     class="shrink-0 border-primary/50 text-primary-text @max-bar-generation:w-8 @max-bar-generation:px-0"
+                     aria-describedby="{id}-generation"
+                     onclick={() => layout.reveal('plan', true)}
+                  >
                      <GenerationIcon phase={generation.phase} />
-                     <span data-review-label>Review the plan</span>
+                     <span class="@max-bar-generation:sr-only" data-review-label>Review the plan</span>
                   </Button>
                {/snippet}
             </WithTooltip>
          {:else}
-            <GenerationIcon phase={generation.phase} />
+            <!-- The icon holds the tooltip, so the line stays readable once the narrow bar shows the icon alone. -->
+            <WithTooltip text={generation.line}>
+               {#snippet trigger({ props })}
+                  <span {...props} class="flex shrink-0" data-generation-icon><GenerationIcon phase={generation.phase} /></span>
+               {/snippet}
+            </WithTooltip>
          {/if}
          <!-- The line keeps one live region in every phase, so the region stays mounted and announces the change to the waiting plan, whose button only names the action. -->
-         <span id="{id}-generation" class={awaiting ? 'sr-only' : 'truncate'} title={awaiting ? undefined : generation.line} role="status" data-generation-status>{generation.line}</span>
+         <span id="{id}-generation" class={awaiting ? 'sr-only' : 'truncate @max-bar-generation:sr-only'} title={awaiting ? undefined : generation.line} role="status" data-generation-status
+            >{generation.line}</span
+         >
       </div>
    {/if}
    {#if layout.popoutFailure !== null}
@@ -195,11 +214,19 @@
       </div>
    {/if}
    <StatusChip {connection} {attachment} {generation} />
-   <DropdownMenu.Root>
-      <DropdownMenu.Trigger bind:ref={panelsMenu} class="{buttonVariants({ variant: 'outline', size: 'sm' })} shrink-0">
-         <PanelsTopLeft aria-hidden="true" />
-         Panels
-         <ChevronDown aria-hidden="true" />
+   <DropdownMenu.Root bind:open={panelsOpen}>
+      <DropdownMenu.Trigger bind:ref={panelsMenu}>
+         {#snippet child({ props: menuProps })}
+            <WithTooltip text="Panels" suppressed={panelsOpen} {...menuProps}>
+               {#snippet trigger({ props })}
+                  <button {...props} type="button" class="{buttonVariants({ variant: 'outline', size: 'sm' })} shrink-0 @max-bar-panels:w-8 @max-bar-panels:px-0">
+                     <PanelsTopLeft aria-hidden="true" />
+                     <span class="@max-bar-panels:sr-only" data-panels-label>Panels</span>
+                     <ChevronDown class="@max-bar-panels:hidden" aria-hidden="true" />
+                  </button>
+               {/snippet}
+            </WithTooltip>
+         {/snippet}
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end" class="w-56">
          {#each panelIds as id (id)}

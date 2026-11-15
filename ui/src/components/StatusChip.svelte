@@ -61,7 +61,7 @@
                      variant="ghost"
                      size="sm"
                      class={[
-                        'shrink-0 rounded-full border-input font-normal',
+                        'shrink-0 rounded-full border-input font-normal @max-bar-chip:w-8 @max-bar-chip:px-0',
                         !live
                            ? 'border-warning bg-warning-surface text-foreground hover:bg-warning-surface aria-expanded:bg-warning-surface'
                            : attachment === 'confirmed'
@@ -77,7 +77,7 @@
                      {:else}
                         <LoaderCircle class="animate-spin text-warning-mark" aria-hidden="true" />
                      {/if}
-                     <span data-chip-label>{label}</span>
+                     <span class="@max-bar-chip:sr-only" data-chip-label>{label}</span>
                   </Button>
                {/snippet}
             </WithTooltip>

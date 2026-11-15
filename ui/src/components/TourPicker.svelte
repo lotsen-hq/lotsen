@@ -5,6 +5,7 @@
    import { buttonVariants } from '$lib/components/ui/button';
    import * as AlertDialog from '$lib/components/ui/alert-dialog';
    import * as Popover from '$lib/components/ui/popover';
+   import { splitLabel } from '../lib/tourLabel';
    import type { TourSummary } from '../lib/types';
    import TourList from './TourList.svelte';
    import WithTooltip from './WithTooltip.svelte';
@@ -86,7 +87,7 @@
 
 <div bind:this={anchor} class="flex max-w-full min-w-0 items-center gap-2">
    {#if selectedTour && pullRequestUrl !== null}
-      <WithTooltip text={`Open the pull request in a new tab\n${pullRequestUrl}`}>
+      <WithTooltip text={`${selectedTour.label}\nOpen the pull request in a new tab\n${pullRequestUrl}`}>
          {#snippet trigger({ props })}
             <!-- The underline shows without hover, so the label reads as a link. -->
             <a
@@ -97,7 +98,7 @@
                class="inline-flex h-8 min-w-0 items-center gap-1.5 rounded-sm underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-current focus-visible:decoration-current focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden"
             >
                <GitPullRequest class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-               <span class="min-w-0 truncate">{selectedTour.label}</span>
+               {@render label(selectedTour.label)}
                <ExternalLink class="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
             </a>
          {/snippet}
@@ -107,7 +108,7 @@
          <GitPullRequest class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
          <WithTooltip text={`${selectedTour.label}\n${selectedTour.target.url}`}>
             {#snippet trigger({ props })}
-               <span {...props} class="min-w-0 truncate">{selectedTour.label}</span>
+               <span {...props} class="flex min-w-0">{@render label(selectedTour.label)}</span>
             {/snippet}
          </WithTooltip>
       </span>
@@ -140,6 +141,20 @@
       </Popover.Content>
    </Popover.Root>
 </div>
+
+<!-- The pull request number never truncates, and a narrow bar shows it alone, with the repository left to the accessible name and the tooltip. -->
+{#snippet label(text: string)}
+   {@const parts = splitLabel(text)}
+   {#if parts === null}
+      <span class="min-w-0 truncate">{text}</span>
+   {:else}
+      <span class="flex min-w-0">
+         <span class="min-w-0 truncate @max-bar-repository:sr-only" data-label-part="repository">{parts.repository}</span>
+         <!-- The space starts the number's line, so it leaves with the repository, and the link's underline runs through it. -->
+         <span class="shrink-0 decoration-spaces" data-label-part="number"><span class="@max-bar-repository:hidden">&nbsp;</span>{parts.number}</span>
+      </span>
+   {/if}
+{/snippet}
 
 <AlertDialog.Root bind:open={confirming}>
    <!-- The delete button left with the list, so the focus returns to the list's trigger. -->

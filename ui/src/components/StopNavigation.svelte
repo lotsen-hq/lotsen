@@ -70,16 +70,17 @@
                   </span>
                {:else if stop}
                   <!-- The position and Skipped keep their width until the line is narrower than they are, and then end in an ellipsis. -->
+                  <!-- The narrow bar shows the short position, and keeps the long one for the live region. -->
                   <span class="max-w-full shrink-0 truncate">
-                     <span data-stop-position="long" class="font-semibold">Stop {index + 1} of {count}</span>
-                     <span data-stop-position="short" class="hidden font-semibold">{index + 1}/{count}</span>
+                     <span data-stop-position="long" class="font-semibold @max-bar-position:sr-only">Stop {index + 1} of {count}</span>
+                     <span data-stop-position="short" class="hidden font-semibold @max-bar-position:inline" aria-hidden="true">{index + 1}/{count}</span>
                      {#if isSkipped}
                         <span class="text-muted-foreground">· Skipped</span>
                      {/if}
                   </span>
                   {#if chapter}
-                     <!-- The chapter grows from zero into the room the other items leave, so it gives way before the title truncates. -->
-                     <span class="max-w-max min-w-0 grow basis-0 truncate text-muted-foreground">{@render separator()}{chapter.title}</span>
+                     <!-- The chapter grows from zero into the room the other items leave, so it gives way before the title truncates. A narrow bar leaves it to the live region. -->
+                     <span class="max-w-max min-w-0 grow basis-0 truncate text-muted-foreground @max-bar-chapter:sr-only" data-stop-chapter>{@render separator()}{chapter.title}</span>
                   {/if}
                   <span class="min-w-0 truncate">{@render separator()}<span>{stop.title}</span></span>
                {:else}

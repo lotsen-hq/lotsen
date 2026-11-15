@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
+import { fireEvent, screen, waitFor } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import type { Familiarity, Tour } from '../../src/lib/types';
 import type { World } from '../backend/backend';
@@ -61,7 +61,7 @@ describe('the tour list and the plan', () => {
 
       const link = await waitFor(() => selectedTourLink('web #9'));
       expect(link.getAttribute('href')).toBe('https://platform.test/web/pull/9');
-      expect(await hoverTooltip(link)).toBe('Open the pull request in a new tab\nhttps://platform.test/web/pull/9');
+      expect(await hoverTooltip(link)).toBe('web #9\nOpen the pull request in a new tab\nhttps://platform.test/web/pull/9');
       expect(switcher.getAttribute('aria-label')).toBe('Choose another tour');
    });
 
@@ -76,7 +76,7 @@ describe('the tour list and the plan', () => {
       fireEvent.click(await (await openTourList()).findByRole('button', { name: /#1/ }));
 
       await waitFor(() => expect(app.selectedTourId).toBe(first.id));
-      expect(await within(screen.getByRole('banner')).findByText('web #1')).toBeTruthy();
+      await waitFor(() => expect(selectedTourLink('web #1')).toBeTruthy());
       await waitFor(() => expect(screen.queryByRole('navigation', { name: 'Tours' })).toBeNull());
       expect(picker.getAttribute('aria-expanded')).toBe('false');
       const list = await openTourList();

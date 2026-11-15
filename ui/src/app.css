@@ -149,6 +149,15 @@
    --font-mono: ui-monospace, monospace;
    /* The body text size keeps the page's line height. */
    --text-base--line-height: 1.4;
+   /* The top bar's content widths below which its items give way, widest first, in rem so they follow the font size. e2e/topBar.spec.ts checks the fit at each width. */
+   --container-bar-chapter: 110rem;
+   --container-bar-chip: 91rem;
+   --container-bar-generation: 85.5rem;
+   --container-bar-panels: 72rem;
+   --container-bar-send: 67.5rem;
+   --container-bar-repository: 62.5rem;
+   --container-bar-position: 57rem;
+   --container-bar-wordmark: 53rem;
 }
 
 @theme inline {
@@ -248,6 +257,11 @@
 @utility size-glyph {
    width: 1.1em;
    height: 1.1em;
+}
+
+/* Decorates a space at the start or end of a line, which the initial value skips (https://drafts.csswg.org/css-text-decor-4/#text-decoration-skip-spaces-property). */
+@utility decoration-spaces {
+   text-decoration-skip-spaces: none;
 }
 
 /* A panel's scroll box. It is positioned, so it holds and clips the absolutely positioned content inside it, such as `sr-only` text, which would otherwise extend the page. */

@@ -6,6 +6,7 @@ import { idleAnswerSend, type AnswerSendState } from '../src/lib/answers';
 import type { ConnectionState } from '../src/lib/eventStream';
 import type { GenerationStatus } from '../src/lib/generationStatus';
 import { attachmentTexts, type Attachment } from '../src/lib/labels';
+import { hoverTooltip } from './tooltip';
 import { Settings } from '../src/lib/settings.svelte';
 import type { Offer } from '../src/lib/types';
 import { WorkspaceLayout } from '../src/lib/workspaceLayout.svelte';
@@ -322,7 +323,7 @@ describe("the top bar's status chip", () => {
 const awaiting: GenerationStatus = { phase: 'awaitingApproval', line: 'The plan waits for your approval' };
 
 describe("the top bar's plan approval", () => {
-   it('shows a Review the plan button with the hourglass, its label in an element of its own and the full line as its description and tooltip', async () => {
+   it('shows a Review the plan button with the hourglass, its label in an element of its own, the full line as its description, and its name and the line in its tooltip', async () => {
       const bar = renderBar({ generation: awaiting });
 
       const button = bar.getByRole('button', { name: 'Review the plan' });
@@ -331,7 +332,7 @@ describe("the top bar's plan approval", () => {
       expect(descriptions(button)).toEqual(['The plan waits for your approval']);
       expect(bar.queryByText('The plan waits for your approval', visibleOnly)).toBeNull();
       await fireEvent.pointerEnter(button, { pointerType: 'mouse' });
-      await waitFor(() => expect(document.querySelector('[data-tooltip-content]')?.textContent.trim()).toBe('The plan waits for your approval'));
+      await waitFor(() => expect(document.querySelector('[data-tooltip-content]')?.textContent.trim()).toBe('Review the plan\nThe plan waits for your approval'));
    });
 
    it.each([
@@ -364,5 +365,27 @@ describe("the top bar's plan approval", () => {
       expect(document.querySelector('[data-generation-status]')).toBe(region);
       expect(region.getAttribute('role')).toBe('status');
       expect(region.textContent).toBe('The plan waits for your approval');
+   });
+});
+
+describe("the top bar's items that a narrow bar shows as icons", () => {
+   it('gives the generation icon a tooltip with the line', async () => {
+      renderBar({ generation: writing });
+
+      expect(await hoverTooltip(document.querySelector('[data-generation-icon]')!)).toBe('Claude is writing stop 2 of 3…');
+   });
+
+   it('gives Panels a tooltip with its name', async () => {
+      const bar = renderBar({});
+
+      expect(await hoverTooltip(bar.getByRole('button', { name: 'Panels' }))).toBe('Panels');
+   });
+
+   it('holds the send icon in Send answers beside the label and the count, hidden', () => {
+      const bar = renderBar({ sendAnswers: { state: 'open' }, unsentAnswers: 3 });
+
+      const icon = bar.getByRole('button', { name: 'Send answers' }).querySelector('svg.lucide-send')!;
+      expect(icon.classList.contains('hidden')).toBe(true);
+      expect(icon.getAttribute('aria-hidden')).toBe('true');
    });
 });

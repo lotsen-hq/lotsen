@@ -29,6 +29,9 @@ function withUrl(tour: TourSummary, url: string): TourSummary {
    return { ...tour, target: { ...tour.target, url } };
 }
 
+/** Returns the element that shows the label, whose repository and number are elements of their own. */
+const labelText = (label: string) => screen.getByText((_, element) => element?.getAttribute('data-slot') === 'tooltip-trigger' && element.textContent.replace(/\s+/g, ' ') === label);
+
 function renderSwitcher(selected: TourSummary | null) {
    const onselect = vi.fn();
    const result = render(TourPicker, {
@@ -61,14 +64,31 @@ describe('the tour switcher', () => {
       expect(await hoverTooltip(switcher)).toBe('Choose a tour');
    });
 
-   it('links the selected tour’s label to its pull request in a new tab, with the URL in the link’s tooltip', async () => {
+   it('links the selected tour’s label to its pull request in a new tab, with the label and the URL in the link’s tooltip', async () => {
       renderSwitcher(tours[1]!);
       const link = screen.getByRole('link', { name: 'contoso/shop/api #2' });
 
       expect(link.getAttribute('href')).toBe('https://platform.test/pull/2');
       expect(link.getAttribute('target')).toBe('_blank');
       expect(link.getAttribute('rel')).toBe('noopener noreferrer');
-      expect(await hoverTooltip(link)).toBe('Open the pull request in a new tab\nhttps://platform.test/pull/2');
+      expect(await hoverTooltip(link)).toBe('contoso/shop/api #2\nOpen the pull request in a new tab\nhttps://platform.test/pull/2');
+   });
+
+   it('shows the number of a label that ends in one as an element of its own that never shrinks, beside the repository that truncates', () => {
+      renderSwitcher(tours[1]!);
+      const link = screen.getByRole('link', { name: 'contoso/shop/api #2' });
+
+      const number = within(link).getByText((_, element) => element?.textContent === '\u00a0#2' && element.classList.contains('shrink-0'));
+      const repository = within(link).getByText('contoso/shop/api');
+      expect(repository.classList.contains('truncate')).toBe(true);
+      expect(repository.nextElementSibling).toBe(number);
+   });
+
+   it('shows a label that does not end in a number as one element that truncates', () => {
+      renderSwitcher({ ...tours[0]!, label: 'https://platform.test/pull/1' });
+
+      const label = within(screen.getByRole('link', { name: 'https://platform.test/pull/1' })).getByText('https://platform.test/pull/1');
+      expect(label.classList.contains('truncate')).toBe(true);
    });
 
    it('links a URL whose https: scheme is in upper case', () => {
@@ -83,7 +103,7 @@ describe('the tour switcher', () => {
          const { list } = renderSwitcher(withUrl(tours[0]!, url));
 
          expect(screen.queryByRole('link')).toBeNull();
-         const label = screen.getByText('contoso/shop/web #1');
+         const label = labelText('contoso/shop/web #1');
          expect(await hoverTooltip(label)).toBe(`contoso/shop/web #1\n${url}`);
          await fireEvent.click(screen.getByRole('button', { name: 'Choose another tour' }));
          expect(list()).not.toBeNull();

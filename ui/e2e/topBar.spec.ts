@@ -471,3 +471,229 @@ for (const palette of palettes) {
       expect.soft((await measure()).label, 'the label against the fill with the focus').toBeGreaterThanOrEqual(4.5);
    });
 }
+
+test.describe('the top bar in a narrow window', () => {
+   const gatewayStop = 'Gateway errors reach the customer as they are';
+
+   /** The items that give way, in the order that they do, each by the element that leaves the view. */
+   const steps = [
+      { item: 'the chapter', selector: '[data-stop-chapter]' },
+      { item: 'the status chip', selector: '[data-chip-label]' },
+      { item: 'the generation line', selector: '[data-generation-status]' },
+      { item: 'Panels', selector: '[data-panels-label]' },
+      { item: 'Send answers', selector: '[data-send-label]' },
+      { item: 'the repository', selector: '[data-label-part="repository"]' },
+      { item: 'the long position', selector: '[data-stop-position="long"]' },
+      { item: 'the wordmark', selector: 'svg[aria-label="Lotsen"]' },
+   ] as const;
+
+   /** Measures the bar at the window's width: what spills past the bar or the window, the stop line's width in rem, and which steps' items have left the view. */
+   const measureBar = (page: Page) =>
+      header(page).evaluate(
+         (bar, selectors) => {
+            const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+            // A label leaves the view as sr-only text, a clipped 1px box, or not at all.
+            const gone = (element: Element) => {
+               const style = getComputedStyle(element);
+               return style.display === 'none' || (style.position === 'absolute' && element.getBoundingClientRect().width <= 1);
+            };
+            const outside = [...bar.querySelectorAll('button, a')]
+               .filter((control) => control.getBoundingClientRect().left < -0.5 || control.getBoundingClientRect().right > window.innerWidth + 0.5)
+               .map((control) => control.getAttribute('aria-label') ?? control.textContent.trim());
+            return {
+               barSpill: bar.scrollWidth - bar.clientWidth,
+               pageSpill: document.documentElement.scrollWidth - window.innerWidth,
+               outside,
+               line: bar.querySelector('nav[aria-label="Stops"] p')!.getBoundingClientRect().width / rem,
+               gone: selectors.map((selector) => gone(bar.querySelector(selector)!)),
+            };
+         },
+         steps.map((step) => step.selector),
+      );
+
+   for (const fontSize of ['small', 'medium', 'large'] as const) {
+      test(`fits the window from 2000px down to 720px at ${fontSize}, gives way in order, and keeps the stop line 12rem wide until "4/7"`, async ({ page }) => {
+         await page.setViewportSize({ width: 2000, height: 1000 });
+         await openDemoTour(page, checkoutTour, { fontSize });
+         await openStop(page, gatewayStop);
+         await expect(header(page).locator('[data-unsent-answers]')).toHaveText('3 unsent answers');
+         await expect(header(page).locator('[data-generation-status]')).toHaveText(/^Claude is writing/);
+
+         const faults: string[] = [];
+         const firstGone: (number | null)[] = steps.map(() => null);
+         for (let width = 2000; width >= 720; width -= 20) {
+            await page.setViewportSize({ width, height: 1000 });
+            const bar = await measureBar(page);
+            if (bar.barSpill > 0) faults.push(`${width}px: the bar's content runs ${bar.barSpill}px past it`);
+            if (bar.pageSpill > 0) faults.push(`${width}px: the page scrolls ${bar.pageSpill}px sideways`);
+            if (bar.outside.length > 0) faults.push(`${width}px: ${bar.outside.join(', ')} outside the window`);
+            const short = bar.gone[steps.findIndex((step) => step.item === 'the long position')];
+            if (!short && bar.line < 12) faults.push(`${width}px: the stop line is ${bar.line.toFixed(2)}rem wide before "4/7"`);
+            bar.gone.forEach((gone, index) => {
+               if (gone && firstGone[index] === null) firstGone[index] = width;
+               if (!gone && firstGone[index] !== null) faults.push(`${width}px: ${steps[index]!.item} is back after it left at ${firstGone[index]}px`);
+            });
+         }
+
+         expect(faults).toEqual([]);
+         // A step that comes below 720px at this font size leaves nothing in the sweep, and neither does any step after it.
+         const order = steps.map((step, index) => `${step.item} at ${firstGone[index] ?? 'no width'}px`).join(', ');
+         const left = firstGone.filter((width) => width !== null);
+         expect(
+            firstGone.slice(left.length).every((width) => width === null),
+            order,
+         ).toBe(true);
+         expect(left.length, order).toBeGreaterThanOrEqual(steps.length - 1);
+         expect(left[0], order).toBeLessThan(2000);
+         expect(
+            left.every((width, index) => index === 0 || width < left[index - 1]!),
+            order,
+         ).toBe(true);
+      });
+   }
+
+   /** Returns the width at which each step's item leaves the view, found in 10px steps down from 2000px. */
+   async function stepWidths(page: Page): Promise<Record<(typeof steps)[number]['item'], number>> {
+      const widths: Partial<Record<(typeof steps)[number]['item'], number>> = {};
+      for (let width = 2000; width >= 600 && Object.keys(widths).length < steps.length; width -= 10) {
+         await page.setViewportSize({ width, height: 1000 });
+         (await measureBar(page)).gone.forEach((gone, index) => {
+            if (gone) widths[steps[index]!.item] ??= width;
+         });
+      }
+      expect(Object.keys(widths).sort(), 'the steps that came before 600px').toEqual(steps.map((step) => step.item).sort());
+      return widths as Record<(typeof steps)[number]['item'], number>;
+   }
+
+   /** Returns the text that a screen reader reads in the element: what neither `display: none` nor `aria-hidden` leaves out. */
+   const spokenText = (element: Locator) =>
+      element.evaluate((node) => {
+         const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+         let text = '';
+         while (walker.nextNode()) {
+            const parent = walker.currentNode.parentElement!;
+            if (parent.closest('[aria-hidden="true"]') === null && parent.checkVisibility()) text += walker.currentNode.textContent;
+         }
+         return text.replace(/\s+/g, ' ').trim();
+      });
+
+   /** Returns the text of the tooltip that opens over the element, then moves the pointer away until it closes. */
+   async function tooltipOver(page: Page, element: Locator): Promise<string> {
+      await element.hover();
+      const tooltip = page.locator('[data-tooltip-content]');
+      await expect(tooltip).toBeVisible();
+      const text = await tooltip.innerText();
+      await page.mouse.move(0, 500);
+      await expect(tooltip).toHaveCount(0);
+      return text;
+   }
+
+   test('keeps each collapsed control named and with a tooltip, the live regions whole and the pull request number whole', async ({ page }) => {
+      await page.setViewportSize({ width: 2000, height: 1000 });
+      await openDemoTour(page, checkoutTour, { fontSize: 'medium' });
+      await openStop(page, gatewayStop);
+      await page.mouse.move(0, 500);
+      const live = header(page).getByRole('navigation', { name: 'Stops' }).locator('[aria-live="polite"]');
+      const fullLine = `Stop 4 of 7 · Paying · ${gatewayStop}`;
+      const at = await stepWidths(page);
+      const shows = (element: Locator) => element.evaluate((node) => getComputedStyle(node).position !== 'absolute' && getComputedStyle(node).display !== 'none');
+
+      const chapter = header(page).locator('[data-stop-chapter]');
+      const atChapter = at['the chapter'];
+      await page.setViewportSize({ width: atChapter + 10, height: 1000 });
+      expect(await shows(chapter), 'the chapter just above its step').toBe(true);
+      await page.setViewportSize({ width: atChapter, height: 1000 });
+      expect(await spokenText(live)).toBe(fullLine);
+
+      const atChip = at['the status chip'];
+      await page.setViewportSize({ width: atChip + 10, height: 1000 });
+      expect(await shows(header(page).locator('[data-chip-label]')), 'the chip label just above its step').toBe(true);
+      await page.setViewportSize({ width: atChip, height: 1000 });
+      await expect(statusChip(page)).toHaveAccessibleName('Claude session: Confirmed');
+      expect(await tooltipOver(page, statusChip(page))).toMatch(/^Claude session: Confirmed\n/);
+
+      const atGeneration = at['the generation line'];
+      await page.setViewportSize({ width: atGeneration + 10, height: 1000 });
+      expect(await shows(header(page).locator('[data-generation-status]')), 'the generation line just above its step').toBe(true);
+      await page.setViewportSize({ width: atGeneration, height: 1000 });
+      await expect(
+         header(page)
+            .getByRole('status')
+            .filter({ hasText: /^Claude is writing/ }),
+      ).toHaveCount(1);
+      expect(await tooltipOver(page, header(page).locator('[data-generation-icon]'))).toMatch(/^Claude is writing stop \d+ of \d+…$/);
+
+      const panels = header(page).getByRole('button', { name: 'Panels', exact: true });
+      const atPanels = at['Panels'];
+      await page.setViewportSize({ width: atPanels + 10, height: 1000 });
+      expect(await shows(header(page).locator('[data-panels-label]')), 'the Panels label just above its step').toBe(true);
+      await page.setViewportSize({ width: atPanels, height: 1000 });
+      await expect(panels).toBeVisible();
+      expect(await tooltipOver(page, panels)).toBe('Panels');
+
+      const atSend = at['Send answers'];
+      await page.setViewportSize({ width: atSend + 10, height: 1000 });
+      expect(await shows(header(page).locator('[data-send-label]')), 'the Send answers label just above its step').toBe(true);
+      await page.setViewportSize({ width: atSend, height: 1000 });
+      await expect(sendAnswers(page)).toBeVisible();
+      await expect(sendAnswers(page).locator('svg.lucide-send')).toBeVisible();
+      await expect(sendAnswers(page).locator('[data-unsent-count]')).toHaveText('3');
+      expect(await tooltipOver(page, sendAnswers(page))).toBe('Send your answers to Claude');
+
+      const link = header(page).getByRole('link', { name: checkoutTour, exact: true });
+      const number = link.locator('[data-label-part="number"]');
+      const atRepository = at['the repository'];
+      await page.setViewportSize({ width: atRepository + 10, height: 1000 });
+      expect(await shows(link.locator('[data-label-part="repository"]')), 'the repository just above its step').toBe(true);
+      await page.setViewportSize({ width: atRepository, height: 1000 });
+      await expect(number).toHaveText('#412');
+      expect(await number.evaluate((node) => node.scrollWidth <= node.clientWidth), 'whether the number shows whole').toBe(true);
+      expect(await tooltipOver(page, link)).toMatch(/^storefront #412\n/);
+
+      const atPosition = at['the long position'];
+      await page.setViewportSize({ width: atPosition + 10, height: 1000 });
+      await expect(header(page).locator('[data-stop-position="short"]')).toBeHidden();
+      await page.setViewportSize({ width: atPosition, height: 1000 });
+      await expect(header(page).locator('[data-stop-position="short"]')).toHaveText('4/7');
+      expect(await spokenText(live)).toBe(fullLine);
+
+      const atWordmark = at['the wordmark'];
+      await page.setViewportSize({ width: atWordmark + 10, height: 1000 });
+      await expect(header(page).getByRole('img', { name: 'Lotsen' })).toBeVisible();
+      await page.setViewportSize({ width: atWordmark, height: 1000 });
+      await expect(header(page).getByRole('img', { name: 'Lotsen' })).toBeHidden();
+      for (const name of ['Check the PR for a new update', 'Panels', 'Settings']) {
+         await expect(header(page).getByRole('button', { name, exact: true }), name).toBeVisible();
+      }
+   });
+
+   test('keeps the pull request number whole while the tour zone cuts a long repository short', async ({ page }) => {
+      const label = 'contoso-enterprise/platform-services/storefront #412';
+      await page.route('**/api/ops/list_tours', async (route) => {
+         const response = await route.fetch();
+         await route.fulfill({ response, body: (await response.text()).split(JSON.stringify(checkoutTour)).join(JSON.stringify(label)) });
+      });
+      await page.setViewportSize({ width: 1600, height: 1000 });
+      await openDemoTour(page, checkoutTour, { fontSize: 'medium' });
+
+      const link = header(page).getByRole('link', { name: label, exact: true });
+      const repository = link.locator('[data-label-part="repository"]');
+      const number = link.locator('[data-label-part="number"]');
+      await expect(number).toHaveText('#412');
+      expect(await repository.evaluate((node) => node.scrollWidth > node.clientWidth), 'whether the repository is cut short').toBe(true);
+      expect(await number.evaluate((node) => node.scrollWidth <= node.clientWidth), 'whether the number shows whole').toBe(true);
+      expect(await tooltipOver(page, link)).toMatch(new RegExp(`^${label}\n`));
+   });
+
+   test('collapses Review the plan to its hourglass with its name and tooltip', async ({ page }) => {
+      await page.setViewportSize({ width: 720, height: 1000 });
+      await openDemoTour(page, 'storefront #433', { fontSize: 'large' });
+      await page.mouse.move(0, 500);
+
+      const review = header(page).getByRole('button', { name: 'Review the plan' });
+      await expect(review.locator('svg.lucide-hourglass')).toBeVisible();
+      expect(await review.locator('[data-review-label]').evaluate((node) => getComputedStyle(node).position)).toBe('absolute');
+      expect(await tooltipOver(page, review)).toBe('Review the plan\nThe plan waits for your approval');
+      await expect(review).toHaveAccessibleDescription('The plan waits for your approval');
+   });
+});

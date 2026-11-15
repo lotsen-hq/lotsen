@@ -1,8 +1,12 @@
 <script lang="ts">
+   import type { ClassValue } from 'svelte/elements';
+
+   let { class: className }: { class?: ClassValue } = $props();
+
    // The dark parts take the theme's text color, so this one drawing serves both themes.
 </script>
 
-<svg class="h-5 w-auto shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="216.51 154.36 1343.89 317.54" role="img" aria-label="Lotsen">
+<svg class={['h-5 w-auto shrink-0', className]} xmlns="http://www.w3.org/2000/svg" viewBox="216.51 154.36 1343.89 317.54" role="img" aria-label="Lotsen">
    <path fill="#1A66F7" d="M617.12,343.87h42.2c-4.37-58.56-51.13-105.32-109.69-109.69v42.2C584.92,280.5,613,308.58,617.12,343.87z" />
    <path
       fill="currentColor"
