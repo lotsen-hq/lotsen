@@ -210,9 +210,9 @@ Also note whether the request in words loads the skill without the slash command
 ## 6. Ask Claude from the UI
 
 These checks need a tour from step 5, open in the browser. They use three Claude Code sessions in the PR's checkout,
-one after the other: A and C with the channel flag as in step 4, B without it. The top bar shows the tour's attachment
-state, and the Threads panel holds the ask box and the list of threads. A click on a thread's row opens the thread, and
-the back arrow returns to the list.
+one after the other: A and C with the channel flag as in step 4, B without it. The top bar's status chip shows the tour's
+attachment state, and a click on it shows what the state means. The Threads panel holds the ask box and the list of
+threads. A click on a thread's row opens the thread, and the back arrow returns to the list.
 
 **Session A, with the channel.** Start it as in step 4 and ask Claude to attach the tour by its tourId,
 which the browser's address shows after `#tour=`.

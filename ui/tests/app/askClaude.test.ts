@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { LotsenApp } from '../../src/lib/app.svelte';
+import { attachmentTexts } from '../../src/lib/labels';
 import { messagesOf } from '../../src/lib/threadView';
 import type { QuestionThread } from '../../src/lib/types';
 import type { ClaudeSession, World } from '../backend/backend';
@@ -144,7 +145,7 @@ describe('the attachment state', () => {
       expect(topBar().textContent).toMatch(explanation);
    });
 
-   it('shows what works in a tooltip when keyboard focus reaches the state, and describes it to screen readers', async () => {
+   it('shows what works in a tooltip when keyboard focus reaches the state and in its popover on Enter, and describes it to screen readers', async () => {
       await start('unconfirmed');
 
       const state = await waitFor(() => within(topBar()).getByRole('button', { name: 'Claude session: Unconfirmed' }));
@@ -153,7 +154,9 @@ describe('the attachment state', () => {
       fireEvent.keyDown(document.body, { key: 'Tab' });
       state.focus();
 
-      await waitFor(() => expect(document.querySelector('[data-tooltip-content]')?.textContent).toMatch(/cancel it or send it again/));
+      await waitFor(() => expect(document.querySelector('[data-tooltip-content]')?.textContent.trim()).toBe(`Claude session: Unconfirmed\n${attachmentTexts.unconfirmed.explanation}`));
+      await fireEvent.keyDown(state, { key: 'Enter' });
+      expect((await screen.findByRole('dialog', { name: 'Claude session and connection' })).textContent).toMatch(/cancel it or send it again/);
    });
 
    it('shows nothing of a session while no tour is open', async () => {

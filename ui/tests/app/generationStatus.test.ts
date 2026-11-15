@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import type { Tour } from '../../src/lib/types';
 import { attachClaude, backend, cartContent, openTour, seedTour, startApp } from '../harness';
@@ -63,7 +63,7 @@ describe("the top bar's generation status", () => {
       await waitFor(() => expect(statusLine()).toBeNull());
    });
 
-   it('says that no session writes the tour and stops the Plan panel’s spinners once the session detaches', async () => {
+   it('leaves the line to the status chip, which says No session, and stops the Plan panel’s spinners once the session detaches', async () => {
       const { world, seed } = await worldOf(planned);
       const claude = await attachClaude(world, seed.tourId);
       const { app } = await startApp(world);
@@ -78,7 +78,8 @@ describe("the top bar's generation status", () => {
 
       await claude.drop();
 
-      await waitFor(() => expect(statusLine()).toBe('No Claude session is writing this tour'));
+      await waitFor(() => expect(within(screen.getByRole('banner')).queryByRole('button', { name: 'Claude session: No session' })).not.toBeNull());
+      expect(statusLine()).toBeNull();
       const pending = planPanel().getAllByRole('button', { name: /Not written yet/ });
       expect(pending).toHaveLength(2);
       expect(pending.filter((row) => row.querySelector('.spinner') !== null)).toHaveLength(0);

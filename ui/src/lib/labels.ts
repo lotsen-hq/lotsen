@@ -14,6 +14,7 @@ import type {
    TourBinding,
 } from './types';
 import type { DoneClick } from './doneClick';
+import type { ConnectionState } from './eventStream';
 import type { DoneState } from './tourRecord.svelte';
 
 /** Whether a session is bound to a tour, and if so, its attachment level. */
@@ -29,6 +30,13 @@ export const attachmentTexts: Record<Attachment, AttachmentText> = {
    none: { label: 'No session', explanation: 'No Claude session is attached to this tour. Browsing and notes work, but sending a question needs a session that attaches it.' },
    unconfirmed: { label: 'Unconfirmed', explanation: 'Claude has not confirmed yet that questions reach it. A question waits until Claude answers, and you can cancel it or send it again.' },
    confirmed: { label: 'Confirmed', explanation: 'Questions reach Claude.' },
+};
+
+/** The short name of each state of the connection to the event stream, as the top bar's status chip and its live region read it. */
+export const connectionLabels: Record<ConnectionState, string> = {
+   connecting: 'Connecting…',
+   live: 'Live',
+   reconnecting: 'Reconnecting…',
 };
 
 export function attachmentOf(binding: TourBinding | null | undefined): Attachment {

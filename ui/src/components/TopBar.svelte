@@ -1,9 +1,7 @@
 <script lang="ts">
-   import Hourglass from '@lucide/svelte/icons/hourglass';
    import LoaderCircle from '@lucide/svelte/icons/loader-circle';
    import ChevronDown from '@lucide/svelte/icons/chevron-down';
    import PanelsTopLeft from '@lucide/svelte/icons/panels-top-left';
-   import Unplug from '@lucide/svelte/icons/unplug';
    import X from '@lucide/svelte/icons/x';
    import type { Snippet } from 'svelte';
    import { Button, buttonVariants } from '$lib/components/ui/button';
@@ -25,7 +23,8 @@
    import SaveLayoutDialog from './SaveLayoutDialog.svelte';
    import SettingsPanel from './SettingsPanel.svelte';
    import Wordmark from './Wordmark.svelte';
-   import AttachmentState from './AttachmentState.svelte';
+   import GenerationIcon from './GenerationIcon.svelte';
+   import StatusChip from './StatusChip.svelte';
    import AnswerRefusalNotice from './AnswerRefusalNotice.svelte';
    import WithTooltip from './WithTooltip.svelte';
 
@@ -106,12 +105,6 @@
       event.preventDefault();
       panelsMenu?.focus();
    }
-
-   const connectionLabels: Record<ConnectionState, string> = {
-      connecting: 'Connecting…',
-      live: 'Live',
-      reconnecting: 'Reconnecting…',
-   };
 </script>
 
 <header bind:this={bar} class="flex items-center gap-4 border-b bg-card px-4 py-1.5 outline-hidden" tabindex="-1">
@@ -178,13 +171,7 @@
    {/if}
    {#if generation !== null}
       <div class="flex max-w-96 min-w-0 items-center gap-1.5 text-sm text-muted-foreground" role="status" data-generation-status>
-         {#if generation.phase === 'awaitingApproval'}
-            <Hourglass class="size-4 shrink-0" aria-hidden="true" />
-         {:else if generation.phase === 'noSession'}
-            <Unplug class="size-4 shrink-0" aria-hidden="true" />
-         {:else}
-            <LoaderCircle class="size-4 shrink-0 animate-spin" aria-hidden="true" />
-         {/if}
+         <GenerationIcon phase={generation.phase} />
          <span class="truncate" title={generation.line}>{generation.line}</span>
       </div>
    {/if}
@@ -194,10 +181,7 @@
          <Button variant="ghost" size="icon-sm" class="shrink-0" aria-label="Dismiss the popout notice" onclick={() => (layout.popoutFailure = null)}><X aria-hidden="true" /></Button>
       </div>
    {/if}
-   {#if attachment !== null}
-      <AttachmentState {attachment} />
-   {/if}
-   <span class={['text-sm', connection === 'live' ? 'text-success' : 'text-muted-foreground']} role="status">{connectionLabels[connection]}</span>
+   <StatusChip {connection} {attachment} {generation} />
    <DropdownMenu.Root>
       <DropdownMenu.Trigger bind:ref={panelsMenu} class="{buttonVariants({ variant: 'outline', size: 'sm' })} shrink-0">
          <PanelsTopLeft aria-hidden="true" />

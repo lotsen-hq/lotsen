@@ -5,6 +5,7 @@ const header = (page: Page) => page.getByRole('banner');
 const tourZone = (page: Page) => header(page).locator('[data-tour-zone]');
 const updateCheck = (page: Page) => header(page).getByRole('button', { name: 'Check the PR for a new update' });
 const sendAnswers = (page: Page) => header(page).getByRole('button', { name: 'Send answers' });
+const statusChip = (page: Page) => header(page).locator('[data-status-chip]');
 
 /** The icon-only actions of the bar, by their accessible names. */
 const iconActions = ['Check the PR for a new update', 'Settings', 'Choose another tour'];
@@ -64,13 +65,52 @@ test.describe("the top bar's controls", () => {
    });
 
    test('show the Claude session state as a pill with an edge', async ({ page }) => {
-      const state = header(page).getByRole('button', { name: /^Claude session:/ });
+      const state = statusChip(page);
+      await expect(state).toHaveAccessibleName('Claude session: Confirmed');
       const style = await styleOf(state, ['border-top-left-radius', 'border-top-color', 'border-top-width']);
       const height = (await state.boundingBox())!.height;
 
       expect(parseFloat(style['border-top-left-radius'])).toBeGreaterThanOrEqual(height / 2);
       expect(style['border-top-width']).not.toBe('0px');
       expect(transparent(style['border-top-color']), `the pill's edge, ${style['border-top-color']}`).toBe(false);
+   });
+});
+
+test.describe("the top bar's status chip", () => {
+   test.beforeEach(async ({ page }) => {
+      await openDemoTour(page, checkoutTour, { fontSize: 'medium' });
+      await page.mouse.move(0, 500);
+   });
+
+   const popover = (page: Page) => page.getByRole('dialog', { name: 'Claude session and connection' });
+
+   test('opens a popover on click with the session, the connection and what Claude is doing, and no tooltip over it', async ({ page }) => {
+      await statusChip(page).click();
+
+      await expect(popover(page).locator('dt')).toHaveText(['Session', 'Connection', 'Now']);
+      await expect(popover(page).locator('[data-status-row="session"]')).toHaveText('Confirmed. Questions reach Claude.');
+      await expect(popover(page).locator('[data-status-row="connection"]')).toHaveText('Live. Updates arrive as Claude writes.');
+      await expect(popover(page).locator('[data-status-row="generation"]')).toHaveText(/^Claude is writing stop \d+ of \d+…$/);
+      // The pointer stays on the chip past the tooltip's delay, then leaves it and returns while the popover shows.
+      await page.waitForTimeout(800);
+      await expect(page.locator('[data-tooltip-content]')).toHaveCount(0);
+      await page.mouse.move(0, 500);
+      await statusChip(page).hover();
+      await page.waitForTimeout(800);
+      await expect(popover(page)).toBeVisible();
+      await expect(page.locator('[data-tooltip-content]')).toHaveCount(0);
+   });
+
+   test('closes the popover on Escape, returns the focus to the chip, and opens it again on Enter', async ({ page }) => {
+      await statusChip(page).click();
+      await expect(popover(page)).toBeVisible();
+
+      await page.keyboard.press('Escape');
+      await expect(popover(page)).toHaveCount(0);
+      await expect(statusChip(page)).toBeFocused();
+
+      await page.keyboard.press('Enter');
+      await expect(popover(page).locator('dt')).toHaveText(['Session', 'Connection', 'Now']);
    });
 });
 

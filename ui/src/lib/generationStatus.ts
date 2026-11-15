@@ -2,7 +2,7 @@ import type { Attachment } from './labels';
 import type { Plan, TourPin, TourState } from './types';
 
 /** What the page can tell of Claude's work on a tour. */
-export type GenerationPhase = 'awaitingApproval' | 'noSession' | 'planning' | 'pinning' | 'writing';
+export type GenerationPhase = 'awaitingApproval' | 'planning' | 'pinning' | 'writing';
 
 /** A tour's phase and the line that tells the reviewer about it. */
 export interface GenerationStatus {
@@ -26,7 +26,8 @@ export interface GenerationFacts {
  *
  * @remarks The pending stops decide whether Claude still has work, because the tour state is in progress once the reviewer opens a stop, even with stops pending.
  * Reading and planning share one line because Claude reports nothing before `set_plan`.
- * @returns The status, or null when the page has not loaded the plan, the tour is archived, no stop is pending, or the pin failed and the Files panel shows why.
+ * @returns The status, or null when the page has not loaded the plan, the tour is archived, no stop is pending, the pin failed and the Files panel shows why,
+ * or no session writes the tour and the plan waits for no approval. The top bar's status chip then says that the tour has no session.
  */
 export function generationStatus({ state, pin, plan, planWaits, attachment }: GenerationFacts): GenerationStatus | null {
    if (plan === undefined || state === 'archived' || (plan !== null && plan.stops.every((stop) => stop.status !== 'pending'))) {
@@ -38,7 +39,7 @@ export function generationStatus({ state, pin, plan, planWaits, attachment }: Ge
    }
 
    if (attachment === 'none') {
-      return { phase: 'noSession', line: 'No Claude session is writing this tour' };
+      return null;
    }
 
    if (plan === null) {

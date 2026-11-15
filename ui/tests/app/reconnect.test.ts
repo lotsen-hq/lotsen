@@ -131,6 +131,12 @@ async function closeTourList(): Promise<void> {
    await waitFor(() => expect(screen.queryByRole('navigation', { name: 'Tours' })).toBeNull());
 }
 
+/** Returns what the top bar shows of the connection: its status chip's accessible name, and the text of its live region for the connection. */
+function connectionShown(): { chip: string | null; announced: string | null } {
+   const bar = screen.getByRole('banner');
+   return { chip: bar.querySelector('[data-status-chip]')?.getAttribute('aria-label') ?? null, announced: bar.querySelector('[data-connection-status]')?.textContent ?? null };
+}
+
 describe('the event stream and the loads', () => {
    it('reconnects after the stream drops and reloads the list and the selected plan', async () => {
       const world = await backend().world();
@@ -144,6 +150,7 @@ describe('the event stream and the loads', () => {
       network.closeStreams();
       network.transport.cutEventStreams();
       await waitFor(() => expect(app.connection).toBe('reconnecting'));
+      await waitFor(() => expect(connectionShown()).toEqual({ chip: 'Connection: Reconnecting…', announced: 'Reconnecting…' }));
       await createTour(world, 'https://platform.test/missed/pull/2');
       await claude!.call('set_plan', { tourId, chapters: [{ id: 'c', title: 'Chapter' }], stops: [{ title: 'Written while away', kind: 'inspect', chapter: 'c' }] });
       expect(streamsOpened(network.transport)).toBe(1);
@@ -151,7 +158,7 @@ describe('the event stream and the loads', () => {
 
       await waitFor(() => expect(streamsOpened(network.transport)).toBe(2));
       expect(await planPanel().findByText('Written while away')).toBeTruthy();
-      await waitFor(() => expect(screen.getAllByRole('status').map((status) => status.textContent)).toContain('Live'));
+      await waitFor(() => expect(connectionShown()).toEqual({ chip: expect.stringMatching(/^Claude session: /) as string, announced: 'Live' }));
       const list = await openTourList();
       await waitFor(() => expect(list.getAllByRole('button', tourButton)).toHaveLength(2));
       await closeTourList();

@@ -9,6 +9,7 @@
       text,
       trigger,
       deferEscape = false,
+      suppressed = false,
       // Other props, such as an outer trigger's, merge into the props that the trigger receives.
       ...attributes
    }: Record<string, unknown> & {
@@ -18,6 +19,8 @@
       trigger: Snippet<[{ props: Record<string, unknown> }]>;
       /** Lets Escape close the popover or dialog that holds the trigger, not the tooltip first. Outside a TooltipGroup only. */
       deferEscape?: boolean;
+      /** Keeps the tooltip closed, such as while a popover that the trigger opens shows. Outside a TooltipGroup only. */
+      suppressed?: boolean;
    } = $props();
 
    const group = tooltipGroup();
@@ -48,7 +51,7 @@
    {@render triggerFor(group)}
 {:else}
    <TooltipScope>
-      <Tooltip.Root>
+      <Tooltip.Root disabled={suppressed}>
          {@render triggerFor(undefined)}
          <Tooltip.Content class="whitespace-pre-line" escapeKeydownBehavior={deferEscape ? 'defer-otherwise-close' : 'close'}>{text}</Tooltip.Content>
       </Tooltip.Root>

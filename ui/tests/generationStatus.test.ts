@@ -47,11 +47,9 @@ describe('the generation status of a tour', () => {
       expect(generationStatus(facts({ plan: plan('pending', 'pending'), planWaits: true, attachment: 'none' }))).toEqual({ phase: 'awaitingApproval', line: 'The plan waits for your approval' });
    });
 
-   it('says that no session writes the tour, with a plan or without', () => {
-      const noSession = { phase: 'noSession', line: 'No Claude session is writing this tour' };
-
-      expect(generationStatus(facts({ attachment: 'none' }))).toEqual(noSession);
-      expect(generationStatus(facts({ attachment: 'none', plan: null }))).toEqual(noSession);
+   it('is absent with no session, with a plan or without, because the status chip says that the tour has none', () => {
+      expect(generationStatus(facts({ attachment: 'none' }))).toBeNull();
+      expect(generationStatus(facts({ attachment: 'none', plan: null }))).toBeNull();
    });
 
    it('shows reading and planning as one line until a plan exists, whatever the pin', () => {
