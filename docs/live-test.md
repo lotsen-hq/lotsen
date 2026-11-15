@@ -144,7 +144,7 @@ Check before you go on:
 - The startup screen says that messages from `server:lotsen` inject directly in this session.
 - `/mcp` lists `lotsen` as connected, with the tools `find_tours`, `create_tour`, `attach_tour`, `set_plan`,
   `put_stop`, `read_state`, `fetch_question`, `reply`, `ack`, `pin_tour`, `open_ui`, `start_thread`,
-  `add_thread_message`, `outdate_thread` and `delete_thread`.
+  `add_thread_message`, `outdate_thread`, `delete_thread`, `fetch_answers`, `read_summary` and `write_synthesis`.
 - `/lotsen:tour` is in the `/` menu.
 - Without a `lotsen serve`, `lotsen open` in another terminal opens the UI, so Claude Code started a background
   server. `<lotsen>/scripts/live-test.sh check` reports the server as running.

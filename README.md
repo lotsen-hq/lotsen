@@ -31,7 +31,7 @@ Everything stays on your machine. The UI runs on 127.0.0.1, Lotsen keeps its own
 ## Requirements
 
 - [Claude Code](https://code.claude.com/docs/en/overview), allowed to use channels. On a Team or Enterprise plan, your organization has to enable them with `channelsEnabled`.
-- git.
+- git 2.46 or newer.
 - [Node.js](https://nodejs.org/) 18 or later, with npm. Claude Code starts Lotsen through npx.
 - For Azure DevOps, the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), signed in with `az login` to an account that can read the pull request's repository.
 - For GitHub, the [GitHub CLI](https://cli.github.com/), signed in with `gh auth login` to an account that can read the pull request's repository. Lotsen needs the sign-in for a public repository too.
@@ -82,7 +82,7 @@ On GitHub, any page of the pull request works as its URL, such as its changed fi
 
 ## Commands
 
-Claude Code starts a background server when a session needs one, and it stops by itself once nothing uses it. These commands are for the times you want to step in. They need the global install from [Install](#install). Without it, run a command through npx with the plugin's version, such as `npx -y lotsen@0.2.0 open`, the form that Lotsen's errors in Claude Code name.
+Claude Code starts a background server when a session needs one, and it stops by itself once nothing uses it. These commands are for the times you want to step in. They need the global install from [Install](#install). Without it, run a command through npx with the plugin's version, such as `npx -y lotsen@<version> open`, with the version that Lotsen's errors in Claude Code name.
 
 | Command | What it does |
 |---|---|
@@ -126,6 +126,6 @@ Bug reports, ideas and pull requests are welcome: [`CONTRIBUTING.md`](CONTRIBUTI
 
 ## License
 
-Lotsen is licensed under the [Apache License, Version 2.0](LICENSE). The third-party notices are built into the executable, and Settings in the web UI links to them. The UI build writes them from the packages that it bundles, the Seti notices in [`ui/src/seti/`](ui/src/seti) and [`ui/third-party/notices.txt`](ui/third-party/notices.txt), which covers the .NET runtime and the NuGet packages.
+Lotsen is licensed under the [Apache License, Version 2.0](LICENSE). The third-party notices are built into the executable, and Settings in the web UI links to them. The UI build writes them from the packages that it bundles, the Seti notices in [`ui/src/seti/`](ui/src/seti) and [`ui/third-party/notices.txt`](ui/third-party/notices.txt), which covers the copied shadcn-svelte components, the Catppuccin and Gruvbox colors, the NuGet packages and the .NET runtime.
 
 Releases follow semantic versioning, as [`docs/versioning.md`](docs/versioning.md) describes, and [`CHANGELOG.md`](CHANGELOG.md) lists what each one changed. `docs/versioning.md` also shows how to check that a downloaded executable came from the release workflow.

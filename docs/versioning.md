@@ -1,10 +1,10 @@
 # Versioning
 
-Lotsen uses [semantic versioning](https://semver.org/). The version stays below 1.0 until the public release.
+Lotsen uses [semantic versioning](https://semver.org/). The version stays below 1.0 until the 1.0 release.
 
 ## Where the version comes from
 
-A release is a git tag, `v<version>`, and npm packages of the version without its `v`. The release workflow takes the version as an input and builds with it. It publishes the npm packages once both builds pass and the maintainer approves the release, and creates the tag last, so a failed build or a rejected release leaves no tag.
+A release is a git tag, `v<version>`, and npm packages of the version without its `v`. The release workflow takes the version as an input and builds with it. It publishes the npm packages once both builds pass and the maintainer approves the release, and creates the tag only after the npm packages are published, so a failed build or a rejected release leaves no tag.
 
 The plugin starts lotsen through npx at an exact version, which `plugin/.mcp.json` names, such as `lotsen@0.1.0`. Before a release, commit the new version there. For a release without a suffix, also move the entries under `## Unreleased` in [`CHANGELOG.md`](../CHANGELOG.md) into a section `## v0.1.0 - <date>`, which becomes the GitHub release's notes. Push both to `main`. Then start the release from `main`, once CI has passed on that commit:
 
@@ -50,6 +50,6 @@ A change is breaking if it changes one of these in a way that existing users or 
 - The command line
 - The agent tools
 
-Before the MVP release, nothing is compatible by promise: stored tours, the state file and the HTTP API can change freely, with no migration.
+Before 1.0, nothing is compatible by promise: stored tours, the state file and the HTTP API can change freely, with no migration.
 
 From then on, a breaking change raises the minor version while the version is below 1.0, and the major version after that.

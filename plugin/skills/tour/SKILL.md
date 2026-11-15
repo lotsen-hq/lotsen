@@ -98,7 +98,8 @@ Create a tour when `find_tours` returned no tours of the PR, or when the user ch
 
 The new tour's `pin.state` is `pinning`: lotsen reads the PR and clones its repository in the background, to pin the
 tour to the PR's merge base and head. A first clone of a large repository can take minutes. Don't wait for it. Go on
-gathering and planning; `set_plan` works in every pin state. Only `put_stop` needs the pin.
+gathering and planning; `set_plan` works in every pin state. `put_stop`, `write_synthesis` and any text with `ref:`
+links need the pin.
 
 ### Resume a tour in a new session
 
@@ -604,8 +605,8 @@ which the server checks. These tools never reach the reviewer's notes, which `re
 
 ### Threads that the reviewer deletes
 
-The reviewer can delete any thread in the UI, yours included. When the deleted thread was sent to you, lotsen sends
-this session one channel event with `event="threadDeleted"`, its `tourId` and `threadId`, and a `questionId` when a
+The reviewer can delete any thread in the UI, yours included. When the deleted thread is not an unsent note and this
+session holds the tour, lotsen sends this session one channel event with `event="threadDeleted"`, its `tourId` and `threadId`, and a `questionId` when a
 question in the thread still waited for your reply. lotsen canceled that question, so don't call `reply` for that
 question. Stop any work on the thread, and don't write to it again, because lotsen refuses every call on it. When the
 thread held a tour action or a decision that you carried out in part, leave the tour as it is, and tell the user in
