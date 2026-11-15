@@ -33,7 +33,8 @@
    --warning-mark: #9a6700;
    --border: oklch(92.9% 0.013 255.508);
    --input: var(--border);
-   --ring: oklch(62.3% 0.214 259.815);
+   /* The focus color of every control. It stands at least 3:1 off every surface that a button sits on, in every palette, as e2e/buttons.spec.ts checks. */
+   --ring: var(--primary);
    /* Button fill, border and hover fill. On the card the border stands at least 2:1 off it and the hover fill 1.2:1, as e2e/buttons.spec.ts checks. */
    --button-fill: #ffffff;
    --button-border: #aab2be;

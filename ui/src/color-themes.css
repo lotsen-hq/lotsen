@@ -13,7 +13,8 @@
  * surface colors, and the text takes text and subtext. Links take blue, success green, warnings yellow with a peach mark, and errors red. A role without a Catppuccin color takes an accent:
  * teal, blue, red and mauve for the stop kinds, peach for a tour in progress and for related passages, mauve for Claude and pink for threads. A fill behind an accent is the accent
  * blended over base, written as hex, or the accent at an alpha. In Latte, an accent that is drawn as text or as a marker blends with text, so it reads on Latte's light surfaces: half and
- * half for the stop kinds, the states, the warning mark and the related passages' marker, 85% blue for primary, 60% pink for threads and 35% green for success.
+ * half for the stop kinds, the states, the warning mark and the related passages' marker, 85% blue for primary, 60% pink for threads and 35% green for success. Latte's ring is primary, so it
+ * stands at least 3:1 off every surface that a button sits on, as app.css asks of the ring.
  */
 
 :root[data-color-theme='catppuccin'],
@@ -40,7 +41,7 @@
    --warning-mark: #a55a3a;
    --border: #ccd0da;
    --input: var(--border);
-   --ring: #7287fd;
+   --ring: var(--primary);
    --button-fill: #eff1f5;
    --button-border: #9ca0b0;
    --button-hover: #ccd0da;
@@ -145,14 +146,15 @@
 /*
  * Visual Studio Code is Light 2026 for light and Dark 2026 for dark, its default themes, Copyright (c) Microsoft Corporation, MIT License: extensions/theme-defaults/themes/2026-light.json and
  * 2026-dark.json in microsoft/vscode at ff9acdc74d3fbc338a6e50da2c31695eb0176a33, with the Modern, Plus and Visual Studio themes they include, and for keys that no theme file sets, the defaults in
- * the same commit's terminalColorRegistry.ts, chartsColors.ts and editorColors.ts. Each role takes one key, and where dark takes another key, it follows in parentheses: background
- * editor.background, card sideBar.background, popover editorWidget.background, secondary button.secondaryBackground (textCodeBlock.background), muted list.hoverBackground
- * (textCodeBlock.background), accent list.activeSelectionBackground (tab.selectedBackground), border panel.border, input dropdown.border, foreground editor.foreground, muted-foreground
- * tab.inactiveForeground, primary button.background (textLink.foreground), ring focusBorder, button-fill input.background, button-border checkbox.border, button-hover toolbar.hoverBackground,
- * code-selection editor.selectionBackground, warning and folder editorWarning.foreground, warning-surface that color at 10%, warning-mark chat.editedFileForeground (editorWarning.foreground),
- * destructive terminal.ansiRed (errorForeground), the diff lines diffEditor.insertedLineBackground and diffEditor.removedLineBackground, and the diff markers editorGutter.addedBackground and
+ * the same commit's terminalColorRegistry.ts, chartsColors.ts and editorColors.ts. Each role takes one key, and where dark takes another key, it follows in parentheses: background editor.background,
+ * card sideBar.background, popover editorWidget.background, secondary button.secondaryBackground (textCodeBlock.background), muted list.hoverBackground (textCodeBlock.background), accent
+ * list.activeSelectionBackground (tab.selectedBackground), border panel.border, input dropdown.border, foreground editor.foreground, muted-foreground tab.inactiveForeground, primary button.background
+ * (textLink.foreground), ring focusBorder (textLink.foreground), button-fill input.background, button-border checkbox.border, button-hover toolbar.hoverBackground, code-selection
+ * editor.selectionBackground, warning and folder editorWarning.foreground, warning-surface that color at 10%, warning-mark chat.editedFileForeground (editorWarning.foreground), destructive
+ * terminal.ansiRed (errorForeground), the diff lines diffEditor.insertedLineBackground and diffEditor.removedLineBackground, and the diff markers editorGutter.addedBackground and
  * editorGutter.deletedBackground. A translucent key is written as the color it shows: the list colors over sideBar.background, toolbar.hoverBackground over input.background, and the others over
- * editor.background. Dark's primary is the link blue, because button.background at the reviewer's 18% tint does not stand off the card.
+ * editor.background. Dark's primary is the link blue, because button.background at the reviewer's 18% tint does not stand off the card. Dark's ring is the link blue too, so it stands at least 3:1 off
+ * every surface that a button sits on, as app.css asks of the ring.
  *
  * A role without a source color takes a terminal ANSI or charts color: terminal green for success and finished, the destructive red for risk, cyan (bright cyan) for context, charts orange for a
  * tour in progress and for related passages, with chat.editedFileForeground for the state's text and for the related marker in light, charts purple for Claude and questions, and terminal magenta
@@ -249,7 +251,7 @@
    --warning-mark: #cca700;
    --border: #2a2b2c;
    --input: #333536;
-   --ring: #2d6e8a;
+   --ring: var(--primary);
    --button-fill: #191a1b;
    --button-border: #707070;
    --button-hover: #474849;
@@ -290,9 +292,10 @@
 
 /*
  * Gruvbox is its light and dark palettes at medium contrast, from colors/gruvbox.vim in morhetz/gruvbox at ef8864bb42bf244f0295d1c5a403b27e3d139695, by Pavel Pertsev, MIT License as its README and
- * package.json state. Light takes the faded accents and dark the bright ones, as gruvbox.vim does, except that light's warning bar, folder, ring and diff line tints take the neutral accents. The
+ * package.json state. Light takes the faded accents and dark the bright ones, as gruvbox.vim does, except that light's warning bar, folder and diff line tints take the neutral accents. The
  * surfaces and borders take bg0 to bg4 and gray, with light0_soft for light's card and dark0_hard for dark's background. The text takes fg1, and muted text fg3. The selection is bg3, as Visual is. Links take
- * blue, success and inserted lines green, warnings yellow, and errors and deleted lines red.
+ * blue, success and inserted lines green, warnings yellow, and errors and deleted lines red. Light's ring is primary, so it stands at least 3:1 off every surface that a button sits on, as app.css
+ * asks of the ring.
  *
  * A role without a Gruvbox color takes an accent: aqua, blue, red and purple for the stop kinds, orange for a tour in progress and for threads, yellow for related passages and purple for Claude.
  * A kind or state fill is its accent at 14% over bg0 in light and 16% in dark, written as hex, and the line tints and Claude's fill are an accent at an alpha. An accent drawn as text on such a fill
@@ -324,7 +327,7 @@
    --warning-mark: #785725;
    --border: #d5c4a1;
    --input: #bdae93;
-   --ring: #458588;
+   --ring: var(--primary);
    --button-fill: #fbf1c7;
    --button-border: #928374;
    --button-hover: #d5c4a1;

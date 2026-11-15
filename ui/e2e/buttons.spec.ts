@@ -11,6 +11,7 @@ interface ButtonColors {
 const edgeFloor = 2;
 const noticeEdgeFloor = 1.6;
 const hoverFloor = 1.2;
+const focusFloor = 3;
 
 const stopPanel = (page: Page) => page.getByRole('region', { name: 'Stop', exact: true });
 const threadsPanel = (page: Page) => page.getByRole('region', { name: 'Threads', exact: true });
@@ -45,6 +46,30 @@ async function expectHoverChange(page: Page, button: Locator, name: string): Pro
    await expect.poll(async () => contrast(rest, await shownFill(button)), `${name}'s hovered fill against its resting fill`).toBeGreaterThanOrEqual(hoverFloor);
    // The pointer leaves, so the button's tooltip does not cover the next one.
    await page.mouse.move(0, 0);
+}
+
+/** Returns the background of the button's nearest ancestor that draws one, in the form that `getComputedStyle` gives it. */
+async function surfaceBehind(button: Locator): Promise<string | null> {
+   return button.evaluate((node) => {
+      for (let ancestor = node.parentElement; ancestor !== null; ancestor = ancestor.parentElement) {
+         const background = getComputedStyle(ancestor).backgroundColor;
+         if (background !== 'rgba(0, 0, 0, 0)') {
+            return background;
+         }
+      }
+      return null;
+   });
+}
+
+/** Moves the keyboard's focus to the button, which sits on the surface that the custom property names, and expects the focused edge to stand off that surface by the focus floor. */
+async function expectFocusedEdge(page: Page, button: Locator, surface: string, name: string): Promise<void> {
+   expect(await surfaceBehind(button), `the surface behind ${name}`).toBe(await themeColor(button, surface));
+   // The button's colors transition, so the transition goes and the focused edge shows at once.
+   await button.evaluate((node: HTMLElement) => (node.style.transition = 'none'));
+   await page.keyboard.press('Shift');
+   await button.focus();
+   expect(await button.evaluate((node) => node.matches(':focus-visible')), `whether ${name}'s focus shows`).toBe(true);
+   expect.soft(await edgeContrast(button), `${name}'s focused edge against ${surface}`).toBeGreaterThanOrEqual(focusFloor);
 }
 
 /** Opens the outdated thread, which the default filter hides, in the Threads panel. */
@@ -91,6 +116,20 @@ for (const palette of palettes) {
          await openOutdatedThread(page);
          const outdatedReopen = threadsPanel(page).getByRole('button', { name: 'Reopen' });
          expect.soft(await edgeContrast(outdatedReopen), "an outdated thread's Reopen against the card").toBeGreaterThanOrEqual(edgeFloor);
+      });
+
+      test("gives the keyboard's focus an edge that stands off each surface a button sits on", async ({ page }) => {
+         await expectFocusedEdge(page, page.getByRole('banner').getByRole('button', { name: 'Panels' }), '--card', 'Panels in the bar');
+         await expectFocusedEdge(page, page.locator('[data-iteration-notice]').getByRole('button', { name: /^Move to update \d+$/ }), '--accent', 'Move to update in the notice');
+         await expectFocusedEdge(page, page.getByRole('button', { name: 'Plan actions', exact: true }), '--background', 'Plan actions in the Plan panel');
+
+         await openStop(page, 'The new payment step');
+         await expect(askClaude(page)).toBeEnabled();
+         await expectFocusedEdge(page, askClaude(page), '--card', 'Ask Claude in the stop');
+
+         await page.getByRole('button', { name: 'Panels' }).click();
+         await page.getByRole('menuitem', { name: 'Save layout as…' }).click();
+         await expectFocusedEdge(page, page.getByRole('dialog', { name: 'Save layout' }).getByRole('button', { name: 'Cancel' }), '--popover', 'Cancel in a dialog');
       });
 
       test('changes the fill clearly on hover, of a text-label button and of an icon-only ghost button', async ({ page }) => {
