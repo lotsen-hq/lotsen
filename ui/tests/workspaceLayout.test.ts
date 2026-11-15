@@ -7,7 +7,7 @@ interface FakeApi {
    api: DockviewApi;
    addPopoutGroup: ReturnType<typeof vi.fn>;
    /** The panel that pops out. */
-   panel: { api: { location: { type: string }; moveTo: ReturnType<typeof vi.fn> }; group: { id: string; panels: unknown[] } };
+   panel: { api: { location: { type: string }; moveTo: ReturnType<typeof vi.fn>; setActive: ReturnType<typeof vi.fn> }; group: { id: string; panels: unknown[] } };
    /** Settles the pop-out, with whether its window opened. */
    settle: (opened: boolean) => void;
    /** Settles the pop-out as a window that did not open, and fires the failure that Dockview fires then. */
@@ -25,7 +25,7 @@ function fakeApi(shared = 0): FakeApi {
    let settle: (opened: boolean) => void = () => {};
    const listeners: Record<string, (argument?: unknown) => void> = {};
    const addPopoutGroup = vi.fn(() => new Promise<boolean>((resolve) => (settle = resolve)));
-   const panel: FakeApi['panel'] = { api: { location: { type: 'grid' }, moveTo: vi.fn() }, group: { id: '1', panels: [] } };
+   const panel: FakeApi['panel'] = { api: { location: { type: 'grid' }, moveTo: vi.fn(), setActive: vi.fn() }, group: { id: '1', panels: [] } };
    panel.group.panels.push(panel, ...Array.from({ length: shared }, () => ({})));
    const known: Record<string, unknown> = { groups: [], getPanel: () => panel, getPopouts: () => [], hasMaximizedGroup: () => false, addPopoutGroup };
    const api = new Proxy(known, {
@@ -71,6 +71,26 @@ describe('a pop-out', () => {
       settle(true);
       await next;
       expect(layout.popoutFailure).toBeNull();
+   });
+});
+
+describe("a reveal's request for the focus", () => {
+   it("counts a request for the panel's content to take the focus only for a reveal that asks for it, also of a panel in a popout window", () => {
+      const layout = new WorkspaceLayout();
+      const { api, panel } = fakeApi();
+      layout.attach(api, () => {});
+
+      layout.reveal('plan');
+      expect(layout.focusRequests.plan).toBe(0);
+      layout.reveal('plan', true);
+      expect(layout.focusRequests).toEqual({ files: 0, plan: 1, diff: 0, stop: 0, threads: 0 });
+      expect(panel.api.setActive).toHaveBeenCalledTimes(2);
+
+      panel.api.location.type = 'popout';
+      layout.poppedOut.plan = true;
+      layout.reveal('plan', true);
+      expect(layout.focusRequests.plan).toBe(2);
+      expect(panel.api.setActive).toHaveBeenCalledTimes(3);
    });
 });
 

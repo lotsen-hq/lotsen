@@ -170,9 +170,22 @@
       </WithTooltip>
    {/if}
    {#if generation !== null}
-      <div class="flex max-w-96 min-w-0 items-center gap-1.5 text-sm text-muted-foreground" role="status" data-generation-status>
-         <GenerationIcon phase={generation.phase} />
-         <span class="truncate" title={generation.line}>{generation.line}</span>
+      {@const awaiting = generation.phase === 'awaitingApproval'}
+      <div class="flex max-w-96 min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+         {#if awaiting}
+            <WithTooltip text={generation.line}>
+               {#snippet trigger({ props })}
+                  <Button {...props} variant="outline" size="sm" class="shrink-0 border-primary/50 text-primary-text" aria-describedby="{id}-generation" onclick={() => layout.reveal('plan', true)}>
+                     <GenerationIcon phase={generation.phase} />
+                     <span data-review-label>Review the plan</span>
+                  </Button>
+               {/snippet}
+            </WithTooltip>
+         {:else}
+            <GenerationIcon phase={generation.phase} />
+         {/if}
+         <!-- The line keeps one live region in every phase, so the region stays mounted and announces the change to the waiting plan, whose button only names the action. -->
+         <span id="{id}-generation" class={awaiting ? 'sr-only' : 'truncate'} title={awaiting ? undefined : generation.line} role="status" data-generation-status>{generation.line}</span>
       </div>
    {/if}
    {#if layout.popoutFailure !== null}

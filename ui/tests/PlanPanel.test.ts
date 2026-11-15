@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, within } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import PlanPanel from '../src/components/PlanPanel.svelte';
-import type { Plan, Stop } from '../src/lib/types';
+import type { Offer, Plan, Stop, TourControls } from '../src/lib/types';
+import { eventFixtures } from './contract/fixtures.generated';
 
 function stop(id: string, title: string, kind: Stop['kind'], status: Stop['status'], chapter: string): Stop {
    return status === 'pending'
@@ -195,5 +196,54 @@ describe('a plan without parts', () => {
       expect(screen.getAllByRole('heading').map((heading) => heading.tagName)).toEqual(['H3', 'H3']);
       expect(container.querySelector('[aria-expanded]')).toBeNull();
       expect([...container.querySelectorAll('ol.plan > li > h3')].map((heading) => heading.textContent.trim())).toEqual(['What the change does', 'Before you approve']);
+   });
+});
+
+describe("a waiting plan's request for the focus", () => {
+   /** The fixture tour's controls, with the plan's approval as the offer says. */
+   function controlsWith(approvePlan: Offer): TourControls {
+      const { tourId, revision, offers } = structuredClone(eventFixtures.controlsChanged);
+      return { tourId, revision, offers: { ...offers, approvePlan } };
+   }
+
+   function renderProposal(approvePlan: Offer, focusRequests = 0) {
+      const props = {
+         tourSelected: true,
+         known: { plan },
+         error: null,
+         attachment: 'confirmed',
+         familiarity: 'some',
+         planWaits: true,
+         onapprove: async () => null,
+         controls: controlsWith(approvePlan),
+      } as const;
+      const result = render(PlanPanel, { props: { ...props, focusRequests } });
+      return { ...result, request: (count: number) => result.rerender({ ...props, focusRequests: count }) };
+   }
+
+   it('moves the focus to Approve plan', async () => {
+      const { request } = renderProposal({ state: 'open' });
+
+      await request(1);
+
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Approve plan' })));
+   });
+
+   it('moves the focus to the proposal while Approve plan is disabled', async () => {
+      const { request } = renderProposal({ state: 'closed', code: 'noSessionAttached', reason: 'The tour is attached to no Claude Code session' });
+      expect((screen.getByRole('button', { name: 'Approve plan' }) as HTMLButtonElement).disabled).toBe(true);
+
+      await request(1);
+
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('region', { name: 'Plan proposal' })));
+   });
+
+   it('leaves the focus where it is for a request made before the proposal mounted', async () => {
+      renderProposal({ state: 'open' }, 2);
+
+      // Two frames pass, so a focus that the proposal moved after its first frame would show.
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+      expect(document.activeElement).toBe(document.body);
    });
 });

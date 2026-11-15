@@ -29,6 +29,8 @@ export class WorkspaceLayout {
    loads = $state(0);
    /** Each panel's title, which its tab shows. */
    titles = $state<Record<PanelId, string>>({ files: 'Files', plan: 'Plan', diff: 'Code', stop: 'Stop', threads: 'Threads' });
+   /** The number of requests that each panel's content take the focus, which grows with each and which the content follows once it shows. {@link WorkspaceLayout.reveal} makes them. */
+   focusRequests = $state<Record<PanelId, number>>({ files: 0, plan: 0, diff: 0, stop: 0, threads: 0 });
 
    private api: DockviewApi | null = null;
    private menu: HTMLElement | null = null;
@@ -279,11 +281,17 @@ export class WorkspaceLayout {
     * Shows a hidden panel as the active tab of its group, back in the group it shared when that group still shows, and restores another maximized group first.
     *
     * A panel in a popout window only becomes the active tab there, and the main window stays as it is.
+    *
+    * @param focus Whether to ask the panel's content to take the focus, through {@link WorkspaceLayout.focusRequests}, because the content knows which of its controls takes it.
     */
-   reveal(id: PanelId): void {
+   reveal(id: PanelId, focus = false): void {
       const panel = this.api?.getPanel(id);
       if (!panel) {
          return;
+      }
+
+      if (focus) {
+         this.focusRequests[id]++;
       }
 
       if (this.poppedOut[id]) {

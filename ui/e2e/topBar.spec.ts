@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { checkoutTour, openDemoTour, openStop } from './demo';
+import { checkoutTour, contrast, drawnColors, expectPalette, openDemoTour, openStop, over, paletteName, palettes } from './demo';
 
 const header = (page: Page) => page.getByRole('banner');
 const tourZone = (page: Page) => header(page).locator('[data-tour-zone]');
@@ -389,3 +389,85 @@ test.describe('the stop line', () => {
       expect(await text.evaluate((node) => getComputedStyle(node).textOverflow)).toBe('ellipsis');
    });
 });
+
+test.describe("the top bar's Review the plan button", () => {
+   /** The demo's plan-first tour, whose plan waits for the reviewer's approval. */
+   const waitingTour = 'storefront #433';
+   const reviewPlan = (page: Page) => header(page).getByRole('button', { name: 'Review the plan' });
+   const planTab = (page: Page) => page.getByRole('tab', { name: 'Plan' });
+   const approve = (page: Page) => page.getByRole('tabpanel', { name: 'Plan' }).getByRole('button', { name: 'Approve plan' });
+
+   /** Expects the Plan panel to show as the active tab of its group, with the focus on Approve plan. */
+   async function expectPlanFocused(page: Page): Promise<void> {
+      await expect(planTab(page)).toHaveAttribute('aria-selected', 'true');
+      await expect(page.getByRole('tabpanel', { name: 'Plan' })).toBeVisible();
+      await expect(approve(page)).toBeFocused();
+   }
+
+   test("stands where the generation line was, at the height of the bar's other controls, with the full line in its description", async ({ page }) => {
+      await openDemoTour(page, waitingTour, { fontSize: 'medium' });
+      const rootSize = parseFloat(await page.locator('html').evaluate((node) => getComputedStyle(node).fontSize));
+
+      await expect(reviewPlan(page)).toBeVisible();
+      await expect(reviewPlan(page)).toHaveAccessibleDescription('The plan waits for your approval');
+      await expect(header(page).locator('[data-generation-status]')).toHaveText('The plan waits for your approval');
+      expect((await reviewPlan(page).boundingBox())!.height).toBeCloseTo(2 * rootSize, 1);
+   });
+
+   test('shows the Plan panel that the Panels menu hid, and moves the focus to Approve plan', async ({ page }) => {
+      await openDemoTour(page, waitingTour, { fontSize: 'medium' });
+      await page.getByRole('button', { name: 'Panels' }).click();
+      await page.getByRole('menuitemcheckbox', { name: 'Plan' }).click();
+      await page.keyboard.press('Escape');
+      await expect(planTab(page)).toBeHidden();
+
+      await reviewPlan(page).click();
+
+      await expectPlanFocused(page);
+   });
+
+   test('restores another maximized group, opens the Plan tab behind Files, and moves the focus to Approve plan', async ({ page }) => {
+      await openDemoTour(page, waitingTour, { fontSize: 'medium' });
+      await page.getByRole('tab', { name: 'Files' }).click();
+      await expect(planTab(page)).toHaveAttribute('aria-selected', 'false');
+      await page.getByRole('button', { name: 'Maximize the stop' }).click();
+      await expect(planTab(page)).toBeHidden();
+
+      await reviewPlan(page).click();
+
+      await expect(page.getByRole('button', { name: 'Maximize the stop' })).toBeVisible();
+      await expectPlanFocused(page);
+   });
+});
+
+for (const palette of palettes) {
+   test(`gives Review the plan text and an edge that stand off their surfaces, at rest, on hover and with the keyboard's focus, in ${paletteName(palette)}`, async ({ page }) => {
+      await openDemoTour(page, 'storefront #433', palette);
+      await expectPalette(page, palette);
+      await page.mouse.move(0, 500);
+      const button = header(page).getByRole('button', { name: 'Review the plan' });
+      // The button's colors transition, so the transition goes and each state shows its end colors at once.
+      await button.evaluate((node: HTMLElement) => (node.style.transition = 'none'));
+
+      /** Returns the contrast of the label against the button's fill, and of the edge against the bar. */
+      const measure = async () => {
+         const { own, behind } = await drawnColors(button, ['color', 'border-top-color', 'background-color']);
+         const fill = over(own['background-color'], behind);
+         return { label: contrast(over(own.color, fill), fill), edge: contrast(over(own['border-top-color'], behind), behind) };
+      };
+
+      const rest = await measure();
+      expect.soft(rest.label, 'the label against the fill').toBeGreaterThanOrEqual(4.5);
+      expect.soft(rest.edge, 'the edge against the bar').toBeGreaterThanOrEqual(2);
+
+      await button.hover();
+      expect.soft((await measure()).label, 'the label against the hovered fill').toBeGreaterThanOrEqual(4.5);
+
+      await page.mouse.move(0, 500);
+      await page.keyboard.press('Shift');
+      await button.focus();
+      await expect(button).toBeFocused();
+      expect(await button.evaluate((node) => node.matches(':focus-visible')), 'whether the focus shows').toBe(true);
+      expect.soft((await measure()).label, 'the label against the fill with the focus').toBeGreaterThanOrEqual(4.5);
+   });
+}

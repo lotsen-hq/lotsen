@@ -44,6 +44,7 @@
       onfamiliarity = null,
       planWaits = false,
       onapprove = null,
+      focusRequests = 0,
       folded = new Set(),
       onfold = null,
    }: {
@@ -90,6 +91,8 @@
       planWaits?: boolean;
       /** Approves the waiting plan with the proposed order, level and words, and returns null once the server stored the approval or its reason for a refusal, or null when the page offers no approval. */
       onapprove?: ((stopIds: readonly string[], familiarity: Familiarity, text: string) => Promise<string | null>) | null;
+      /** The number of requests that the panel take the focus, as `WorkspaceLayout.focusRequests` counts them, which a waiting plan's proposal follows. */
+      focusRequests?: number;
       /** The IDs of the plan's parts that the reviewer folded, which show only their headings. */
       folded?: ReadonlySet<string>;
       /** Folds a part by its ID, or unfolds it, or null when the page offers no folds, which shows every part unfolded with a plain heading. */
@@ -324,7 +327,7 @@
       <p class="px-4 py-1 text-muted-foreground">Loading the plan…</p>
    {:else}
       {#if planWaits && known.plan !== null && familiarity !== null && onapprove !== null}
-         <PlanProposal plan={known.plan} {familiarity} {controls} {skipsSaving} {skipped} {skipToggle} skipRefusal={refusal} {onapprove} />
+         <PlanProposal plan={known.plan} {familiarity} {controls} {skipsSaving} {skipped} {skipToggle} skipRefusal={refusal} {onapprove} {focusRequests} />
       {:else if familiarity !== null}
          <PlanActions plan={known.plan} {familiarity} {threads} {controls} {onaction} {onfamiliarity} {onopenthread}>
             {@render planOrNotice(known.plan !== null)}

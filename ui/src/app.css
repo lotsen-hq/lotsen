@@ -160,6 +160,8 @@
    --color-popover-foreground: var(--popover-foreground);
    --color-primary: var(--primary);
    --color-primary-foreground: var(--primary-foreground);
+   /* The primary color as the text of a control on a button fill. The primary color alone stands below 4.5:1 there in the Gruvbox dark palette, as e2e/topBar.spec.ts checks. */
+   --color-primary-text: color-mix(in oklab, var(--primary), var(--foreground) 30%);
    --color-secondary: var(--secondary);
    --color-secondary-foreground: var(--secondary-foreground);
    --color-muted: var(--muted);

@@ -23,6 +23,7 @@ function renderBar(props: {
    connection?: ConnectionState;
    attachment?: Attachment | null;
    generation?: GenerationStatus | null;
+   layout?: WorkspaceLayout;
 }) {
    const settings = new Settings(window);
    onTestFinished(() => settings.dispose());
@@ -315,5 +316,53 @@ describe("the top bar's status chip", () => {
       const line = document.querySelector('[data-generation-status]')!;
       expect(line.textContent.trim()).toBe('Claude is writing stop 2 of 3…');
       expect(chip(bar).contains(line)).toBe(false);
+   });
+});
+
+const awaiting: GenerationStatus = { phase: 'awaitingApproval', line: 'The plan waits for your approval' };
+
+describe("the top bar's plan approval", () => {
+   it('shows a Review the plan button with the hourglass, its label in an element of its own and the full line as its description and tooltip', async () => {
+      const bar = renderBar({ generation: awaiting });
+
+      const button = bar.getByRole('button', { name: 'Review the plan' });
+      expect(button.querySelector('svg.lucide-hourglass')).not.toBeNull();
+      expect(button.querySelector('[data-review-label]')?.textContent).toBe('Review the plan');
+      expect(descriptions(button)).toEqual(['The plan waits for your approval']);
+      expect(bar.queryByText('The plan waits for your approval', visibleOnly)).toBeNull();
+      await fireEvent.pointerEnter(button, { pointerType: 'mouse' });
+      await waitFor(() => expect(document.querySelector('[data-tooltip-content]')?.textContent.trim()).toBe('The plan waits for your approval'));
+   });
+
+   it.each([
+      { phase: 'planning', line: 'Claude is reading the PR and planning the tour…' },
+      { phase: 'pinning', line: 'Pinning the pull request to its commits…' },
+      { phase: 'writing', line: 'Claude is writing stop 2 of 3…' },
+   ] as const)('keeps the $phase line as text with no button', (generation) => {
+      const bar = renderBar({ generation });
+
+      expect(bar.queryByRole('button', { name: 'Review the plan' })).toBeNull();
+      expect(bar.getByText(generation.line, visibleOnly).getAttribute('role')).toBe('status');
+   });
+
+   it('reveals the Plan panel and asks it for the focus on a click', async () => {
+      const layout = new WorkspaceLayout();
+      const reveal = vi.spyOn(layout, 'reveal');
+      const bar = renderBar({ generation: awaiting, layout });
+
+      await fireEvent.click(bar.getByRole('button', { name: 'Review the plan' }));
+
+      expect(reveal).toHaveBeenCalledExactlyOnceWith('plan', true);
+   });
+
+   it('announces the waiting plan in the status region that held the line before', async () => {
+      const bar = renderBar({ generation: { phase: 'planning', line: 'Claude is reading the PR and planning the tour…' } });
+      const region = document.querySelector('[data-generation-status]')!;
+
+      await bar.rerender({ generation: awaiting });
+
+      expect(document.querySelector('[data-generation-status]')).toBe(region);
+      expect(region.getAttribute('role')).toBe('status');
+      expect(region.textContent).toBe('The plan waits for your approval');
    });
 });
