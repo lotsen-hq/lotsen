@@ -37,5 +37,20 @@ async function openAboutMenu(): Promise<HTMLElement> {
    return screen.findByRole('menu');
 }
 
+/**
+ * Types the words into the ask box and clicks Send once it is enabled.
+ *
+ * A click on a disabled Send does nothing, and Send stays disabled until the page holds the tour's controls with a bound session.
+ */
+export async function sendQuestion(text: string): Promise<void> {
+   await fireEvent.input(threadsPanel().getByRole('textbox', { name: 'Question for Claude' }), { target: { value: text } });
+   const send = await waitFor(() => {
+      const button = threadsPanel().getByRole('button', { name: 'Send' }) as HTMLButtonElement;
+      expect(button.disabled, 'Send stays disabled').toBe(false);
+      return button;
+   });
+   await fireEvent.click(send);
+}
+
 /** The quote of the pick that the ask box asks about, or null when it shows none. */
 export const quote = () => threadsPanel().queryByRole('group', { name: /^The (selected text|file)$/ });

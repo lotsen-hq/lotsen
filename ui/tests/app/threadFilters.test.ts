@@ -6,7 +6,7 @@ import { lastRequest } from '../../src/lib/threadView';
 import type { AnchorInput, QuestionThread } from '../../src/lib/types';
 import type { ClaudeSession, World } from '../backend/backend';
 import { attachClaude, backend, cartBase, cartContent, cartHead, openTour, prLabel, readTour, seedTour, startApp, withHolds, type HeldTransport } from '../harness';
-import { askAbout } from './askBox';
+import { askAbout, sendQuestion } from './askBox';
 import { chooseWhere, closeMenu, inMenu, itemName, openMenu, showButton, showItem, shownOnButton, toggleShown, whereChoices, whereOnButton } from './threadFilter';
 import { backToList, openThreadView, shownIds, threadRow, threadView, threadViewElement } from './threadView';
 
@@ -121,8 +121,7 @@ async function select(app: LotsenApp, label: string, tourId: string) {
 async function askHeld(question: string, held: { answered: Promise<unknown> }): Promise<() => string | undefined> {
    const before = new Set(shownIds());
    await askAbout('The tour');
-   await fireEvent.input(panel().getByRole('textbox', { name: 'Question for Claude' }), { target: { value: question } });
-   await fireEvent.click(panel().getByRole('button', { name: 'Send' }));
+   await sendQuestion(question);
    await held.answered;
    return () => shownIds().find((threadId) => !before.has(threadId));
 }
@@ -150,8 +149,7 @@ async function setStateInView(threadId: string, name: 'Resolve' | 'Reopen') {
 
 async function askAboutTheTour(app: LotsenApp, question: string, count = 6) {
    await askAbout('The tour');
-   await fireEvent.input(panel().getByRole('textbox', { name: 'Question for Claude' }), { target: { value: question } });
-   await fireEvent.click(panel().getByRole('button', { name: 'Send' }));
+   await sendQuestion(question);
    await waitFor(() => expect(app.selectedThreads).toHaveLength(count));
    await waitFor(() => expect(threadRow(app.selectedThreads.at(-1)!.id)).not.toBeNull());
    return app.selectedThreads.at(-1)!.id;
@@ -487,8 +485,7 @@ describe("the Threads panel's filters in the app", () => {
       await waitFor(() => expect(shownIds()).toEqual([ids.cartCode]));
       const held = transport.holdAnswered('ask_question');
       await askAbout('The tour');
-      await fireEvent.input(panel().getByRole('textbox', { name: 'Question for Claude' }), { target: { value: 'Why two passes?' } });
-      await fireEvent.click(panel().getByRole('button', { name: 'Send' }));
+      await sendQuestion('Why two passes?');
       await held.answered;
 
       await select(app, otherLabel, otherId);
@@ -605,8 +602,7 @@ describe("the Threads panel's filters in the app", () => {
       await waitFor(() => expect(shownIds()).toEqual([ids.cartCode]));
       const held = transport.holdAnswered('ask_question');
       await askAbout('The tour');
-      await fireEvent.input(panel().getByRole('textbox', { name: 'Question for Claude' }), { target: { value: 'Why two passes?' } });
-      await fireEvent.click(panel().getByRole('button', { name: 'Send' }));
+      await sendQuestion('Why two passes?');
       await held.answered;
 
       await select(app, otherLabel, otherId);

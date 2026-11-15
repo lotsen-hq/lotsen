@@ -1,7 +1,8 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
+import { screen, waitFor, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { attachClaude, backend, cartContent, openStop, openTour, readTour, seedTour, startApp, type SeededTour } from '../harness';
 import type { World } from '../backend/backend';
+import { sendQuestion } from './askBox';
 import { stopMenuButton } from './stopToolbar';
 import { openThreadView } from './threadView';
 
@@ -39,8 +40,7 @@ async function cartWorld(): Promise<{ world: World; tourId: string; stopIds: str
 }
 
 async function ask(words: string): Promise<void> {
-   await fireEvent.input(threadsPanel().getByRole('textbox', { name: 'Question for Claude' }), { target: { value: words } });
-   await fireEvent.click(threadsPanel().getByRole('button', { name: 'Send' }));
+   await sendQuestion(words);
 }
 
 describe('the app on a real server', () => {

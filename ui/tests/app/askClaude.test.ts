@@ -7,7 +7,7 @@ import type { QuestionThread } from '../../src/lib/types';
 import type { ClaudeSession, World } from '../backend/backend';
 import { attachClaude, backend, cartBase, cartContent, openStop, openTour, prLabel, readTour, seedTour, startApp, withHolds, type HeldTransport } from '../harness';
 import { openTourList, tourButton } from '../tourPicker';
-import { aboutChoices, askAbout, askedAbout } from './askBox';
+import { aboutChoices, askAbout, askedAbout, sendQuestion } from './askBox';
 import { backToList, openThreadView, threadView, threadViewElement } from './threadView';
 
 beforeEach(() => {
@@ -117,8 +117,7 @@ async function click(label: string) {
 async function ask(text: string, about: string = 'The tour') {
    await askAbout(about);
    await waitFor(() => expect(askedAbout()).toBe(about));
-   await fireEvent.input(askBox(), { target: { value: text } });
-   await fireEvent.click(sendButton());
+   await sendQuestion(text);
 }
 
 /** Confirms the session's channel, as an adapter does with the nonce of its probe. */
@@ -259,6 +258,20 @@ describe('the ask box', () => {
       await waitFor(() => expect(sendButton().disabled).toBe(false));
    });
 
+   it('sends a question typed before the page heard of the session, once it hears', async () => {
+      const { world, tourId, transport } = await start(null);
+      const resume = transport.holdEvents();
+      await attachClaude(world, tourId);
+
+      const asked = ask('Why?');
+      await waitFor(() => expect(askBox().value).toBe('Why?'));
+      expect(sendButton().disabled).toBe(true);
+      resume();
+      await asked;
+
+      await waitFor(async () => expect((await readTour(world, tourId)).threads).toHaveLength(1));
+   });
+
    it('asks about the open stop, with the stop as its anchor', async () => {
       const { app, world, tourId, stopIds } = await start();
       await openStop(app, stopIds[1]);
@@ -276,8 +289,7 @@ describe('the ask box', () => {
 
       expect(askedAbout()).toBe('The tour');
       expect(await aboutChoices()).toEqual([{ name: 'The tour', checked: true }]);
-      await fireEvent.input(askBox(), { target: { value: 'What is this about?' } });
-      await fireEvent.click(sendButton());
+      await sendQuestion('What is this about?');
 
       await waitFor(async () => expect((await readTour(world, tourId)).threads).toHaveLength(1));
       expect((await firstThread(world, tourId)).anchor).toEqual({ kind: 'tour' });

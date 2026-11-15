@@ -7,7 +7,7 @@ import type { ViewMode } from '../../src/lib/viewMode';
 import type { ClaudeSession, World } from '../backend/backend';
 import { attachClaude, backend, openTour, prLabel, readTour, seedTour, startApp, withHolds, type HeldTransport } from '../harness';
 import { openTourList, tourButton } from '../tourPicker';
-import { aboutChoices, askedAbout, quote } from './askBox';
+import { aboutChoices, askedAbout, quote, sendQuestion } from './askBox';
 import { openThreadView, threadViewElement } from './threadView';
 
 beforeEach(() => {
@@ -172,8 +172,7 @@ function selectWords(element: Element, words: string): void {
 
 /** Sends a question from the ask box, with what is picked there, and returns the input that the page sent. */
 async function send(text: string): Promise<Record<string, unknown>> {
-   await fireEvent.input(askBox(), { target: { value: text } });
-   await fireEvent.click(threadsPanel().getByRole('button', { name: 'Send' }));
+   await sendQuestion(text);
    return waitFor(() => {
       const request = transport.requests.findLast((candidate) => candidate.operation === 'ask_question');
       expect(request?.input).toBeDefined();

@@ -4,6 +4,7 @@ import type { LotsenApp } from '../../src/lib/app.svelte';
 import type { QuestionThread, UpdatedThread } from '../../src/lib/types';
 import type { ClaudeSession, World } from '../backend/backend';
 import { attachClaude, backend, cartContent, openTour, readTour, seedTour, startApp, withHolds, type HeldTransport } from '../harness';
+import { sendQuestion } from './askBox';
 import { backToList, chooseFromThreadMenu, openThreadView, threadRow } from './threadView';
 
 beforeEach(() => {
@@ -344,8 +345,7 @@ describe('notes in the Threads panel', () => {
 
    it('shows a sent question as sent, and as received once Claude fetched it', async () => {
       const { app, tourId, claude } = await start(true);
-      await fireEvent.input(askBox(), { target: { value: 'Why two passes?' } });
-      await fireEvent.click(sendButton());
+      await sendQuestion('Why two passes?');
       await waitFor(() => expect(app.selectedThreads).toHaveLength(1));
       const id = app.selectedThreads[0]!.id;
       const view = await openThreadView(id);
@@ -362,8 +362,7 @@ describe('notes in the Threads panel', () => {
    it("keeps a received mark that arrives before the ask's response", async () => {
       const { app, tourId, claude, transport } = await start(true);
       const held = transport.holdAnswered('ask_question');
-      await fireEvent.input(askBox(), { target: { value: 'Why two passes?' } });
-      await fireEvent.click(sendButton());
+      await sendQuestion('Why two passes?');
       await held.answered;
       await waitFor(() => expect(app.selectedThreads).toHaveLength(1));
       const id = app.selectedThreads[0]!.id;
