@@ -278,6 +278,11 @@ which the browser's address shows after `#tour=`.
   The thread view shows "Type" as "Concern", and the summary page lists the thread under Concerns, marked "Your
   finding". Change the type to "Decision" in the thread view: it moves to Decisions, and Claude gets no new question.
   Ask Claude for the tour's `read_summary`: it lists the thread under `typedThreads.decisions`.
+- With that thread as the tour's only decision, open the summary page: "Draft work items" is enabled, though no
+  answer of yours is a decision. Click it and send it. Claude's `fetch_question` lists the thread under
+  `decisionThreads` of the action, and Claude proposes a work item for your finding in the terminal, in your words, not
+  as its own. Decline it there. Save a note of type "Open question" without sending it: "Walk through open questions"
+  stays disabled. Discard the note.
 - Open each note and tick "Send with other notes". Back in the list, click "Send chosen notes" in the bar above the ask
   box, which says "2 notes chosen.". Each thread shows "Sent", then "Received" once Claude calls `fetch_question` for
   it. Claude answers each in its own thread.

@@ -353,6 +353,19 @@ public sealed partial class SkillTests
       Assert.Contains($"Its `{fingerprint}` identifies the summary as you read it, at the tour's pin, and `write_synthesis` takes it as `{basedOn}`", summary, StringComparison.Ordinal);
    }
 
+   /// <summary>The group's name comes from the summary's type, so a rename must reach the section.</summary>
+   [Fact]
+   public void Skill_tells_Claude_that_typed_threads_are_the_reviewers_findings_which_a_synthesis_and_the_follow_ups_hand_on_as_theirs()
+   {
+      static string Normalized(string text) => string.Join(' ', text.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
+      var summary = Normalized(Subsection("### The review summary"));
+      var typed = PropertyName(LotsenJsonContext.Default.ReviewSummary, nameof(ReviewSummary.TypedThreads));
+
+      Assert.Contains($"The threads in `{typed}` are the reviewer's own findings, not yours", summary, StringComparison.Ordinal);
+      Assert.Contains("A synthesis lists them as the reviewer's findings, never in your own voice", summary, StringComparison.Ordinal);
+      Assert.Contains("The summary page's follow-ups hand you these threads beside the answers", summary, StringComparison.Ordinal);
+   }
+
    /// <summary>The thread tools are the agent tools whose access declaration lets the bound session write its threads, so a tool that the catalog adds there must reach the section.</summary>
    [Fact]
    public void Skill_tells_Claude_when_to_use_each_tool_that_writes_its_own_threads()

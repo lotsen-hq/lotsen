@@ -221,14 +221,14 @@ internal closed record QuestionThread
 
          private protected override Sent Rebuilt(ThreadAnchor anchor, QuestionThreadState state, IReadOnlyList<ThreadMessage> messages) => new Asked(Id, anchor, state, messages, Action, Type);
 
-         // The serializer refuses a missing or null list, but not a null element in one.
+         // The serializer refuses a missing or null list of answers, risks or stop IDs, but not a null element in any list.
          private static bool HasNullElement(TourAction action) => action switch
          {
             TourAction.Explain or TourAction.Revise or TourAction.Replan or TourAction.Summarize => false,
             TourAction.Reorder reorder => HasNullItem(reorder.StopIds),
-            TourAction.FollowUp.DraftWorkItems work => HasNullItem(work.Decisions),
-            TourAction.FollowUp.WalkOpenQuestions walk => HasNullItem(walk.OpenQuestions),
-            TourAction.FollowUp.DraftComments drafts => HasNullItem(drafts.Concerns) || HasNullItem(drafts.Risks),
+            TourAction.FollowUp.DraftWorkItems work => HasNullItem(work.Decisions) || HasNullItem(work.DecisionThreads ?? []),
+            TourAction.FollowUp.WalkOpenQuestions walk => HasNullItem(walk.OpenQuestions) || HasNullItem(walk.OpenQuestionThreads ?? []),
+            TourAction.FollowUp.DraftComments drafts => HasNullItem(drafts.Concerns) || HasNullItem(drafts.Risks) || HasNullItem(drafts.ConcernThreads ?? []),
          };
 
          private static bool HasNullItem<TItem>(IReadOnlyList<TItem> items) => items.Any(item => item is null);

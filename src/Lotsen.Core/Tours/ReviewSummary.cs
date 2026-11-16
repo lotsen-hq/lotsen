@@ -312,10 +312,17 @@ internal sealed record SummaryStaleStop(string StopId, string Title, int StaleOn
 internal sealed record SummarySynthesis(string Text, DateTimeOffset WrittenAt, TourPin.Pinned Pin, bool PredatesSummary);
 
 /// <summary>Why each follow-up action has nothing to hand to Claude, the reason that a request of it gets, so the summary page disables its button with that reason.</summary>
-/// <param name="DraftWorkItems">The reason for <c>draftWorkItems</c>, or null when the summary holds a decision. JSON leaves it out when null.</param>
-/// <param name="WalkOpenQuestions">The reason for <c>walkOpenQuestions</c>, or null when the summary holds an open question. JSON leaves it out when null.</param>
+/// <param name="DraftWorkItems">
+/// The reason for <c>draftWorkItems</c>, or null when the summary holds a decision or a typed thread that <see cref="TourAction.FollowUp.DraftWorkItems"/> hands to Claude. JSON leaves it out
+/// when null.
+/// </param>
+/// <param name="WalkOpenQuestions">
+/// The reason for <c>walkOpenQuestions</c>, or null when the summary holds an open question or a typed thread that <see cref="TourAction.FollowUp.WalkOpenQuestions"/> hands to Claude. JSON
+/// leaves it out when null.
+/// </param>
 /// <param name="DraftComments">
-/// The reason for <c>draftComments</c>, or null when the summary holds a concern or a risk stop that <see cref="TourAction.FollowUp.DraftComments"/> hands to Claude. JSON leaves it out when null.
+/// The reason for <c>draftComments</c>, or null when the summary holds a concern, a typed thread or a risk stop that <see cref="TourAction.FollowUp.DraftComments"/> hands to Claude. JSON leaves
+/// it out when null.
 /// </param>
 internal sealed record SummaryFollowUps(
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? DraftWorkItems,

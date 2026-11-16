@@ -66,7 +66,100 @@ public sealed class ActionRulesTests
          new ActionRequest.FollowUp.DraftComments(),
          "",
          Admitted("""{"kind":"tour"}""", """{"kind":"draftComments","concerns":[],"risks":[{"stopId":"r1","title":"Stop r1","scenario":"It breaks."}]}""")),
+      ["draftWorkItems hands the sent decisions and the sent decision threads"] = (
+         Answered(AnswerType.Decision) with { Threads = ThreadFixtures.Threads(SentThread(AnswerType.Decision)) },
+         new ActionRequest.FollowUp.DraftWorkItems(),
+         "",
+         Admitted(
+            """{"kind":"tour"}""",
+            """{"kind":"draftWorkItems","decisions":[{"stopId":"s1","checkId":"c1","text":"Sent.","type":"decision","stopTitle":"Stop s1"}],"decisionThreads":[{"threadId":"t1","anchor":{"kind":"stop","stopId":"s1"},"text":"Found.","type":"decision","state":"open","stopId":"s1","stopTitle":"Stop s1"}]}""")),
+      ["draftWorkItems hands a sent decision thread alone"] = (
+         Planned() with { Threads = ThreadFixtures.Threads(SentThread(AnswerType.Decision)) },
+         new ActionRequest.FollowUp.DraftWorkItems(),
+         "",
+         Admitted("""{"kind":"tour"}""", """{"kind":"draftWorkItems","decisions":[],"decisionThreads":[{"threadId":"t1","anchor":{"kind":"stop","stopId":"s1"},"text":"Found.","type":"decision","state":"open","stopId":"s1","stopTitle":"Stop s1"}]}""")),
+      ["walkOpenQuestions hands a sent open question thread alone"] = (
+         Planned() with { Threads = ThreadFixtures.Threads(SentThread(AnswerType.OpenQuestion)) },
+         new ActionRequest.FollowUp.WalkOpenQuestions(),
+         "",
+         Admitted(
+            """{"kind":"tour"}""",
+            """{"kind":"walkOpenQuestions","openQuestions":[],"openQuestionThreads":[{"threadId":"t1","anchor":{"kind":"stop","stopId":"s1"},"text":"Found.","type":"openQuestion","state":"open","stopId":"s1","stopTitle":"Stop s1"}]}""")),
+      ["draftComments hands a sent concern thread alone"] = (
+         Planned() with { Threads = ThreadFixtures.Threads(SentThread(AnswerType.Concern)) },
+         new ActionRequest.FollowUp.DraftComments(),
+         "",
+         Admitted(
+            """{"kind":"tour"}""",
+            """{"kind":"draftComments","concerns":[],"risks":[],"concernThreads":[{"threadId":"t1","anchor":{"kind":"stop","stopId":"s1"},"text":"Found.","type":"concern","state":"open","stopId":"s1","stopTitle":"Stop s1"}]}""")),
+      ["draftWorkItems hands a resolved decision thread with its state"] = (
+         Planned() with { Threads = ThreadFixtures.Threads(SentThread(AnswerType.Decision, QuestionThreadState.Resolved)) },
+         new ActionRequest.FollowUp.DraftWorkItems(),
+         "",
+         Admitted(
+            """{"kind":"tour"}""",
+            """{"kind":"draftWorkItems","decisions":[],"decisionThreads":[{"threadId":"t1","anchor":{"kind":"stop","stopId":"s1"},"text":"Found.","type":"decision","state":"resolved","stopId":"s1","stopTitle":"Stop s1"}]}""")),
+      ["draftComments hands a resolved concern thread with its state"] = (
+         Planned() with { Threads = ThreadFixtures.Threads(SentThread(AnswerType.Concern, QuestionThreadState.Resolved)) },
+         new ActionRequest.FollowUp.DraftComments(),
+         "",
+         Admitted(
+            """{"kind":"tour"}""",
+            """{"kind":"draftComments","concerns":[],"risks":[],"concernThreads":[{"threadId":"t1","anchor":{"kind":"stop","stopId":"s1"},"text":"Found.","type":"concern","state":"resolved","stopId":"s1","stopTitle":"Stop s1"}]}""")),
+      ["walkOpenQuestions hands the open thread and not the resolved or outdated one"] = (
+         Planned() with
+         {
+            Threads = ThreadFixtures.Threads(
+               SentThread(AnswerType.OpenQuestion, QuestionThreadState.Resolved, "t1"),
+               SentThread(AnswerType.OpenQuestion, QuestionThreadState.Open, "t2"),
+               SentThread(AnswerType.OpenQuestion, QuestionThreadState.Outdated, "t3")),
+         },
+         new ActionRequest.FollowUp.WalkOpenQuestions(),
+         "",
+         Admitted(
+            """{"kind":"tour"}""",
+            """{"kind":"walkOpenQuestions","openQuestions":[],"openQuestionThreads":[{"threadId":"t2","anchor":{"kind":"stop","stopId":"s1"},"text":"Found.","type":"openQuestion","state":"open","stopId":"s1","stopTitle":"Stop s1"}]}""")),
+      ["draftWorkItems with only an outdated decision thread"] = (
+         Planned() with { Threads = ThreadFixtures.Threads(SentThread(AnswerType.Decision, QuestionThreadState.Outdated)) },
+         new ActionRequest.FollowUp.DraftWorkItems(),
+         "",
+         Refused("action", ActionRules.DecisionThreadsOutdated)),
+      ["walkOpenQuestions with only a resolved open question thread"] = (
+         Planned() with { Threads = ThreadFixtures.Threads(SentThread(AnswerType.OpenQuestion, QuestionThreadState.Resolved)) },
+         new ActionRequest.FollowUp.WalkOpenQuestions(),
+         "",
+         Refused("action", ActionRules.OpenQuestionThreadsSettled)),
+      ["walkOpenQuestions with only an outdated open question thread"] = (
+         Planned() with { Threads = ThreadFixtures.Threads(SentThread(AnswerType.OpenQuestion, QuestionThreadState.Outdated)) },
+         new ActionRequest.FollowUp.WalkOpenQuestions(),
+         "",
+         Refused("action", ActionRules.OpenQuestionThreadsSettled)),
+      ["draftComments with only an outdated concern thread"] = (
+         Planned() with { Threads = ThreadFixtures.Threads(SentThread(AnswerType.Concern, QuestionThreadState.Outdated)) },
+         new ActionRequest.FollowUp.DraftComments(),
+         "",
+         Refused("action", ActionRules.ConcernThreadsOutdated)),
+      ["draftWorkItems hands no sent thread of another type"] = (
+         Answered(AnswerType.Decision) with { Threads = ThreadFixtures.Threads(SentThread(AnswerType.Concern)) },
+         new ActionRequest.FollowUp.DraftWorkItems(),
+         "",
+         Admitted("""{"kind":"tour"}""", """{"kind":"draftWorkItems","decisions":[{"stopId":"s1","checkId":"c1","text":"Sent.","type":"decision","stopTitle":"Stop s1"}]}""")),
       ["draftWorkItems with only a draft decision"] = (Answered(AnswerType.Decision, AnswerState.Draft), new ActionRequest.FollowUp.DraftWorkItems(), "", Refused("action", ActionRules.NoDecisionSent)),
+      ["draftWorkItems with only an unsent decision note"] = (
+         Planned() with { Threads = ThreadFixtures.Threads(UnsentNote(AnswerType.Decision)) },
+         new ActionRequest.FollowUp.DraftWorkItems(),
+         "",
+         Refused("action", ActionRules.NoDecisionSent)),
+      ["walkOpenQuestions with only an unsent open question note"] = (
+         Planned() with { Threads = ThreadFixtures.Threads(UnsentNote(AnswerType.OpenQuestion)) },
+         new ActionRequest.FollowUp.WalkOpenQuestions(),
+         "",
+         Refused("action", ActionRules.NoOpenQuestionSent)),
+      ["draftComments with only an unsent concern note"] = (
+         Planned() with { Threads = ThreadFixtures.Threads(UnsentNote(AnswerType.Concern)) },
+         new ActionRequest.FollowUp.DraftComments(),
+         "",
+         Refused("action", ActionRules.NoConcernSent)),
       ["walkOpenQuestions with no sent open question"] = (Answered(AnswerType.Decision), new ActionRequest.FollowUp.WalkOpenQuestions(), "", Refused("action", ActionRules.NoOpenQuestionSent)),
       ["draftComments with only a pending or skipped risk stop"] = (
          Tour(Plan(Written("r1", StopKind.Risk) with { Skipped = true }, Pending("r2", StopKind.Risk))),
@@ -103,6 +196,66 @@ public sealed class ActionRulesTests
          Refused("action.stopIds", "Claude changed the plan's stops since you proposed this order")),
       ["summarize goes again"] = (Planned(), new ThreadAnchor.WholeTour(), new TourAction.Summarize(), null),
       ["follow-up action goes again with its stored items"] = (Tour(), new ThreadAnchor.WholeTour(), new TourAction.FollowUp.DraftWorkItems([]), null),
+      ["walkOpenQuestions whose thread stays open goes again"] = (
+         Threaded(AnswerType.OpenQuestion, QuestionThreadState.Open),
+         new ThreadAnchor.WholeTour(),
+         new TourAction.FollowUp.WalkOpenQuestions([], [Item(AnswerType.OpenQuestion, ReviewerThreadState.Open)]),
+         null),
+      ["walkOpenQuestions whose thread the reviewer resolved since"] = (
+         Threaded(AnswerType.OpenQuestion, QuestionThreadState.Resolved),
+         new ThreadAnchor.WholeTour(),
+         new TourAction.FollowUp.WalkOpenQuestions([], [Item(AnswerType.OpenQuestion, ReviewerThreadState.Open)]),
+         Refused("action.openQuestionThreads[0]", "You resolved this open question since you asked")),
+      ["walkOpenQuestions whose thread is outdated since"] = (
+         Threaded(AnswerType.OpenQuestion, QuestionThreadState.Outdated),
+         new ThreadAnchor.WholeTour(),
+         new TourAction.FollowUp.WalkOpenQuestions([], [Item(AnswerType.OpenQuestion, ReviewerThreadState.Open)]),
+         Refused("action.openQuestionThreads[0]", "A thread that this request hands to Claude is outdated since you asked")),
+      ["draftWorkItems whose thread the reviewer resolved since goes again"] = (
+         Threaded(AnswerType.Decision, QuestionThreadState.Resolved),
+         new ThreadAnchor.WholeTour(),
+         new TourAction.FollowUp.DraftWorkItems([], [Item(AnswerType.Decision, ReviewerThreadState.Open)]),
+         null),
+      ["draftWorkItems whose resolved thread the reviewer reopened since goes again"] = (
+         Threaded(AnswerType.Decision, QuestionThreadState.Open),
+         new ThreadAnchor.WholeTour(),
+         new TourAction.FollowUp.DraftWorkItems([], [Item(AnswerType.Decision, ReviewerThreadState.Resolved)]),
+         null),
+      ["draftWorkItems whose thread is outdated since"] = (
+         Threaded(AnswerType.Decision, QuestionThreadState.Outdated),
+         new ThreadAnchor.WholeTour(),
+         new TourAction.FollowUp.DraftWorkItems([], [Item(AnswerType.Decision, ReviewerThreadState.Open)]),
+         Refused("action.decisionThreads[0]", "is outdated since you asked. Cancel this request if it still waits, then click \"Draft work items\" again on the summary page, which leaves out outdated threads.")),
+      ["draftComments whose thread the reviewer resolved since goes again"] = (
+         Threaded(AnswerType.Concern, QuestionThreadState.Resolved),
+         new ThreadAnchor.WholeTour(),
+         new TourAction.FollowUp.DraftComments([], [], [Item(AnswerType.Concern, ReviewerThreadState.Open)]),
+         null),
+      ["draftWorkItems whose thread is deleted since"] = (
+         Planned(),
+         new ThreadAnchor.WholeTour(),
+         new TourAction.FollowUp.DraftWorkItems([], [Item(AnswerType.Decision, ReviewerThreadState.Open)]),
+         Refused("action.decisionThreads[0]", "A thread that this request hands to Claude is deleted since you asked")),
+      ["walkOpenQuestions whose thread is deleted since"] = (
+         Planned(),
+         new ThreadAnchor.WholeTour(),
+         new TourAction.FollowUp.WalkOpenQuestions([], [Item(AnswerType.OpenQuestion, ReviewerThreadState.Open)]),
+         Refused("action.openQuestionThreads[0]", "A thread that this request hands to Claude is deleted since you asked")),
+      ["draftComments whose thread is deleted since"] = (
+         Planned(),
+         new ThreadAnchor.WholeTour(),
+         new TourAction.FollowUp.DraftComments([], [], [Item(AnswerType.Concern, ReviewerThreadState.Resolved)]),
+         Refused("action.concernThreads[0]", "is deleted since you asked. Cancel this request if it still waits, then click \"Draft PR comments\" again on the summary page.")),
+      ["draftWorkItems whose thread changed its type since goes again"] = (
+         Threaded(AnswerType.Concern, QuestionThreadState.Open),
+         new ThreadAnchor.WholeTour(),
+         new TourAction.FollowUp.DraftWorkItems([], [Item(AnswerType.Decision, ReviewerThreadState.Open)]),
+         null),
+      ["draftComments whose thread is outdated since"] = (
+         Threaded(AnswerType.Concern, QuestionThreadState.Outdated),
+         new ThreadAnchor.WholeTour(),
+         new TourAction.FollowUp.DraftComments([], [], [Item(AnswerType.Concern, ReviewerThreadState.Resolved)]),
+         Refused("action.concernThreads[0]", "A thread that this request hands to Claude is outdated since you asked")),
    };
 
    public static TheoryData<string> AdmissionRows => [.. Admissions.Keys];
@@ -202,6 +355,17 @@ public sealed class ActionRulesTests
 
    private static Tour Answered(AnswerType type, AnswerState state = AnswerState.Sent) =>
       Planned() with { Answers = [new CheckAnswer("s1", "c1", "Sent.", type, state, Now, state == AnswerState.Draft ? null : Batch)] };
+
+   // A thread on stop s1 that the reviewer asked, of the type.
+   private static QuestionThread SentThread(AnswerType type, QuestionThreadState state = QuestionThreadState.Open, string id = "t1") =>
+      ThreadFixtures.Asked(id, new ThreadAnchor.WholeStop("s1"), state, text: "Found.", type: type);
+
+   private static Tour Threaded(AnswerType type, QuestionThreadState state) => Planned() with { Threads = ThreadFixtures.Threads(SentThread(type, state)) };
+
+   // The stored item of the thread that SentThread returns, in the state that the action stored.
+   private static FollowUpThread Item(AnswerType type, ReviewerThreadState state) => new("t1", new ThreadAnchor.WholeStop("s1"), "Found.", type, state, "s1", "Stop s1");
+
+   private static QuestionThread UnsentNote(AnswerType type) => ThreadFixtures.Note("t1", new ThreadAnchor.WholeStop("s1"), "Found.", type: type);
 
    private static ActionRequest Explain(StopTarget target) => new ActionRequest.Explain(target);
 

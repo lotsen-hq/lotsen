@@ -632,6 +632,11 @@ changed since the one that the synthesis is based on, such as a new answer, a re
 type or an update to an iteration with another head. Like `read_state`, it leaves out the reviewer's draft answers and
 notes.
 
+The threads in `typedThreads` are the reviewer's own findings, not yours. A synthesis lists them as the reviewer's
+findings, never in your own voice, such as "You noted that the cap drifts." The summary page's follow-ups hand you these
+threads beside the answers, with each thread's state when the reviewer asked, as the `howToAct` of each says. They
+never hand an outdated thread or a note that the reviewer has not sent.
+
 ## Errors
 
 A refused call stored nothing. Most refusals name the field that broke a rule, then what is wrong, such as

@@ -63,6 +63,48 @@ public sealed class TourOffersTests
          FollowUp(TourAction.DraftCommentsKind),
          Requested(new ActionRequest.FollowUp.DraftComments()),
          "drafts comments from the concerns"),
+      ["draftWorkItems with only a sent decision thread"] = (With(Planned(), Typed(AnswerType.Decision)), FollowUp(TourAction.DraftWorkItemsKind), Requested(new ActionRequest.FollowUp.DraftWorkItems()), null),
+      ["walkOpenQuestions with only a sent open question thread"] = (
+         With(Planned(), Typed(AnswerType.OpenQuestion)),
+         FollowUp(TourAction.WalkOpenQuestionsKind),
+         Requested(new ActionRequest.FollowUp.WalkOpenQuestions()),
+         null),
+      ["draftComments with only a sent concern thread"] = (With(Planned(), Typed(AnswerType.Concern)), FollowUp(TourAction.DraftCommentsKind), Requested(new ActionRequest.FollowUp.DraftComments()), null),
+      ["walkOpenQuestions with only a resolved open question thread"] = (
+         With(Planned(), Typed(AnswerType.OpenQuestion, QuestionThreadState.Resolved)),
+         FollowUp(TourAction.WalkOpenQuestionsKind),
+         Requested(new ActionRequest.FollowUp.WalkOpenQuestions()),
+         ActionRules.OpenQuestionThreadsSettled),
+      ["draftComments with only an outdated concern thread"] = (
+         With(Planned(), Typed(AnswerType.Concern, QuestionThreadState.Outdated)),
+         FollowUp(TourAction.DraftCommentsKind),
+         Requested(new ActionRequest.FollowUp.DraftComments()),
+         ActionRules.ConcernThreadsOutdated),
+      ["draftWorkItems with only an outdated decision thread"] = (
+         With(Planned(), Typed(AnswerType.Decision, QuestionThreadState.Outdated)),
+         FollowUp(TourAction.DraftWorkItemsKind),
+         Requested(new ActionRequest.FollowUp.DraftWorkItems()),
+         ActionRules.DecisionThreadsOutdated),
+      ["draftWorkItems with only a resolved decision thread"] = (
+         With(Planned(), Typed(AnswerType.Decision, QuestionThreadState.Resolved)),
+         FollowUp(TourAction.DraftWorkItemsKind),
+         Requested(new ActionRequest.FollowUp.DraftWorkItems()),
+         null),
+      ["draftWorkItems with only an unsent decision note"] = (
+         With(Planned(), TypedNote(AnswerType.Decision)),
+         FollowUp(TourAction.DraftWorkItemsKind),
+         Requested(new ActionRequest.FollowUp.DraftWorkItems()),
+         ActionRules.NoDecisionSent),
+      ["walkOpenQuestions with only an unsent open question note"] = (
+         With(Planned(), TypedNote(AnswerType.OpenQuestion)),
+         FollowUp(TourAction.WalkOpenQuestionsKind),
+         Requested(new ActionRequest.FollowUp.WalkOpenQuestions()),
+         ActionRules.NoOpenQuestionSent),
+      ["draftComments with only an unsent concern note"] = (
+         With(Planned(), TypedNote(AnswerType.Concern)),
+         FollowUp(TourAction.DraftCommentsKind),
+         Requested(new ActionRequest.FollowUp.DraftComments()),
+         ActionRules.NoConcernSent),
 
       ["level change of a plan-first tour without a plan"] = (Tour() with { PlanApproval = PlanApproval.Awaited }, offers => offers.Level.Change, LevelChanged, "Claude has not set the plan yet"),
       ["level change of a plan-first tour before the approval"] = (Planned() with { PlanApproval = PlanApproval.Awaited }, offers => offers.Level.Change, LevelChanged, "this tour was started plan first, so its familiarity level goes to Claude with your approval of the plan. Pick the level in the plan proposal"),
@@ -253,6 +295,10 @@ public sealed class TourOffersTests
    private static CheckAnswer Draft(string stopId = "s1", string checkId = "c1") => new(stopId, checkId, "Yes.", AnswerType.Decision, AnswerState.Draft, Now);
 
    private static Tour Answered(AnswerType type) => Planned() with { Answers = [new CheckAnswer("s1", "c1", "Sent.", type, AnswerState.Sent, Now, Batch)] };
+
+   private static QuestionThread Typed(AnswerType type, QuestionThreadState state = QuestionThreadState.Open) => Asked("t1", new ThreadAnchor.WholeTour(), state, text: "Found.", type: type);
+
+   private static QuestionThread TypedNote(AnswerType type) => Note("t1", new ThreadAnchor.WholeTour(), "Found.", type: type);
 
    private static Tour Updatable() =>
       Planned() with { AvailableIteration = new AvailableIteration(Pinned with { Head = CommitId.Parse(new string('c', 40)), Iteration = 2 }, ["s1"], Now) };

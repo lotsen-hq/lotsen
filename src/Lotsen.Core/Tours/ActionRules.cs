@@ -8,10 +8,13 @@ namespace Lotsen.Tours;
 /// </remarks>
 internal static class ActionRules
 {
-   // Why each follow-up action has nothing to hand, which the summary page also shows beside its disabled button.
-   public const string NoDecisionSent = "No decision has been sent to Claude yet. Answer a check with a decision, then send your answers.";
-   public const string NoOpenQuestionSent = "No open question has been sent to Claude yet. Answer a check with an open question, then send your answers.";
-   public const string NoConcernSent = "No concern has been sent to Claude yet, and every risk stop is still unwritten or skipped. Answer a check with a concern, then send your answers.";
+   // Why each follow-up action has nothing to hand, which the summary page also shows beside its disabled button: nothing sent, or only sent typed threads that it omits by their state.
+   public const string NoDecisionSent = "No decision has been sent to Claude yet. Answer a check with a decision and send your answers, or send a note with the type Decision.";
+   public const string NoOpenQuestionSent = "No open question has been sent to Claude yet. Answer a check with an open question and send your answers, or send a note with the type Open question.";
+   public const string NoConcernSent = "No concern has been sent to Claude yet, and every risk stop is still unwritten or skipped. Answer a check with a concern and send your answers, or send a note with the type Concern.";
+   public const string DecisionThreadsOutdated = "Every decision that you sent as a thread is outdated, so Claude gets none of them. Reopen one in its thread view, or answer a check with a decision and send your answers.";
+   public const string OpenQuestionThreadsSettled = "Every open question that you sent as a thread is resolved or outdated, so Claude gets none of them. Reopen one in its thread view, or answer a check with an open question and send your answers.";
+   public const string ConcernThreadsOutdated = "Every concern that you sent as a thread is outdated, and every risk stop is still unwritten or skipped. Reopen a concern in its thread view, or answer a check with a concern and send your answers.";
 
    // The sentences that the rules of more than one kind share, served to Claude. DecisionRules uses the public ones.
    public const string ProposedOrderRule = "A proposed order is a request, not an order to copy, because a stop can rely on the stops before it. Keep such a stop after the stops it relies on, give the chapters, and the parts if the plan has any, to the new order, and say in the reply where your order differs from the proposal and why.";
@@ -20,7 +23,9 @@ internal static class ActionRules
    private const string ResolveRule = "Then resolve the action with one short reply: done once the stop or the plan holds the result, with a sentence or two on what changed, needsAnswer when you need the reviewer's answer before you can act, or declined when you will not do it, with the reason in text. The answer to a needsAnswer comes as a follow-up in the same thread, a question about this action: carry the action out then, and reply to the follow-up.";
    private const string PlanResolveRule = $"{ResolveRule} Write the plan's new stops after the reply.";
    private const string AnswerItemFields = "each with its stopId, stopTitle, checkId, the check's question, the reviewer's text and its type";
-   private const string FollowUpItemsRule = "The items are what the reviewer had sent when they asked, and never their draft answers. lotsen collected them from the review summary, so a later answer does not change them, and a repeat of the action carries the same items. The reviewer's words, when there are any, say what to keep in mind.";
+   private const string ThreadItemFields = "each with its threadId, its anchor, its stopId when the thread is about a stop and its stopTitle when the plan still has that stop, the reviewer's text, which is the thread's first question, its type and its state when the reviewer asked, open or resolved";
+   private const string FollowUpItemsRule = "The items are what the reviewer had sent when they asked, and never their draft answers or their unsent notes. lotsen collected them from the review summary, so a later answer or a later change of a thread's type or state does not change them, and a repeat of the action carries the same items. lotsen refuses a repeat that would hand a deleted or outdated thread, or for walkOpenQuestions a resolved one. The reviewer's words, when there are any, say what to keep in mind.";
+   private const string ThreadItemsRule = "A thread item is the reviewer's own finding, in the reviewer's words, not yours: a question that the reviewer sent and filed as a decision, a concern or an open question. Read the replies in its thread with read_state when they matter. lotsen leaves out an outdated thread, as it leaves out an outdated answer, and the action leaves out a list of threads that would be empty.";
    private const string NoLotsenActionRule = "lotsen itself creates no work item, posts no comment and changes nothing in the repository, and none of its tools can.";
 
    private static readonly FieldPath ActionField = "action";
@@ -30,9 +35,9 @@ internal static class ActionRules
    /// <summary>Returns the anchor and the stored action of a new request, or why the request cannot go to the tour now.</summary>
    /// <remarks>
    /// Explain and revise resolve their target with <see cref="StopTargets.Resolve"/>, need a stop with content, and stamp a whole stop's current version on the action. Every other kind takes the
-   /// whole tour. Replan, reorder and summarize need a plan, a revise and a replan need words, and a reorder names every stop of the plan once. A follow-up action needs an item in its group of the summary
-   /// that an agent session reads, and the stored action carries those items. The refusals that the tour's state alone gives come from <see cref="Offer"/>, before the input's own checks. The
-   /// waiting rule is the thread table's.
+   /// whole tour. Replan, reorder and summarize need a plan, a revise and a replan need words, and a reorder names every stop of the plan once. A follow-up action needs an item in its group of the
+   /// summary that an agent session reads, a sent answer or a sent typed thread, and the stored action carries those items. The refusals that the tour's state alone gives come from
+   /// <see cref="Offer"/>, before the input's own checks. The waiting rule is the thread table's.
    /// </remarks>
    /// <param name="tour">The latest stored tour.</param>
    /// <param name="request">The request.</param>
@@ -60,7 +65,7 @@ internal static class ActionRules
    /// <remarks>
    /// The reviewer reads the refusal beside the Re-send button, so a refusal because the tour moved past the action says what changed since the request and what to do in the UI. A whole stop's
    /// action is refused once the stop's version is newer than the stored one, because the server cannot tell the revision that the action asked for from another one. A follow-up action carries
-   /// the items that its request stored, so it checks nothing again.
+   /// the items that its request stored, as <see cref="CheckThreadsAgain"/> checks them.
    /// </remarks>
    public static OperationError? CheckResend(Tour tour, ThreadAnchor anchor, TourAction action) => action switch
    {
@@ -72,7 +77,7 @@ internal static class ActionRules
             ? null
             : OperationError.Invalid(ActionField.Then("stopIds"), "Claude changed the plan's stops since you proposed this order. Propose an order of the current plan's stops from the Plan panel.")),
       TourAction.Summarize => NoReview(tour),
-      TourAction.FollowUp => null,
+      TourAction.FollowUp followUp => CheckThreadsAgain(tour, followUp),
    };
 
    /// <summary>Returns the group whose waiting threads hold back a new request of the kind, or null when any number of the kind's threads may wait.</summary>
@@ -102,20 +107,28 @@ internal static class ActionRules
       TourAction.Revise => $"The action \"revise\" asks you to revise the anchor's stop as the reviewer's words say. Carry out revise with put_stop on the anchor's stop, so the change goes into the stop, never only into your reply. {DepthRule} {ResolveRule}",
       TourAction.Replan => $"The action \"replan\" asks you to change the tour's plan as the reviewer's words say, such as add, drop, merge or split stops. Carry out replan {PlanChangeRule} {DepthRule} In a replan, a skip says that the reviewer does not need that stop. Keep a skipped stop unless the reviewer's words drop it, because the reviewer can take the skip back. {PlanResolveRule}",
       TourAction.Reorder => $"The action \"reorder\" asks you to put the plan's stops in the reviewer's proposed order, the action's stopIds, which name every stop of the plan once. The reviewer's words, when there are any, say why. Carry out reorder {PlanChangeRule} {ProposedOrderRule} {DepthRule} {PlanResolveRule}",
-      TourAction.Summarize => "The action \"summarize\" asks you to write a synthesis of the review, which the reviewer requested from the summary page. The reviewer's words, when there are any, say what to focus on. Carry out summarize with write_synthesis. Read the review summary with read_summary and the tour with read_state, then write a synthesis of what the review decided, what worries the reviewer and what stays open, with ref: links to the code each point is about. Name the open questions and the concerns that no answer settled yet. Write the synthesis last, after any other change to the tour. Your own writes, such as start_thread or put_stop, change the summary too, so read the summary again after such a write. Pass as basedOn the summaryFingerprint of the summary that you read, so the summary page can tell when the review or the tour's pin changed after that read. The summary page shows the synthesis, and each one replaces the last, so write the whole synthesis each time. Then resolve the action with a reply of one sentence that says you wrote it, never the synthesis itself.",
-      TourAction.FollowUp.DraftWorkItems => $"The action \"draftWorkItems\" asks you to propose work items for the review's decisions, which the reviewer requested from the summary page. Its decisions list the decisions that the reviewer had sent when they asked, {AnswerItemFields}. {FollowUpItemsRule} Read each decision with its check's question, and propose to the user in the terminal a work item for each decision that needs follow-up work, such as a change that the reviewer decided on and the pull request does not make: its title, what it holds, and the decision it comes from. Say which decisions need none. Create a work item with your own tools, such as the hosting platform's CLI, only after the user approves it in the terminal, and create none that the user did not approve. {NoLotsenActionRule} Then resolve the action with a reply of one sentence that names each work item you created, or says that the user approved none.",
-      TourAction.FollowUp.WalkOpenQuestions => $"The action \"walkOpenQuestions\" asks you to walk the reviewer through the open questions, which the reviewer requested from the summary page. Its openQuestions list the open questions that the reviewer had sent when they asked, {AnswerItemFields}. {FollowUpItemsRule} Walk the reviewer through them in the UI, not in the terminal: start one thread with start_thread for each open question, and leave the decision to the reviewer, who settles each one in its thread. Anchor the thread on the check's question: stopText with the item's stopId, field checks[<checkId>].question and the item's question as text. When the item has no question, because the stop's content no longer holds the check, anchor it on the stop with stop, and when it has no stopTitle, because the plan dropped the stop, on the tour. Write in the thread what would help the decision, such as the code it rests on with ref: links and the trade-offs, then your recommendation and why. {NoLotsenActionRule} Then resolve the action with a reply of one sentence that says how many threads you started. The reviewer's answers come as follow-ups in those threads: reply to each as to any question.",
-      TourAction.FollowUp.DraftComments => $"The action \"draftComments\" asks you to draft comments for the pull request's author from the concerns, which the reviewer requested from the summary page. Its concerns list the concerns that the reviewer had sent when they asked, {AnswerItemFields}, and its risks the risk stops that you wrote and the reviewer did not skip, a stale one included, which the summary counts as concerns, each with its stopId, title and scenario. lotsen omits a pending risk stop, which has no scenario, and a risk stop that the reviewer skipped, because you post a comment in the reviewer's name. {FollowUpItemsRule} A risk stop with staleOn in read_state still points at an earlier iteration, so read its code again at the tour's pin before you draft its comment. Draft a comment for the pull request's author for each concern or risk that needs one: what worries the reviewer, where in the code, and what would settle it, written to the author. Say which concerns need none. Return the drafts as text in your reply, one after another, each naming its file and lines: this reply holds the drafts, so it is longer than a short reply. Then ask the user in the terminal which drafts to post. Post a comment only with your own tools, such as the hosting platform's CLI, after the user approves it in the terminal, and post it as the user approved it. {NoLotsenActionRule}",
+      TourAction.Summarize => "The action \"summarize\" asks you to write a synthesis of the review, which the reviewer requested from the summary page. The reviewer's words, when there are any, say what to focus on. Carry out summarize with write_synthesis. Read the review summary with read_summary and the tour with read_state, then write a synthesis of what the review decided, what worries the reviewer and what stays open, with ref: links to the code each point is about. Name the open questions and the concerns that no answer settled yet. The summary's typedThreads are the reviewer's own findings: questions that the reviewer sent and filed as a decision, a concern or an open question. List each in the synthesis as the reviewer's, never in your own voice. Write the synthesis last, after any other change to the tour. Your own writes, such as start_thread or put_stop, change the summary too, so read the summary again after such a write. Pass as basedOn the summaryFingerprint of the summary that you read, so the summary page can tell when the review or the tour's pin changed after that read. The summary page shows the synthesis, and each one replaces the last, so write the whole synthesis each time. Then resolve the action with a reply of one sentence that says you wrote it, never the synthesis itself.",
+      TourAction.FollowUp.DraftWorkItems => $"The action \"draftWorkItems\" asks you to propose work items for the review's decisions, which the reviewer requested from the summary page. Its decisions list the decisions that the reviewer had sent when they asked, {AnswerItemFields}, and its decisionThreads list the threads that the reviewer sent and filed as a decision, {ThreadItemFields}. {FollowUpItemsRule} {ThreadItemsRule} A resolved item of decisionThreads is a decision that the reviewer settled in its thread, and it can still need a work item. Read each decision with its check's question, and each decision thread at its anchor, and propose to the user in the terminal a work item for each decision or decision thread that needs follow-up work, such as a change that the reviewer decided on and the pull request does not make: its title, what it holds, and the decision it comes from. Say which decisions need none. Create a work item with your own tools, such as the hosting platform's CLI, only after the user approves it in the terminal, and create none that the user did not approve. {NoLotsenActionRule} Then resolve the action with a reply of one sentence that names each work item you created, or says that the user approved none.",
+      TourAction.FollowUp.WalkOpenQuestions => $"The action \"walkOpenQuestions\" asks you to walk the reviewer through the open questions, which the reviewer requested from the summary page. Its openQuestions list the open questions that the reviewer had sent when they asked, {AnswerItemFields}, and its openQuestionThreads list the threads that the reviewer sent and filed as an open question, {ThreadItemFields}. {FollowUpItemsRule} {ThreadItemsRule} lotsen also leaves out an open question thread that the reviewer resolved, because the reviewer settled it there. Walk the reviewer through them in the UI, not in the terminal: start one thread with start_thread for each item of openQuestions, and leave the decision to the reviewer, who settles each one in its thread. Anchor the thread on the check's question: stopText with the item's stopId, field checks[<checkId>].question and the item's question as text. When the item has no question, because the stop's content no longer holds the check, anchor it on the stop with stop, and when it has no stopTitle, because the plan dropped the stop, on the tour. An item of openQuestionThreads already is a thread: add to that thread with add_thread_message and its threadId instead of starting a new one. add_thread_message refuses a thread whose last question still waits for your reply, so answer that question with reply instead. Write in each thread what would help the decision, such as the code it rests on with ref: links and the trade-offs, then your recommendation and why. {NoLotsenActionRule} Then resolve the action with a reply of one sentence that says how many threads you started and how many you added to. The reviewer's answers come as follow-ups in those threads: reply to each as to any question.",
+      TourAction.FollowUp.DraftComments => $"The action \"draftComments\" asks you to draft comments for the pull request's author from the concerns, which the reviewer requested from the summary page. Its concerns list the concerns that the reviewer had sent when they asked, {AnswerItemFields}, its concernThreads list the threads that the reviewer sent and filed as a concern, {ThreadItemFields}, and its risks the risk stops that you wrote and the reviewer did not skip, a stale one included, which the summary counts as concerns, each with its stopId, title and scenario. lotsen omits a pending risk stop, which has no scenario, and a risk stop that the reviewer skipped, because you post a comment in the reviewer's name. {FollowUpItemsRule} {ThreadItemsRule} A resolved item of concernThreads is a concern that the reviewer settled in its thread: read the thread's replies with read_state, and draft a comment only when the concern still applies to the code. A risk stop with staleOn in read_state still points at an earlier iteration, so read its code again at the tour's pin before you draft its comment. Draft a comment for the pull request's author for each concern, concern thread or risk that needs one: what worries the reviewer, where in the code, such as a concern thread's anchor, and what would settle it, written to the author. Say which concerns need none. Return the drafts as text in your reply, one after another, each naming its file and lines: this reply holds the drafts, so it is longer than a short reply. Then ask the user in the terminal which drafts to post. Post a comment only with your own tools, such as the hosting platform's CLI, after the user approves it in the terminal, and post it as the user approved it. {NoLotsenActionRule}",
    };
 
    /// <summary>Returns why the summary holds no item for the follow-up action, which the summary page also shows beside its disabled button, or null when it holds one.</summary>
+   /// <remarks>
+   /// It reads the items that a request would store, so a group that holds only sent typed threads has an item to hand. A group whose sent typed threads the request omits by their state
+   /// gets its own reason, which tells the reviewer to reopen one.
+   /// </remarks>
    /// <param name="request">The follow-up action.</param>
    /// <param name="agentSummary">The summary that an agent session reads, which the items come from.</param>
-   public static string? NothingToHand(ActionRequest.FollowUp request, ReviewSummary agentSummary) => request switch
+   public static string? NothingToHand(ActionRequest.FollowUp request, ReviewSummary agentSummary) => ItemsOf(request, agentSummary) switch
    {
-      ActionRequest.FollowUp.DraftWorkItems => agentSummary.Answers.Decisions.Count == 0 ? NoDecisionSent : null,
-      ActionRequest.FollowUp.WalkOpenQuestions => agentSummary.Answers.OpenQuestions.Count == 0 ? NoOpenQuestionSent : null,
-      ActionRequest.FollowUp.DraftComments => agentSummary.Answers.Concerns.Count == 0 && RisksToHand(agentSummary).Count == 0 ? NoConcernSent : null,
+      TourAction.FollowUp.DraftWorkItems work when work.Decisions.Count == 0 && work.DecisionThreads is null =>
+         agentSummary.TypedThreads?.Decisions.Count > 0 ? DecisionThreadsOutdated : NoDecisionSent,
+      TourAction.FollowUp.WalkOpenQuestions walk when walk.OpenQuestions.Count == 0 && walk.OpenQuestionThreads is null =>
+         agentSummary.TypedThreads?.OpenQuestions.Count > 0 ? OpenQuestionThreadsSettled : NoOpenQuestionSent,
+      TourAction.FollowUp.DraftComments drafts when drafts.Concerns.Count == 0 && drafts.ConcernThreads is null && drafts.Risks.Count == 0 =>
+         agentSummary.TypedThreads?.Concerns.Count > 0 ? ConcernThreadsOutdated : NoConcernSent,
+      TourAction.FollowUp.DraftWorkItems or TourAction.FollowUp.WalkOpenQuestions or TourAction.FollowUp.DraftComments => null,
    };
 
    // The admit column, over each kind of request, after the state columns of Offer.
@@ -131,13 +144,56 @@ internal static class ActionRules
          ActionRequest.FollowUp followUp => OnTour(ItemsOf(followUp, AgentView.Summary(tour))),
       };
 
-   // The follow-up action with the items of its group in the summary.
+   // The follow-up action with the items of its group in the summary: the sent answers and the sent threads of its type.
    private static TourAction.FollowUp ItemsOf(ActionRequest.FollowUp request, ReviewSummary agentSummary) => request switch
    {
-      ActionRequest.FollowUp.DraftWorkItems => new TourAction.FollowUp.DraftWorkItems(FollowUpAnswer.All(agentSummary.Answers.Decisions)),
-      ActionRequest.FollowUp.WalkOpenQuestions => new TourAction.FollowUp.WalkOpenQuestions(FollowUpAnswer.All(agentSummary.Answers.OpenQuestions)),
-      ActionRequest.FollowUp.DraftComments => new TourAction.FollowUp.DraftComments(FollowUpAnswer.All(agentSummary.Answers.Concerns), RisksToHand(agentSummary)),
+      ActionRequest.FollowUp.DraftWorkItems => new TourAction.FollowUp.DraftWorkItems(
+         FollowUpAnswer.All(agentSummary.Answers.Decisions),
+         FollowUpThread.Handed(agentSummary.TypedThreads?.Decisions, HandsResolvedThreads(TourAction.DraftWorkItemsKind))),
+      ActionRequest.FollowUp.WalkOpenQuestions => new TourAction.FollowUp.WalkOpenQuestions(
+         FollowUpAnswer.All(agentSummary.Answers.OpenQuestions),
+         FollowUpThread.Handed(agentSummary.TypedThreads?.OpenQuestions, HandsResolvedThreads(TourAction.WalkOpenQuestionsKind))),
+      ActionRequest.FollowUp.DraftComments => new TourAction.FollowUp.DraftComments(
+         FollowUpAnswer.All(agentSummary.Answers.Concerns),
+         RisksToHand(agentSummary),
+         FollowUpThread.Handed(agentSummary.TypedThreads?.Concerns, HandsResolvedThreads(TourAction.DraftCommentsKind))),
    };
+
+   // A settled decision can still need a work item and a settled concern a comment, but Claude must not post into an open question thread that the reviewer resolved.
+   private static bool HandsResolvedThreads(string kind) => kind != TourAction.WalkOpenQuestionsKind;
+
+   /// <summary>Returns why a follow-up action cannot go again with the threads that it stored, or null when it can.</summary>
+   /// <remarks>
+   /// It refuses a stored thread that is deleted or outdated since the request, and for walkOpenQuestions one that the reviewer resolved since, so the rules that its howToAct serves hold. A
+   /// thread whose type changed, that the reviewer reopened, or that the reviewer resolved for the other kinds goes again, with the type and state that the action stored.
+   /// </remarks>
+   private static OperationError? CheckThreadsAgain(Tour tour, TourAction.FollowUp action)
+   {
+      var (list, threads, label) = action switch
+      {
+         TourAction.FollowUp.DraftWorkItems work => ("decisionThreads", work.DecisionThreads, "Draft work items"),
+         TourAction.FollowUp.WalkOpenQuestions walk => ("openQuestionThreads", walk.OpenQuestionThreads, "Walk through open questions"),
+         TourAction.FollowUp.DraftComments drafts => ("concernThreads", drafts.ConcernThreads, "Draft PR comments"),
+      };
+      foreach (var (item, index) in (threads ?? []).Select((item, index) => (item, index)))
+      {
+         var field = ActionField.Then(list).At(index);
+         switch (tour.Threads.Find(item.ThreadId)?.State)
+         {
+            case null:
+               return OperationError.Invalid(field, $"A thread that this request hands to Claude is deleted since you asked. {AskAgain(label)}.");
+            case QuestionThreadState.Outdated:
+               return OperationError.Invalid(field, $"A thread that this request hands to Claude is outdated since you asked. {AskAgain(label)}, which leaves out outdated threads.");
+            case QuestionThreadState.Resolved when !HandsResolvedThreads(action.Kind):
+               return OperationError.Invalid(field, $"You resolved this open question since you asked, so Claude would write in a thread that you settled. {AskAgain(label)}, which leaves out the open questions you resolved.");
+         }
+      }
+
+      return null;
+   }
+
+   // A new request of the kind is refused while this one waits, so the advice names the cancel first.
+   private static string AskAgain(string label) => $"Cancel this request if it still waits, then click \"{label}\" again on the summary page";
 
    /// <summary>Returns the risk stops that a draftComments action hands to Claude.</summary>
    /// <returns>The summary's risk stops that have a scenario, because Claude wrote them, and that the reviewer did not skip, in plan order, a stale one included.</returns>

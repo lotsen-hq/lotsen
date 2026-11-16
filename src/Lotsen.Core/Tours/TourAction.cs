@@ -84,11 +84,12 @@ internal closed record TourAction
 
    /// <summary>
    /// A request from the summary page that hands Claude one group of the review summary, with the reviewer's optional words, as the summary that an agent session reads held the group when the
-   /// server stored the request.
+   /// server stored the request: the sent answers of a type and the sent threads of that type.
    /// </summary>
    /// <remarks>
-   /// A re-send carries the stored items, so a later answer does not change what Claude was asked about. lotsen creates no work item and posts no comment: Claude does, with its own tools, after
-   /// the reviewer approves in the terminal.
+   /// A re-send carries the stored items, so a later answer or a later change of a thread's type does not change what Claude was asked about. lotsen creates no work item and posts no comment:
+   /// Claude does, with its own tools, after the reviewer approves in the terminal. Each list of threads is null when the group held none, an empty list included, so an action without one keeps
+   /// the JSON that a build without these lists reads.
    /// </remarks>
    internal closed record FollowUp : TourAction
    {
@@ -98,20 +99,33 @@ internal closed record TourAction
 
       /// <summary>A request that Claude propose work items for the reviewer's decisions, and create each with its own tools once the reviewer approves it in the terminal.</summary>
       /// <param name="Decisions">The summary's decisions, in its order.</param>
+      /// <param name="DecisionThreads">The summary's sent threads of type decision, in its order.</param>
       [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-      internal sealed record DraftWorkItems(IReadOnlyList<FollowUpAnswer> Decisions) : FollowUp
+      internal sealed record DraftWorkItems(IReadOnlyList<FollowUpAnswer> Decisions, IReadOnlyList<FollowUpThread>? DecisionThreads = null) : FollowUp
       {
          [JsonIgnore]
          public override string Kind => DraftWorkItemsKind;
+
+         /// <summary>The summary's sent threads of type decision, in its order, or null for none. JSON leaves it out when null.</summary>
+         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+         public IReadOnlyList<FollowUpThread>? DecisionThreads { get; } = FollowUpThread.NoneAsNull(DecisionThreads);
       }
 
-      /// <summary>A request that Claude start a thread for each of the reviewer's open questions, with what would help the decision and a recommendation, for the reviewer to settle there.</summary>
+      /// <summary>
+      /// A request that Claude walk the reviewer through the open questions in the UI, with what would help each decision and a recommendation, for the reviewer to settle there: in a new
+      /// thread for an open question answer, and in its own thread for an open question thread.
+      /// </summary>
       /// <param name="OpenQuestions">The summary's open questions, in its order.</param>
+      /// <param name="OpenQuestionThreads">The summary's sent threads of type open question, in its order.</param>
       [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-      internal sealed record WalkOpenQuestions(IReadOnlyList<FollowUpAnswer> OpenQuestions) : FollowUp
+      internal sealed record WalkOpenQuestions(IReadOnlyList<FollowUpAnswer> OpenQuestions, IReadOnlyList<FollowUpThread>? OpenQuestionThreads = null) : FollowUp
       {
          [JsonIgnore]
          public override string Kind => WalkOpenQuestionsKind;
+
+         /// <summary>The summary's sent threads of type open question, in its order, or null for none. JSON leaves it out when null.</summary>
+         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+         public IReadOnlyList<FollowUpThread>? OpenQuestionThreads { get; } = FollowUpThread.NoneAsNull(OpenQuestionThreads);
       }
 
       /// <summary>
@@ -120,11 +134,16 @@ internal closed record TourAction
       /// </summary>
       /// <param name="Concerns">The summary's concerns, in its order.</param>
       /// <param name="Risks">The risk stops that <see cref="ActionRules"/> hands to Claude from the summary, in plan order.</param>
+      /// <param name="ConcernThreads">The summary's sent threads of type concern, in its order.</param>
       [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-      internal sealed record DraftComments(IReadOnlyList<FollowUpAnswer> Concerns, IReadOnlyList<FollowUpRisk> Risks) : FollowUp
+      internal sealed record DraftComments(IReadOnlyList<FollowUpAnswer> Concerns, IReadOnlyList<FollowUpRisk> Risks, IReadOnlyList<FollowUpThread>? ConcernThreads = null) : FollowUp
       {
          [JsonIgnore]
          public override string Kind => DraftCommentsKind;
+
+         /// <summary>The summary's sent threads of type concern, in its order, or null for none. JSON leaves it out when null.</summary>
+         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+         public IReadOnlyList<FollowUpThread>? ConcernThreads { get; } = FollowUpThread.NoneAsNull(ConcernThreads);
       }
    }
 }

@@ -21,6 +21,7 @@ export type ThreadAnchor = CodeRange | StopText | WholeFile | WholeStop | WholeT
 export type ThreadState = 'open' | 'resolved' | 'outdated';
 export type QuestionOutcome = 'waiting' | 'answered' | 'canceled' | 'unanswered';
 export type TourAction = ExplainAction | ReviseAction | ReplanAction | ReorderAction | SummarizeAction | DraftWorkItemsAction | WalkOpenQuestionsAction | DraftCommentsAction;
+export type ReviewerThreadState = 'open' | 'resolved';
 export type RequestState = 'pending' | 'done' | 'needsAnswer' | 'declined' | 'unanswered' | 'canceled';
 export type ThreadMessage = ThreadQuestion | ThreadReply | ThreadAgentMessage;
 export type ReviewerDecision = FamiliarityChanged | PlanApproved | IterationUpdated;
@@ -131,7 +132,6 @@ export type OperationName =
    | 'update_iteration'
    | 'read_preferences'
    | 'write_preference';
-export type ReviewerThreadState = 'open' | 'resolved';
 
 export interface EventPayloads {
    hello: HelloEvent;
@@ -527,6 +527,7 @@ export interface SummarizeAction {
 export interface DraftWorkItemsAction {
    kind: 'draftWorkItems';
    decisions: FollowUpAnswer[];
+   decisionThreads?: FollowUpThread[];
 }
 export interface FollowUpAnswer {
    stopId: string;
@@ -536,14 +537,25 @@ export interface FollowUpAnswer {
    stopTitle?: string;
    question?: string;
 }
+export interface FollowUpThread {
+   threadId: string;
+   anchor: ThreadAnchor;
+   text: string;
+   type: AnswerType;
+   state: ReviewerThreadState;
+   stopId?: string;
+   stopTitle?: string;
+}
 export interface WalkOpenQuestionsAction {
    kind: 'walkOpenQuestions';
    openQuestions: FollowUpAnswer[];
+   openQuestionThreads?: FollowUpThread[];
 }
 export interface DraftCommentsAction {
    kind: 'draftComments';
    concerns: FollowUpAnswer[];
    risks: FollowUpRisk[];
+   concernThreads?: FollowUpThread[];
 }
 export interface FollowUpRisk {
    stopId: string;
@@ -1517,7 +1529,7 @@ export interface RequestTourActionInput {
     */
    tourId: string;
    /**
-    * What the reviewer asks Claude to do: explain to explain a stop or text selected in it more deeply, or revise to revise the stop, each with its target, replan to change the plan as the words say, reorder to put the plan's stops in the order of stopIds, which names every stop of the plan once, summarize to write a synthesis of the review, or a follow-up action: draftWorkItems to propose work items for the sent decisions, walkOpenQuestions to start a thread on each sent open question, or draftComments to draft comments for the author from the sent concerns and the risk stops that Claude wrote and the reviewer did not skip. Only explain and revise take a target, and every other kind applies to the whole tour. The server collects a follow-up action's items, so the kind is all that a follow-up action holds. A reviewer decision is no tour action: change_familiarity, approve_plan and update_iteration report each.
+    * What the reviewer asks Claude to do: explain to explain a stop or text selected in it more deeply, or revise to revise the stop, each with its target, replan to change the plan as the words say, reorder to put the plan's stops in the order of stopIds, which names every stop of the plan once, summarize to write a synthesis of the review, or a follow-up action: draftWorkItems to propose work items for the sent decisions, walkOpenQuestions to walk through each sent open question in a thread, or draftComments to draft comments for the author from the sent concerns and the risk stops that Claude wrote and the reviewer did not skip. Each follow-up action also takes the sent threads that the reviewer gave its type. Only explain and revise take a target, and every other kind applies to the whole tour. The server collects a follow-up action's items, so the kind is all that a follow-up action holds. A reviewer decision is no tour action: change_familiarity, approve_plan and update_iteration report each.
     */
    action: ActionRequest;
    /**

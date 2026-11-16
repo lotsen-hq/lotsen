@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { actionOf, messagesOf } from '../../src/lib/threadView';
 import { followUpKinds, tourActionLabels, tourActionPending } from '../../src/lib/tourActions';
 import type { LotsenApp } from '../../src/lib/app.svelte';
-import type { AnswerType, FollowUpKind, QuestionThread, Tour } from '../../src/lib/types';
+import type { AnswerType, FollowUpKind, QuestionThread, Tour, UpdatedThread } from '../../src/lib/types';
 import type { ClaudeSession, Transport, World } from '../backend/backend';
 import { attachClaude, backend, cartContent, openTour, readTour, seedTour, startApp } from '../harness';
 
@@ -23,10 +23,14 @@ interface Seed {
 
 // The server's reasons for a follow-up action whose group holds no item that Claude can read.
 const emptyReasons: Record<FollowUpKind, string> = {
-   draftWorkItems: 'No decision has been sent to Claude yet. Answer a check with a decision, then send your answers.',
-   walkOpenQuestions: 'No open question has been sent to Claude yet. Answer a check with an open question, then send your answers.',
-   draftComments: 'No concern has been sent to Claude yet, and every risk stop is still unwritten or skipped. Answer a check with a concern, then send your answers.',
+   draftWorkItems: 'No decision has been sent to Claude yet. Answer a check with a decision and send your answers, or send a note with the type Decision.',
+   walkOpenQuestions: 'No open question has been sent to Claude yet. Answer a check with an open question and send your answers, or send a note with the type Open question.',
+   draftComments:
+      'No concern has been sent to Claude yet, and every risk stop is still unwritten or skipped. Answer a check with a concern and send your answers, or send a note with the type Concern.',
 };
+
+// The answer type of each follow-up action's group.
+const typeOf: Record<FollowUpKind, AnswerType> = { draftWorkItems: 'decision', walkOpenQuestions: 'openQuestion', draftComments: 'concern' };
 
 // What the server says Claude still does while a follow-up action of the kind waits.
 const waitingWords: Record<FollowUpKind, RegExp> = {
@@ -213,6 +217,19 @@ describe('the follow-up actions on the summary page', () => {
 
       await enabled('draftWorkItems');
       expect(actions().queryByText(emptyReasons.draftWorkItems)).toBeNull();
+   });
+
+   it.each(followUpKinds)('%s is enabled by a sent typed thread alone, and stays disabled while the typed note is unsent', async (kind) => {
+      const { world, seed } = await followUpWorld(drafts);
+      const saved = (await world.reviewer.call('save_note', { tourId: seed.tourId, text: 'My own finding.', anchor: { kind: 'tour' }, type: typeOf[kind] })) as UpdatedThread;
+      await openSummary(world);
+      await waitFor(() => expect(button(kind).disabled).toBe(true));
+      expect(actions().getByText(emptyReasons[kind])).toBeTruthy();
+
+      await world.reviewer.call('send_notes', { tourId: seed.tourId, threadIds: [saved.thread.id] });
+
+      await enabled(kind);
+      expect(actions().queryByText(emptyReasons[kind])).toBeNull();
    });
 
    it('shows a follow-up that waits from the load, and is enabled again once Claude replies', async () => {

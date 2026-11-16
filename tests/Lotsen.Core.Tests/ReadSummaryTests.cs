@@ -129,9 +129,9 @@ public sealed class ReadSummaryTests : IAsyncLifetime
       Assert.NotEqual((string)agent["summaryFingerprint"]!, (string)retyped["summaryFingerprint"]!);
    }
 
-   /// <summary>A follow-up action collects its items from the answers of the summary that Claude reads, so a sent typed thread gives draftWorkItems nothing to hand.</summary>
+   /// <summary>A follow-up action collects its items from the summary that Claude reads, which lists a sent typed thread, so the thread alone gives draftWorkItems an item to hand.</summary>
    [Fact]
-   public async Task Ui_summary_with_a_sent_typed_decision_thread_and_no_decision_sent_names_why_draft_work_items_has_nothing_to_hand()
+   public async Task Ui_summary_with_a_sent_typed_decision_thread_and_no_decision_sent_names_no_reason_for_draft_work_items()
    {
       await using var session = await AgentSessionConnection.OpenAsync(_harness);
       var id = await _calls.CreateAsync(session);
@@ -145,7 +145,7 @@ public sealed class ReadSummaryTests : IAsyncLifetime
 
       Assert.Single(summary["typedThreads"]!["decisions"]!.AsArray());
       Assert.Empty(summary["answers"]!["decisions"]!.AsArray());
-      Assert.Equal(ActionRules.NoDecisionSent, (string)summary["followUps"]![TourAction.DraftWorkItemsKind]!);
+      Assert.Null(summary["followUps"]![TourAction.DraftWorkItemsKind]);
    }
 
    /// <summary>An agent session's tour holds no earlier versions, so the question of an outdated answer comes from the stored tour.</summary>

@@ -25,6 +25,8 @@ public sealed class FollowUpActionTests : IAsyncLifetime
 
    private const string RiskId = "r1";
 
+   private const string UnsentText = "UNSENT-NOTE-WORDS";
+
    private ServerHarness _harness = null!;
    private ThreadCalls _calls = null!;
 
@@ -148,6 +150,80 @@ public sealed class FollowUpActionTests : IAsyncLifetime
       Assert.Equal(ActionRules.NoConcernSent, (string)summary["followUps"]![TourAction.DraftCommentsKind]!);
       Assert.Equal([RiskId], summary["risks"]!.AsArray().Select(risk => (string)risk!["stopId"]!));
       Assert.Empty(await _calls.ThreadsAsync(id));
+   }
+
+   /// <summary>The tour holds a sent thread and an unsent note of each type, beside the summary's sample answers.</summary>
+   [Theory]
+   [InlineData(TourAction.DraftWorkItemsKind, "decisions", "decisionThreads", "t7", "decision")]
+   [InlineData(TourAction.WalkOpenQuestionsKind, "openQuestions", "openQuestionThreads", "t8", "openQuestion")]
+   [InlineData(TourAction.DraftCommentsKind, "concerns", "concernThreads", "t9", "concern")]
+   public async Task Follow_up_hands_the_sent_threads_of_its_type_beside_the_sent_answers_and_no_unsent_note(string kind, string answers, string threads, string threadId, string type)
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      Seed(id, tour =>
+      {
+         var seeded = SummaryTours.Apply(tour, session.Id);
+         return seeded with { Threads = ThreadFixtures.Threads([.. seeded.Threads, .. TypedThreads()]) };
+      });
+
+      var thread = await RequestAsync(id, kind);
+
+      var action = thread["action"]!;
+      var expected = JsonNode.Parse($$"""
+         [{ "threadId": "{{threadId}}", "anchor": { "kind": "stop", "stopId": "s2" }, "text": "Sent {{type}}.", "type": "{{type}}", "state": "open", "stopId": "s2", "stopTitle": "The new discount rule" }]
+         """);
+      Assert.True(JsonNode.DeepEquals(expected, action[threads]), $"action: {action}");
+      Assert.Single(action[answers]!.AsArray());
+      Assert.DoesNotContain(UnsentText, action.ToJsonString(), StringComparison.Ordinal);
+   }
+
+   /// <summary>The plan holds no risk stop, so the sent thread is all that the follow-up's group holds.</summary>
+   [Theory]
+   [InlineData(TourAction.DraftWorkItemsKind, nameof(AnswerType.Decision))]
+   [InlineData(TourAction.WalkOpenQuestionsKind, nameof(AnswerType.OpenQuestion))]
+   [InlineData(TourAction.DraftCommentsKind, nameof(AnswerType.Concern))]
+   public async Task Follow_up_whose_group_holds_only_a_sent_typed_thread_goes_and_the_summary_names_no_reason_for_it(string kind, string type)
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      Seed(id, tour => SummaryTours.Apply(tour, session.Id) with
+      {
+         Plan = PlanWithoutRisks(),
+         Answers = [],
+         Threads = ThreadFixtures.Threads(ThreadFixtures.Asked("t7", new ThreadAnchor.WholeTour(), text: "Found it.", type: Enum.Parse<AnswerType>(type))),
+      });
+
+      var summary = await _calls.CallAsync(await _calls.UiAsync(On("read_summary", id)));
+      var thread = await RequestAsync(id, kind);
+
+      Assert.Null(summary["followUps"]![kind]);
+      Assert.Equal("pending", (string)RequestOf(thread)["state"]!);
+   }
+
+   /// <summary>The plan holds no risk stop and the tour no sent answer, so the unsent note is all that the follow-up's group would hold if notes counted.</summary>
+   [Theory]
+   [InlineData(TourAction.DraftWorkItemsKind, nameof(AnswerType.Decision))]
+   [InlineData(TourAction.WalkOpenQuestionsKind, nameof(AnswerType.OpenQuestion))]
+   [InlineData(TourAction.DraftCommentsKind, nameof(AnswerType.Concern))]
+   public async Task Follow_up_whose_group_holds_only_an_unsent_typed_note_is_refused_as_the_summary_says(string kind, string type)
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      Seed(id, tour => SummaryTours.Apply(tour, session.Id) with
+      {
+         Plan = PlanWithoutRisks(),
+         Answers = [],
+         Threads = ThreadFixtures.Threads(ThreadFixtures.Note("n1", new ThreadAnchor.WholeTour(), UnsentText, type: Enum.Parse<AnswerType>(type))),
+      });
+
+      using var response = await _calls.SendAsync(await _calls.UiAsync(On("request_tour_action", id)), ActionBody(kind, TourAnchor));
+      var summary = await _calls.CallAsync(await _calls.UiAsync(On("read_summary", id)));
+
+      var error = await ErrorAsync(response, HttpStatusCode.BadRequest, "invalidInput");
+      Assert.Equal($"action: {(string)summary["followUps"]![kind]!}", (string)error["reason"]!);
+      Assert.Single(summary["typedThreads"]!.AsObject().SelectMany(group => group.Value!.AsArray()));
+      Assert.DoesNotContain(await _calls.ThreadsAsync(id), thread => thread!["action"] is not null);
    }
 
    [Theory]
@@ -308,8 +384,58 @@ public sealed class FollowUpActionTests : IAsyncLifetime
    }
 
    /// <summary>
+   /// The reviewer changed the thread's type after the request, so the summary lists the thread as a concern. The re-send carries the thread as a decision, as Claude could read it at the request.
+   /// </summary>
+   [Fact]
+   public async Task Resend_carries_the_stored_threads_after_the_reviewer_changed_the_type_of_one()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      Seed(id, tour =>
+      {
+         var seeded = SummaryTours.Apply(tour, session.Id);
+         return seeded with { Threads = ThreadFixtures.Threads([.. seeded.Threads, .. TypedThreads()]) };
+      });
+      await session.ProbeAsync();
+      var thread = await RequestAsync(id, TourAction.DraftWorkItemsKind);
+      await session.Stream.NextAsync(Timeout);
+      await _calls.SetTypeAsync(id, "t7", "concern");
+
+      var resent = await _calls.CallAsync(await _calls.UiAsync(On("resend_question", id, questionId: QuestionIdOf(thread))));
+      await session.Stream.NextAsync(Timeout);
+      var fetched = await _calls.FetchAsync(session, id, QuestionIdOf(thread));
+      var summary = await _calls.CallAsync(_calls.Agent(session, On("read_summary", id)));
+
+      Assert.Equal("pending", (string)RequestOf(resent, index: 1)["state"]!);
+      var handed = Assert.Single(fetched["thread"]!["action"]!["decisionThreads"]!.AsArray())!;
+      Assert.Equal(("t7", "decision"), ((string)handed["threadId"]!, (string)handed["type"]!));
+      Assert.Contains(summary["typedThreads"]!["concerns"]!.AsArray(), typed => (string)typed!["id"]! == "t7");
+   }
+
+   /// <summary>The thread was open when the reviewer asked, so Claude would otherwise post into a thread that the reviewer settled since.</summary>
+   [Fact]
+   public async Task Resend_of_walk_open_questions_is_refused_once_the_reviewer_resolved_a_thread_that_it_hands()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      Seed(id, tour =>
+      {
+         var seeded = SummaryTours.Apply(tour, session.Id);
+         return seeded with { Threads = ThreadFixtures.Threads([.. seeded.Threads, .. TypedThreads()]) };
+      });
+      var thread = await RequestAsync(id, TourAction.WalkOpenQuestionsKind);
+      await _calls.CallAsync(await _calls.UiAsync(On("set_thread_state", id, threadId: "t8")), """{ "state": "resolved" }""");
+
+      using var resend = await _calls.SendAsync(await _calls.UiAsync(On("resend_question", id, questionId: QuestionIdOf(thread))));
+
+      var error = await ErrorAsync(resend, HttpStatusCode.BadRequest, "invalidInput");
+      Assert.Equal("action.openQuestionThreads[0]", (string)error["field"]!);
+      Assert.Contains("Cancel this request if it still waits, then click \"Walk through open questions\" again on the summary page, which leaves out the open questions you resolved.", (string)error["reason"]!, StringComparison.Ordinal);
+   }
+
+   /// <summary>
    /// The leak paths of a follow-up action: its items, the question event and its channel notification, what <c>fetch_question</c> returns and the thread in an agent session's
-   /// <c>read_state</c>, with a draft answer of the kind's own type and a note on the tour.
+   /// <c>read_state</c>, with a draft answer and a note of the kind's own type on the tour.
    /// </summary>
    [Theory]
    [InlineData(TourAction.DraftWorkItemsKind, nameof(AnswerType.Decision))]
@@ -322,7 +448,12 @@ public sealed class FollowUpActionTests : IAsyncLifetime
       Seed(id, tour =>
       {
          var seeded = SummaryTours.Apply(tour, session.Id);
-         return seeded with { Answers = [.. seeded.Answers.Select(answer => answer.State == AnswerState.Draft ? answer.Revised(answer.Text, Enum.Parse<AnswerType>(type), answer.SavedAt) : answer)] };
+         var note = ThreadFixtures.Note(SummaryTours.NoteThreadId, new ThreadAnchor.WholeStop("s2"), SummaryTours.NoteText, type: Enum.Parse<AnswerType>(type));
+         return seeded with
+         {
+            Answers = [.. seeded.Answers.Select(answer => answer.State == AnswerState.Draft ? answer.Revised(answer.Text, Enum.Parse<AnswerType>(type), answer.SavedAt) : answer)],
+            Threads = ThreadFixtures.Threads([.. seeded.Threads.Select(thread => thread.Id == SummaryTours.NoteThreadId ? note : thread)]),
+         };
       });
       await session.ProbeAsync();
 
@@ -345,6 +476,19 @@ public sealed class FollowUpActionTests : IAsyncLifetime
 
    private async Task ReplyAsync(AgentSessionConnection session, string tourId, string questionId, string resolution) =>
       await _calls.CallAsync(_calls.Agent(session, On("reply", tourId, questionId: questionId)), $$"""{ "resolution": "{{resolution}}", "text": "Which part?" }""");
+
+   // A sent thread of each type on stop s2, whose words name the type, and an unsent note of each type.
+   private static IEnumerable<QuestionThread> TypedThreads() =>
+   [
+      ThreadFixtures.Asked("t7", new ThreadAnchor.WholeStop("s2"), text: "Sent decision.", type: AnswerType.Decision),
+      ThreadFixtures.Asked("t8", new ThreadAnchor.WholeStop("s2"), text: "Sent openQuestion.", type: AnswerType.OpenQuestion),
+      ThreadFixtures.Asked("t9", new ThreadAnchor.WholeStop("s2"), text: "Sent concern.", type: AnswerType.Concern),
+      ThreadFixtures.Note("n7", new ThreadAnchor.WholeStop("s2"), UnsentText, type: AnswerType.Decision),
+      ThreadFixtures.Note("n8", new ThreadAnchor.WholeStop("s2"), UnsentText, type: AnswerType.OpenQuestion),
+      ThreadFixtures.Note("n9", new ThreadAnchor.WholeStop("s2"), UnsentText, type: AnswerType.Concern),
+   ];
+
+   private static Plan PlanWithoutRisks() => SummaryTours.Plan() with { Stops = [.. SummaryTours.Plan().Stops.Where(stop => stop.Kind != StopKind.Risk)] };
 
    // An overview and one risk stop, which Claude wrote or not, which a stale marker marks or not, and which the reviewer skipped or not.
    private static Plan PlanWithRisk(bool written, bool stale, bool skipped)

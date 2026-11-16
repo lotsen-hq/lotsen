@@ -312,6 +312,9 @@ public sealed class TourFileFormatTests : IDisposable
    [InlineData(TourAction.DraftCommentsKind, "concerns", true)]
    [InlineData(TourAction.DraftCommentsKind, "risks", false)]
    [InlineData(TourAction.DraftCommentsKind, "risks", true)]
+   [InlineData(TourAction.DraftWorkItemsKind, "decisionThreads", false)]
+   [InlineData(TourAction.WalkOpenQuestionsKind, "openQuestionThreads", false)]
+   [InlineData(TourAction.DraftCommentsKind, "concernThreads", false)]
    public void Tour_file_with_a_null_item_in_a_follow_up_action_is_refused(string kind, string items, bool nullList)
    {
       var store = NewStore();
@@ -338,14 +341,54 @@ public sealed class TourFileFormatTests : IDisposable
 
    private static string Json(TourAction action) => System.Text.Json.JsonSerializer.Serialize(action, Lotsen.Json.LotsenJsonContext.Default.TourAction);
 
+   /// <summary>
+   /// Each kind holds a sent thread, so its file holds every list. A list of threads is optional, so a stored action without one reads back with none, and a null in its place reads as none.
+   /// </summary>
+   [Theory]
+   [InlineData(TourAction.DraftWorkItemsKind, "decisionThreads", false)]
+   [InlineData(TourAction.DraftWorkItemsKind, "decisionThreads", true)]
+   [InlineData(TourAction.WalkOpenQuestionsKind, "openQuestionThreads", false)]
+   [InlineData(TourAction.WalkOpenQuestionsKind, "openQuestionThreads", true)]
+   [InlineData(TourAction.DraftCommentsKind, "concernThreads", false)]
+   [InlineData(TourAction.DraftCommentsKind, "concernThreads", true)]
+   public void Stored_follow_up_action_without_its_threads_reads_back_with_none(string kind, string threads, bool nullList)
+   {
+      var store = NewStore();
+      var tour = store.Create(PullRequest, Familiarity.Some);
+      var action = FollowUpActions().Single(candidate => candidate.Kind == kind);
+      store.Change(tour.Id, current => current with { Plan = SamplePlan(), Threads = ThreadFixtures.Threads(ActionThread("t1", action)) });
+      var tourPath = Path.Combine(ToursPath, $"{tour.Id}.json");
+      var file = JsonNode.Parse(File.ReadAllText(tourPath))!;
+      var stored = file["tour"]!["threads"]![0]!["action"]!.AsObject();
+      Assert.True(stored.Remove(threads), $"The stored action has no {threads}: {stored}");
+      var otherMembers = stored.Count;
+      if (nullList)
+      {
+         stored[threads] = null;
+      }
+
+      File.WriteAllText(tourPath, file.ToJsonString());
+
+      var read = ((QuestionThread.Sent.Asked)NewStore().Get(tour.Id)!.Threads.Single()).Action!;
+      var written = JsonNode.Parse(Json(read))!.AsObject();
+      Assert.False(written.ContainsKey(threads), $"The action reads back as {written}");
+      Assert.Equal(otherMembers, written.Count);
+   }
+
    private static TourAction[] FollowUpActions()
    {
       var decision = new FollowUpAnswer("s1", "c1", "The cap is right.", AnswerType.Decision, "Discounts", "Is the cap right?");
+      var thread = new FollowUpThread("t9", new ThreadAnchor.WholeStop("s1"), "Keep the cap.", AnswerType.Decision, ReviewerThreadState.Resolved, "s1", "Discounts");
       return
       [
-         new TourAction.FollowUp.DraftWorkItems([decision]),
-         new TourAction.FollowUp.WalkOpenQuestions([decision with { StopTitle = null, Question = null, Text = "Ask the team.", Type = AnswerType.OpenQuestion }]),
-         new TourAction.FollowUp.DraftComments([decision with { Type = AnswerType.Concern }], [new FollowUpRisk("s2", "Rounding", "Two discounts round twice."), new FollowUpRisk("s3", "Eviction", "Eviction drops a hot entry.")]),
+         new TourAction.FollowUp.DraftWorkItems([decision], [thread]),
+         new TourAction.FollowUp.WalkOpenQuestions(
+            [decision with { StopTitle = null, Question = null, Text = "Ask the team.", Type = AnswerType.OpenQuestion }],
+            [thread with { Anchor = new ThreadAnchor.WholeTour(), StopId = null, StopTitle = null, Type = AnswerType.OpenQuestion, State = ReviewerThreadState.Open }]),
+         new TourAction.FollowUp.DraftComments(
+            [decision with { Type = AnswerType.Concern }],
+            [new FollowUpRisk("s2", "Rounding", "Two discounts round twice."), new FollowUpRisk("s3", "Eviction", "Eviction drops a hot entry.")],
+            [thread with { Type = AnswerType.Concern }]),
       ];
    }
 

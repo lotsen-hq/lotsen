@@ -181,6 +181,7 @@ namespace Lotsen.Json;
 [JsonSerializable(typeof(StopTarget.StopText), TypeInfoPropertyName = "StopTextTarget")]
 [JsonSerializable(typeof(FollowUpAnswer))]
 [JsonSerializable(typeof(FollowUpRisk))]
+[JsonSerializable(typeof(FollowUpThread))]
 [JsonSerializable(typeof(RequestTourActionInput))]
 [JsonSerializable(typeof(AnswersEvent))]
 [JsonSerializable(typeof(ProbeEvent))]

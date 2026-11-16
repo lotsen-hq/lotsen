@@ -275,6 +275,23 @@ public sealed class SynthesisTests : IClassFixture<StopTourFixture>, IAsyncLifet
       Assert.False(await PredatesAsync(tour.Id), "Resolving a follow-up action's thread made the synthesis predate the summary.");
    }
 
+   /// <summary>The follow-up action hands a sent typed thread, so its thread holds a thread item, which the summary's fingerprint leaves out with the thread.</summary>
+   [Fact]
+   public async Task Synthesis_does_not_predate_the_summary_because_of_a_follow_up_action_that_hands_a_typed_thread()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(Harness);
+      var tour = await Answers.TourAsync(session);
+      var saved = await Calls.SaveNoteAsync(tour.Id, NoteText, "decision");
+      await Calls.SendNotesAsync(tour.Id, ThreadIdOf(saved["thread"]!));
+      await WriteAsync(session, tour.Id, "The review has one decision.");
+
+      var request = TourActionTests.ActionBody(TourAction.DraftWorkItemsKind, """{ "kind": "tour" }""");
+      var action = await Calls.CallAsync(await Calls.UiAsync(On("request_tour_action", tour.Id)), request);
+
+      Assert.Single(action["action"]!["decisionThreads"]!.AsArray());
+      Assert.False(await PredatesAsync(tour.Id), "A follow-up action that hands a typed thread made the synthesis predate the summary.");
+   }
+
    [Theory]
    [InlineData("skip")]
    [InlineData("resolve")]

@@ -817,12 +817,12 @@ export const eventFixtures = {
             "draftWorkItems": {
                "state": "closed",
                "code": "invalidInput",
-               "reason": "No decision has been sent to Claude yet. Answer a check with a decision, then send your answers."
+               "reason": "No decision has been sent to Claude yet. Answer a check with a decision and send your answers, or send a note with the type Decision."
             },
             "walkOpenQuestions": {
                "state": "closed",
                "code": "invalidInput",
-               "reason": "No open question has been sent to Claude yet. Answer a check with an open question, then send your answers."
+               "reason": "No open question has been sent to Claude yet. Answer a check with an open question and send your answers, or send a note with the type Open question."
             },
             "draftComments": {
                "state": "open"
@@ -1776,8 +1776,8 @@ export const outputFixtures = {
       },
       "summaryFingerprint": "69f8e422a7a8a7bbeedd5a5943ca2fed4f2785b379d08f3a7efa351eaf5671f0",
       "followUps": {
-         "draftWorkItems": "No decision has been sent to Claude yet. Answer a check with a decision, then send your answers.",
-         "walkOpenQuestions": "No open question has been sent to Claude yet. Answer a check with an open question, then send your answers."
+         "draftWorkItems": "No decision has been sent to Claude yet. Answer a check with a decision and send your answers, or send a note with the type Decision.",
+         "walkOpenQuestions": "No open question has been sent to Claude yet. Answer a check with an open question and send your answers, or send a note with the type Open question."
       }
    },
    "ask_question": {

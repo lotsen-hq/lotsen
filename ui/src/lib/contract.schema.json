@@ -1524,6 +1524,12 @@
           "items": {
             "$ref": "#/definitions/FollowUpRisk"
           }
+        },
+        "concernThreads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FollowUpThread"
+          }
         }
       },
       "required": [
@@ -1555,6 +1561,12 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/FollowUpAnswer"
+          }
+        },
+        "decisionThreads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FollowUpThread"
           }
         }
       },
@@ -1930,6 +1942,40 @@
         "stopId",
         "title",
         "scenario"
+      ]
+    },
+    "FollowUpThread": {
+      "title": "FollowUpThread",
+      "type": "object",
+      "properties": {
+        "threadId": {
+          "type": "string"
+        },
+        "anchor": {
+          "$ref": "#/definitions/ThreadAnchor"
+        },
+        "text": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/AnswerType"
+        },
+        "state": {
+          "$ref": "#/definitions/ReviewerThreadState"
+        },
+        "stopId": {
+          "type": "string"
+        },
+        "stopTitle": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId",
+        "anchor",
+        "text",
+        "type",
+        "state"
       ]
     },
     "HelloEvent": {
@@ -3634,7 +3680,7 @@
           "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
         },
         "action": {
-          "description": "What the reviewer asks Claude to do: explain to explain a stop or text selected in it more deeply, or revise to revise the stop, each with its target, replan to change the plan as the words say, reorder to put the plan's stops in the order of stopIds, which names every stop of the plan once, summarize to write a synthesis of the review, or a follow-up action: draftWorkItems to propose work items for the sent decisions, walkOpenQuestions to start a thread on each sent open question, or draftComments to draft comments for the author from the sent concerns and the risk stops that Claude wrote and the reviewer did not skip. Only explain and revise take a target, and every other kind applies to the whole tour. The server collects a follow-up action's items, so the kind is all that a follow-up action holds. A reviewer decision is no tour action: change_familiarity, approve_plan and update_iteration report each.",
+          "description": "What the reviewer asks Claude to do: explain to explain a stop or text selected in it more deeply, or revise to revise the stop, each with its target, replan to change the plan as the words say, reorder to put the plan's stops in the order of stopIds, which names every stop of the plan once, summarize to write a synthesis of the review, or a follow-up action: draftWorkItems to propose work items for the sent decisions, walkOpenQuestions to walk through each sent open question in a thread, or draftComments to draft comments for the author from the sent concerns and the risk stops that Claude wrote and the reviewer did not skip. Each follow-up action also takes the sent threads that the reviewer gave its type. Only explain and revise take a target, and every other kind applies to the whole tour. The server collects a follow-up action's items, so the kind is all that a follow-up action holds. A reviewer decision is no tour action: change_familiarity, approve_plan and update_iteration report each.",
           "anyOf": [
             {
               "$ref": "#/definitions/ActionRequest"
@@ -5905,6 +5951,12 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/FollowUpAnswer"
+          }
+        },
+        "openQuestionThreads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FollowUpThread"
           }
         }
       },

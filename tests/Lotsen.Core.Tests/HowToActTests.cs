@@ -14,9 +14,12 @@ public sealed partial class HowToActTests : IAsyncLifetime
    private const string ThreadId = "t1";
    private const string OpeningId = "q-t1";
    private const string FollowUpId = "q-follow-up";
+   private const string OutdatedLeftOut = "lotsen leaves out an outdated thread, as it leaves out an outdated answer";
+   private const string ThreadsAreTheirs = "A thread item is the reviewer's own finding, in the reviewer's words, not yours";
 
    private static readonly string BasedOn = SkillTests.PropertyName(LotsenJsonContext.Default.WriteSynthesisInput, nameof(WriteSynthesisInput.BasedOn));
    private static readonly string Fingerprint = SkillTests.PropertyName(LotsenJsonContext.Default.ReviewSummary, nameof(ReviewSummary.SummaryFingerprint));
+   private static readonly string TypedThreads = SkillTests.PropertyName(LotsenJsonContext.Default.ReviewSummary, nameof(ReviewSummary.TypedThreads));
    private static readonly string StaleMarker = SkillTests.PropertyName(LotsenJsonContext.Default.WrittenStop, nameof(Stop.Written.StaleOn));
 
    private static readonly IReadOnlyDictionary<string, (string Sample, string Carrier, string[] Says)> Actions = new Dictionary<string, (string, string, string[])>
@@ -40,19 +43,19 @@ public sealed partial class HowToActTests : IAsyncLifetime
       [TourAction.SummarizeKind] = (
          """{ "kind": "summarize" }""",
          "write_synthesis",
-         ["say what to focus on", "Carry out summarize with write_synthesis", "with read_summary and the tour with read_state", "what the review decided, what worries the reviewer and what stays open", "Name the open questions and the concerns that no answer settled yet", "Write the synthesis last, after any other change to the tour.", "read the summary again after such a write", $"Pass as {BasedOn} the {Fingerprint} of the summary that you read", "so write the whole synthesis each time", "never the synthesis itself"]),
+         ["say what to focus on", "Carry out summarize with write_synthesis", "with read_summary and the tour with read_state", "what the review decided, what worries the reviewer and what stays open", "Name the open questions and the concerns that no answer settled yet", $"{TypedThreads} are the reviewer's own findings", "as the reviewer's, never in your own voice", "Write the synthesis last, after any other change to the tour.", "read the summary again after such a write", $"Pass as {BasedOn} the {Fingerprint} of the summary that you read", "so write the whole synthesis each time", "never the synthesis itself"]),
       [TourAction.DraftWorkItemsKind] = (
          """{ "kind": "draftWorkItems", "decisions": [] }""",
          "only after the user approves it in the terminal",
-         ["the decisions that the reviewer had sent when they asked", "never their draft answers", "lotsen itself creates no work item, posts no comment and changes nothing in the repository", "Say which decisions need none", "Create a work item with your own tools, such as the hosting platform's CLI, only after the user approves it in the terminal", "names each work item you created, or says that the user approved none"]),
+         ["the decisions that the reviewer had sent when they asked", "never their draft answers", "lotsen itself creates no work item, posts no comment and changes nothing in the repository", "Say which decisions need none", "Create a work item with your own tools, such as the hosting platform's CLI, only after the user approves it in the terminal", "names each work item you created, or says that the user approved none", "never their draft answers or their unsent notes", ThreadsAreTheirs, OutdatedLeftOut, "A resolved item of decisionThreads is a decision that the reviewer settled in its thread, and it can still need a work item"]),
       [TourAction.WalkOpenQuestionsKind] = (
          """{ "kind": "walkOpenQuestions", "openQuestions": [] }""",
          "start_thread",
-         ["never their draft answers", "lotsen itself creates no work item, posts no comment and changes nothing in the repository", "Walk the reviewer through them in the UI, not in the terminal: start one thread with start_thread for each open question", "field checks[<checkId>].question", "anchor it on the stop with stop", "then your recommendation and why", "how many threads you started", "reply to each as to any question"]),
+         ["never their draft answers", "lotsen itself creates no work item, posts no comment and changes nothing in the repository", "Walk the reviewer through them in the UI, not in the terminal: start one thread with start_thread for each item of openQuestions", "field checks[<checkId>].question", "anchor it on the stop with stop", "then your recommendation and why", "how many threads you started", "reply to each as to any question", "add to that thread with add_thread_message and its threadId instead of starting a new one", "answer that question with reply instead", "never their draft answers or their unsent notes", ThreadsAreTheirs, OutdatedLeftOut, "lotsen also leaves out an open question thread that the reviewer resolved, because the reviewer settled it there"]),
       [TourAction.DraftCommentsKind] = (
          """{ "kind": "draftComments", "concerns": [], "risks": [] }""",
          "after the user approves it in the terminal",
-         ["never their draft answers", "lotsen itself creates no work item, posts no comment and changes nothing in the repository", "its risks the risk stops that you wrote and the reviewer did not skip, a stale one included", "because you post a comment in the reviewer's name", "read its code again at the tour's pin", "Say which concerns need none", "Return the drafts as text in your reply", "ask the user in the terminal which drafts to post", "Post a comment only with your own tools, such as the hosting platform's CLI, after the user approves it in the terminal"]),
+         ["never their draft answers", "lotsen itself creates no work item, posts no comment and changes nothing in the repository", "its risks the risk stops that you wrote and the reviewer did not skip, a stale one included", "because you post a comment in the reviewer's name", "read its code again at the tour's pin", "Say which concerns need none", "Return the drafts as text in your reply", "ask the user in the terminal which drafts to post", "Post a comment only with your own tools, such as the hosting platform's CLI, after the user approves it in the terminal", "never their draft answers or their unsent notes", ThreadsAreTheirs, OutdatedLeftOut, "A resolved item of concernThreads is a concern that the reviewer settled in its thread: read the thread's replies with read_state, and draft a comment only when the concern still applies to the code"]),
    };
 
    private static readonly IReadOnlyDictionary<string, (string Sample, string Carrier, string[] Says)> Decisions = new Dictionary<string, (string, string, string[])>
@@ -162,18 +165,46 @@ public sealed partial class HowToActTests : IAsyncLifetime
       var howToAct = await RuleAsync(kind);
       string[] lists = kind switch
       {
-         TourAction.DraftWorkItemsKind => [SkillTests.PropertyName(LotsenJsonContext.Default.DraftWorkItemsAction, nameof(TourAction.FollowUp.DraftWorkItems.Decisions))],
-         TourAction.WalkOpenQuestionsKind => [SkillTests.PropertyName(LotsenJsonContext.Default.WalkOpenQuestionsAction, nameof(TourAction.FollowUp.WalkOpenQuestions.OpenQuestions))],
+         TourAction.DraftWorkItemsKind =>
+         [
+            SkillTests.PropertyName(LotsenJsonContext.Default.DraftWorkItemsAction, nameof(TourAction.FollowUp.DraftWorkItems.Decisions)),
+            SkillTests.PropertyName(LotsenJsonContext.Default.DraftWorkItemsAction, nameof(TourAction.FollowUp.DraftWorkItems.DecisionThreads)),
+         ],
+         TourAction.WalkOpenQuestionsKind =>
+         [
+            SkillTests.PropertyName(LotsenJsonContext.Default.WalkOpenQuestionsAction, nameof(TourAction.FollowUp.WalkOpenQuestions.OpenQuestions)),
+            SkillTests.PropertyName(LotsenJsonContext.Default.WalkOpenQuestionsAction, nameof(TourAction.FollowUp.WalkOpenQuestions.OpenQuestionThreads)),
+         ],
          _ =>
          [
             SkillTests.PropertyName(LotsenJsonContext.Default.DraftCommentsAction, nameof(TourAction.FollowUp.DraftComments.Concerns)),
             SkillTests.PropertyName(LotsenJsonContext.Default.DraftCommentsAction, nameof(TourAction.FollowUp.DraftComments.Risks)),
+            SkillTests.PropertyName(LotsenJsonContext.Default.DraftCommentsAction, nameof(TourAction.FollowUp.DraftComments.ConcernThreads)),
          ],
       };
-      var fields = LotsenJsonContext.Default.FollowUpAnswer.Properties.Concat(kind == TourAction.DraftCommentsKind ? LotsenJsonContext.Default.FollowUpRisk.Properties : []).Select(property => property.Name);
+      var fields = LotsenJsonContext.Default.FollowUpAnswer.Properties
+         .Concat(kind == TourAction.DraftCommentsKind ? LotsenJsonContext.Default.FollowUpRisk.Properties : [])
+         .Select(property => property.Name);
 
       Assert.All(lists, list => Assert.Contains($"{list} ", howToAct, StringComparison.Ordinal));
       Assert.All(fields, field => Assert.Contains(field, howToAct, StringComparison.Ordinal));
+      Assert.Contains(ThreadItemFields(), howToAct, StringComparison.Ordinal);
+   }
+
+   // The phrase of the rule that names a thread item's fields. It names every field of FollowUpThread.
+   private static string ThreadItemFields()
+   {
+      static string Name(string property) => SkillTests.PropertyName(LotsenJsonContext.Default.FollowUpThread, property);
+      var fields = LotsenJsonContext.Default.FollowUpThread.Properties.Select(property => property.Name).Order(StringComparer.Ordinal);
+      string[] named =
+      [
+         Name(nameof(FollowUpThread.Anchor)), Name(nameof(FollowUpThread.State)), Name(nameof(FollowUpThread.StopId)), Name(nameof(FollowUpThread.StopTitle)),
+         Name(nameof(FollowUpThread.Text)), Name(nameof(FollowUpThread.ThreadId)), Name(nameof(FollowUpThread.Type)),
+      ];
+      Assert.Equal(fields, named.Order(StringComparer.Ordinal));
+      return $"each with its {Name(nameof(FollowUpThread.ThreadId))}, its {Name(nameof(FollowUpThread.Anchor))}, its {Name(nameof(FollowUpThread.StopId))} when the thread is about a stop and its "
+         + $"{Name(nameof(FollowUpThread.StopTitle))} when the plan still has that stop, the reviewer's {Name(nameof(FollowUpThread.Text))}, which is the thread's first question, its "
+         + $"{Name(nameof(FollowUpThread.Type))} and its {Name(nameof(FollowUpThread.State))} when the reviewer asked, open or resolved";
    }
 
    [Fact]
