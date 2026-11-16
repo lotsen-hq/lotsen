@@ -60,10 +60,18 @@ interface Case {
 
 const question = outputFixtures.ask_question;
 const cases: Case[] = [
-   { name: 'ask', run: (a) => a.ask(anchor, 'Why?', 's2'), call: ['askQuestion', [tourId, { text: 'Why?', anchor, stopId: 's2' }]], stored: [question], touches: false, reveals: true },
+   { name: 'ask', run: (a) => a.ask(anchor, 'Why?', 's2', null), call: ['askQuestion', [tourId, { text: 'Why?', anchor, stopId: 's2' }]], stored: [question], touches: false, reveals: true },
+   {
+      name: 'ask with a type',
+      run: (a) => a.ask(anchor, 'Why?', 's2', 'openQuestion'),
+      call: ['askQuestion', [tourId, { text: 'Why?', anchor, stopId: 's2', type: 'openQuestion' }]],
+      stored: [question],
+      touches: false,
+      reveals: true,
+   },
    {
       name: 'ask without a stop under view',
-      run: (a) => a.ask({ kind: 'tour' }, 'Why?', null),
+      run: (a) => a.ask({ kind: 'tour' }, 'Why?', null, null),
       call: ['askQuestion', [tourId, { text: 'Why?', anchor: { kind: 'tour' } }]],
       stored: [question],
       touches: false,

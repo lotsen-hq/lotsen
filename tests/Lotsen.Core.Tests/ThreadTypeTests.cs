@@ -8,8 +8,8 @@ using static Lotsen.Tests.ThreadCalls;
 namespace Lotsen.Tests;
 
 /// <summary>
-/// Covers the answer type of a sent thread: a typed note keeps its type when <c>send_notes</c> sends it, alone or in a batch, <c>fetch_question</c> shows the type to the session, and
-/// <c>set_thread_type</c> changes the type of a note or an asked thread in any state without sending the session anything.
+/// Covers the answer type of a sent thread: a typed note keeps its type when <c>send_notes</c> sends it, alone or in a batch, <c>ask_question</c> gives a question asked at once its type,
+/// <c>fetch_question</c> shows the type to the session, and <c>set_thread_type</c> changes the type of a note or an asked thread in any state without sending the session anything.
 /// </summary>
 [Trait("Category", "Threads")]
 public sealed class ThreadTypeTests : IAsyncLifetime
@@ -56,6 +56,82 @@ public sealed class ThreadTypeTests : IAsyncLifetime
       Assert.Equal(["decision", null, "openQuestion"], threads.Select(thread => (string?)thread!["type"]));
       Assert.All(threads, thread => Assert.Equal("asked", (string)thread!["kind"]!));
       Assert.Equal(["decision", null, "openQuestion"], (await _calls.ThreadsAsync(id)).Select(thread => (string?)thread!["type"]));
+   }
+
+   [Fact]
+   public async Task Typed_question_asked_at_once_holds_its_type_and_the_session_sees_it_in_fetch_question_read_state_and_read_summary()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+
+      var asked = await _calls.AskAsync(id, "Keep the cap?", "openQuestion");
+      var fetched = await _calls.FetchAsync(session, id, QuestionIdOf(asked));
+      var state = await _calls.CallAsync(_calls.Agent(session, On("read_state", id)));
+      var summary = await _calls.CallAsync(_calls.Agent(session, On("read_summary", id)));
+
+      Assert.Equal(("asked", "openQuestion"), ((string)asked["kind"]!, (string)asked["type"]!));
+      Assert.Equal("openQuestion", (string)fetched["thread"]!["type"]!);
+      Assert.Equal("openQuestion", (string)state["threads"]![0]!["type"]!);
+      var expected = JsonNode.Parse($$"""{ "id": "{{ThreadIdOf(asked)}}", "anchor": { "kind": "tour" }, "text": "Keep the cap?", "type": "openQuestion", "state": "open" }""");
+      Assert.True(JsonNode.DeepEquals(expected, Assert.Single(summary["typedThreads"]!["openQuestions"]!.AsArray())), $"The agent's summary reads {summary["typedThreads"]}");
+   }
+
+   /// <summary>A typed note sent with <c>send_notes</c> gives the same thread as a question asked at once with the type, apart from the IDs and times that the server gives.</summary>
+   [Fact]
+   public async Task Typed_question_asked_at_once_matches_a_typed_note_that_send_notes_sent()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      var saved = await _calls.SaveNoteAsync(id, "The cap is wrong.", "concern");
+      var sent = (await _calls.SendNotesAsync(id, ThreadIdOf(saved["thread"]!)))["threads"]![0]!;
+
+      var asked = await _calls.AskAsync(id, "The cap is wrong.", "concern");
+
+      Assert.True(JsonNode.DeepEquals(WithoutIdsAndTimes(sent), WithoutIdsAndTimes(asked)), $"The asked thread {asked} differs from the sent note {sent}.");
+   }
+
+   [Fact]
+   public async Task Question_asked_at_once_without_a_type_holds_none()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+
+      var asked = await _calls.AskAsync(id);
+
+      Assert.False(asked.AsObject().ContainsKey("type"), $"The thread holds a type: {asked}");
+      Assert.False((await _calls.ThreadsAsync(id))[0]!.AsObject().ContainsKey("type"), "The stored thread holds a type.");
+   }
+
+   [Fact]
+   public async Task Question_asked_with_an_unknown_type_is_refused_and_stores_nothing()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+
+      using var response = await _calls.SendAsync(await _calls.UiAsync(On("ask_question", id)), """{ "text": "Why?", "anchor": { "kind": "tour" }, "type": "suggestion" }""");
+
+      var error = await ErrorAsync(response, HttpStatusCode.BadRequest, "invalidInput");
+      Assert.Equal("type", (string)error["field"]!);
+      Assert.Empty(await _calls.ThreadsAsync(id));
+   }
+
+   /// <summary>A tour action and a follow-up take no type, so their inputs have no type property.</summary>
+   [Theory]
+   [InlineData("request_tour_action", """{ "action": { "kind": "summarize" }, "type": "concern" }""")]
+   [InlineData("ask_follow_up", """{ "text": "And here?", "type": "concern" }""")]
+   public async Task Tour_action_or_follow_up_with_a_type_is_refused_and_stores_nothing(string operation, string body)
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      var asked = await _calls.AskAsync(id);
+      await _calls.CallAsync(_calls.Agent(session, On("reply", id, questionId: QuestionIdOf(asked))), Done);
+      var before = await _calls.ThreadsAsync(id);
+
+      using var response = await _calls.SendAsync(await _calls.UiAsync(On(operation, id, threadId: operation == "ask_follow_up" ? ThreadIdOf(asked) : null)), body);
+
+      var error = await ErrorAsync(response, HttpStatusCode.BadRequest, "invalidInput");
+      Assert.Equal("type", (string)error["field"]!);
+      Assert.True(JsonNode.DeepEquals(before, await _calls.ThreadsAsync(id)), "The refused call stored something.");
    }
 
    /// <summary>The question asked after the change is the session's next event, so the change sent the session nothing.</summary>
@@ -193,5 +269,22 @@ public sealed class ThreadTypeTests : IAsyncLifetime
       using var response = await _calls.SendAsync(_calls.Agent(session, On("set_thread_type", id, threadId: ThreadIdOf(asked))), """{ "type": "concern" }""");
 
       await ErrorAsync(response, HttpStatusCode.Forbidden, "callerNotAllowed");
+   }
+
+   // Returns a copy without what the server gives each new thread: the IDs and the times of the thread, its question and the question's request.
+   private static JsonNode WithoutIdsAndTimes(JsonNode thread)
+   {
+      var copy = thread.DeepClone();
+      copy.AsObject().Remove("id");
+      var question = copy["messages"]![0]!.AsObject();
+      question.Remove("id");
+      question.Remove("createdAt");
+      foreach (var request in question["requests"]!.AsArray())
+      {
+         request!.AsObject().Remove("id");
+         request.AsObject().Remove("sentAt");
+      }
+
+      return copy;
    }
 }

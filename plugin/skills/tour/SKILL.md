@@ -489,10 +489,10 @@ The reviewer can also write notes in the UI and send them later, alone or as a b
 `read_state` leaves out the notes that the reviewer has not sent, so don't look for them.
 
 The reviewer can file a thread that starts with their question as a finding. Such a thread has a `type`, which
-`read_state` and `fetch_question` show: `decision`, `concern` or `openQuestion`. A note keeps its type when the
-reviewer sends it. Read the thread's questions as that finding: a decision that the reviewer made, a worry about the
-change, or a decision that the reviewer has not made yet. Answer the question that the reviewer asked, in its own
-thread. The reviewer can change the type at any time, and nothing tells you of the change.
+`read_state` and `fetch_question` show: `decision`, `concern` or `openQuestion`. A question can arrive with its type,
+and a note keeps its type when the reviewer sends it. Read the thread's questions as that finding: a decision that the
+reviewer made, a worry about the change, or a decision that the reviewer has not made yet. Answer the question that the
+reviewer asked, in its own thread. The reviewer can change the type at any time, and nothing tells you of the change.
 
 Each thread has a `state`, which `read_state` and `fetch_question` show: `open`, `resolved` when the reviewer considers
 the thread settled, or `outdated` when you marked it with `outdate_thread`, a revision changed the stop text it points

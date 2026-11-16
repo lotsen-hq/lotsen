@@ -202,14 +202,17 @@ internal closed record QuestionThread
          public TourAction? Action { get; }
 
          /// <summary>
-         /// The kind of finding that the reviewer filed the thread as, or null for a thread without one. A sent note takes the note's type, and the reviewer may change it in any state. JSON
+         /// The kind of finding that the reviewer filed the thread as, or null for a thread without one. A sent note takes the note's type, and a question asked at once the type it was asked with; the reviewer may change it in any state. JSON
          /// leaves it out when null.
          /// </summary>
          [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
          public AnswerType? Type { get; }
 
-         /// <summary>Returns a new open thread whose first message is the question.</summary>
-         internal static Asked Open(string id, ThreadAnchor anchor, ThreadMessage.Question question, TourAction? action) => new(id, anchor, QuestionThreadState.Open, [question], action);
+         /// <summary>Returns a new open thread whose first message is the question, of the type, or without one when it is null.</summary>
+         internal static Asked OpenQuestion(string id, ThreadAnchor anchor, ThreadMessage.Question question, AnswerType? type) => new(id, anchor, QuestionThreadState.Open, [question], type: type);
+
+         /// <summary>Returns a new open thread whose first message is the question that requests the tour action. The thread takes no type.</summary>
+         internal static Asked OpenAction(string id, ThreadAnchor anchor, ThreadMessage.Question question, TourAction action) => new(id, anchor, QuestionThreadState.Open, [question], action);
 
          /// <summary>Returns the note sent as an open thread with the same ID, anchor and type, whose first message is the question.</summary>
          internal static Asked From(Note note, ThreadMessage.Question question) => new(note.Id, note.Anchor, QuestionThreadState.Open, [question], type: note.Type);

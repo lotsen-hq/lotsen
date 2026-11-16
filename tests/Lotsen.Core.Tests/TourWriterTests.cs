@@ -143,7 +143,7 @@ public sealed class TourWriterTests : IDisposable
       Fill(session, tour.Id);
       using var subscription = _events.Subscribe();
 
-      var asked = _writer.Write(ToSession, tour.Id, edit => edit.Store(edit.Threads.Ask(new ThreadAnchor.WholeTour(), "Why?", null), (_, written) => written.Thread!));
+      var asked = _writer.Write(ToSession, tour.Id, edit => edit.Store(edit.Threads.Ask(new ThreadAnchor.WholeTour(), "Why?", null, null), (_, written) => written.Thread!));
       var stored = _store.Get(tour.Id)!.Threads.Find(asked.Value!.Id)!;
       Drain(subscription);
       _writer.SettleEnds();
@@ -208,7 +208,7 @@ public sealed class TourWriterTests : IDisposable
          locked.Send(session.Recipient.Probe(tour.Id));
       });
 
-      _writer.Write(ToSession, tour.Id, edit => edit.Store(edit.Threads.Ask(new ThreadAnchor.WholeTour(), "Why?", null), (_, written) => written.Thread!));
+      _writer.Write(ToSession, tour.Id, edit => edit.Store(edit.Threads.Ask(new ThreadAnchor.WholeTour(), "Why?", null, null), (_, written) => written.Thread!));
 
       Assert.True(session.Events.TryRead(out var probe));
       Assert.True(session.Events.TryRead(out var question));

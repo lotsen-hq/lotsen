@@ -16,7 +16,9 @@ internal sealed record AskQuestionInput(
    [property: Description("Where the reviewer asked: code for whole lines at one side, stopText for text selected in a prose field of a stop, file, stop, or tour.")]
    AnchorInput Anchor,
    [property: Description("The ID of the stop that the reviewer views while asking. Omit it when no stop is open.")]
-   string? StopId = null);
+   string? StopId = null,
+   [property: Description(OperationInputs.QuestionTypeDescription)]
+   AnswerType? Type = null);
 
 /// <summary>The anchor in the input of <c>ask_question</c>. The <c>kind</c> property in JSON names the derived type.</summary>
 /// <remarks>The private constructor keeps the kinds those of <see cref="ThreadAnchor"/>.</remarks>
@@ -155,14 +157,14 @@ internal sealed class QuestionOperations
       _scheduler = scheduler;
    }
 
-   /// <summary>Stores the UI's question as a new thread with a pending request for the tour's bound session, sends the session the question, and returns the thread.</summary>
+   /// <summary>Stores the UI's question as a new thread of its type with a pending request for the tour's bound session, sends the session the question, and returns the thread.</summary>
    /// <remarks>
    /// A tour with no bound session is refused, because no session would receive the question. The anchor's checks are those of <see cref="ThreadOpener.StoreQuestionAsync"/>.
    /// </remarks>
    public async Task<OperationResult<QuestionThread>> AskQuestionAsync(Access.ReviewerToSession.Pass pass, AskQuestionInput input, CancellationToken cancellationToken)
    {
       _scheduler.Nudge(input.TourId, Nudge.ReviewerAction);
-      var created = await ThreadOpener.StoreQuestionAsync(_writer, _files, pass, NewThreadInput.Of(input), cancellationToken);
+      var created = await ThreadOpener.StoreQuestionAsync(_writer, _files, pass, NewThreadInput.Of(input), input.Type, cancellationToken);
       return created.Value is { } stored ? stored.Thread : created.Error!;
    }
 

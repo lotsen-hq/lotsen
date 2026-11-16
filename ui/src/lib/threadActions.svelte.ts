@@ -64,9 +64,10 @@ export class ThreadActions {
     * Asks the tour's bound session a question about the anchor.
     *
     * @param stopId - The stop under view, which the question names as the one the reviewer viewed, or null when none is open.
+    * @param type - The thread's answer type, or null for a thread without one.
     */
-   ask(anchor: AnchorInput, text: string, stopId: string | null): Promise<WriteResult> {
-      return this.sendQuestion((operations) => operations.askQuestion(this.tourId, { text, anchor, ...viewed(stopId) }), 'The question could not be sent.');
+   ask(anchor: AnchorInput, text: string, stopId: string | null, type: AnswerType | null): Promise<WriteResult> {
+      return this.sendQuestion((operations) => operations.askQuestion(this.tourId, { text, anchor, ...viewed(stopId), ...typed(type) }), 'The question could not be sent.');
    }
 
    /** Requests a tour action of the tour's bound session. */
@@ -135,7 +136,7 @@ export class ThreadActions {
     */
    saveNote(anchor: AnchorInput, text: string, stopId: string | null, type: AnswerType | null): Promise<WriteResult> {
       return this.write(
-         (operations) => operations.saveNote(this.tourId, { text, anchor, ...viewed(stopId), ...(type === null ? {} : { type }) }),
+         (operations) => operations.saveNote(this.tourId, { text, anchor, ...viewed(stopId), ...typed(type) }),
          ({ thread, updatedAt }) => ({ stored: [thread], updatedAt }),
          'The note could not be saved.',
          true,
@@ -217,6 +218,10 @@ export class ThreadActions {
 
 function viewed(stopId: string | null): { stopId?: string } {
    return stopId === null ? {} : { stopId };
+}
+
+function typed(type: AnswerType | null): { type?: AnswerType } {
+   return type === null ? {} : { type };
 }
 
 const [threadActionsContext, provideThreadActions] = createContext<ThreadActions>();

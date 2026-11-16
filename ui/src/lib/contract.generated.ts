@@ -1006,6 +1006,10 @@ export interface AskQuestionInput {
     * The ID of the stop that the reviewer views while asking. Omit it when no stop is open.
     */
    stopId?: string | null;
+   /**
+    * The kind of finding that the question's thread holds: decision, concern or openQuestion. Omit it for a thread without a type.
+    */
+   type?: AnswerType | null;
 }
 export interface CancelQuestionInput {
    /**

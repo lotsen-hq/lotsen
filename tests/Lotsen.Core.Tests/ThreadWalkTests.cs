@@ -126,7 +126,7 @@ public sealed class ThreadWalkTests : IDisposable
          {
             0 when ActionRules.Admit(tour, new ActionRequest.Summarize(), "").Value is { } admitted => new ThreadCommand.Request(admitted, "Why?", null, session),
             1 => new ThreadCommand.Report(ReviewerDecision.IterationUpdated.For(2, ["s1"]), "", null, session, "tourId"),
-            _ => new ThreadCommand.Ask(anchor, "Why?", null, session),
+            _ => new ThreadCommand.Ask(anchor, "Why?", null, null, session),
          },
          1 => new ThreadCommand.Start(anchor, "Look here.", session),
          2 => new ThreadCommand.SaveNote(anchor, "My words.", null, Pick(random, NoteTypes)),

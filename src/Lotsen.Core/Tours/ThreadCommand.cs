@@ -23,8 +23,9 @@ internal closed record ThreadCommand
    /// <param name="Anchor">Where the reviewer asked, as the feature read it.</param>
    /// <param name="Text">The reviewer's words.</param>
    /// <param name="StopId">The stop that the reviewer viewed, or null for none.</param>
+   /// <param name="Type">The thread's answer type, or null for none.</param>
    /// <param name="Recipient">The bound session that the question goes to.</param>
-   internal sealed record Ask(ThreadAnchor Anchor, string Text, string? StopId, Recipient Recipient) : ThreadCommand;
+   internal sealed record Ask(ThreadAnchor Anchor, string Text, string? StopId, AnswerType? Type, Recipient Recipient) : ThreadCommand;
 
    /// <summary>The reviewer's tour action as a new asked thread at its anchor, with a pending request to the recipient.</summary>
    /// <param name="Admitted">The action and its anchor, as <see cref="ActionRules.Admit"/> built them.</param>

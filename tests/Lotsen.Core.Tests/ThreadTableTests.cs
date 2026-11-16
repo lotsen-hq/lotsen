@@ -328,7 +328,7 @@ public sealed class ThreadTableTests
          [Ask(), SetState(ReviewerThreadState.Resolved)],
          Command(new ThreadCommand.Resend("q1", Bound), "r2"),
          new(Changes: "updated:t1", Thread: "asked open", Requests: "canceled,pending", Sends: "t1")),
-      ["Resend opens a code thread that an iteration update left behind"] = new([AskStep(new ThreadCommand.Ask(EarlierCode, "Why?", null, Bound)), Cancel("q1"), Outdate()], Command(new ThreadCommand.Resend("q1", Bound), "r2"), new(Thread: "asked open")),
+      ["Resend opens a code thread that an iteration update left behind"] = new([AskStep(new ThreadCommand.Ask(EarlierCode, "Why?", null, null, Bound)), Cancel("q1"), Outdate()], Command(new ThreadCommand.Resend("q1", Bound), "r2"), new(Thread: "asked open")),
       ["Resend after a cancel adds a pending request"] = new([Ask(), Cancel("q1")], Command(new ThreadCommand.Resend("q1", Bound), "r2"), new(Requests: "canceled,pending")),
 
       ["Cancel of a missing question is refused"] = new([], Command(new ThreadCommand.Cancel("q1")), Refused(OperationErrorCode.QuestionNotFound)),
@@ -385,9 +385,9 @@ public sealed class ThreadTableTests
       ["Reply to a canceled request opens an outdated thread"] = new([Ask(), Cancel("q1"), Outdate()], Command(ReplyCommand("q1"), "a1"), new(Thread: "asked open", Requests: "done")),
       ["Reply from the session of a later request resolves that request"] = new([Ask(), new(new ThreadCommand.Resend("q1", Other), "r2")], Command(ReplyCommand("q1", Other), "a1"), new(Requests: "canceled,done")),
       ["Reply to an earlier question after a follow-up resolves only that question"] = new([Ask(), Cancel("q1"), FollowUpStep()], Command(ReplyCommand("q1"), "a1"), new(Requests: "done;pending", Messages: "question question reply")),
-      ["Reply keeps a stop text thread that a revision left behind outdated"] = new([AskStep(new ThreadCommand.Ask(How, "Why?", null, Bound)), Cancel("q1"), Outdate()], Command(ReplyCommand("q1"), "a1"), new(Thread: "asked outdated")),
-      ["Reply keeps a code thread that an iteration update left behind outdated"] = new([AskStep(new ThreadCommand.Ask(EarlierCode, "Why?", null, Bound)), Cancel("q1"), Outdate()], Command(ReplyCommand("q1"), "a1"), new(Thread: "asked outdated")),
-      ["Reply keeps a file thread that an iteration update left behind outdated"] = new([AskStep(new ThreadCommand.Ask(EarlierFile, "Why?", null, Bound)), Cancel("q1"), Outdate()], Command(ReplyCommand("q1"), "a1"), new(Thread: "asked outdated")),
+      ["Reply keeps a stop text thread that a revision left behind outdated"] = new([AskStep(new ThreadCommand.Ask(How, "Why?", null, null, Bound)), Cancel("q1"), Outdate()], Command(ReplyCommand("q1"), "a1"), new(Thread: "asked outdated")),
+      ["Reply keeps a code thread that an iteration update left behind outdated"] = new([AskStep(new ThreadCommand.Ask(EarlierCode, "Why?", null, null, Bound)), Cancel("q1"), Outdate()], Command(ReplyCommand("q1"), "a1"), new(Thread: "asked outdated")),
+      ["Reply keeps a file thread that an iteration update left behind outdated"] = new([AskStep(new ThreadCommand.Ask(EarlierFile, "Why?", null, null, Bound)), Cancel("q1"), Outdate()], Command(ReplyCommand("q1"), "a1"), new(Thread: "asked outdated")),
       ["Reply keeps a resolved thread resolved"] = new([Ask(), SetState(ReviewerThreadState.Resolved)], Command(ReplyCommand("q1"), "a1"), new(Thread: "asked resolved")),
 
       ["MarkReceived of a missing question is refused"] = new([], Command(new ThreadCommand.MarkReceived("q1", Bound)), Refused(OperationErrorCode.QuestionNotFound)),
@@ -405,7 +405,7 @@ public sealed class ThreadTableTests
          [NoteStep("t1", How, AnswerType.Concern)],
          Fact(new ThreadFact.StopRevised(Replaced, Written)),
          new(Thread: "note open", ThreadType: "concern", AnchorVersion: 2)),
-      ["StopRevised keeps a waiting thread open"] = new([AskStep(new ThreadCommand.Ask(Why, "Why?", null, Bound))], Fact(new ThreadFact.StopRevised(Replaced, Written)), new(Changes: "", Thread: "asked open")),
+      ["StopRevised keeps a waiting thread open"] = new([AskStep(new ThreadCommand.Ask(Why, "Why?", null, null, Bound))], Fact(new ThreadFact.StopRevised(Replaced, Written)), new(Changes: "", Thread: "asked open")),
       ["StopRevised keeps a resolved thread resolved"] = new([Start(Why), SetState(ReviewerThreadState.Resolved)], Fact(new ThreadFact.StopRevised(Replaced, Written)), new(Changes: "", Thread: "started resolved")),
       ["StopRevised leaves a thread on another version as it is"] = new([Start(new ThreadAnchor.StopText("s1", "why", "Old", 2))], Fact(new ThreadFact.StopRevised(Replaced, Written)), new(Changes: "")),
 
@@ -417,7 +417,7 @@ public sealed class ThreadTableTests
       ["Repinned keeps an anchor that moved to its own place"] = new([Start(Code)], Fact(Repinned(new Remapped<ThreadAnchor>.Moved(Code))), new(Changes: "")),
       ["Repinned outdates an open thread whose anchor is stale"] = new([Start(Code)], Fact(Repinned(new Remapped<ThreadAnchor>.Stale(StaleReason.LinesChanged))), new(Changes: "updated:t1", Thread: "started outdated")),
       ["Repinned keeps an outdated thread outdated when it moves its anchor back to the pin"] = new([Start(EarlierCode), Outdate()], Fact(Repinned(new Remapped<ThreadAnchor>.Moved(Code))), new(Changes: "updated:t1", Thread: "started outdated")),
-      ["Repinned keeps a waiting thread whose anchor is stale open"] = new([AskStep(new ThreadCommand.Ask(Code, "Why?", null, Bound))], Fact(Repinned(new Remapped<ThreadAnchor>.Stale(StaleReason.FileGone))), new(Changes: "")),
+      ["Repinned keeps a waiting thread whose anchor is stale open"] = new([AskStep(new ThreadCommand.Ask(Code, "Why?", null, null, Bound))], Fact(Repinned(new Remapped<ThreadAnchor>.Stale(StaleReason.FileGone))), new(Changes: "")),
 
       ["Released marks each pending request unanswered"] = new([Ask(), Ask("t2", "q2", "r2"), ReplyStep("q2", "a2")], Fact(new ThreadFact.Released()), new(Changes: "updated:t1", Requests: "unanswered", Carried: false)),
       ["Released keeps a resolved thread resolved"] = new([Ask(), SetState(ReviewerThreadState.Resolved)], Fact(new ThreadFact.Released()), new(Thread: "asked resolved", Requests: "unanswered")),
@@ -622,7 +622,7 @@ public sealed class ThreadTableTests
 
    private static Outcome Refused(OperationErrorCode code, string? reason = null) => new(Refused: code, Reason: reason);
 
-   private static ThreadCommand.Ask AskTour() => new(new ThreadAnchor.WholeTour(), "Why?", null, Bound);
+   private static ThreadCommand.Ask AskTour() => new(new ThreadAnchor.WholeTour(), "Why?", null, null, Bound);
 
    private static ActionRequest Summarize => new ActionRequest.Summarize();
 

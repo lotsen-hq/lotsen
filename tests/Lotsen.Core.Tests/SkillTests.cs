@@ -259,7 +259,7 @@ public sealed partial class SkillTests
       var types = Enum.GetValues<AnswerType>().Select(type => JsonSerializer.Serialize(type, LotsenJsonContext.Default.AnswerType).Trim('"'));
 
       Assert.All(types, type => Assert.Contains($"`{type}`", section, StringComparison.Ordinal));
-      Assert.Contains("A note keeps its type when the reviewer sends it", section, StringComparison.Ordinal);
+      Assert.Contains("A question can arrive with its type, and a note keeps its type when the reviewer sends it", section, StringComparison.Ordinal);
       Assert.Contains("The reviewer can change the type at any time, and nothing tells you of the change", section, StringComparison.Ordinal);
       Assert.Contains($"`{PropertyName(LotsenJsonContext.Default.ReviewSummary, nameof(ReviewSummary.TypedThreads))}`", summary, StringComparison.Ordinal);
       Assert.Contains("A thread with a type is one that the reviewer filed as a finding", McpAdapter.Instructions, StringComparison.Ordinal);

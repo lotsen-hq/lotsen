@@ -43,9 +43,9 @@ internal sealed class ThreadCalls
 
    public async Task<string> CreateAsync(AgentSessionConnection session) => (string)(await CallAsync(Agent(session, "create_tour"), CreateBody))["id"]!;
 
-   /// <summary>Asks a question about the tour as the UI and returns its thread.</summary>
-   public async Task<JsonNode> AskAsync(string tourId, string text = "What does this tour cover?") =>
-      await CallAsync(await UiAsync(On("ask_question", tourId)), NoteBody(text));
+   /// <summary>Asks a question about the tour as the UI, of the answer type when one is given, and returns its thread.</summary>
+   public async Task<JsonNode> AskAsync(string tourId, string text = "What does this tour cover?", string? type = null) =>
+      await CallAsync(await UiAsync(On("ask_question", tourId)), type is null ? NoteBody(text) : $$"""{ "text": "{{text}}", "anchor": { "kind": "tour" }, "type": "{{type}}" }""");
 
    /// <summary>Saves a note about the tour as the UI, of the answer type when one is given, and returns the response, the thread with the tour's update time.</summary>
    public async Task<JsonNode> SaveNoteAsync(string tourId, string text = "Check the rounding later.", string? type = null) =>

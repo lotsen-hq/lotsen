@@ -144,8 +144,9 @@ internal sealed partial class TourThreads : IReadOnlyList<QuestionThread>
       /// <param name="anchor">Where the reviewer asked, as the feature read it.</param>
       /// <param name="text">The reviewer's words.</param>
       /// <param name="stopId">The stop that the reviewer views, or null for none.</param>
-      public OperationResult<ThreadWrite> Ask(ThreadAnchor anchor, string text, string? stopId) =>
-         TourThreads.Apply(Latest, new ThreadCommand.Ask(anchor, text, stopId, _recipient), Now, TourIds.Random);
+      /// <param name="type">The thread's answer type, or null for none.</param>
+      public OperationResult<ThreadWrite> Ask(ThreadAnchor anchor, string text, string? stopId, AnswerType? type) =>
+         TourThreads.Apply(Latest, new ThreadCommand.Ask(anchor, text, stopId, type, _recipient), Now, TourIds.Random);
 
       /// <summary>Returns the reviewer's tour action as a new thread with a pending request to the bound session, or the refusal.</summary>
       /// <param name="admitted">The action and its anchor, as <see cref="ActionRules.Admit"/> built them from the latest tour.</param>

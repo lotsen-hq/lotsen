@@ -6,7 +6,7 @@ using Lotsen.Tours;
 
 namespace Lotsen.Operations;
 
-/// <summary>The input of <c>save_note</c>, which takes the input of <c>ask_question</c> and the note's type.</summary>
+/// <summary>The input of <c>save_note</c>, with the properties of the input of <c>ask_question</c>.</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record SaveNoteInput(
    [property: Description(OperationInputs.TourIdDescription)]

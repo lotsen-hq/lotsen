@@ -731,6 +731,18 @@
             "null"
           ],
           "default": null
+        },
+        "type": {
+          "description": "The kind of finding that the question's thread holds: decision, concern or openQuestion. Omit it for a thread without a type.",
+          "default": null,
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AnswerType"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [

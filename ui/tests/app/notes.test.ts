@@ -41,7 +41,7 @@ const askBox = () => panel().getByRole('textbox', { name: 'Question for Claude' 
 const sendButton = () => panel().getByRole('button', { name: 'Send' }) as HTMLButtonElement;
 const saveButton = () => panel().getByRole('button', { name: 'Save as note' }) as HTMLButtonElement;
 const batchButton = () => panel().getByRole('button', { name: 'Send chosen notes' }) as HTMLButtonElement;
-const askBoxType = () => panel().getByRole('combobox', { name: 'Note type' }) as HTMLSelectElement;
+const askBoxType = () => panel().getByRole('combobox', { name: 'Type' }) as HTMLSelectElement;
 /** Chooses a note for the next note batch in its thread view, and goes back to the thread list. */
 async function chooseNote(threadId: string): Promise<void> {
    await fireEvent.click((await openThreadView(threadId)).getByRole('checkbox', { name: 'Send with other notes' }));
@@ -175,6 +175,26 @@ describe('notes in the Threads panel', () => {
       await waitFor(async () => expect((await threadsOf(world, tourId)).map(noteType)).toEqual(['concern', null]));
       expect(askBoxType().value).toBe('');
       expect([...askBoxType().options].map((option) => option.textContent)).toEqual(['No type', 'Decision', 'Concern', 'Open question']);
+   });
+
+   it('asks with the type chosen in the ask box from Send and from Enter, and the next question starts without a type', async () => {
+      const { world, tourId, transport } = await start(true);
+
+      await fireEvent.change(askBoxType(), { target: { value: 'concern' } });
+      await sendQuestion('The cap drifts.');
+      await waitFor(() => expect(askBox().value).toBe(''));
+      expect(askBoxType().value).toBe('');
+      await fireEvent.change(askBoxType(), { target: { value: 'openQuestion' } });
+      await fireEvent.input(askBox(), { target: { value: 'Keep the cap?' } });
+      await fireEvent.keyDown(askBox(), { key: 'Enter' });
+      await waitFor(() => expect(askBox().value).toBe(''));
+      expect(askBoxType().value).toBe('');
+      await sendQuestion('Why here?');
+
+      await waitFor(async () => expect((await threadsOf(world, tourId)).map(sentType)).toEqual(['concern', 'openQuestion', null]));
+      const asks = transport.requests.filter((request) => request.operation === 'ask_question').map((request) => (request.input as { type?: string }).type ?? null);
+      expect(asks).toEqual(['concern', 'openQuestion', null]);
+      expect(transport.requests.some((request) => request.operation === 'save_note')).toBe(false);
    });
 
    it("changes a note's type in its thread view, which keeps its words and the time it saved them", async () => {

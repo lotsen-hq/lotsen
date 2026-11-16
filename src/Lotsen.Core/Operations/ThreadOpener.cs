@@ -30,7 +30,7 @@ internal static class ThreadOpener
    /// <summary>The most characters that a code anchor's text may hold. Every read of the tour returns the text of each thread's anchor.</summary>
    public const int MaxCodeAnchorLength = 20_000;
 
-   /// <summary>Stores the reviewer's question as a new thread at the input's anchor, and sends it to the tour's bound session.</summary>
+   /// <summary>Stores the reviewer's question of the type as a new thread at the input's anchor, and sends it to the tour's bound session.</summary>
    /// <remarks>
    /// The tour needs a bound session. A code range or a file anchor is checked against the tour's pinned commits as a stop's passage is, except that it may point at unchanged code, and a code
    /// range's text holds at most <see cref="MaxCodeAnchorLength"/> characters. A stop text anchor takes the stop's version that is current when the thread is stored.
@@ -39,11 +39,13 @@ internal static class ThreadOpener
    /// <param name="files">Opens the tour's clone for the anchor.</param>
    /// <param name="pass">The pass of the operation that asks.</param>
    /// <param name="input">The thread's input.</param>
+   /// <param name="type">The thread's answer type, or null for none.</param>
    /// <param name="cancellationToken">Stops git.</param>
-   public static Task<OperationResult<StoredThread>> StoreQuestionAsync(TourWriter writer, FileOperations files, Access.ReviewerToSession.Pass pass, NewThreadInput input, CancellationToken cancellationToken) =>
+   public static Task<OperationResult<StoredThread>> StoreQuestionAsync(
+      TourWriter writer, FileOperations files, Access.ReviewerToSession.Pass pass, NewThreadInput input, AnswerType? type, CancellationToken cancellationToken) =>
       writer.WriteAfterGitAsync<ThreadAnchor, StoredThread>(
          pass, input.TourId, Check(ThreadOpening.Question, input), Gather(files, ThreadOpening.Question, input),
-         (edit, anchor) => Stored(edit, edit.Threads.Ask(Placed(edit, anchor), input.Text, input.StopId)), cancellationToken);
+         (edit, anchor) => Stored(edit, edit.Threads.Ask(Placed(edit, anchor), input.Text, input.StopId, type)), cancellationToken);
 
    /// <summary>Stores the reviewer's note of the type as a new thread at the input's anchor, with the anchor checks of <see cref="StoreQuestionAsync"/>. The tour needs no bound session.</summary>
    public static Task<OperationResult<StoredThread>> StoreNoteAsync(

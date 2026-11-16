@@ -129,10 +129,10 @@ internal sealed partial class TourThreads
       var question = named.Question;
       return (named.Thread, command) switch
       {
-         (_, ThreadCommand.Ask ask) => new Decision.Send(QuestionThread.Sent.Asked.Open(draft.NewId(), ask.Anchor, draft.NewQuestion(ask.Text, ask.StopId, ask.Recipient), null), ask.Recipient),
+         (_, ThreadCommand.Ask ask) => new Decision.Send(QuestionThread.Sent.Asked.OpenQuestion(draft.NewId(), ask.Anchor, draft.NewQuestion(ask.Text, ask.StopId, ask.Recipient), ask.Type), ask.Recipient),
          (_, ThreadCommand.Request request) when CheckWaits(tour, ActionRules.WaitsAlone(request.Admitted.Action), null, "action") is { } waits => new Decision.Refuse(waits),
          (_, ThreadCommand.Request request) => new Decision.Send(
-            QuestionThread.Sent.Asked.Open(draft.NewId(), request.Admitted.Anchor, draft.NewQuestion(request.Text, request.StopId, request.Recipient), request.Admitted.Action),
+            QuestionThread.Sent.Asked.OpenAction(draft.NewId(), request.Admitted.Anchor, draft.NewQuestion(request.Text, request.StopId, request.Recipient), request.Admitted.Action),
             request.Recipient),
          (_, ThreadCommand.Report report) when CheckWaits(tour, DecisionRules.WaitsAlone(report.Decision), null, report.WaitField) is { } waits => new Decision.Refuse(waits),
          (_, ThreadCommand.Report report) => new Decision.Send(QuestionThread.Sent.Decided.Open(draft.NewId(), draft.NewQuestion(report.Text, report.StopId, report.Recipient), report.Decision), report.Recipient),

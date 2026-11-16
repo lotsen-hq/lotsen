@@ -1,6 +1,6 @@
 <!--
-   The chip that chooses the type of a note or a sent thread: no type, or one of the answer types that a check answer's chip offers. It shows the owner's value again after each pick, so a
-   pick that the owner refuses or drops leaves the chip on the type that the owner holds.
+   The chip that chooses the type of a note, a sent thread, or the question or note that the ask box writes next: no type, or one of the answer types that a check answer's chip offers. It
+   shows the owner's value again after each pick, so a pick that the owner refuses or drops leaves the chip on the type that the owner holds.
 -->
 <script lang="ts">
    import { answerTypes } from '../lib/answers';
