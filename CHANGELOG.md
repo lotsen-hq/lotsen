@@ -13,6 +13,7 @@ The notable changes in each release of lotsen, newest first. Versions follow [se
 ### Changed
 
 - **Claude does not redo a reorder or a decision that the tour has moved past.** When you ask in the thread of a reorder, a familiarity change, a plan approval or an iteration update for the work again, lotsen tells Claude whether the tour moved past it: the plan's stops changed since the reorder or the approval, you changed the familiarity level again, or the tour moved to another update. Then Claude declines the work, says why and what you can use instead, such as Re-plan… or Reorder… in the Plan panel, and still answers your question. A plan approval's stops now follow the familiarity level that the tour holds when Claude writes them.
+- **The ask box's Save as note button shows a save icon**, so it no longer looks like a button that adds an attachment.
 
 ## v0.3.0 - 2026-11-15
 

@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
    import ChevronDown from '@lucide/svelte/icons/chevron-down';
-   import StickyNote from '@lucide/svelte/icons/sticky-note';
+   import Save from '@lucide/svelte/icons/save';
    import X from '@lucide/svelte/icons/x';
    import { Button } from '$lib/components/ui/button';
    import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
@@ -209,7 +209,7 @@
 
 {#snippet saveTool()}
    <TooltipButton variant="ghost" size="icon-sm" tooltip="Save as note" aria-label="Save as note" disabled={empty} aria-disabled={asking.busy} onclick={() => write(true)}>
-      <StickyNote aria-hidden="true" />
+      <Save aria-hidden="true" />
    </TooltipButton>
 {/snippet}
 

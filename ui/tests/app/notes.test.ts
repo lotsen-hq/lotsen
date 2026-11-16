@@ -116,6 +116,7 @@ describe('notes in the Threads panel', () => {
 
       expect(askBox().disabled).toBe(false);
       expect(sendButton().disabled).toBe(true);
+      expect(saveButton().querySelector('svg.lucide-save')).not.toBeNull();
       expect(saveButton().disabled).toBe(false);
       expect(description(sendButton())).toMatch(noSession);
       expect(panel().getByText(noSession)).toBeTruthy();
