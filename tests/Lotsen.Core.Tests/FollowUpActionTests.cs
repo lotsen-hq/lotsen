@@ -458,6 +458,66 @@ public sealed class FollowUpActionTests : IAsyncLifetime
    }
 
    /// <summary>
+   /// Claude answered the action, the thread's state then changed, and the reviewer asks Claude to redo the work. The stored item keeps the state it had at the request, and
+   /// <c>threadItems</c> shows whether the action would still hand the thread, as <see cref="ActionRules.ThreadItemsNow"/> decides. A null state is a deleted thread, and open leaves it untouched.
+   /// </summary>
+   [Theory]
+   [InlineData(TourAction.DraftWorkItemsKind, "decisionThreads", "t7", nameof(QuestionThreadState.Open), null)]
+   [InlineData(TourAction.WalkOpenQuestionsKind, "openQuestionThreads", "t8", nameof(QuestionThreadState.Open), null)]
+   [InlineData(TourAction.DraftCommentsKind, "concernThreads", "t9", nameof(QuestionThreadState.Open), null)]
+   [InlineData(TourAction.DraftWorkItemsKind, "decisionThreads", "t7", nameof(QuestionThreadState.Resolved), null)]
+   [InlineData(TourAction.DraftWorkItemsKind, "decisionThreads", "t7", nameof(QuestionThreadState.Outdated), "outdated")]
+   [InlineData(TourAction.DraftWorkItemsKind, "decisionThreads", "t7", null, "deleted")]
+   [InlineData(TourAction.WalkOpenQuestionsKind, "openQuestionThreads", "t8", nameof(QuestionThreadState.Resolved), "resolved")]
+   [InlineData(TourAction.WalkOpenQuestionsKind, "openQuestionThreads", "t8", nameof(QuestionThreadState.Outdated), "outdated")]
+   [InlineData(TourAction.WalkOpenQuestionsKind, "openQuestionThreads", "t8", null, "deleted")]
+   [InlineData(TourAction.DraftCommentsKind, "concernThreads", "t9", nameof(QuestionThreadState.Resolved), "resolved")]
+   [InlineData(TourAction.DraftCommentsKind, "concernThreads", "t9", nameof(QuestionThreadState.Outdated), "outdated")]
+   [InlineData(TourAction.DraftCommentsKind, "concernThreads", "t9", null, "deleted")]
+   public async Task Follow_up_in_the_thread_of_a_follow_up_action_shows_whether_each_thread_item_applies_now(string kind, string list, string threadId, string? stateNow, string? reason)
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      Seed(id, tour =>
+      {
+         var seeded = SummaryTours.Apply(tour, session.Id);
+         return seeded with { Threads = ThreadFixtures.Threads([.. seeded.Threads, .. TypedThreads()]) };
+      });
+      var thread = await RequestAsync(id, kind);
+      await ReplyAsync(session, id, QuestionIdOf(thread), "done");
+      Seed(id, tour => tour with
+      {
+         Threads = ThreadFixtures.Threads([.. stateNow is { } state
+            ? tour.Threads.Select(typed => typed.Id == threadId ? typed.WithState(Enum.Parse<QuestionThreadState>(state)) : typed)
+            : tour.Threads.Where(typed => typed.Id != threadId)]),
+      });
+      var followed = await _calls.CallAsync(await _calls.UiAsync(On("ask_follow_up", id, threadId: ThreadIdOf(thread))), """{ "text": "Redo it." }""");
+
+      var fetched = await _calls.FetchAsync(session, id, QuestionIdOf(followed, message: 2));
+
+      var item = new JsonObject { ["threadId"] = threadId, ["applies"] = reason is null };
+      if (reason is not null)
+      {
+         item["reason"] = reason;
+      }
+
+      Assert.True(JsonNode.DeepEquals(new JsonArray(item), fetched["threadItems"]), $"fetched: {fetched}");
+      Assert.Equal("open", (string)fetched["thread"]!["action"]![list]![0]!["state"]!);
+   }
+
+   [Fact]
+   public async Task Follow_up_action_without_thread_items_has_no_thread_items_in_fetch_question()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await SeededTourAsync(session);
+      var thread = await RequestAsync(id, TourAction.DraftWorkItemsKind);
+
+      var fetched = await _calls.FetchAsync(session, id, QuestionIdOf(thread));
+
+      Assert.False(fetched.AsObject().ContainsKey("threadItems"), $"fetched: {fetched}");
+   }
+
+   /// <summary>
    /// The leak paths of a follow-up action: its items, the question event and its channel notification, what <c>fetch_question</c> returns and the thread in an agent session's
    /// <c>read_state</c>, with a draft answer and a note of the kind's own type on the tour.
    /// </summary>

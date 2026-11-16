@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json.Serialization;
+using Lotsen.Json;
 
 namespace Lotsen.Tours;
 
@@ -73,4 +74,28 @@ internal sealed record FollowUpThread(
 
    /// <summary>Returns the threads, or null when there are none.</summary>
    public static IReadOnlyList<FollowUpThread>? NoneAsNull(IReadOnlyList<FollowUpThread>? threads) => threads is { Count: > 0 } ? threads : null;
+}
+
+/// <summary>Whether a thread item that a follow-up action stored still applies to the tour, as <c>fetch_question</c> shows it beside the stored action.</summary>
+/// <param name="ThreadId">The item's thread ID.</param>
+/// <param name="Reason">Why the item no longer applies, or null while it applies. JSON leaves it out when null.</param>
+/// <remarks><see cref="ActionRules.ThreadItemsNow"/> builds it from the current tour, with the rule that refuses a re-send of the action.</remarks>
+internal sealed record ThreadItemNow(string ThreadId, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull), JsonPropertyOrder(1)] ThreadItemLapse? Reason)
+{
+   /// <summary>Whether the action would still hand the thread.</summary>
+   public bool Applies => Reason is null;
+}
+
+/// <summary>Why a thread item of a follow-up action no longer applies to the tour.</summary>
+[JsonConverter(typeof(StrictEnumConverter<ThreadItemLapse>))]
+internal enum ThreadItemLapse
+{
+   /// <summary>A thread that the reviewer or Claude deleted.</summary>
+   Deleted,
+
+   /// <summary>A thread that went outdated.</summary>
+   Outdated,
+
+   /// <summary>A thread that the reviewer resolved, for a follow-up action that leaves resolved threads out.</summary>
+   Resolved,
 }

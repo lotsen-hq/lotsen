@@ -113,12 +113,17 @@ internal sealed record FetchQuestionInput(
 /// otherwise the stop the reviewer viewed. Null when there is none or the plan no longer has it, and JSON then leaves it out.
 /// </param>
 /// <param name="HowToAct">What the thread's tour action or reviewer decision asks of Claude and how to carry it out, for each question of a thread that holds one. Null otherwise, and JSON then leaves it out.</param>
+/// <param name="ThreadItems">
+/// Whether each thread item of the thread's follow-up action still applies to the current tour, as <see cref="ActionRules.ThreadItemsNow"/> decides, for each question of a thread whose action
+/// holds thread items. Null otherwise, and JSON then leaves it out. The stored action keeps each item as the reviewer sent it.
+/// </param>
 internal sealed record FetchedQuestion(
    TourId TourId,
    string QuestionId,
    QuestionThread Thread,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Stop? Stop,
-   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? HowToAct);
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? HowToAct,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ThreadItemNow>? ThreadItems);
 
 /// <summary>The input of <c>resend_question</c>.</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -247,7 +252,8 @@ internal sealed class QuestionOperations
          ThreadAnchor.WholeStop stop => stop.StopId,
          _ => question.StopId,
       };
-      return new FetchedQuestion(tour.Id, question.Id, thread, stopId is null || tour.FindStop(stopId) is not { } found ? null : AgentView.Of(found), HowToAct(thread));
+      var threadItems = thread is QuestionThread.Sent.Asked { Action: { } action } ? ActionRules.ThreadItemsNow(tour, action) : null;
+      return new FetchedQuestion(tour.Id, question.Id, thread, stopId is null || tour.FindStop(stopId) is not { } found ? null : AgentView.Of(found), HowToAct(thread), threadItems);
    }
 
    private static string? HowToAct(QuestionThread.Sent thread) => thread switch

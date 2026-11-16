@@ -272,6 +272,13 @@ public sealed class ActionRulesTests
 
    public static TheoryData<string> ResendRows => [.. Resends.Keys];
 
+   public static TheoryData<string> ThreadItemRows =>
+   [
+      .. Resends.Where(row => row.Value.Action is TourAction.FollowUp.DraftWorkItems { DecisionThreads: not null }
+         or TourAction.FollowUp.WalkOpenQuestions { OpenQuestionThreads: not null }
+         or TourAction.FollowUp.DraftComments { ConcernThreads: not null }).Select(row => row.Key),
+   ];
+
    [Theory]
    [MemberData(nameof(AdmissionRows))]
    public void Admit_row(string row)
@@ -303,6 +310,30 @@ public sealed class ActionRulesTests
       {
          Check(expect, refused, () => Assert.Fail("The re-send went."));
       }
+   }
+
+   /// <summary>Each re-send row of a follow-up action with a thread item, so the marker that <c>fetch_question</c> shows and the re-send's refusal keep one rule.</summary>
+   [Theory]
+   [MemberData(nameof(ThreadItemRows))]
+   public void Thread_item_applies_now_exactly_when_the_resend_goes(string row)
+   {
+      var (tour, anchor, action, _) = Resends[row];
+
+      var item = Assert.Single(ActionRules.ThreadItemsNow(tour, action)!);
+      var refused = ActionRules.CheckResend(tour, anchor, action);
+
+      Assert.Equal("t1", item.ThreadId);
+      Assert.Equal(refused is null, item.Applies);
+      Assert.Equal(refused is null, item.Reason is null);
+   }
+
+   [Fact]
+   public void Thread_items_now_are_null_for_an_action_without_thread_items()
+   {
+      Assert.Null(ActionRules.ThreadItemsNow(Planned(), new TourAction.Explain(1)));
+      Assert.Null(ActionRules.ThreadItemsNow(Planned(), new TourAction.Summarize()));
+      Assert.Null(ActionRules.ThreadItemsNow(Planned(), new TourAction.FollowUp.DraftWorkItems([])));
+      Assert.Null(ActionRules.ThreadItemsNow(Planned(), new TourAction.FollowUp.DraftComments([], [])));
    }
 
    [Fact]

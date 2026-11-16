@@ -182,6 +182,7 @@ namespace Lotsen.Json;
 [JsonSerializable(typeof(FollowUpAnswer))]
 [JsonSerializable(typeof(FollowUpRisk))]
 [JsonSerializable(typeof(FollowUpThread))]
+[JsonSerializable(typeof(ThreadItemNow))]
 [JsonSerializable(typeof(RequestTourActionInput))]
 [JsonSerializable(typeof(AnswersEvent))]
 [JsonSerializable(typeof(ProbeEvent))]

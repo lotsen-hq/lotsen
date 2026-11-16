@@ -189,6 +189,25 @@ public sealed partial class HowToActTests : IAsyncLifetime
       Assert.All(lists, list => Assert.Contains($"{list} ", howToAct, StringComparison.Ordinal));
       Assert.All(fields, field => Assert.Contains(field, howToAct, StringComparison.Ordinal));
       Assert.Contains(ThreadItemFields(), howToAct, StringComparison.Ordinal);
+      Assert.All(ThreadItemsNowRule(), phrase => Assert.Contains(phrase, howToAct, StringComparison.Ordinal));
+   }
+
+   // The phrases of the rule that name fetch_question's threadItems, every field of their items and every reason, and that tell Claude to skip an item that no longer applies on a redo.
+   private static string[] ThreadItemsNowRule()
+   {
+      static string Name(string property) => SkillTests.PropertyName(LotsenJsonContext.Default.ThreadItemNow, property);
+      var fields = LotsenJsonContext.Default.ThreadItemNow.Properties.Select(property => property.Name).Order(StringComparer.Ordinal);
+      Assert.Equal(fields, new[] { Name(nameof(ThreadItemNow.ThreadId)), Name(nameof(ThreadItemNow.Applies)), Name(nameof(ThreadItemNow.Reason)) }.Order(StringComparer.Ordinal));
+      var reasons = Enum.GetValues<ThreadItemLapse>().Select(reason => JsonSerializer.Serialize(reason, LotsenJsonContext.Default.ThreadItemLapse).Trim('"')).ToArray();
+      Assert.Equal(3, reasons.Length);
+      var threadItems = SkillTests.PropertyName(LotsenJsonContext.Default.FetchedQuestion, nameof(FetchedQuestion.ThreadItems));
+      return
+      [
+         $"fetch_question's {threadItems} say for each thread item, by its {Name(nameof(ThreadItemNow.ThreadId))}, whether it still applies now",
+         $"its {Name(nameof(ThreadItemNow.Reason))} then says which: {reasons[0]}, {reasons[1]} or {reasons[2]}",
+         $"When a follow-up in this thread asks you to carry out or redo the work, skip each thread item whose {Name(nameof(ThreadItemNow.Applies))} is false",
+         "say in your reply which items you skipped and why",
+      ];
    }
 
    // The phrase of the rule that names a thread item's fields. It names every field of FollowUpThread.
