@@ -388,7 +388,7 @@ public sealed class TourFileFormatTests : IDisposable
          new TourAction.FollowUp.DraftComments(
             [decision with { Type = AnswerType.Concern }],
             [new FollowUpRisk("s2", "Rounding", "Two discounts round twice."), new FollowUpRisk("s3", "Eviction", "Eviction drops a hot entry.")],
-            [thread with { Type = AnswerType.Concern }]),
+            [thread with { Type = AnswerType.Concern, State = ReviewerThreadState.Open }]),
       ];
    }
 

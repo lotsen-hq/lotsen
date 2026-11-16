@@ -79,7 +79,12 @@ public sealed class TourOffersTests
          With(Planned(), Typed(AnswerType.Concern, QuestionThreadState.Outdated)),
          FollowUp(TourAction.DraftCommentsKind),
          Requested(new ActionRequest.FollowUp.DraftComments()),
-         ActionRules.ConcernThreadsOutdated),
+         ActionRules.ConcernThreadsSettled),
+      ["draftComments with only a resolved concern thread"] = (
+         With(Planned(), Typed(AnswerType.Concern, QuestionThreadState.Resolved)),
+         FollowUp(TourAction.DraftCommentsKind),
+         Requested(new ActionRequest.FollowUp.DraftComments()),
+         ActionRules.ConcernThreadsSettled),
       ["draftWorkItems with only an outdated decision thread"] = (
          With(Planned(), Typed(AnswerType.Decision, QuestionThreadState.Outdated)),
          FollowUp(TourAction.DraftWorkItemsKind),

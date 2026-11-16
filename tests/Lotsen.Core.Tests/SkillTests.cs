@@ -364,6 +364,7 @@ public sealed partial class SkillTests
       Assert.Contains($"The threads in `{typed}` are the reviewer's own findings, not yours", summary, StringComparison.Ordinal);
       Assert.Contains("A synthesis lists them as the reviewer's findings, never in your own voice", summary, StringComparison.Ordinal);
       Assert.Contains("The summary page's follow-ups hand you these threads beside the answers", summary, StringComparison.Ordinal);
+      Assert.Contains("They never hand an outdated thread, a concern or open question thread that the reviewer resolved, or a note", summary, StringComparison.Ordinal);
    }
 
    /// <summary>The thread tools are the agent tools whose access declaration lets the bound session write its threads, so a tool that the catalog adds there must reach the section.</summary>

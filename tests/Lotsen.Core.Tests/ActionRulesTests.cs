@@ -99,13 +99,16 @@ public sealed class ActionRulesTests
          Admitted(
             """{"kind":"tour"}""",
             """{"kind":"draftWorkItems","decisions":[],"decisionThreads":[{"threadId":"t1","anchor":{"kind":"stop","stopId":"s1"},"text":"Found.","type":"decision","state":"resolved","stopId":"s1","stopTitle":"Stop s1"}]}""")),
-      ["draftComments hands a resolved concern thread with its state"] = (
+      ["draftComments with only a resolved concern thread"] = (
          Planned() with { Threads = ThreadFixtures.Threads(SentThread(AnswerType.Concern, QuestionThreadState.Resolved)) },
          new ActionRequest.FollowUp.DraftComments(),
          "",
-         Admitted(
-            """{"kind":"tour"}""",
-            """{"kind":"draftComments","concerns":[],"risks":[],"concernThreads":[{"threadId":"t1","anchor":{"kind":"stop","stopId":"s1"},"text":"Found.","type":"concern","state":"resolved","stopId":"s1","stopTitle":"Stop s1"}]}""")),
+         Refused("action", ActionRules.ConcernThreadsSettled)),
+      ["draftComments hands the sent concern and not the resolved concern thread"] = (
+         Answered(AnswerType.Concern) with { Threads = ThreadFixtures.Threads(SentThread(AnswerType.Concern, QuestionThreadState.Resolved)) },
+         new ActionRequest.FollowUp.DraftComments(),
+         "",
+         Admitted("""{"kind":"tour"}""", """{"kind":"draftComments","concerns":[{"stopId":"s1","checkId":"c1","text":"Sent.","type":"concern","stopTitle":"Stop s1"}],"risks":[]}""")),
       ["walkOpenQuestions hands the open thread and not the resolved or outdated one"] = (
          Planned() with
          {
@@ -138,7 +141,7 @@ public sealed class ActionRulesTests
          Planned() with { Threads = ThreadFixtures.Threads(SentThread(AnswerType.Concern, QuestionThreadState.Outdated)) },
          new ActionRequest.FollowUp.DraftComments(),
          "",
-         Refused("action", ActionRules.ConcernThreadsOutdated)),
+         Refused("action", ActionRules.ConcernThreadsSettled)),
       ["draftWorkItems hands no sent thread of another type"] = (
          Answered(AnswerType.Decision) with { Threads = ThreadFixtures.Threads(SentThread(AnswerType.Concern)) },
          new ActionRequest.FollowUp.DraftWorkItems(),
@@ -226,8 +229,15 @@ public sealed class ActionRulesTests
          new ThreadAnchor.WholeTour(),
          new TourAction.FollowUp.DraftWorkItems([], [Item(AnswerType.Decision, ReviewerThreadState.Open)]),
          Refused("action.decisionThreads[0]", "is outdated since you asked. Cancel this request if it still waits, then click \"Draft work items\" again on the summary page, which leaves out outdated threads.")),
-      ["draftComments whose thread the reviewer resolved since goes again"] = (
+      ["draftComments whose thread the reviewer resolved since"] = (
          Threaded(AnswerType.Concern, QuestionThreadState.Resolved),
+         new ThreadAnchor.WholeTour(),
+         new TourAction.FollowUp.DraftComments([], [], [Item(AnswerType.Concern, ReviewerThreadState.Open)]),
+         Refused(
+            "action.concernThreads[0]",
+            "You resolved this concern since you asked, so it is settled. Cancel this request if it still waits, then click \"Draft PR comments\" again on the summary page, which leaves out the concerns you resolved.")),
+      ["draftComments whose thread stays open goes again"] = (
+         Threaded(AnswerType.Concern, QuestionThreadState.Open),
          new ThreadAnchor.WholeTour(),
          new TourAction.FollowUp.DraftComments([], [], [Item(AnswerType.Concern, ReviewerThreadState.Open)]),
          null),
@@ -244,7 +254,7 @@ public sealed class ActionRulesTests
       ["draftComments whose thread is deleted since"] = (
          Planned(),
          new ThreadAnchor.WholeTour(),
-         new TourAction.FollowUp.DraftComments([], [], [Item(AnswerType.Concern, ReviewerThreadState.Resolved)]),
+         new TourAction.FollowUp.DraftComments([], [], [Item(AnswerType.Concern, ReviewerThreadState.Open)]),
          Refused("action.concernThreads[0]", "is deleted since you asked. Cancel this request if it still waits, then click \"Draft PR comments\" again on the summary page.")),
       ["draftWorkItems whose thread changed its type since goes again"] = (
          Threaded(AnswerType.Concern, QuestionThreadState.Open),
@@ -254,7 +264,7 @@ public sealed class ActionRulesTests
       ["draftComments whose thread is outdated since"] = (
          Threaded(AnswerType.Concern, QuestionThreadState.Outdated),
          new ThreadAnchor.WholeTour(),
-         new TourAction.FollowUp.DraftComments([], [], [Item(AnswerType.Concern, ReviewerThreadState.Resolved)]),
+         new TourAction.FollowUp.DraftComments([], [], [Item(AnswerType.Concern, ReviewerThreadState.Open)]),
          Refused("action.concernThreads[0]", "A thread that this request hands to Claude is outdated since you asked")),
    };
 

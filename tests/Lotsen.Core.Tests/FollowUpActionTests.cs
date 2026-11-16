@@ -433,6 +433,30 @@ public sealed class FollowUpActionTests : IAsyncLifetime
       Assert.Contains("Cancel this request if it still waits, then click \"Walk through open questions\" again on the summary page, which leaves out the open questions you resolved.", (string)error["reason"]!, StringComparison.Ordinal);
    }
 
+   /// <summary>A resolved concern is settled, so the re-send waits until the reviewer reopens the thread.</summary>
+   [Fact]
+   public async Task Resend_of_draft_comments_is_refused_while_a_concern_that_it_hands_is_resolved_and_goes_once_it_is_reopened()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      Seed(id, tour =>
+      {
+         var seeded = SummaryTours.Apply(tour, session.Id);
+         return seeded with { Threads = ThreadFixtures.Threads([.. seeded.Threads, .. TypedThreads()]) };
+      });
+      var thread = await RequestAsync(id, TourAction.DraftCommentsKind);
+      await _calls.CallAsync(await _calls.UiAsync(On("set_thread_state", id, threadId: "t9")), """{ "state": "resolved" }""");
+
+      using var refused = await _calls.SendAsync(await _calls.UiAsync(On("resend_question", id, questionId: QuestionIdOf(thread))));
+      var error = await ErrorAsync(refused, HttpStatusCode.BadRequest, "invalidInput");
+      await _calls.CallAsync(await _calls.UiAsync(On("set_thread_state", id, threadId: "t9")), """{ "state": "open" }""");
+      var resent = await _calls.CallAsync(await _calls.UiAsync(On("resend_question", id, questionId: QuestionIdOf(thread))));
+
+      Assert.Equal("action.concernThreads[0]", (string)error["field"]!);
+      Assert.Contains("which leaves out the concerns you resolved.", (string)error["reason"]!, StringComparison.Ordinal);
+      Assert.Equal("pending", (string)RequestOf(resent, index: 1)["state"]!);
+   }
+
    /// <summary>
    /// The leak paths of a follow-up action: its items, the question event and its channel notification, what <c>fetch_question</c> returns and the thread in an agent session's
    /// <c>read_state</c>, with a draft answer and a note of the kind's own type on the tour.
