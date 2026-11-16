@@ -29,6 +29,10 @@ namespace Lotsen.Tours;
 /// The pull request's state as the first pin or the last iteration check learned it, active until one learns another. A completed or abandoned pull request flags the tour, which the tour list then hides by
 /// default. JSON leaves it out when active.
 /// </param>
+/// <param name="Purpose">What a repository tour is for, fixed for its life, or null for a pull request's tour. JSON leaves it out when null.</param>
+/// <param name="Words">The reviewer's words about what a repository tour should cover, or null when the reviewer gave none and for a pull request's tour. JSON leaves them out when null.</param>
+/// <param name="Title">A repository tour's title, one line of plain text, or null for a pull request's tour. JSON leaves it out when null.</param>
+/// <param name="DiveOrigin">Where a dive started, or null for a tour that is no dive. Only a repository tour can be a dive. JSON leaves it out when null.</param>
 internal sealed record Tour(
    TourId Id,
    TourTarget Target,
@@ -44,7 +48,11 @@ internal sealed record Tour(
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TourSynthesis? Synthesis = null,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ReadingProgress? Progress = null,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Archived = false,
-   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] PullRequestState PullRequestState = PullRequestState.Active)
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] PullRequestState PullRequestState = PullRequestState.Active,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TourPurpose? Purpose = null,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Words = null,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Title = null,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiveOrigin? DiveOrigin = null)
 {
    /// <summary>The number of the tour's stores, from 1 for the new tour, which every store and every change of the tour's binding raises by one.</summary>
    /// <remarks>Every tour-scoped event and every operation's output carries the revision that it shows, so the UI keeps the value with the higher one.</remarks>
@@ -67,10 +75,11 @@ internal sealed record Tour(
 }
 
 /// <summary>
-/// What a tour reviews. The <c>kind</c> property in JSON names the derived type.
+/// What a tour reviews: a pull request, or a repository at a ref. The <c>kind</c> property in JSON names the derived type.
 /// </summary>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(PullRequestTarget), "pullRequest")]
+[JsonDerivedType(typeof(RepositoryTarget), "repository")]
 internal abstract record TourTarget;
 
 /// <summary>A pull request on a platform as a tour's target.</summary>
@@ -92,15 +101,79 @@ internal sealed record PullRequestTarget : TourTarget
    public Uri Url { get; }
 }
 
-/// <summary>The pin state of a tour: whether the tour is pinned to the commits of its pull request. The <c>state</c> property in JSON names the derived type.</summary>
+/// <summary>A repository at a ref as a tour's target.</summary>
+internal sealed record RepositoryTarget : TourTarget
+{
+   /// <param name="url">The repository's URL, absolute and without user information.</param>
+   /// <param name="ref">The ref that the tour follows, such as a branch or a tag, or null for the repository's default branch.</param>
+   /// <param name="platform">The ID of the platform that hosts the repository, as <see cref="Platforms.IPullRequestPlatform.Id"/> names it, or null for a repository that git alone reaches.</param>
+   /// <exception cref="ArgumentException">The URL is relative or holds user information, or the ref or the platform ID is empty.</exception>
+   public RepositoryTarget(Uri url, string? @ref = null, string? platform = null)
+   {
+      if (!url.IsAbsoluteUri || url.UserInfo.Length > 0)
+      {
+         throw new ArgumentException($"The repository's URL '{url}' is relative or holds user information.", nameof(url));
+      }
+
+      // Null names the default branch, so an empty ref would be a second way to say it.
+      if (string.IsNullOrWhiteSpace(@ref) && @ref is not null)
+      {
+         throw new ArgumentException("The ref of a repository tour is empty. Null names the default branch.", nameof(@ref));
+      }
+
+      if (string.IsNullOrWhiteSpace(platform) && platform is not null)
+      {
+         throw new ArgumentException("The platform ID of a repository tour is empty. Null names a repository without a platform.", nameof(platform));
+      }
+
+      Url = url;
+      Ref = @ref;
+      Platform = platform;
+   }
+
+   /// <summary>The repository's URL, absolute and without user information.</summary>
+   public Uri Url { get; }
+
+   /// <summary>The ref that the tour follows, or null for the repository's default branch. JSON leaves it out when null.</summary>
+   [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+   public string? Ref { get; }
+
+   /// <summary>The ID of the platform that hosts the repository, or null for a repository that git alone reaches. JSON leaves it out when null.</summary>
+   [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+   public string? Platform { get; }
+}
+
+/// <summary>What a repository tour is for.</summary>
+[JsonConverter(typeof(StrictEnumConverter<TourPurpose>))]
+internal enum TourPurpose
+{
+   /// <summary>A tour that orients the reviewer in the code.</summary>
+   Orient,
+
+   /// <summary>A tour that prepares the reviewer for work on the code.</summary>
+   Prepare,
+
+   /// <summary>A tour that helps the reviewer judge the code.</summary>
+   Evaluate,
+}
+
+/// <summary>Where a dive started. A dive is a repository tour that starts from another tour, or from one of its stops, to go deeper.</summary>
+/// <param name="ParentId">The ID of the tour that the dive started from.</param>
+/// <param name="RootId">The ID of the family's first tour, which is no dive. It is the parent's ID when the parent is no dive.</param>
+/// <param name="StopId">The ID of the parent's stop that the dive started from, or null for a dive from the whole tour. JSON leaves it out when null.</param>
+internal sealed record DiveOrigin(TourId ParentId, TourId RootId, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? StopId = null);
+
+/// <summary>The pin state of a tour: whether the tour is pinned to the commits that it shows. The <c>state</c> property in JSON names the derived type.</summary>
 /// <remarks>
-/// A pinned tour shows its pull request as the diff from the merge base to the head, and every later view and check reads those two commits.
+/// A pull request's tour is pinned to an iteration and shows its pull request as the diff from the merge base to the head, and every later view and check reads those two commits. A repository
+/// tour is pinned to a snapshot of one commit, its head, and has no base side.
 /// </remarks>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "state")]
 [JsonDerivedType(typeof(Pinning), "pinning")]
 [JsonDerivedType(typeof(Pinned), "pinned")]
+[JsonDerivedType(typeof(Snapshot), "snapshot")]
 [JsonDerivedType(typeof(Failed), "failed")]
-internal abstract record TourPin
+internal closed record TourPin
 {
    private TourPin()
    {
@@ -110,7 +183,7 @@ internal abstract record TourPin
    internal sealed record Pinning : TourPin;
 
    /// <summary>
-   /// The commits that a tour is pinned to.
+   /// The commits of a pull request's iteration that a tour is pinned to.
    /// </summary>
    /// <param name="MergeBase">The best common ancestor of the head and the target branch's head in the iteration.</param>
    /// <param name="Head">The head of the source branch in the iteration.</param>
@@ -120,6 +193,18 @@ internal abstract record TourPin
    {
       /// <summary>Returns the commit that a side names: the merge base for the base, the head for the head.</summary>
       public CommitId CommitOf(FileSide side) => side == FileSide.Base ? MergeBase : Head;
+   }
+
+   /// <summary>
+   /// The one commit that a repository tour is pinned to, which is its head.
+   /// </summary>
+   /// <param name="Head">The commit that the tour shows.</param>
+   /// <param name="RemoteUrl">The URL of the repository that the commit was fetched from, without user information. The clone cache keeps the tour's clone under this URL.</param>
+   internal sealed record Snapshot(CommitId Head, Uri RemoteUrl) : TourPin
+   {
+      /// <summary>Returns the commit that a side names.</summary>
+      /// <returns>The snapshot's commit for the head, or null for the base, which a snapshot does not have.</returns>
+      public CommitId? CommitOf(FileSide side) => side == FileSide.Head ? Head : null;
    }
 
    /// <summary>

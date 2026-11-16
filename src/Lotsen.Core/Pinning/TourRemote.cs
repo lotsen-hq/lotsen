@@ -24,16 +24,22 @@ internal sealed class TourRemote
    public Uri Url => Remote.Url;
 
    /// <summary>Returns every remote that the tour uses: its pin's, then its available iteration's when that differs.</summary>
-   /// <param name="tour">The tour. A tour that is not pinned uses none.</param>
+   /// <param name="tour">The tour. A tour that pins or whose pin failed uses none.</param>
    /// <param name="credential">The credential of the tour's platform, or null for none, as for a prune, which runs no git against the remotes.</param>
    public static IReadOnlyList<TourRemote> Of(Tour tour, IGitCredential? credential)
    {
-      var remotes = new List<TourRemote>();
-      foreach (var pin in new[] { tour.Pin as TourPin.Pinned, tour.AvailableIteration?.Pin })
+      var pinUrl = tour.Pin switch
       {
-         if (pin is not null && !remotes.Exists(remote => remote.Url == pin.RemoteUrl))
+         TourPin.Pinned pinned => pinned.RemoteUrl,
+         TourPin.Snapshot snapshot => snapshot.RemoteUrl,
+         TourPin.Pinning or TourPin.Failed => null,
+      };
+      var remotes = new List<TourRemote>();
+      foreach (var url in new[] { pinUrl, tour.AvailableIteration?.Pin.RemoteUrl })
+      {
+         if (url is not null && !remotes.Exists(remote => remote.Url == url))
          {
-            remotes.Add(OfPin(pin, credential));
+            remotes.Add(new TourRemote(new GitRemote(url, credential)));
          }
       }
 

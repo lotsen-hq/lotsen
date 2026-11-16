@@ -26,12 +26,13 @@ internal sealed class PullRequestPlatforms
    /// Every site that reaches a tour's platform or builds a <see cref="Pinning.TourRemote"/> for it takes the platform from here, so a target whose platform lotsen does not know has one served
    /// reason.
    /// </remarks>
-   /// <exception cref="PlatformException">No registered platform has the target's platform ID.</exception>
-   /// <exception cref="ArgumentException">The target is not a pull request. No other kind of target exists, so this is a fault of lotsen.</exception>
+   /// <exception cref="PlatformException">No registered platform has the target's platform ID, or the target is a repository, which reaches no platform here.</exception>
+   /// <exception cref="ArgumentException">The target is of another kind. No other kind of target exists, so this is a fault of lotsen.</exception>
    public IPullRequestPlatform Of(TourTarget target) => target switch
    {
       PullRequestTarget pullRequest => Find(pullRequest) ?? throw new PlatformException(
          $"lotsen does not know the platform '{pullRequest.Platform}' of the pull request {pullRequest.Url.AbsoluteUri}, so it cannot reach the pull request or its repository. Run a lotsen build that supports that platform, then try again."),
+      RepositoryTarget repository => throw new PlatformException($"lotsen reaches a platform only for a pull request's tour, and this tour is of the repository {repository.Url.AbsoluteUri}."),
       _ => throw new ArgumentException($"lotsen knows no platform for a target of type {target.GetType().Name}.", nameof(target)),
    };
 
@@ -55,15 +56,16 @@ internal sealed class PullRequestPlatforms
    public bool IsSamePullRequest(TourTarget tourTarget, PullRequestTarget target) =>
       tourTarget is PullRequestTarget pullRequest && pullRequest.Platform == target.Platform && Find(target) is { } platform && platform.IsSamePullRequest(pullRequest.Url, target.Url);
 
-   /// <summary>Returns the short name of a target: its platform's label, or the URL when its platform is not registered or does not recognize the URL.</summary>
+   /// <summary>Returns the short name of a target: its platform's label, or the URL for a repository and when its platform is not registered or does not recognize the URL.</summary>
    public string Label(TourTarget target) => target switch
    {
       PullRequestTarget pullRequest => Find(pullRequest)?.Label(pullRequest.Url) ?? pullRequest.Url.AbsoluteUri,
+      RepositoryTarget repository => repository.Url.AbsoluteUri,
       _ => throw new ArgumentException($"lotsen cannot label a target of type {target.GetType().Name}.", nameof(target)),
    };
 
    /// <summary>Returns the links of the mentions in the prose of a tour of the target, which its platform's <see cref="IPullRequestPlatform.MentionUrl"/> builds.</summary>
-   /// <remarks>A target whose platform is not registered gets <see cref="MentionLinks.None"/>, so its prose still renders.</remarks>
+   /// <remarks>A repository, and a target whose platform is not registered, get <see cref="MentionLinks.None"/>, so the prose still renders.</remarks>
    public MentionLinks MentionsOf(TourTarget target) => target is PullRequestTarget pullRequest && Find(pullRequest) is { } platform
       ? new MentionLinks((kind, id) => platform.MentionUrl(pullRequest.Url, kind, id))
       : MentionLinks.None;

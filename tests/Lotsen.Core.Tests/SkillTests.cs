@@ -107,13 +107,14 @@ public sealed partial class SkillTests
       Assert.All(names, name => Assert.Contains($"`{name.Trim('"')}`", Skills, StringComparison.Ordinal));
    }
 
+   /// <summary>The skill tours pull requests, so it leaves out a snapshot, which only a repository tour has, as <see cref="TourRules"/> holds.</summary>
    [Fact]
-   public void Skill_names_every_pin_state()
+   public void Skill_names_every_pin_state_of_a_pull_requests_tour()
    {
       var states = LotsenJsonContext.Default.TourPin.PolymorphismOptions!.DerivedTypes.Select(derived => (string)derived.TypeDiscriminator!).ToList();
 
-      Assert.Equal(["pinning", "pinned", "failed"], states);
-      Assert.All(states, state => Assert.Contains($"`{state}`", Tour, StringComparison.Ordinal));
+      Assert.Equal(["pinning", "pinned", "snapshot", "failed"], states);
+      Assert.All(states.Where(state => state != "snapshot"), state => Assert.Contains($"`{state}`", Tour, StringComparison.Ordinal));
    }
 
    /// <summary>The names come from each tool's input type, nested types and enums included, so a field or a value that the contract adds must reach the skill.</summary>

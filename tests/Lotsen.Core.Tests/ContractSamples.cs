@@ -109,6 +109,22 @@ internal static class ContractSamples
 
    private static readonly TourSummary Summary = new(Id, Tour.Target, Tour.Familiarity, At, Later, Pin, Plan.Stops.Count, "contoso/shop/web #42", TourState.InProgress, PullRequestState.Active, Tour.Revision, Binding, PlanApproval.Given);
 
+   // A repository tour beside the pull request's tour, so the UI's type check reads a repository target and a snapshot pin as the serializer writes them.
+   private static readonly TourSummary RepositorySummary = new(
+      TourId.TryParse("repositorytourab", out var repositoryId) ? repositoryId : throw new InvalidOperationException("The ID does not parse."),
+      new RepositoryTarget(new Uri("https://github.com/contoso/shop"), "main", "github"),
+      Familiarity.New,
+      At,
+      Later,
+      new TourPin.Snapshot(Head, new Uri("https://github.com/contoso/shop.git")),
+      0,
+      "https://github.com/contoso/shop",
+      TourState.Generating,
+      PullRequestState.Active,
+      1,
+      null,
+      PlanApproval.NotNeeded);
+
    /// <summary>Returns one event of each kind, as the server publishes it, by its name.</summary>
    public static IReadOnlyDictionary<string, JsonNode> Events()
    {
@@ -167,7 +183,7 @@ internal static class ContractSamples
          new UpdatedAnswer(Id, Later, Draft),
          new ClearedAnswer(Id, Later, "s3", "c1"),
          new UpdatedBatch(Id, Later, "b1", [SentAnswer]),
-         new TourList([Summary]),
+         new TourList([Summary, RepositorySummary]),
          new ChangedFileList(
             Pin.MergeBase,
             Head,

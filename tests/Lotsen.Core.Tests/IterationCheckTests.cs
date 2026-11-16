@@ -407,6 +407,34 @@ public sealed class IterationCheckTests : IAsyncLifetime
       Assert.StartsWith("tourId: this tour is not pinned, because its pin failed", (string)error["reason"]!, StringComparison.Ordinal);
    }
 
+   /// <summary>A repository tour has no pull request whatever its pin state, so the refusal names the target and not the pin.</summary>
+   [Theory]
+   [InlineData("pinning")]
+   [InlineData("failed")]
+   [InlineData("snapshot")]
+   public async Task Check_of_a_repository_tour_is_refused_in_every_pin_state(string pinState)
+   {
+      Assert.True(TourId.TryParse(_tour.TourId, out var id));
+      Harness.ChangeStored(id, tour => tour with
+      {
+         Target = new RepositoryTarget(new Uri(_tour.Git.Url.AbsoluteUri), null, null),
+         Pin = pinState switch
+         {
+            "pinning" => new TourPin.Pinning(),
+            "failed" => new TourPin.Failed("lotsen cannot pin a repository tour."),
+            _ => new TourPin.Snapshot(((TourPin.Pinned)tour.Pin).Head, ((TourPin.Pinned)tour.Pin).RemoteUrl),
+         },
+         AvailableIteration = null,
+         Purpose = TourPurpose.Orient,
+         Title = "The shop",
+      });
+
+      using var response = await Calls.SendAsync(Ui(On("check_iteration", _tour.TourId)));
+
+      var error = await ErrorAsync(response, HttpStatusCode.Conflict, "notPullRequestTour");
+      Assert.Equal($"tourId: tour {_tour.TourId} is a repository tour, so it has no pull request to check for a new update.", (string)error["reason"]!);
+   }
+
    private static string[] StaleStops(JsonNode available) => [.. available["staleStops"]!.AsArray().Select(stop => (string)stop!)];
 
    private async Task PutStopAsync(string stopId, string path, int line) => await Harness.AgentCallAsync(

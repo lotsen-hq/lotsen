@@ -208,6 +208,10 @@ internal sealed class TourPins
                return OperationError.Invalid(
                   "tourId",
                   $"tour {tour.Id} is already pinned to head {pinned.Head} of iteration {pinned.Iteration}. Only a tour whose pin failed, or stopped without a result, can be pinned again.");
+            case TourPin.Snapshot snapshot:
+               return OperationError.Invalid(
+                  "tourId",
+                  $"tour {tour.Id} is already pinned to commit {snapshot.Head}. Only a tour whose pin failed, or stopped without a result, can be pinned again.");
             default:
                var orphaned = !_runningPins.ContainsKey(tour.Id);
                return edit.Store(tour, stored =>

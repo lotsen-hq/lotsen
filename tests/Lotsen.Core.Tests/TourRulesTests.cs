@@ -1,3 +1,4 @@
+using Lotsen.Platforms;
 using Lotsen.Tours;
 using static Lotsen.Tests.TourValues;
 
@@ -42,7 +43,23 @@ public sealed class TourRulesTests
          Tour() with { AvailableIteration = new AvailableIteration(Pinned with { Iteration = 2 }, [null!], Now) },
          "availableIteration.staleStops[0]",
          "an element cannot be null."),
+      ["repository tour without a purpose"] = (RepositoryTour() with { Purpose = null }, "purpose", "a repository tour needs a purpose: orient, prepare or evaluate."),
+      ["repository tour without a title"] = (RepositoryTour() with { Title = null }, "title", "a repository tour needs a title."),
+      ["repository tour with a blank title"] = (RepositoryTour() with { Title = " " }, "title", "a repository tour needs a title."),
+      ["title with a line break"] = (RepositoryTour() with { Title = "Two\nlines" }, "title", "a title is one line of plain text, without line breaks, tabs or other control characters."),
+      ["title over the limit"] = (RepositoryTour() with { Title = new string('t', TourRules.MaxTitleLength + 1) }, "title", $"a title holds at most {TourRules.MaxTitleLength} characters, and this one holds {TourRules.MaxTitleLength + 1}."),
+      ["repository tour with blank words"] = (RepositoryTour() with { Words = " " }, "words", "words are null when the reviewer gave none, never empty."),
+      ["dive origin with an empty stop ID"] = (RepositoryTour() with { DiveOrigin = new DiveOrigin(OtherId, OtherId, "") }, "diveOrigin.stopId", "a dive's stop ID is null for a dive from the whole tour, never empty."),
+      ["repository tour pinned to an iteration"] = (RepositoryTour() with { Pin = Pinned }, "pin", "a repository tour is pinned to a snapshot of one commit, not to an iteration of a pull request."),
+      ["repository tour with a pull request state"] = (RepositoryTour() with { PullRequestState = PullRequestState.Completed }, "pullRequestState", "only a pull request's tour has a pull request state."),
+      ["pull request tour with a purpose"] = (Tour() with { Purpose = TourPurpose.Evaluate }, "purpose", "only a repository tour has a purpose."),
+      ["pull request tour with words"] = (Tour() with { Words = "Focus on the cache." }, "words", "only a repository tour has words."),
+      ["pull request tour with a title"] = (Tour() with { Title = "Pricing" }, "title", "only a repository tour has a title."),
+      ["pull request tour with a dive origin"] = (Tour() with { DiveOrigin = new DiveOrigin(OtherId, OtherId) }, "diveOrigin", "only a repository tour is a dive."),
+      ["pull request tour pinned to a snapshot"] = (Tour() with { Pin = Snapshot }, "pin", "a pull request's tour is pinned to an iteration of the pull request, not to a snapshot."),
    };
+
+   private static TourId OtherId => TourId.TryParse("qrstuvwxyzabcdef", out var id) ? id : throw new InvalidOperationException("The ID does not parse.");
 
    public static TheoryData<string> Rules => [.. Broken.Keys];
 
@@ -68,6 +85,21 @@ public sealed class TourRulesTests
          Answers = [Answer("s2", "c1"), Answer("gone", "c1").SentIn(Batch)],
          AvailableIteration = new AvailableIteration(Pinned with { Iteration = 2 }, ["s3"], Now),
          Progress = new ReadingProgress(false, "gone"),
+      };
+
+      Assert.Null(TourRules.Check(tour));
+   }
+
+   [Fact]
+   public void Repository_tour_that_follows_every_rule_has_no_fault()
+   {
+      var tour = RepositoryTour(Plan(Written("s1"))) with
+      {
+         Target = new RepositoryTarget(new Uri("https://example.test/repo"), "release/2.0", "test"),
+         Purpose = TourPurpose.Evaluate,
+         Words = "Is the cache safe under load?",
+         Title = new string('t', TourRules.MaxTitleLength),
+         DiveOrigin = new DiveOrigin(OtherId, OtherId, "s4"),
       };
 
       Assert.Null(TourRules.Check(tour));

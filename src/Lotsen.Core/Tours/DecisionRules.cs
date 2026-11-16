@@ -82,6 +82,11 @@ internal static class DecisionRules
    /// </remarks>
    public static OperationError? CheckUpdatable(Tour tour)
    {
+      if (tour.Target is RepositoryTarget)
+      {
+         return OperationError.NotPullRequestTour(tour, "pull request to move to a new update");
+      }
+
       if (tour.AvailableIteration is null)
       {
          return OperationError.NoAvailableIteration();

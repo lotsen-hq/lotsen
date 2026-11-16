@@ -125,6 +125,9 @@ internal sealed class IterationLifecycle
                   }
 
                   break;
+               case RepositoryTarget:
+                  pin = new TourPin.Failed("lotsen cannot pin a repository tour.");
+                  break;
                default:
                   pin = new TourPin.Failed("lotsen cannot pin this kind of tour target.");
                   break;

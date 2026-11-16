@@ -273,8 +273,9 @@ internal static class PlanRules
       return null;
    }
 
-   // Control characters include CR, LF and NEL. The Unicode line and paragraph separators break a line too.
-   private static bool IsLineBreakOrControl(char c) => char.IsControl(c) || c is '\u2028' or '\u2029';
+   /// <summary>Returns whether the character breaks a line or is a control character, which one line of plain text does not hold.</summary>
+   /// <remarks>Control characters include CR, LF and NEL. The Unicode line and paragraph separators break a line too.</remarks>
+   internal static bool IsLineBreakOrControl(char c) => char.IsControl(c) || c is '\u2028' or '\u2029';
 
    private static string Quoted(IEnumerable<string> ids) => string.Join(", ", ids.Select(id => $"'{id}'"));
 }

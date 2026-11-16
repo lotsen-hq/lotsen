@@ -425,6 +425,25 @@ public sealed class IterationUpdateTests : IAsyncLifetime
    }
 
    [Fact]
+   public async Task Update_of_a_repository_tour_is_refused()
+   {
+      var shown = ShownInput();
+      Assert.True(TourId.TryParse(_tour.TourId, out var id));
+      Harness.ChangeStored(id, tour => tour with
+      {
+         Target = new RepositoryTarget(new Uri(_tour.Git.Url.AbsoluteUri), null, null),
+         Pin = new TourPin.Snapshot(((TourPin.Pinned)tour.Pin).Head, ((TourPin.Pinned)tour.Pin).RemoteUrl),
+         Purpose = TourPurpose.Orient,
+         Title = "The shop",
+      });
+
+      using var response = await Calls.SendAsync(Ui(On("update_iteration", _tour.TourId)), shown);
+
+      var error = await ErrorAsync(response, HttpStatusCode.Conflict, "notPullRequestTour");
+      Assert.Equal($"tourId: tour {_tour.TourId} is a repository tour, so it has no pull request to move to a new update.", (string)error["reason"]!);
+   }
+
+   [Fact]
    public async Task Update_whose_pin_holds_an_unknown_member_is_refused_and_stores_nothing()
    {
       await PushAsync();

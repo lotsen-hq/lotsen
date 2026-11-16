@@ -49,7 +49,7 @@ internal closed record TourRead(TourId Id)
    /// <param name="Document">The document, which no rule has checked.</param>
    internal sealed record Found(TourId Id, TourDocument Document) : TourRead(Id);
 
-   /// <summary>A file whose top-level <c>schemaVersion</c> names another layout than <see cref="TourDocument.CurrentSchemaVersion"/>, which this build can never read.</summary>
+   /// <summary>A file whose top-level <c>schemaVersion</c> names a layout that <see cref="TourDocument.Reads"/> does not, which this build can never read.</summary>
    internal sealed record OtherSchema(TourId Id) : TourRead(Id);
 
    /// <summary>A file that cannot be opened, is malformed or holds a value that a type of the tour refuses.</summary>
@@ -104,7 +104,7 @@ internal sealed class FileTourStore : ITourStore
          return JsonSerializer.Deserialize(stream, LotsenJsonContext.Default.TourDocument) switch
          {
             null => new TourRead.Unreadable(id, new InvalidDataException($"Tour {id} holds null.")),
-            { SchemaVersion: not TourDocument.CurrentSchemaVersion } => new TourRead.OtherSchema(id),
+            { SchemaVersion: var version } when !TourDocument.Reads(version) => new TourRead.OtherSchema(id),
             var document => new TourRead.Found(id, document),
          };
       }
@@ -178,7 +178,7 @@ internal sealed class FileTourStore : ITourStore
    private void Write(TourId id, TourDocument document) =>
       UserOnlyStorage.WriteFileAtomically(PathOf(id), stream => JsonSerializer.Serialize(stream, document, LotsenJsonContext.Default.TourDocument));
 
-   // Returns whether the file's top-level schemaVersion is a number other than the current one. The layout can differ with the version, so the file is read without the tour's types.
+   // Returns whether the file's top-level schemaVersion is a number of a layout that this build does not read. The layout can differ with the version, so the file is read without the tour's types.
    private bool NamesOtherSchema(TourId id)
    {
       try
@@ -188,7 +188,7 @@ internal sealed class FileTourStore : ITourStore
          return document.RootElement.ValueKind == JsonValueKind.Object
             && document.RootElement.TryGetProperty("schemaVersion", out var version)
             && version.ValueKind == JsonValueKind.Number
-            && (!version.TryGetInt32(out var number) || number != TourDocument.CurrentSchemaVersion);
+            && (!version.TryGetInt32(out var number) || !TourDocument.Reads(number));
       }
       catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
       {

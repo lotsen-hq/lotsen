@@ -16,12 +16,19 @@ internal static class TourValues
    /// <summary>A pin of iteration 1, whose merge base is all <c>a</c> and whose head is <see cref="Head"/>.</summary>
    public static readonly TourPin.Pinned Pinned = new(CommitId.Parse(new string('a', 40)), Head, 1, new Uri("https://example.test/repo.git"));
 
+   /// <summary>A snapshot of the commit <see cref="Head"/>.</summary>
+   public static readonly TourPin.Snapshot Snapshot = new(Head, new Uri("https://example.test/repo.git"));
+
    /// <summary>The ID of every tour built here.</summary>
    public static readonly TourId Id = TourId.TryParse("abcdefghijklmnop", out var id) ? id : throw new InvalidOperationException("The ID does not parse.");
 
    /// <summary>Returns a tour pinned to <see cref="Pinned"/> with the plan, and no threads or answers.</summary>
    public static Tour Tour(Plan? plan = null) =>
       new(Id, new PullRequestTarget("test", new Uri("https://example.test/pr/1")), Familiarity.Some, Now, Now, Pinned, plan, TourThreads.Empty, []);
+
+   /// <summary>Returns a repository tour of the default branch, pinned to <see cref="Snapshot"/>, with the purpose orient, a title and the plan, and no threads or answers.</summary>
+   public static Tour RepositoryTour(Plan? plan = null) =>
+      Tour(plan) with { Target = new RepositoryTarget(new Uri("https://example.test/repo"), null, null), Pin = Snapshot, Purpose = TourPurpose.Orient, Title = "How the repository fits together" };
 
    /// <summary>Returns a plan of one chapter <c>a</c> with these stops, or with one pending inspect stop <c>s1</c>.</summary>
    public static Plan Plan(params Stop[] stops) => new([new Chapter("a", "A")], stops.Length == 0 ? [Pending("s1")] : stops, []);

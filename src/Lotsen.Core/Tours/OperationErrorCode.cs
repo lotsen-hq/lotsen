@@ -162,6 +162,9 @@ internal sealed class OperationErrorCode
    /// <summary>The agent session that the request's session credential names has ended, or the server never opened it.</summary>
    public static readonly OperationErrorCode SessionUnknown = new("sessionUnknown", new RefusalKind.Unauthenticated());
 
+   /// <summary>The tour is a repository tour, and the operation acts only on a pull request's tour, as an iteration check or an iteration update does.</summary>
+   public static readonly OperationErrorCode NotPullRequestTour = new("notPullRequestTour", new RefusalKind.Conflict());
+
    /// <summary>Every code, in declaration order.</summary>
    public static IReadOnlyList<OperationErrorCode> All { get; }
 

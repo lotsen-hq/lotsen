@@ -363,7 +363,7 @@ public sealed class TourDeleteTests : IDisposable
       var content = File.ReadAllText(path);
       var current = $"\"schemaVersion\":{TourDocument.CurrentSchemaVersion}";
       Assert.Contains(current, content);
-      File.WriteAllText(path, otherSchema ? content.Replace(current, $"\"schemaVersion\":{TourDocument.CurrentSchemaVersion - 1}") : content[..(content.Length / 2)]);
+      File.WriteAllText(path, otherSchema ? content.Replace(current, $"\"schemaVersion\":{TourDocument.CurrentSchemaVersion + 1}") : content[..(content.Length / 2)]);
    }
 
    private async Task<string> CreatePinnedAsync(ServerHarness harness)

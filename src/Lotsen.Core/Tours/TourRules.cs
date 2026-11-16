@@ -1,4 +1,5 @@
 using Lotsen.Git;
+using Lotsen.Platforms;
 
 namespace Lotsen.Tours;
 
@@ -9,7 +10,7 @@ namespace Lotsen.Tours;
 /// <para>
 /// <see cref="Check"/> runs, in order: no null element in the tour's own lists, <see cref="PlanRules"/> under <c>plan</c>, and for each written stop <see cref="StopContentRules"/> on its content
 /// and on each earlier version under that version's kind, a version that counts the earlier versions, check IDs that no other current content of the tour holds, and a stale marker from 1. Then
-/// it checks one answer for each stop and check, and an available iteration compared with the tour's pin.
+/// it checks one answer for each stop and check, the fields and the pin that the target's kind allows, and an available iteration compared with the tour's pin.
 /// </para>
 /// <para>
 /// A rule that one value can hold lives on that value instead, as an answer's state and batch do in <see cref="CheckAnswer"/>, and the threads' rules in <see cref="TourThreads"/>. Add a rule
@@ -21,6 +22,9 @@ namespace Lotsen.Tours;
 /// </remarks>
 internal static class TourRules
 {
+   /// <summary>The most characters of a repository tour's title.</summary>
+   public const int MaxTitleLength = 120;
+
    private static readonly FieldPath PlanField = "plan";
    private static readonly FieldPath Answers = "answers";
 
@@ -29,6 +33,7 @@ internal static class TourRules
       CheckNulls(tour)
       ?? (tour.Plan is { } plan ? PlanRules.Check(plan)?.Under(PlanField) ?? CheckStops(plan) : null)
       ?? CheckAnswers(tour.Answers)
+      ?? CheckTargetKind(tour)
       ?? CheckAvailableIteration(tour);
 
    // The serializer checks nullability on properties but not on collection elements. The plan's own lists are the plan rules'.
@@ -109,6 +114,59 @@ internal static class TourRules
       }
 
       return null;
+   }
+
+   // A pull request's tour has none of a repository tour's fields, and each kind has its own kind of pin.
+   private static RuleFault? CheckTargetKind(Tour tour) => tour.Target switch
+   {
+      RepositoryTarget => CheckRepositoryTour(tour),
+      _ when tour.Purpose is not null => new("purpose", "only a repository tour has a purpose."),
+      _ when tour.Words is not null => new("words", "only a repository tour has words."),
+      _ when tour.Title is not null => new("title", "only a repository tour has a title."),
+      _ when tour.DiveOrigin is not null => new("diveOrigin", "only a repository tour is a dive."),
+      _ when tour.Pin is TourPin.Snapshot => new("pin", "a pull request's tour is pinned to an iteration of the pull request, not to a snapshot."),
+      _ => null,
+   };
+
+   private static RuleFault? CheckRepositoryTour(Tour tour)
+   {
+      if (tour.Purpose is null)
+      {
+         return new("purpose", "a repository tour needs a purpose: orient, prepare or evaluate.");
+      }
+
+      if (string.IsNullOrWhiteSpace(tour.Title))
+      {
+         return new("title", "a repository tour needs a title.");
+      }
+
+      if (tour.Title.Any(PlanRules.IsLineBreakOrControl))
+      {
+         return new("title", "a title is one line of plain text, without line breaks, tabs or other control characters.");
+      }
+
+      if (tour.Title.Length > MaxTitleLength)
+      {
+         return new("title", $"a title holds at most {MaxTitleLength} characters, and this one holds {tour.Title.Length}.");
+      }
+
+      // Null names no words and a dive from the whole tour, so an empty value would be a second way to say it.
+      if (tour.Words is { } words && string.IsNullOrWhiteSpace(words))
+      {
+         return new("words", "words are null when the reviewer gave none, never empty.");
+      }
+
+      if (tour.DiveOrigin?.StopId is { } stopId && string.IsNullOrWhiteSpace(stopId))
+      {
+         return new(((FieldPath)"diveOrigin").Then("stopId"), "a dive's stop ID is null for a dive from the whole tour, never empty.");
+      }
+
+      if (tour.Pin is TourPin.Pinned)
+      {
+         return new("pin", "a repository tour is pinned to a snapshot of one commit, not to an iteration of a pull request.");
+      }
+
+      return tour.PullRequestState != PullRequestState.Active ? new("pullRequestState", "only a pull request's tour has a pull request state.") : null;
    }
 
    // An available iteration is relative to the tour's pin, so only a pinned tour holds one.

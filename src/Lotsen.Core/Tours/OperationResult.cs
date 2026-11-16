@@ -69,25 +69,42 @@ internal sealed record OperationError(
       OperationErrorCode.TourUnreadable,
       "no clone was pruned, because the stored tours could not be listed. Check that lotsen can read the tours directory in its data directory, then prune again.");
 
-   public static OperationError TourNotPinned(Tour tour) => new(
-      OperationErrorCode.TourNotPinned,
-      tour.Pin switch
+   /// <summary>Returns the refusal of an operation that reads the commits of a pull request's pinned tour, for a tour that has none.</summary>
+   /// <returns><see cref="OperationErrorCode.NotPullRequestTour"/> for a repository tour in any pin state, or <see cref="OperationErrorCode.TourNotPinned"/> while a pull request's tour pins or after its pin failed.</returns>
+   public static OperationError TourNotPinned(Tour tour) => tour.Target is RepositoryTarget
+      ? NotPullRequestTour(tour, "merge base and pull request head to read files at")
+      : tour.Pin switch
       {
-         TourPin.Failed failed => $"tour {tour.Id} has no commits to read files at, because its pin failed: {failed.Reason}",
-         _ => $"tour {tour.Id} is still pinning, so it has no commits to read files at yet. Its files can be read once its pin is pinned.",
-      },
-      "tourId",
-      tour.Pin);
+         TourPin.Failed failed => new(OperationErrorCode.TourNotPinned, $"tour {tour.Id} has no commits to read files at, because its pin failed: {failed.Reason}", "tourId", tour.Pin),
+         TourPin.Pinning or TourPin.Pinned or TourPin.Snapshot => new(
+            OperationErrorCode.TourNotPinned,
+            $"tour {tour.Id} is still pinning, so it has no commits to read files at yet. Its files can be read once its pin is pinned.",
+            "tourId",
+            tour.Pin),
+      };
 
-   public static OperationError NoIterationToCheck(Tour tour) => new(
-      OperationErrorCode.TourNotPinned,
-      tour.Pin switch
+   /// <summary>Returns the refusal of an iteration check of a tour that is not pinned to an iteration.</summary>
+   /// <returns><see cref="OperationErrorCode.NotPullRequestTour"/> for a repository tour in any pin state, or <see cref="OperationErrorCode.TourNotPinned"/> while a pull request's tour pins or after its pin failed.</returns>
+   public static OperationError NoIterationToCheck(Tour tour) => tour.Target is RepositoryTarget
+      ? NotPullRequestTour(tour, "pull request to check for a new update")
+      : tour.Pin switch
       {
-         TourPin.Failed failed => $"this tour is not pinned, because its pin failed, so lotsen has no update to compare with the pull request's latest one. Pin the tour again first. {failed.Reason}",
-         _ => "this tour is still pinning, so lotsen has no update to compare with the pull request's latest one yet. Check again once the tour is pinned.",
-      },
-      "tourId",
-      tour.Pin);
+         TourPin.Failed failed => new(
+            OperationErrorCode.TourNotPinned,
+            $"this tour is not pinned, because its pin failed, so lotsen has no update to compare with the pull request's latest one. Pin the tour again first. {failed.Reason}",
+            "tourId",
+            tour.Pin),
+         TourPin.Pinning or TourPin.Pinned or TourPin.Snapshot => new(
+            OperationErrorCode.TourNotPinned,
+            "this tour is still pinning, so lotsen has no update to compare with the pull request's latest one yet. Check again once the tour is pinned.",
+            "tourId",
+            tour.Pin),
+      };
+
+   /// <summary>Returns the refusal of an operation that acts only on a pull request's tour, for a repository tour.</summary>
+   /// <param name="tour">The repository tour.</param>
+   /// <param name="what">What a repository tour has none of, such as <c>pull request to check for a new update</c>.</param>
+   public static OperationError NotPullRequestTour(Tour tour, string what) => new(OperationErrorCode.NotPullRequestTour, $"tour {tour.Id} is a repository tour, so it has no {what}.", "tourId");
 
    public static OperationError FileNotFound(string problem, FieldPath? field = null) => new(OperationErrorCode.FileNotFound, problem, field ?? "path");
 

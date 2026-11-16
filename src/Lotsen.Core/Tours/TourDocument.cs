@@ -18,7 +18,10 @@ namespace Lotsen.Tours;
 internal sealed class TourDocument
 {
    /// <summary>The layout version of every file written. Change it when the layout changes incompatibly.</summary>
-   public const int CurrentSchemaVersion = 22;
+   public const int CurrentSchemaVersion = 23;
+
+   /// <summary>The one earlier layout version that this build reads, which is the current layout without repository tours. A file of that version reads as it is, and its next write stores it at the current version.</summary>
+   public const int PullRequestOnlySchemaVersion = 22;
 
    /// <param name="schemaVersion">The version of the file's layout.</param>
    /// <param name="tour">The tour.</param>
@@ -33,6 +36,9 @@ internal sealed class TourDocument
 
    /// <summary>The version of the file's layout, <see cref="CurrentSchemaVersion"/> for every file written.</summary>
    public int SchemaVersion { get; }
+
+   /// <summary>Returns whether this build reads a file of the layout version: the current one or <see cref="PullRequestOnlySchemaVersion"/>.</summary>
+   public static bool Reads(int schemaVersion) => schemaVersion is CurrentSchemaVersion or PullRequestOnlySchemaVersion;
 
    /// <summary>The tour as the file holds it, which <see cref="Decode"/> checks.</summary>
    public Tour Tour { get; }
@@ -57,9 +63,14 @@ internal sealed class TourDocument
    /// <returns>The stored tour, or the first fault, with its path in the file.</returns>
    public Checked<StoredTour> Decode(TourId expected)
    {
-      if (SchemaVersion != CurrentSchemaVersion)
+      if (!Reads(SchemaVersion))
       {
-         return new RuleFault("schemaVersion", $"the file has the layout of schema version {SchemaVersion}, and this build reads version {CurrentSchemaVersion}.");
+         return new RuleFault("schemaVersion", $"the file has the layout of schema version {SchemaVersion}, and this build reads versions {PullRequestOnlySchemaVersion} and {CurrentSchemaVersion}.");
+      }
+
+      if (SchemaVersion == PullRequestOnlySchemaVersion && Tour.Target is not PullRequestTarget)
+      {
+         return new RuleFault("schemaVersion", $"the file has the layout of schema version {SchemaVersion}, which holds only pull requests' tours, but it holds a tour of another kind.");
       }
 
       if (Tour.Id != expected)

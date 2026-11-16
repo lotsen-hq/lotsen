@@ -70,6 +70,107 @@ public sealed class TourFileFormatTests : IDisposable
       });
    }
 
+   [Fact]
+   public void Repository_tour_with_a_snapshot_pin_round_trips_through_save_and_load()
+   {
+      var store = NewStore();
+      var tour = store.Create(PullRequest, Familiarity.Some);
+      var parent = store.Create(PullRequest, Familiarity.Some);
+
+      var saved = store.Change(tour.Id, current => AsRepositoryTour(current) with { Plan = SamplePlan(), Words = "Is the cache safe?", DiveOrigin = new DiveOrigin(parent.Id, parent.Id, "s3") });
+
+      Assert.NotNull(saved);
+      Assert.Equivalent(saved, NewStore().Get(tour.Id), strict: true);
+      var file = JsonNode.Parse(File.ReadAllText(PathOf(tour.Id)))!["tour"]!;
+      Assert.Equal(
+         """{"kind":"repository","url":"https://platform.test/shop","ref":"release/2.0","platform":"test"}""",
+         file["target"]!.ToJsonString());
+      Assert.Equal($$"""{"state":"snapshot","head":"{{new string('c', 40)}}","remoteUrl":"https://platform.test/shop.git"}""", file["pin"]!.ToJsonString());
+      Assert.Equal(("evaluate", "The cache under load", "Is the cache safe?"), ((string)file["purpose"]!, (string)file["title"]!, (string)file["words"]!));
+      Assert.Equal($$"""{"parentId":"{{parent.Id}}","rootId":"{{parent.Id}}","stopId":"s3"}""", file["diveOrigin"]!.ToJsonString());
+   }
+
+   [Fact]
+   public void Repository_target_of_the_default_branch_without_a_platform_leaves_out_its_ref_and_platform()
+   {
+      var store = NewStore();
+      var tour = store.Create(PullRequest, Familiarity.Some);
+
+      store.Change(tour.Id, current => AsRepositoryTour(current) with { Target = new RepositoryTarget(new Uri("https://git.test/shop.git"), null, null) });
+
+      Assert.Equal(new RepositoryTarget(new Uri("https://git.test/shop.git"), null, null), NewStore().Get(tour.Id)?.Target);
+      Assert.Equal("""{"kind":"repository","url":"https://git.test/shop.git"}""", JsonNode.Parse(File.ReadAllText(PathOf(tour.Id)))!["tour"]!["target"]!.ToJsonString());
+   }
+
+   [Fact]
+   public void Pull_request_tour_file_holds_none_of_the_properties_of_a_repository_tour()
+   {
+      var store = NewStore();
+      var tour = store.Create(PullRequest, Familiarity.Some);
+      store.Change(tour.Id, current => current with { Plan = SamplePlan() });
+
+      var file = JsonNode.Parse(File.ReadAllText(PathOf(tour.Id)))!["tour"]!.AsObject();
+
+      Assert.DoesNotContain(file, property => property.Key is "purpose" or "words" or "title" or "diveOrigin");
+   }
+
+   /// <summary>A repository's URL is absolute and holds no user information, a ref or a platform ID that is given is not empty, and a dive origin names its root.</summary>
+   [Theory]
+   [InlineData("\"url\":\"https://platform.test/shop\"", "\"url\":\"shop\"")]
+   [InlineData("\"url\":\"https://platform.test/shop\"", "\"url\":\"https://user:secret@platform.test/shop\"")]
+   [InlineData("\"ref\":\"release/2.0\"", "\"ref\":\"\"")]
+   [InlineData("\"ref\":\"release/2.0\"", "\"ref\":\" \"")]
+   [InlineData("\"platform\":\"test\"", "\"platform\":\"\"")]
+   [InlineData("\"purpose\":\"evaluate\"", "\"purpose\":\"review\"")]
+   [InlineData("\"state\":\"snapshot\"", "\"state\":\"commit\"")]
+   [InlineData(",\"rootId\"", ",\"root\"")]
+   public void Repository_tour_file_with_an_unknown_or_missing_value_is_refused(string original, string replacement)
+   {
+      var store = NewStore();
+      var tour = store.Create(PullRequest, Familiarity.Some);
+      store.Change(tour.Id, current => AsRepositoryTour(current) with { DiveOrigin = new DiveOrigin(TourId.New(), TourId.New()) });
+      var content = File.ReadAllText(PathOf(tour.Id));
+      Assert.Contains(original, content);
+      File.WriteAllText(PathOf(tour.Id), content.Replace(original, replacement));
+
+      Assert.Throws<InvalidDataException>(() => NewStore().Get(tour.Id));
+   }
+
+   [Fact]
+   public void Version_22_file_reads_as_its_pull_request_tour_and_is_written_back_at_the_current_version()
+   {
+      var store = NewStore();
+      var tour = store.Create(PullRequest, Familiarity.Some);
+      var saved = store.Change(tour.Id, current => current with { Plan = SamplePlan(), Pin = new TourPin.Pinned(CommitId.Parse(new string('a', 40)), CommitId.Parse(new string('b', 40)), 2, new Uri("https://platform.test/shop.git")) });
+      var current = $"\"schemaVersion\":{TourDocument.CurrentSchemaVersion}";
+      var content = File.ReadAllText(PathOf(tour.Id));
+      Assert.Contains(current, content);
+      File.WriteAllText(PathOf(tour.Id), content.Replace(current, "\"schemaVersion\":22"));
+
+      Assert.Equivalent(saved, NewStore().Get(tour.Id), strict: true);
+
+      NewStore().ChangeMarks(tour.Id, _ => [new ReviewMark("src/a.txt", null)]);
+
+      var written = JsonNode.Parse(File.ReadAllText(PathOf(tour.Id)))!;
+      Assert.Equal(TourDocument.CurrentSchemaVersion, (int)written["schemaVersion"]!);
+      Assert.Equal(JsonNode.Parse(content)!["tour"]!.ToJsonString(), written["tour"]!.ToJsonString());
+   }
+
+   /// <summary>Schema version 22 has no repository tours, so a file of that version that holds one was not written by lotsen.</summary>
+   [Fact]
+   public void Version_22_file_of_a_repository_tour_is_refused()
+   {
+      var store = NewStore();
+      var tour = store.Create(PullRequest, Familiarity.Some);
+      store.Change(tour.Id, AsRepositoryTour);
+      var content = File.ReadAllText(PathOf(tour.Id));
+      File.WriteAllText(PathOf(tour.Id), content.Replace($"\"schemaVersion\":{TourDocument.CurrentSchemaVersion}", "\"schemaVersion\":22"));
+
+      var exception = Assert.Throws<InvalidDataException>(() => NewStore().Get(tour.Id));
+
+      Assert.Contains("schemaVersion", exception.Message);
+   }
+
    /// <summary>The serializer reads each of these as a relative URL, which has no absolute form for a label or a pin.</summary>
    [Theory]
    [InlineData("shop/pull/42")]
@@ -130,9 +231,9 @@ public sealed class TourFileFormatTests : IDisposable
    [InlineData("\"kind\":\"pullRequest\"", "\"kind\":\"branch\"")]
    [InlineData(",\"platform\":\"test\"", "")]
    [InlineData("\"skipped\":true", "\"skipped\":\"yes\"")]
-   [InlineData("\"schemaVersion\":22", "\"schemaVersion\":21")]
-   [InlineData("\"schemaVersion\":22", "\"schemaVersion\":23")]
-   [InlineData("\"schemaVersion\":22", "\"schemaVersion\":\"22\"")]
+   [InlineData("\"schemaVersion\":23", "\"schemaVersion\":21")]
+   [InlineData("\"schemaVersion\":23", "\"schemaVersion\":24")]
+   [InlineData("\"schemaVersion\":23", "\"schemaVersion\":\"23\"")]
    [InlineData(",\"threads\":[]", "")]
    [InlineData(",\"answers\":[]", "")]
    [InlineData("\"answers\":[", "\"answers\":[null,")]
@@ -660,6 +761,15 @@ public sealed class TourFileFormatTests : IDisposable
    private FileTourStore NewStore() => new(_dataDirectory);
 
    private string PathOf(TourId id) => Path.Combine(ToursPath, $"{id}.json");
+
+   // A repository tour of a release branch on the test platform, at a snapshot, built from a stored pull request's tour.
+   private static Tour AsRepositoryTour(Tour tour) => tour with
+   {
+      Target = new RepositoryTarget(new Uri("https://platform.test/shop"), "release/2.0", "test"),
+      Pin = new TourPin.Snapshot(CommitId.Parse(new string('c', 40)), new Uri("https://platform.test/shop.git")),
+      Purpose = TourPurpose.Evaluate,
+      Title = "The cache under load",
+   };
 
    private static readonly StopContent Content = new("A headline.", [new StopPassage(FileSide.Head, "a.txt", 1, 1, PassageRole.Primary, CommitId.Parse(new string('a', 40)), "a")]);
 

@@ -1519,6 +1519,27 @@
       ],
       "additionalProperties": false
     },
+    "DiveOrigin": {
+      "title": "DiveOrigin",
+      "type": "object",
+      "properties": {
+        "parentId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "rootId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "stopId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "parentId",
+        "rootId"
+      ]
+    },
     "DraftCommentsAction": {
       "title": "DraftCommentsAction",
       "properties": {
@@ -2276,7 +2297,8 @@
         "operationNotFound",
         "buildMismatch",
         "serverExiting",
-        "sessionUnknown"
+        "sessionUnknown",
+        "notPullRequestTour"
       ]
     },
     "OperationName": {
@@ -3670,6 +3692,28 @@
         "submodule"
       ]
     },
+    "RepositoryTarget": {
+      "title": "RepositoryTarget",
+      "properties": {
+        "kind": {
+          "const": "repository"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "url"
+      ]
+    },
     "RequestState": {
       "title": "RequestState",
       "type": "string",
@@ -4173,6 +4217,27 @@
         "archived"
       ],
       "additionalProperties": false
+    },
+    "Snapshot": {
+      "title": "Snapshot",
+      "properties": {
+        "state": {
+          "const": "snapshot"
+        },
+        "head": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "remoteUrl": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "state",
+        "head",
+        "remoteUrl"
+      ]
     },
     "StartedThread": {
       "title": "StartedThread",
@@ -5310,6 +5375,18 @@
         "pullRequestState": {
           "$ref": "#/definitions/PullRequestState"
         },
+        "purpose": {
+          "$ref": "#/definitions/TourPurpose"
+        },
+        "words": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "diveOrigin": {
+          "$ref": "#/definitions/DiveOrigin"
+        },
         "revision": {
           "type": "integer"
         }
@@ -5507,6 +5584,9 @@
           "$ref": "#/definitions/Pinned"
         },
         {
+          "$ref": "#/definitions/Snapshot"
+        },
+        {
           "$ref": "#/definitions/Failed"
         }
       ]
@@ -5531,6 +5611,15 @@
         "tourId",
         "updatedAt",
         "pin"
+      ]
+    },
+    "TourPurpose": {
+      "title": "TourPurpose",
+      "type": "string",
+      "enum": [
+        "orient",
+        "prepare",
+        "evaluate"
       ]
     },
     "TourState": {
@@ -5636,6 +5725,9 @@
       "anyOf": [
         {
           "$ref": "#/definitions/PullRequestTarget"
+        },
+        {
+          "$ref": "#/definitions/RepositoryTarget"
         }
       ]
     },

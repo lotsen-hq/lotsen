@@ -508,6 +508,21 @@ public sealed class IterationLifecycleTests : IDisposable
    }
 
    [Fact]
+   public async Task First_pin_of_a_repository_target_stores_the_failure_and_asks_no_platform()
+   {
+      TourPin? stored = null;
+
+      await _lifecycle.PinAsync(_tour.Id, new RepositoryTarget(new Uri("https://git.test/shop.git"), null, null), (pin, _) =>
+      {
+         stored = pin;
+         return Task.CompletedTask;
+      }, TestContext.Current.CancellationToken);
+
+      Assert.Equal(new TourPin.Failed("lotsen cannot pin a repository tour."), stored);
+      Assert.Equal((0, 0), (_platform.Resolves, _facts.Opens));
+   }
+
+   [Fact]
    public async Task First_pin_of_another_kind_of_target_stores_the_failure_and_asks_no_platform()
    {
       TourPin? stored = null;

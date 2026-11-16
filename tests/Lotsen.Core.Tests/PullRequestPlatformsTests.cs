@@ -50,5 +50,17 @@ public sealed class PullRequestPlatformsTests
       Assert.Null(mentions.UrlOf(MentionKind.PullRequest, 7));
    }
 
+   [Fact]
+   public void Repository_target_has_no_platform_mentions_or_label_of_a_platform()
+   {
+      var target = new RepositoryTarget(new Uri($"https://{TestPlatform.DefaultHost}/shop"), "main", TestPlatform.DefaultId);
+
+      var thrown = Assert.Throws<PlatformException>(() => _platforms.Of(target));
+
+      Assert.Equal($"lotsen reaches a platform only for a pull request's tour, and this tour is of the repository https://{TestPlatform.DefaultHost}/shop.", thrown.Reason);
+      Assert.Null(_platforms.MentionsOf(target).UrlOf(MentionKind.PullRequest, 7));
+      Assert.Equal($"https://{TestPlatform.DefaultHost}/shop", _platforms.Label(target));
+   }
+
    private sealed record OtherTarget : TourTarget;
 }

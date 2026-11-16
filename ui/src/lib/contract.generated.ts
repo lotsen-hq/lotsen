@@ -1,8 +1,8 @@
 // Generated from contract.schema.json by `just contract`. Do not edit: change the C# types, then run the recipe.
 
-export type TourTarget = PullRequestTarget;
+export type TourTarget = PullRequestTarget | RepositoryTarget;
 export type Familiarity = 'familiar' | 'some' | 'new';
-export type TourPin = Pinning | Pinned | Failed;
+export type TourPin = Pinning | Pinned | Snapshot | Failed;
 export type TourState = 'generating' | 'ready' | 'inProgress' | 'finished' | 'archived';
 export type PullRequestState = 'active' | 'completed' | 'abandoned';
 export type AttachmentLevel = 'unconfirmed' | 'confirmed';
@@ -59,7 +59,8 @@ export type OperationErrorCode =
    | 'operationNotFound'
    | 'buildMismatch'
    | 'serverExiting'
-   | 'sessionUnknown';
+   | 'sessionUnknown'
+   | 'notPullRequestTour';
 export type ActionRequest = ExplainRequest | ReviseRequest | ReplanRequest | ReorderRequest | SummarizeRequest | DraftWorkItemsRequest | WalkOpenQuestionsRequest | DraftCommentsRequest;
 export type StopTarget = WholeStopTarget | StopTextTarget;
 export type AnchorInput = CodeRangeInput | StopTextInput | WholeFileInput | WholeStopInput | WholeTourInput;
@@ -132,6 +133,7 @@ export type OperationName =
    | 'update_iteration'
    | 'read_preferences'
    | 'write_preference';
+export type TourPurpose = 'orient' | 'prepare' | 'evaluate';
 
 export interface EventPayloads {
    hello: HelloEvent;
@@ -288,6 +290,12 @@ export interface PullRequestTarget {
    platform: string;
    url: string;
 }
+export interface RepositoryTarget {
+   kind: 'repository';
+   url: string;
+   ref?: string;
+   platform?: string;
+}
 export interface Pinning {
    state: 'pinning';
 }
@@ -296,6 +304,11 @@ export interface Pinned {
    mergeBase: string;
    head: string;
    iteration: number;
+   remoteUrl: string;
+}
+export interface Snapshot {
+   state: 'snapshot';
+   head: string;
    remoteUrl: string;
 }
 export interface Failed {
@@ -1154,6 +1167,11 @@ export interface DiscardNoteInput {
     */
    threadId: string;
 }
+export interface DiveOrigin {
+   parentId: string;
+   rootId: string;
+   stopId?: string;
+}
 export interface EditNoteInput {
    /**
     * The tour's ID, as create_tour or list_tours returned it, or as the user gave it.
@@ -1423,6 +1441,10 @@ export interface Tour {
    progress?: ReadingProgress;
    archived?: boolean;
    pullRequestState?: PullRequestState;
+   purpose?: TourPurpose;
+   words?: string;
+   title?: string;
+   diveOrigin?: DiveOrigin;
    revision: number;
 }
 export interface TourSynthesis {

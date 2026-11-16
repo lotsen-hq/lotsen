@@ -132,9 +132,9 @@ public sealed class TourStoreTests : IDisposable
 
    /// <summary>A file of another schema version can also have another layout, so a case removes a property that the current layout needs.</summary>
    [Theory]
-   [InlineData(-1, null, true)]
+   [InlineData(-2, null, true)]
    [InlineData(1, null, true)]
-   [InlineData(-1, ",\"threads\":[]", true)]
+   [InlineData(-2, ",\"threads\":[]", true)]
    [InlineData(0, ",\"threads\":[]", false)]
    [InlineData(null, null, false)]
    [InlineData(0, "truncated", false)]

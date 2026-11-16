@@ -31,7 +31,11 @@ The terms comments use with one fixed meaning. Use them as defined here, and add
 | Term | Meaning |
 |---|---|
 | Tour | A guided walk through one review target, which Claude writes for one reviewer: a `Tour`. |
-| Review target | What a tour reviews: a `TourTarget`. The only kind is a pull request, a `PullRequestTarget`, which names its platform's ID and its URL as the platform normalized it. |
+| Review target | What a tour reviews: a `TourTarget`. It is a pull request, a `PullRequestTarget`, which names its platform's ID and its URL as the platform normalized it, or a repository target. |
+| Repository target | A repository at a ref as a review target: a `RepositoryTarget`, with the repository's URL, the ref or null for the default branch, and the platform's ID or null for a repository that git alone reaches. |
+| Repository tour | A tour of a repository target. It is pinned to a snapshot, and it has a purpose and a title, which a pull request's tour never has. |
+| Purpose | What a repository tour is for, fixed for its life: orient, prepare or evaluate, a `TourPurpose`. |
+| Dive | A repository tour that starts from another tour, or from one of its stops, to go deeper. Its dive origin, a `DiveOrigin`, names the parent tour, the stop or null, and the family's first tour. |
 | Platform | The hosting service behind a pull request, such as Azure DevOps: an `IPullRequestPlatform`. It recognizes and labels its pull request URLs, tells whether two of them name the same pull request, resolves a pull request's latest iteration, builds the web URLs of the mentions in a tour's prose and supplies the git credential for its remotes. |
 | Label | The short name that a target's platform gives it, such as `contoso/shop/web #42`, or the target's URL when no registered platform names it. The tour list and the top bar show it. |
 | Reviewer | The person who reads the tour in the UI. Claude is never called the reviewer. |
@@ -77,12 +81,13 @@ The terms comments use with one fixed meaning. Use them as defined here, and add
 | Mention | A link in prose to a work item or to a pull request in the tour's repository, which Claude writes with a scheme of its own, `[#1234](workitem:1234)` or `[!42](pullrequest:42)`. `MentionLinks` reads it, and the platform of the tour's pull request builds its web URL. A bare `#1234` in the text is no mention. |
 | Anchor hint | The plan's guess at where a stop will point: a repository path and an optional 1-based line. A stop's own passages replace it. |
 | Repository path | A file's path inside the repository, with forward slashes, no `.` or `..` segments and no leading slash: `RepositoryPath`. Anchor hints, stop content, file marks, code and file anchors and the file API check paths with the same rule. |
-| Pin | Whether a tour is fixed to the commits of its pull request, as a `TourPin`: pinning, pinned or failed. Say "pin state" where the bare word could mean the act of pinning. |
+| Pin | Whether a tour is fixed to the commits that it shows, as a `TourPin`: pinning, pinned to a pull request's iteration, a snapshot, or failed. Say "pin state" where the bare word could mean the act of pinning. |
+| Snapshot | The pin of a repository tour: one commit, its head, and the remote URL, a `TourPin.Snapshot`. A snapshot has no merge base, no iteration and no base side. |
 | Pinning | The background job that asks the platform for the pull request's latest iteration, syncs its clone and computes the merge base. Also the pin state of a tour while that job runs. |
 | Pins | The commits a pinned tour shows: its merge base, its head and the iteration they came from. Every later view and check reads them. |
 | At the pin | Said of lines that a passage or a code or file anchor read at the pin's commit of their side: the merge base at the base, the head at the head. A stale stop's passages and an anchor that an iteration update could not move stay on an earlier commit, so the UI neither marks them in the diff nor opens them there. Without a pin every commit counts. |
 | Merge base | The merge base of the iteration's source and target commits. The tour shows the pull request as the diff from the merge base to the head. |
-| Head | The source commit of the iteration a tour is pinned to. |
+| Head | The source commit of the iteration a tour is pinned to, or a snapshot's one commit. |
 | Iteration | One version of a pull request: the head and target commits its platform reports after a push. Azure DevOps numbers them as iterations. A tour pins the latest iteration when pinning runs. |
 | Iteration number | The platform's number for an iteration, from 1: `ResolvedPullRequest.Iteration`, which a pin, a stale marker and the decided thread of an iteration update carry. It rises by at least one with each change of the source head, a change back to an earlier head included, and never falls for one pull request. A platform without native numbers counts the changes of the source head that it has resolved for the pull request. `PlatformContractTests` checks the promise on every adapter. A platform that keeps its own count keeps the promise only while its storage keeps the count, as `ResolvedPullRequest.Iteration` states. |
 | Iteration record | The GitHub library's file of one pull request's last head and its iteration number, `github/iterations/<key>.json` in the data directory, which `GitHubIterationStore` keeps. A missing or malformed one restarts the numbering at 1, with the effect on the numbers that `ResolvedPullRequest.Iteration` states. |
@@ -99,7 +104,7 @@ The terms comments use with one fixed meaning. Use them as defined here, and add
 | Iteration scheduler | `IterationScheduler`: decides when each tour's iteration check runs, one at a time per tour, from nudges, a debounce, an interval for reusing the platform's answer, a poll of the tours the reviewer read lately, and a backoff after failures. |
 | Nudge | A reason for a tour's iteration check to run, which the iteration scheduler receives: a `Nudge`, such as a reviewer read or a store that changed the stops under an available iteration. |
 | Stale | Said of a passage, code reference or anchor that the remap cannot move: a hunk changes its lines or inserts lines between them, its file is gone or unreadable at the new side, a rename gives its file a path that `RepositoryPath` refuses, or, for a change stop's primary passage, it no longer touches the diff. It keeps its old place. A stale stop is a stop with a stale passage or code reference. A pending stop and an earlier stop version are never stale. |
-| Side | `base` or `head`: which of a pinned tour's two commits a file is read at. `base` names the merge base. |
+| Side | `base` or `head`: which of a pinned tour's two commits a file is read at. `base` names the merge base. A snapshot has only the head. |
 | Commit ID | A git object's full hash in lowercase hexadecimal, 40 digits with SHA-1 and 64 with SHA-256: `CommitId`. An abbreviated hash is never a commit ID. |
 | Clone | The server's own blob-less partial clone of a repository, in the data directory. The clone cache keeps one per remote URL. The server never reads the user's working copy. |
 | Temporary clone | A clone in progress, under the clone's name with a process ID and `.tmp`, which the clone cache renames to the clone's name once git finishes. A process killed during its clone leaves one. |

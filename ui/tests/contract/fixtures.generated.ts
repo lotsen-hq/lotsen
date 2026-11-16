@@ -2405,6 +2405,28 @@ export const outputFixtures = {
                "level": "confirmed"
             },
             "planApproval": "given"
+         },
+         {
+            "id": "repositorytourab",
+            "target": {
+               "kind": "repository",
+               "url": "https://github.com/contoso/shop",
+               "ref": "main",
+               "platform": "github"
+            },
+            "familiarity": "new",
+            "createdAt": "2026-10-30T09:00:00+00:00",
+            "updatedAt": "2026-10-30T09:05:00+00:00",
+            "pin": {
+               "state": "snapshot",
+               "head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+               "remoteUrl": "https://github.com/contoso/shop.git"
+            },
+            "stopCount": 0,
+            "label": "https://github.com/contoso/shop",
+            "state": "generating",
+            "pullRequestState": "active",
+            "revision": 1
          }
       ]
    },

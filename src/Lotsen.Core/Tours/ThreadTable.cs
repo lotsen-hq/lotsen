@@ -80,7 +80,12 @@ internal sealed partial class TourThreads
       _ => false,
    };
 
-   private static bool IsOffPin(Tour tour, FileSide side, CommitId commit) => tour.Pin is TourPin.Pinned pin && commit != pin.CommitOf(side);
+   private static bool IsOffPin(Tour tour, FileSide side, CommitId commit) => tour.Pin switch
+   {
+      TourPin.Pinned pin => commit != pin.CommitOf(side),
+      TourPin.Snapshot snapshot => commit != snapshot.CommitOf(side),
+      TourPin.Pinning or TourPin.Failed => false,
+   };
 
    private static OperationError? Run(Draft draft, ThreadCommand command)
    {

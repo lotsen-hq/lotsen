@@ -109,9 +109,9 @@ internal sealed record ReviewSummary(
    /// <remarks>
    /// The digest leaves out the update time, which every write of the tour moves, the synthesis, the summary's own fingerprint and follow-up reasons, and the threads of summarize and follow-up
    /// actions, which hand the review to Claude and add nothing to it. It counts a received answer as sent, because Claude's fetch of a batch adds nothing to the review either. It holds the
-   /// pin's merge base and head, because Claude reads the code at them, so the same summary at another pin has another digest.
+   /// pin's merge base and head, or a snapshot's one commit, because Claude reads the code at them, so the same summary at another pin has another digest.
    /// </remarks>
-   /// <param name="pin">The tour's pin, whose commits count only once it is pinned.</param>
+   /// <param name="pin">The tour's pin, whose commits count only once it is pinned or a snapshot.</param>
    /// <returns>The SHA-256 of the summary's JSON and the pin's commits, in lowercase hexadecimal.</returns>
    public SummaryFingerprint Fingerprint(TourPin pin)
    {
@@ -131,11 +131,14 @@ internal sealed record ReviewSummary(
       };
       using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
       hash.AppendData(JsonSerializer.SerializeToUtf8Bytes(compared, LotsenJsonContext.Default.ReviewSummary));
-      if (pin is TourPin.Pinned pinned)
+      // The JSON ends with its closing brace, so the line breaks keep the commits apart from it and from each other.
+      var commits = pin switch
       {
-         // The JSON ends with its closing brace, so the line breaks keep the commits apart from it and from each other.
-         hash.AppendData(Encoding.UTF8.GetBytes($"\n{pinned.MergeBase}\n{pinned.Head}"));
-      }
+         TourPin.Pinned pinned => $"\n{pinned.MergeBase}\n{pinned.Head}",
+         TourPin.Snapshot snapshot => $"\n{snapshot.Head}",
+         TourPin.Pinning or TourPin.Failed => "",
+      };
+      hash.AppendData(Encoding.UTF8.GetBytes(commits));
 
       return Tours.SummaryFingerprint.Of(hash.GetHashAndReset());
    }

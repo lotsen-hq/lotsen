@@ -68,6 +68,39 @@ public sealed class FileApiTests
       Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""{ "state": "pinning" }"""), error["pin"]), error.ToJsonString());
    }
 
+   public static TheoryData<string, string, string> RepositoryFileReads =>
+      new(FileReads.SelectMany(row => new[] { "pinning", "failed", "snapshot" }.Select(pin => ((string)row.Data.Item1, (string)row.Data.Item2, pin))));
+
+   /// <summary>A repository tour has no merge base and no changed files, whatever its pin state, so the refusal names the target and not the pin.</summary>
+   [Theory]
+   [MemberData(nameof(RepositoryFileReads))]
+   public async Task File_read_of_a_repository_tour_is_refused_in_every_pin_state(string operation, string input, string pinState)
+   {
+      var platform = new TestPlatform();
+      platform.Fail("The pull request was not found. Check the URL.");
+      await using var harness = await ServerHarness.StartAsync(platform: platform);
+      var id = (string)harness.CreateUnboundTour(CreateBody)["id"]!;
+      await harness.PinsIdleAsync().WaitAsync(Timeout, TestContext.Current.CancellationToken);
+      Assert.True(TourId.TryParse(id, out var tourId));
+      harness.ChangeStored(tourId, tour => tour with
+      {
+         Target = new RepositoryTarget(new Uri("https://git.test/shop.git")),
+         Pin = pinState switch
+         {
+            "pinning" => new TourPin.Pinning(),
+            "failed" => new TourPin.Failed("lotsen cannot pin a repository tour."),
+            _ => TourValues.Snapshot,
+         },
+         Purpose = TourPurpose.Orient,
+         Title = "The shop",
+      });
+
+      var (status, error) = await GetAsync(harness, On(operation, id), input);
+
+      Assert.Equal((409, "notPullRequestTour"), (status, (string)error["code"]!));
+      Assert.Equal($"tourId: tour {id} is a repository tour, so it has no merge base and pull request head to read files at.", (string)error["reason"]!);
+   }
+
    [Theory]
    [MemberData(nameof(FileReads))]
    public async Task File_read_of_a_tour_whose_pin_failed_is_refused_with_its_pin_and_reason(string operation, string input)
