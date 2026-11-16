@@ -11,10 +11,12 @@ namespace Lotsen.TestHost;
 /// </remarks>
 internal sealed class SharedOrigin
 {
+   private readonly string _root;
    private readonly string _gitConfig;
 
    public SharedOrigin(string root)
    {
+      _root = root;
       Path = System.IO.Path.Combine(root, "origin.git");
       _gitConfig = System.IO.Path.Combine(root, "no-global-config");
       Directory.CreateDirectory(Path);
@@ -41,7 +43,8 @@ internal sealed class SharedOrigin
    /// <returns>The new commit.</returns>
    public CommitId Commit(string world, string branch, CommitId? parent, string message, IReadOnlyDictionary<string, string?> files)
    {
-      var index = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"lotsen-host-index-{Guid.NewGuid():N}");
+      // The index file stays in the host's directory, which a later host removes even after a kill.
+      var index = System.IO.Path.Combine(_root, $"index-{Guid.NewGuid():N}");
       try
       {
          if (parent is { } from)

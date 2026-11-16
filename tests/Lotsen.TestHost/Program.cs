@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using Lotsen.Git;
@@ -20,7 +21,8 @@ namespace Lotsen.TestHost;
 /// <remarks>
 /// <para>
 /// The first line on standard output is a JSON object with the control API's <c>url</c> and the bearer <c>token</c> that each control request carries. The host stops every world, removes its
-/// directory and exits when standard input closes, so it never outlives the process that started it.
+/// directory and exits when standard input closes, so it never outlives the process that started it. SIGINT, SIGQUIT, SIGTERM and SIGHUP stop it the same way. A killed host leaves its
+/// directory, which a later host removes, as <see cref="HostDirectory"/> says.
 /// </para>
 /// <para>
 /// The API is <c>POST /control/{verb}</c> with a JSON object, and it answers with a JSON object, or 500 with an <c>error</c>. It covers only what no operation can do, as
@@ -31,8 +33,21 @@ public static class Program
 {
    public static async Task<int> Main()
    {
-      var root = Directory.CreateTempSubdirectory("lotsen-host-").FullName;
-      await using var host = new Host(root);
+      using var stopping = new CancellationTokenSource();
+      void Stop(PosixSignalContext context)
+      {
+         context.Cancel = true;
+         stopping.Cancel();
+      }
+
+      // The layout suite ends the demo with SIGTERM (ui/playwright.config.ts), which reaches this host too, and a closed terminal sends SIGHUP.
+      using var interrupt = PosixSignalRegistration.Create(PosixSignal.SIGINT, Stop);
+      using var quit = PosixSignalRegistration.Create(PosixSignal.SIGQUIT, Stop);
+      using var terminate = PosixSignalRegistration.Create(PosixSignal.SIGTERM, Stop);
+      using var hangUp = PosixSignalRegistration.Create(PosixSignal.SIGHUP, Stop);
+
+      using var directory = HostDirectory.Create();
+      await using var host = new Host(directory.Path);
       var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
       var builder = WebApplication.CreateSlimBuilder();
       builder.Configuration.Sources.Clear();
@@ -63,13 +78,10 @@ public static class Program
       Console.Out.WriteLine(new JsonObject { ["url"] = address, ["token"] = token }.ToJsonString());
       Console.Out.Flush();
 
-      using var stopping = new CancellationTokenSource();
-      Console.CancelKeyPress += (_, args) =>
-      {
-         args.Cancel = true;
-         stopping.Cancel();
-      };
-      await Task.WhenAny(Console.In.ReadToEndAsync(stopping.Token), Task.Delay(Timeout.Infinite, stopping.Token)).ContinueWith(_ => { }, TaskScheduler.Default);
+      // Console.In reads synchronously, even through ReadToEndAsync, so the read runs on the thread pool and a signal ends the wait while the read blocks:
+      // https://github.com/dotnet/runtime/blob/cbefd14ed7ded7ebaf37e3fe053c8cfc87359a4a/src/libraries/System.Private.CoreLib/src/System/IO/TextReader.cs#L383-L387
+      var inputClosed = Task.Run(() => Console.In.ReadToEnd(), CancellationToken.None);
+      await Task.WhenAny(inputClosed, Task.Delay(Timeout.Infinite, stopping.Token));
       await app.StopAsync(CancellationToken.None);
       await app.DisposeAsync();
       return 0;
@@ -191,8 +203,6 @@ public static class Program
          {
             await world.DisposeAsync();
          }
-
-         TestDirectories.Delete(_root, TimeSpan.FromSeconds(5));
       }
 
       private static string Text(JsonObject body, string name) => (string?)body[name] ?? throw new InvalidOperationException($"The request needs {name}.");

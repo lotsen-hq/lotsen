@@ -174,6 +174,149 @@ public sealed class TestHostTests : IClassFixture<TestHostTests.SharedHost>
       }
    }
 
+   [Theory]
+   [InlineData("INT")]
+   [InlineData("QUIT")]
+   [InlineData("TERM")]
+   [InlineData("HUP")]
+   public async Task Host_that_gets_a_stop_signal_stops_and_removes_its_directory(string signal)
+   {
+      Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows has no kill command to send a process a signal.");
+      var temp = Directory.CreateTempSubdirectory("lotsen-host-tests-").FullName;
+      try
+      {
+         using var host = await TestHostProcess.StartAsync(temp);
+         await host.ControlAsync("world.start");
+
+         var exitCode = await host.SignalAsync(signal);
+
+         Assert.Equal(0, exitCode);
+         Assert.Empty(Directory.GetFileSystemEntries(temp));
+      }
+      finally
+      {
+         Directory.Delete(temp, recursive: true);
+      }
+   }
+
+   [Fact]
+   public async Task Host_removes_at_its_start_the_directory_that_a_killed_host_left()
+   {
+      var temp = Directory.CreateTempSubdirectory("lotsen-host-tests-").FullName;
+      try
+      {
+         string left;
+         using (var killed = await TestHostProcess.StartAsync(temp))
+         {
+            await killed.ControlAsync("world.start");
+            left = Assert.Single(Directory.GetDirectories(temp, "lotsen-host-*"));
+         }
+
+         Assert.True(Directory.Exists(left));
+
+         using var host = await TestHostProcess.StartAsync(temp);
+
+         Assert.NotEqual(left, Assert.Single(Directory.GetDirectories(temp, "lotsen-host-*")));
+         await host.StopAsync();
+      }
+      finally
+      {
+         Directory.Delete(temp, recursive: true);
+      }
+   }
+
+   [Fact]
+   public async Task Host_that_starts_leaves_the_directory_of_a_running_host_alone()
+   {
+      var temp = Directory.CreateTempSubdirectory("lotsen-host-tests-").FullName;
+      try
+      {
+         using var first = await TestHostProcess.StartAsync(temp);
+         var world = await first.ControlAsync("world.start");
+
+         using var second = await TestHostProcess.StartAsync(temp);
+
+         Assert.Equal(2, Directory.GetDirectories(temp, "lotsen-host-*").Length);
+         Assert.Empty((await OperationAsync(first, world, "list_tours", "{}"))["tours"]!.AsArray());
+         await first.StopAsync();
+         await second.StopAsync();
+         Assert.Empty(Directory.GetFileSystemEntries(temp));
+      }
+      finally
+      {
+         Directory.Delete(temp, recursive: true);
+      }
+   }
+
+   [Fact]
+   public async Task Host_that_starts_leaves_a_link_with_a_host_directory_name_and_its_target_alone()
+   {
+      Assert.SkipWhen(OperatingSystem.IsWindows(), "The test creates a symbolic link.");
+      var temp = Directory.CreateTempSubdirectory("lotsen-host-tests-").FullName;
+      try
+      {
+         var target = Directory.CreateDirectory(Path.Combine(temp, "target")).FullName;
+         File.WriteAllText(Path.Combine(target, "a.txt"), "a");
+         File.WriteAllText(Path.Combine(target, "owner.lock"), "");
+         var link = Directory.CreateSymbolicLink(Path.Combine(temp, "lotsen-host-link"), target).FullName;
+
+         using var host = await TestHostProcess.StartAsync(temp);
+         await host.StopAsync();
+
+         Assert.True(File.Exists(Path.Combine(target, "a.txt")));
+         Assert.NotNull(new DirectoryInfo(link).LinkTarget);
+      }
+      finally
+      {
+         Directory.Delete(temp, recursive: true);
+      }
+   }
+
+   /// <summary>.NET's file locking off in the second host, so that host's opens of a lock file take no lock and succeed even on a held one.</summary>
+   [Fact]
+   public async Task Host_that_starts_with_file_locking_off_leaves_the_directory_of_a_running_host_alone()
+   {
+      Assert.SkipWhen(OperatingSystem.IsWindows(), "The variable turns off file locking on Unix only.");
+      var temp = Directory.CreateTempSubdirectory("lotsen-host-tests-").FullName;
+      try
+      {
+         using var first = await TestHostProcess.StartAsync(temp);
+         var world = await first.ControlAsync("world.start");
+
+         using var second = await TestHostProcess.StartAsync(temp, new Dictionary<string, string> { ["DOTNET_SYSTEM_IO_DISABLEFILELOCKING"] = "1" });
+
+         Assert.Equal(2, Directory.GetDirectories(temp, "lotsen-host-*").Length);
+         Assert.Empty((await OperationAsync(first, world, "list_tours", "{}"))["tours"]!.AsArray());
+         await first.StopAsync();
+         await second.StopAsync();
+      }
+      finally
+      {
+         Directory.Delete(temp, recursive: true);
+      }
+   }
+
+   /// <summary>A directory of the host's name without an owner lock, such as one whose host has not taken the lock yet.</summary>
+   [Fact]
+   public async Task Host_that_starts_leaves_a_directory_without_an_owner_lock_alone()
+   {
+      var temp = Directory.CreateTempSubdirectory("lotsen-host-tests-").FullName;
+      try
+      {
+         var unowned = Directory.CreateDirectory(Path.Combine(temp, "lotsen-host-unowned")).FullName;
+         File.WriteAllText(Path.Combine(unowned, "a.txt"), "a");
+
+         using var host = await TestHostProcess.StartAsync(temp);
+         await host.StopAsync();
+
+         Assert.Equal([unowned], Directory.GetDirectories(temp, "lotsen-host-*"));
+      }
+      finally
+      {
+         Directory.Delete(temp, recursive: true);
+      }
+   }
+
    // Commits a.txt with the text on the world's branch.
    [Fact]
    public async Task Quiet_ends_while_a_pin_waits_on_a_pull_request_that_the_test_has_not_set()
@@ -254,12 +397,14 @@ public sealed class TestHostTests : IClassFixture<TestHostTests.SharedHost>
       return called["output"] ?? throw new Xunit.Sdk.XunitException($"{operation} was refused: {called["refusal"]}");
    }
 
+   private Task<JsonNode> OperationAsync(JsonObject world, string operation, string input) => OperationAsync(_host, world, operation, input);
+
    // Calls an operation on the world's server as the UI, requires success and returns the output.
-   private async Task<JsonNode> OperationAsync(JsonObject world, string operation, string input)
+   private static async Task<JsonNode> OperationAsync(TestHostProcess host, JsonObject world, string operation, string input)
    {
       using var request = new HttpRequestMessage(HttpMethod.Post, $"{world["url"]}/api/ops/{operation}") { Content = new StringContent(input, Encoding.UTF8, "application/json") };
       request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (string)world["uiCredential"]!);
-      using var response = await _host.Client.SendAsync(request, TestContext.Current.CancellationToken);
+      using var response = await host.Client.SendAsync(request, TestContext.Current.CancellationToken);
       var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
       Assert.True(response.IsSuccessStatusCode, $"{operation} returned {(int)response.StatusCode}: {body}");
       return SuccessBody.Output(body);
@@ -309,7 +454,9 @@ internal sealed class TestHostProcess : IDisposable
 
    /// <summary>Starts the host with its temporary directory at <paramref name="temp"/>, and reads the control API's address from its first line.</summary>
    /// <remarks>The temporary directory comes from <c>TMPDIR</c> on Unix and from <c>TMP</c> or <c>TEMP</c> on Windows, so the host gets all three.</remarks>
-   public static async Task<TestHostProcess> StartAsync(string temp)
+   /// <param name="temp">The host's temporary directory.</param>
+   /// <param name="environment">More variables of the host's environment, or null for none.</param>
+   public static async Task<TestHostProcess> StartAsync(string temp, IReadOnlyDictionary<string, string>? environment = null)
    {
       var startInfo = new ProcessStartInfo("dotnet")
       {
@@ -322,6 +469,11 @@ internal sealed class TestHostProcess : IDisposable
       foreach (var variable in (string[])["TMPDIR", "TMP", "TEMP"])
       {
          startInfo.Environment[variable] = temp;
+      }
+
+      foreach (var (name, value) in environment ?? new Dictionary<string, string>())
+      {
+         startInfo.Environment[name] = value;
       }
       var process = Process.Start(startInfo) ?? throw new InvalidOperationException("dotnet did not start.");
       try
@@ -392,6 +544,32 @@ internal sealed class TestHostProcess : IDisposable
       return _process.ExitCode;
    }
 
+   /// <summary>Sends the host the signal with <c>kill</c> and returns its exit code. A host that does not exit in time is killed.</summary>
+   /// <param name="signal">The signal's name without its <c>SIG</c>, such as <c>TERM</c>.</param>
+   public async Task<int> SignalAsync(string signal)
+   {
+      using (var kill = Process.Start("kill", [$"-{signal}", _process.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)]))
+      {
+         await kill.WaitForExitAsync(TestContext.Current.CancellationToken);
+         Assert.Equal(0, kill.ExitCode);
+      }
+
+      using var timeout = new CancellationTokenSource(Wait);
+      try
+      {
+         await _process.WaitForExitAsync(timeout.Token);
+      }
+      catch (OperationCanceledException)
+      {
+         _process.Kill();
+         await _process.WaitForExitAsync(CancellationToken.None);
+         Assert.Fail($"The host did not exit after SIG{signal}: {await _errors}");
+      }
+
+      return _process.ExitCode;
+   }
+
+   /// <summary>Kills the host if it still runs, which leaves its directory behind.</summary>
    public void Dispose()
    {
       if (!_process.HasExited)

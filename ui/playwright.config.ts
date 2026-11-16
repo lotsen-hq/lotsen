@@ -11,6 +11,9 @@ const demoServer = {
    reuseExistingServer: false,
    // The demo builds and starts the test host before Vite answers, unless LOTSEN_TEST_HOST names a built one.
    timeout: 180_000,
+   // SIGTERM reaches the demo's test host, which stops its worlds and removes its directory. Playwright otherwise kills the process group with SIGKILL, which leaves the directory behind,
+   // and Windows ignores the option: https://playwright.dev/docs/api/class-testconfig#test-config-web-server
+   gracefulShutdown: { signal: 'SIGTERM', timeout: 30_000 },
    // The test output shows the host's build and the demo's own messages, so a start that fails shows its cause.
    stdout: 'pipe',
    stderr: 'pipe',
