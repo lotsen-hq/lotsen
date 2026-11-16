@@ -35,6 +35,10 @@ public sealed class ThreadLoadTests
       ["a duplicate ID within a thread"] = () => [Asked("t1", [Pending("q1", "q1")])],
       ["a tour action with a null item"] = () => [With(Asked("t1", [Pending("q1", "r1")]), "action", JsonNode.Parse("""{ "kind": "reorder", "stopIds": ["s1", null] }"""))],
       ["a tour action without its list"] = () => [With(Asked("t1", [Pending("q1", "r1")]), "action", new JsonObject { ["kind"] = "draftComments", ["concerns"] = new JsonArray() })],
+      ["a tour action with a type"] = () => [With(With(Asked("t1", [Pending("q1", "r1")]), "action", new JsonObject { ["kind"] = "summarize" }), "type", "concern")],
+      ["an asked thread of an unknown type"] = () => [With(Asked("t1", [Pending("q1", "r1")]), "type", "suggestion")],
+      ["a type on a started thread"] = () => [With(Started("t1"), "type", "concern")],
+      ["a type on a decided thread"] = () => [With(Decided("t1"), "type", "decision")],
       ["an action on a started thread"] = () => [With(Started("t1"), "action", new JsonObject { ["kind"] = "summarize" })],
       ["a decided thread without its decision"] = () => [ThreadFixtures.Thread("decided", "t1", new ThreadAnchor.WholeTour(), QuestionThreadState.Open, [Pending("q1", "r1")])],
       ["a decided thread on a stop"] = () => [Decided("t1", new ThreadAnchor.WholeStop("s1"))],
@@ -72,6 +76,7 @@ public sealed class ThreadLoadTests
          Asked("t3", [ThreadFixtures.Question("q1", "Why?", "s1", At, ("r1", RequestState.Canceled, "s1"), ("r2", RequestState.Done, "s2")), Reply("a1", "r2", "s2"), Pending("q2", "r3")]),
          Decided("t4"),
          With(Note("t5"), "type", "openQuestion"),
+         With(Asked("t6", [Pending("q6", "r6")]), "type", "concern"),
       ];
 
       var loaded = JsonSerializer.Deserialize(threads.ToJsonString(), LotsenJsonContext.Default.TourThreads)!;
@@ -82,6 +87,7 @@ public sealed class ThreadLoadTests
       Assert.Equal("r2", ((ThreadMessage.Question)asked.Messages[0]).Answered!.Id);
       Assert.Equal(["s2", "s1"], Assert.IsType<ReviewerDecision.PlanApproved>(Assert.IsType<QuestionThread.Sent.Decided>(loaded[3]).Decision).StopIds);
       Assert.Equal(AnswerType.OpenQuestion, Assert.IsType<QuestionThread.Note>(loaded[4]).Type);
+      Assert.Equal(AnswerType.Concern, Assert.IsType<QuestionThread.Sent.Asked>(loaded[5]).Type);
    }
 
    [Fact]

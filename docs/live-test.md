@@ -273,6 +273,11 @@ which the browser's address shows after `#tour=`.
   the note shows under Concerns, marked "Your note", and its link opens its thread. In the thread view, change its type
   to "Open question": it moves to Open questions. Ask Claude for the tour's `read_summary`: it has no typed note.
   Discard the note from its thread's menu.
+- Write another question, pick "Concern" as its "Note type", save it as a note and click "Send to Claude" in its thread
+  view. Claude's reply treats the note as a concern, and its `fetch_question` shows `"type": "concern"` on the thread.
+  The thread view shows "Type" as "Concern", and the summary page lists the thread under Concerns, marked "Your
+  finding". Change the type to "Decision" in the thread view: it moves to Decisions, and Claude gets no new question.
+  Ask Claude for the tour's `read_summary`: it lists the thread under `typedThreads.decisions`.
 - Open each note and tick "Send with other notes". Back in the list, click "Send chosen notes" in the bar above the ask
   box, which says "2 notes chosen.". Each thread shows "Sent", then "Received" once Claude calls `fetch_question` for
   it. Claude answers each in its own thread.

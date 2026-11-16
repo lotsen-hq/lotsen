@@ -45,6 +45,7 @@ public sealed class AccessTests : IClassFixture<AccessTests.Server>
             ("resend_question", "ReviewerToSession", "Ui"),
             ("cancel_question", "Reviewer", "Ui"),
             ("set_thread_state", "Reviewer", "Ui"),
+            ("set_thread_type", "Reviewer", "Ui"),
             ("remove_thread", "Reviewer", "Ui"),
             ("save_note", "Reviewer", "Ui"),
             ("edit_note", "Reviewer", "Ui"),

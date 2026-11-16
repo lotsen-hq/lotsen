@@ -416,6 +416,25 @@ public sealed class SynthesisTests : IClassFixture<StopTourFixture>, IAsyncLifet
       Assert.Equal("decision", (string)(await UiSummaryAsync(tour.Id))["typedThreads"]!["decisions"]![0]!["type"]!);
    }
 
+   /// <summary>A sent typed thread reaches the summary that Claude reads, so a change of its type changes the fingerprint, as a change of a sent answer does.</summary>
+   [Fact]
+   public async Task Synthesis_predates_the_summary_once_the_reviewer_changes_the_type_of_a_sent_thread()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(Harness);
+      var tour = await Answers.TourAsync(session);
+      var saved = await Calls.SaveNoteAsync(tour.Id, NoteText, "concern");
+      var threadId = ThreadIdOf(saved["thread"]!);
+      await Calls.SendNotesAsync(tour.Id, threadId);
+      await WriteAsync(session, tour.Id, "The review has one concern.");
+      var before = await PredatesAsync(tour.Id);
+
+      await Calls.SetTypeAsync(tour.Id, threadId, "decision");
+
+      Assert.False(before, "The synthesis predated the summary that it is based on.");
+      Assert.True(await PredatesAsync(tour.Id), "The change of the sent thread's type did not make the synthesis predate the summary.");
+      Assert.Equal(threadId, (string)(await AgentSummaryAsync(session, tour.Id))["typedThreads"]!["decisions"]![0]!["id"]!);
+   }
+
    private static JsonNode WithoutUpdateTime(JsonNode summary)
    {
       var copy = summary.DeepClone().AsObject();

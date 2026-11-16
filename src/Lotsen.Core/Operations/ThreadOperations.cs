@@ -61,6 +61,16 @@ internal sealed record SetThreadStateInput(
    [property: Description("The thread's new state: resolved when the reviewer considers it settled, open to reopen it.")]
    ReviewerThreadState State);
 
+/// <summary>The input of <c>set_thread_type</c>.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+internal sealed record SetThreadTypeInput(
+   [property: Description(OperationInputs.TourIdDescription)]
+   TourId TourId,
+   [property: Description("The ID of the thread.")]
+   string ThreadId,
+   [property: Description("The kind of finding that the thread holds: decision, concern or openQuestion. Omit it to take the thread's type away.")]
+   AnswerType? Type = null);
+
 /// <summary>A thread as one write stored it, with the tour's update time after that write, so the UI orders it against the events and loads in flight.</summary>
 /// <param name="TourId">The thread's tour.</param>
 /// <param name="UpdatedAt">The tour's update time after the write, or the tour's current update time when the write changed nothing.</param>
@@ -75,7 +85,7 @@ internal sealed record DeletedThread(TourId TourId, DateTimeOffset UpdatedAt, st
 
 /// <summary>
 /// The writes of a thread that send no question to an agent session: the bound session's <c>start_thread</c>, <c>add_thread_message</c>, <c>outdate_thread</c> and <c>delete_thread</c>, and
-/// the reviewer's <c>set_thread_state</c> and <c>remove_thread</c>.
+/// the reviewer's <c>set_thread_state</c>, <c>set_thread_type</c> and <c>remove_thread</c>.
 /// </summary>
 /// <remarks>
 /// The input types hold no author, so each agent message's author is the calling session. The refusals are those of <see cref="TourThreads"/>: the session writes only the threads that its reads
@@ -165,6 +175,15 @@ internal sealed class ThreadOperations
    public OperationResult<UpdatedThread> SetThreadState(Access.Reviewer.Pass pass, SetThreadStateInput input) =>
       _writer.Write(pass, input.TourId, edit =>
          StoreThread(edit, edit.Threads.Apply(new ThreadCommand.SetState(input.ThreadId, input.State))));
+
+   /// <summary>Sets or takes away the answer type of a note or an asked thread, and returns the thread with the tour's update time.</summary>
+   /// <remarks>
+   /// The tour needs no bound session, and nothing reaches any session. The thread may be in any state, and its questions and requests stay as they are. A thread that already has the type stays
+   /// as it is, and the server publishes no event for it. The table of <see cref="TourThreads"/> refuses the threads that take no type.
+   /// </remarks>
+   public OperationResult<UpdatedThread> SetThreadType(Access.Reviewer.Pass pass, SetThreadTypeInput input) =>
+      _writer.Write(pass, input.TourId, edit =>
+         StoreThread(edit, edit.Threads.Apply(new ThreadCommand.SetType(input.ThreadId, input.Type))));
 
    private static OperationResult<ThreadWrite> CanceledThenRemoved(TourEdit edit, string questionId, string threadId)
    {

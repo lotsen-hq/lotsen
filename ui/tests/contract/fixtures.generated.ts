@@ -2195,6 +2195,31 @@ export const outputFixtures = {
          }
       }
    },
+   "set_thread_type": {
+      "tourId": "abcdefghijklmnop",
+      "updatedAt": "2026-10-30T09:05:00+00:00",
+      "thread": {
+         "kind": "note",
+         "text": "Check the loop.",
+         "savedAt": "2026-10-30T09:00:00+00:00",
+         "stopId": "s2",
+         "type": "concern",
+         "id": "t1",
+         "anchor": {
+            "kind": "code",
+            "side": "head",
+            "startLine": 1,
+            "endLine": 2,
+            "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "text": "line 1\nline 2",
+            "path": "src/a.cs"
+         },
+         "state": "open",
+         "status": {
+            "questions": []
+         }
+      }
+   },
    "remove_thread": {
       "tourId": "abcdefghijklmnop",
       "updatedAt": "2026-10-30T09:05:00+00:00",
@@ -2261,6 +2286,7 @@ export const outputFixtures = {
       "threads": [
          {
             "kind": "asked",
+            "type": "concern",
             "messages": [
                {
                   "kind": "question",

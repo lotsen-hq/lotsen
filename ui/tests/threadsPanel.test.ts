@@ -93,6 +93,7 @@ function show(threads: QuestionThread[], overrides: Partial<ThreadOperations> = 
       resendQuestion: unused,
       cancelQuestion: unused,
       setThreadState: unused,
+      setThreadType: unused,
       saveNote: unused,
       editNote: unused,
       discardNote: unused,

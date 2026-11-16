@@ -562,6 +562,23 @@ describe('the summary page', () => {
          expect(heading(/^Concerns/)).toBe('Concerns 2');
       });
 
+      it("lists a sent typed thread as the reader's finding in the group of its type, and moves it when an event brings a new type", async () => {
+         const { world, seed } = await reviewWorld();
+         const saved = await world.reviewer.call('save_note', { tourId: seed.tourId, text: 'The cap drifts.', anchor: { kind: 'tour' }, type: 'concern' });
+         await attachClaude(world, seed.tourId);
+         await world.reviewer.call('send_notes', { tourId: seed.tourId, threadIds: [saved.thread.id] });
+         await open(world);
+         await openSummary();
+         await waitFor(() => expect(heading(/^Concerns/)).toBe('Concerns 3'));
+         expect(itemTexts(/^Concerns/)[1]).toMatch(/^The cap drifts\.\s*Your finding\s*The tour$/);
+
+         await world.reviewer.call('set_thread_type', { tourId: seed.tourId, threadId: saved.thread.id, type: 'decision' });
+
+         await waitFor(() => expect(heading(/^Decisions/)).toBe('Decisions 2'));
+         expect(itemTexts(/^Decisions/)[1]).toMatch(/^The cap drifts\.\s*Your finding/);
+         expect(heading(/^Concerns/)).toBe('Concerns 2');
+      });
+
       it('shows a thread that an event brings, and a skip', async () => {
          const { world, seed } = await reviewWorld();
          const claude = await attachClaude(world, seed.tourId);

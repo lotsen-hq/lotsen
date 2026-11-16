@@ -18,7 +18,10 @@ internal static class ThreadFixtures
    /// <summary>Returns the thread that the JSON holds.</summary>
    public static QuestionThread Parse(JsonNode thread) => JsonSerializer.Deserialize(thread.ToJsonString(), LotsenJsonContext.Default.QuestionThread)!;
 
-   /// <summary>Returns an asked thread with one question <c>q-&lt;id&gt;</c> and its request <c>r-&lt;id&gt;</c>, and for a resolved request the reply <c>a-&lt;id&gt;</c>.</summary>
+   /// <summary>
+   /// Returns an asked thread with one question <c>q-&lt;id&gt;</c> and its request <c>r-&lt;id&gt;</c>, and for a resolved request the reply <c>a-&lt;id&gt;</c>, of the answer type when one is
+   /// given.
+   /// </summary>
    public static QuestionThread Asked(
       string id,
       ThreadAnchor anchor,
@@ -28,7 +31,8 @@ internal static class ThreadFixtures
       RequestState request = RequestState.Pending,
       string text = "Why here?",
       string sessionId = "session1",
-      DateTimeOffset? at = null)
+      DateTimeOffset? at = null,
+      AnswerType? type = null)
    {
       var time = at ?? At;
       var question = Question($"q-{id}", text, stopId, time, (Id: $"r-{id}", State: request, SessionId: sessionId));
@@ -42,6 +46,11 @@ internal static class ThreadFixtures
       if (action is not null)
       {
          thread["action"] = JsonSerializer.SerializeToNode(action, LotsenJsonContext.Default.TourAction);
+      }
+
+      if (type is not null)
+      {
+         thread["type"] = JsonSerializer.SerializeToNode(type.Value, LotsenJsonContext.Default.AnswerType);
       }
 
       return Parse(thread);

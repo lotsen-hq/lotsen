@@ -55,6 +55,10 @@ internal sealed class ThreadCalls
    public async Task<JsonNode> EditNoteAsync(string tourId, string threadId, string text, string? type = null) =>
       await CallAsync(await UiAsync(On("edit_note", tourId, threadId: threadId)), type is null ? $$"""{ "text": "{{text}}" }""" : $$"""{ "text": "{{text}}", "type": "{{type}}" }""");
 
+   /// <summary>Sets a thread's answer type as the UI, or takes it away when none is given, and returns the response, the thread with the tour's update time.</summary>
+   public async Task<JsonNode> SetTypeAsync(string tourId, string threadId, string? type) =>
+      await CallAsync(await UiAsync(On("set_thread_type", tourId, threadId: threadId)), type is null ? "{}" : $$"""{ "type": "{{type}}" }""");
+
    /// <summary>Sends notes as the UI and returns the response, the sent threads with the tour's update time.</summary>
    public async Task<JsonNode> SendNotesAsync(string tourId, params string[] threadIds) => await CallAsync(await UiAsync(On("send_notes", tourId)), SendBody(threadIds));
 

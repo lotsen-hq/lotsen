@@ -136,6 +136,49 @@ public sealed class ReviewSummaryTests
       Assert.Null(AgentView.Summary(tour).TypedThreads);
    }
 
+   [Fact]
+   public void Sent_typed_thread_is_grouped_by_its_type_with_its_first_question_in_the_reviewer_and_the_agent_summary()
+   {
+      var tour = Sample with { Threads = SentTyped() };
+
+      var reviewer = ReviewSummary.Of(tour, tour).TypedThreads!;
+      var agent = AgentView.Summary(tour).TypedThreads!;
+
+      var anchor = new ThreadAnchor.WholeStop("s3");
+      var concern = new SummaryTypedThread("a1", anchor, "s3", "Rounding on stacked discounts", "The cap drifts.", AnswerType.Concern, QuestionThreadState.Open);
+      var decision = new SummaryTypedThread("a2", anchor, "s3", "Rounding on stacked discounts", "Keep the cap.", AnswerType.Decision, QuestionThreadState.Resolved);
+      Assert.Equal([concern], reviewer.Concerns);
+      Assert.Equal([decision, new SummaryTypedThread("n1", anchor, "s3", "Rounding on stacked discounts", "Ship it.", AnswerType.Decision, QuestionThreadState.Open, Note: true)], reviewer.Decisions);
+      Assert.Empty(reviewer.OpenQuestions);
+      Assert.Equal([concern], agent.Concerns);
+      Assert.Equal([decision], agent.Decisions);
+      Assert.Empty(agent.OpenQuestions);
+   }
+
+   /// <summary>A synthesis based on the summary before the change shows as predating it, as for a changed answer.</summary>
+   [Fact]
+   public void Agent_summary_fingerprint_changes_with_the_type_of_a_sent_thread_and_not_with_a_typed_note()
+   {
+      var tour = Sample with { Threads = SentTyped() };
+      var retyped = tour with { Threads = Retyped(tour.Threads, "a1", AnswerType.OpenQuestion) };
+      var noteRetyped = tour with { Threads = ThreadFixtures.Threads([.. tour.Threads.Where(thread => thread.Id != "n1"), Note("n1", "Ship it.", AnswerType.Concern)]) };
+
+      var before = AgentView.Summary(tour).Fingerprint(tour.Pin);
+
+      Assert.NotEqual(before, AgentView.Summary(retyped).Fingerprint(retyped.Pin));
+      Assert.Equal(before, AgentView.Summary(noteRetyped).Fingerprint(noteRetyped.Pin));
+      Assert.Equal(["a1"], AgentView.Summary(retyped).TypedThreads!.OpenQuestions.Select(thread => thread.Id));
+   }
+
+   [Fact]
+   public void Summary_with_sent_threads_that_have_no_type_holds_no_typed_threads()
+   {
+      var tour = Sample with { Threads = ThreadFixtures.Threads(ThreadFixtures.Asked("a1", new ThreadAnchor.WholeStop("s3"), text: "Why here?")) };
+
+      Assert.Null(ReviewSummary.Of(tour, tour).TypedThreads);
+      Assert.Null(AgentView.Summary(tour).TypedThreads);
+   }
+
    /// <summary>
    /// The value is the fingerprint of the contract sample's agent summary in the golden fixture of lotsen 0.3.0. A summary without a typed thread writes the JSON of that release, so a
    /// synthesis that it stored keeps its verdict.
@@ -200,4 +243,19 @@ public sealed class ReviewSummaryTests
          ThreadFixtures.Note("n4", new ThreadAnchor.WholeTour(), "Ship it.", state: QuestionThreadState.Outdated, type: AnswerType.Decision),
          ThreadFixtures.Note("n5", anchor, "Just a reminder."));
    }
+
+   // A sent concern, a sent decision that the reviewer resolved, and a typed note that the reviewer has not sent.
+   private static TourThreads SentTyped()
+   {
+      var anchor = new ThreadAnchor.WholeStop("s3");
+      return ThreadFixtures.Threads(
+         ThreadFixtures.Asked("a1", anchor, text: "The cap drifts.", type: AnswerType.Concern),
+         ThreadFixtures.Asked("a2", anchor, QuestionThreadState.Resolved, request: RequestState.Done, text: "Keep the cap.", type: AnswerType.Decision),
+         Note("n1", "Ship it.", AnswerType.Decision));
+   }
+
+   private static QuestionThread Note(string id, string text, AnswerType type) => ThreadFixtures.Note(id, new ThreadAnchor.WholeStop("s3"), text, type: type);
+
+   private static TourThreads Retyped(TourThreads threads, string threadId, AnswerType type) =>
+      ThreadFixtures.Threads([.. threads.Select(thread => thread.Id == threadId ? ((QuestionThread.Sent.Asked)thread).Typed(type) : thread)]);
 }

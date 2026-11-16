@@ -45,6 +45,7 @@ export type OperationErrorCode =
    | 'wrongNonce'
    | 'noteSent'
    | 'threadIsNote'
+   | 'threadTakesNoType'
    | 'checkNotFound'
    | 'answerNotFound'
    | 'batchNotFound'
@@ -101,6 +102,7 @@ export type OperationName =
    | 'resend_question'
    | 'cancel_question'
    | 'set_thread_state'
+   | 'set_thread_type'
    | 'remove_thread'
    | 'save_note'
    | 'edit_note'
@@ -494,6 +496,7 @@ export interface QuestionStatus {
 export interface AskedThread {
    kind: 'asked';
    action?: TourAction;
+   type?: AnswerType;
    /**
     * @minItems 1
     */
@@ -1265,6 +1268,10 @@ export interface Operations {
       input: SetThreadStateInput;
       output: UpdatedThread;
    };
+   set_thread_type: {
+      input: SetThreadTypeInput;
+      output: UpdatedThread;
+   };
    remove_thread: {
       input: RemoveThreadInput;
       output: DeletedThread;
@@ -1550,6 +1557,20 @@ export interface UpdatedThread {
    tourId: string;
    updatedAt: string;
    thread: QuestionThread;
+}
+export interface SetThreadTypeInput {
+   /**
+    * The tour's ID, as create_tour or list_tours returned it, or as the user gave it.
+    */
+   tourId: string;
+   /**
+    * The ID of the thread.
+    */
+   threadId: string;
+   /**
+    * The kind of finding that the thread holds: decision, concern or openQuestion. Omit it to take the thread's type away.
+    */
+   type?: AnswerType | null;
 }
 export interface RemoveThreadInput {
    /**

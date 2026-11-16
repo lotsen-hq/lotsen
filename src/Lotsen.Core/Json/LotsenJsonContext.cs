@@ -88,6 +88,7 @@ namespace Lotsen.Json;
 [JsonSerializable(typeof(AskQuestionInput))]
 [JsonSerializable(typeof(AskFollowUpInput))]
 [JsonSerializable(typeof(SetThreadStateInput))]
+[JsonSerializable(typeof(SetThreadTypeInput))]
 [JsonSerializable(typeof(StartThreadInput))]
 [JsonSerializable(typeof(AddThreadMessageInput))]
 [JsonSerializable(typeof(OutdateThreadInput))]

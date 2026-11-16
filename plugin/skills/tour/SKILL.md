@@ -488,6 +488,12 @@ This section adds what they leave out.
 The reviewer can also write notes in the UI and send them later, alone or as a batch, as one question for each note.
 `read_state` leaves out the notes that the reviewer has not sent, so don't look for them.
 
+The reviewer can file a thread that starts with their question as a finding. Such a thread has a `type`, which
+`read_state` and `fetch_question` show: `decision`, `concern` or `openQuestion`. A note keeps its type when the
+reviewer sends it. Read the thread's questions as that finding: a decision that the reviewer made, a worry about the
+change, or a decision that the reviewer has not made yet. Answer the question that the reviewer asked, in its own
+thread. The reviewer can change the type at any time, and nothing tells you of the change.
+
 Each thread has a `state`, which `read_state` and `fetch_question` show: `open`, `resolved` when the reviewer considers
 the thread settled, or `outdated` when you marked it with `outdate_thread`, a revision changed the stop text it points
 into, or an iteration update could not move the code or file it points at. Only the reviewer resolves or reopens a
@@ -615,14 +621,16 @@ the terminal what you had done.
 ### The review summary
 
 `read_summary` returns what the review has produced so far, built from the tour's state: the answers that the reviewer
-sent, `sent` or `received`, grouped by type into `decisions`, `concerns` and `openQuestions`, with the outdated answers
-apart; the risk stops as concerns, with their scenario; the threads by state; and the stops that the reviewer skipped or
-that are stale, in plan order. Read it when the reviewer or the user asks what the review has settled or left open, and
-read it before you write a synthesis with `write_synthesis`. Its `summaryFingerprint` identifies the summary as you read
-it, at the tour's pin, and `write_synthesis` takes it as `basedOn`. Its `synthesis` is the one you wrote last, with
-`predatesSummary` true when the summary or the tour's pin changed since the one that the synthesis is based on, such as a
-new answer, a resolved thread or an update to an iteration with another head. Like `read_state`, it leaves out the reviewer's draft
-answers and notes.
+sent, `sent` or `received`, grouped by type into `decisions`, `concerns` and `openQuestions`, with the outdated
+answers apart; the sent threads that have a type, grouped the same way in `typedThreads`, each with its first question
+as `text`, or no `typedThreads` when none has a type; the risk stops as concerns, with their scenario; the threads by
+state; and the stops that the reviewer skipped or that are stale, in plan order. Read it when the reviewer or the user
+asks what the review has settled or left open, and read it before you write a synthesis with `write_synthesis`. Its
+`summaryFingerprint` identifies the summary as you read it, at the tour's pin, and `write_synthesis` takes it as
+`basedOn`. Its `synthesis` is the one you wrote last, with `predatesSummary` true when the summary or the tour's pin
+changed since the one that the synthesis is based on, such as a new answer, a resolved thread, a thread of another
+type or an update to an iteration with another head. Like `read_state`, it leaves out the reviewer's draft answers and
+notes.
 
 ## Errors
 

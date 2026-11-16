@@ -7,7 +7,18 @@ import type { AnchorInput, AnswerType, QuestionThread, ReviewerThreadState, Tour
 /** The operations that a tour's thread writes call. */
 export type ThreadOperations = Pick<
    Api,
-   'askQuestion' | 'requestTourAction' | 'askFollowUp' | 'resendQuestion' | 'cancelQuestion' | 'setThreadState' | 'removeThread' | 'saveNote' | 'editNote' | 'discardNote' | 'sendNotes'
+   | 'askQuestion'
+   | 'requestTourAction'
+   | 'askFollowUp'
+   | 'resendQuestion'
+   | 'cancelQuestion'
+   | 'setThreadState'
+   | 'setThreadType'
+   | 'removeThread'
+   | 'saveNote'
+   | 'editNote'
+   | 'discardNote'
+   | 'sendNotes'
 >;
 
 /** How a thread write ended: stored, or refused with the reason to show. */
@@ -31,10 +42,10 @@ interface Written {
 }
 
 /**
- * Writes one tour's threads: asks, follow-ups, re-sends, cancels, state changes, deletes and the note writes.
+ * Writes one tour's threads: asks, follow-ups, re-sends, cancels, state and type changes, deletes and the note writes.
  *
  * Each write calls its operation and stores the response in the tour record at the response's revision, so the record's rule orders it with the events and loads in flight. Every write
- * but a state change, a delete, a note edit and a discard then reveals the threads it stored in the threads view, as {@link ThreadsView.revealAfterWrite} says.
+ * but a state change, a type change, a delete, a note edit and a discard then reveals the threads it stored in the threads view, as {@link ThreadsView.revealAfterWrite} says.
  */
 export class ThreadActions {
    private readonly tourId: string;
@@ -89,6 +100,16 @@ export class ThreadActions {
          (operations) => operations.setThreadState(this.tourId, threadId, state),
          ({ thread, updatedAt }) => ({ stored: [thread], updatedAt }),
          failure,
+         false,
+      );
+   }
+
+   /** Sets the answer type of a note or a sent thread, or takes it away when it is null. It works with or without a bound session, and nothing reaches Claude. */
+   setType(threadId: string, type: AnswerType | null): Promise<WriteResult> {
+      return this.write(
+         (operations) => operations.setThreadType(this.tourId, threadId, type),
+         ({ thread, updatedAt }) => ({ stored: [thread], updatedAt }),
+         "The thread's type could not be saved.",
          false,
       );
    }

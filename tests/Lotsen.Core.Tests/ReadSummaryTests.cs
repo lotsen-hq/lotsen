@@ -4,6 +4,7 @@ using Lotsen.Server;
 using Lotsen.Tours;
 using Microsoft.Extensions.DependencyInjection;
 using static Lotsen.Tests.OperationCall;
+using static Lotsen.Tests.ThreadCalls;
 
 namespace Lotsen.Tests;
 
@@ -103,6 +104,47 @@ public sealed class ReadSummaryTests : IAsyncLifetime
       var summary = await _calls.CallAsync(await _calls.UiAsync(On("read_summary", id)));
 
       Assert.Single(summary["typedThreads"]!["decisions"]!.AsArray());
+      Assert.Equal(ActionRules.NoDecisionSent, (string)summary["followUps"]![TourAction.DraftWorkItemsKind]!);
+   }
+
+   [Fact]
+   public async Task Ui_and_agent_summary_list_a_sent_typed_thread_in_the_group_of_its_type_and_move_it_when_its_type_changes()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      var saved = await _calls.SaveNoteAsync(id, "The cap drifts.", "concern");
+      var threadId = ThreadIdOf(saved["thread"]!);
+      await _calls.SendNotesAsync(id, threadId);
+
+      var ui = await _calls.CallAsync(await _calls.UiAsync(On("read_summary", id)));
+      var agent = await _calls.CallAsync(_calls.Agent(session, On("read_summary", id)));
+      await _calls.SetTypeAsync(id, threadId, "openQuestion");
+      var retyped = await _calls.CallAsync(_calls.Agent(session, On("read_summary", id)));
+
+      var expected = JsonNode.Parse($$"""{ "id": "{{threadId}}", "anchor": { "kind": "tour" }, "text": "The cap drifts.", "type": "concern", "state": "open" }""");
+      Assert.True(JsonNode.DeepEquals(expected, Assert.Single(ui["typedThreads"]!["concerns"]!.AsArray())), $"The reviewer's summary reads {ui["typedThreads"]}");
+      Assert.True(JsonNode.DeepEquals(expected, Assert.Single(agent["typedThreads"]!["concerns"]!.AsArray())), $"The agent's summary reads {agent["typedThreads"]}");
+      Assert.Empty(retyped["typedThreads"]!["concerns"]!.AsArray());
+      Assert.Equal(threadId, (string)Assert.Single(retyped["typedThreads"]!["openQuestions"]!.AsArray())!["id"]!);
+      Assert.NotEqual((string)agent["summaryFingerprint"]!, (string)retyped["summaryFingerprint"]!);
+   }
+
+   /// <summary>A follow-up action collects its items from the answers of the summary that Claude reads, so a sent typed thread gives draftWorkItems nothing to hand.</summary>
+   [Fact]
+   public async Task Ui_summary_with_a_sent_typed_decision_thread_and_no_decision_sent_names_why_draft_work_items_has_nothing_to_hand()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      Seed(id, session.Id, tour => tour with
+      {
+         Answers = [.. tour.Answers.Where(answer => answer.Type != AnswerType.Decision)],
+         Threads = ThreadFixtures.Threads(ThreadFixtures.Asked("t9", new ThreadAnchor.WholeTour(), text: "Keep the cap.", type: AnswerType.Decision)),
+      });
+
+      var summary = await _calls.CallAsync(await _calls.UiAsync(On("read_summary", id)));
+
+      Assert.Single(summary["typedThreads"]!["decisions"]!.AsArray());
+      Assert.Empty(summary["answers"]!["decisions"]!.AsArray());
       Assert.Equal(ActionRules.NoDecisionSent, (string)summary["followUps"]![TourAction.DraftWorkItemsKind]!);
    }
 

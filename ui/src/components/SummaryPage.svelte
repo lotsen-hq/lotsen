@@ -1,7 +1,7 @@
 <!--
    The tour's summary page, which the center shows after the plan's last stop: the review summary as the server built it, with each item linked to its stop, its check or its thread.
-   Each group of a type lists the reviewer's typed notes after the answers, marked as the reviewer's own, and counts them. It writes nothing. The reviewer's answers and notes are plain text,
-   and only the questions, the scenarios and Claude's synthesis that the server rendered go in as HTML.
+   Each group of a type lists the reviewer's typed threads after the answers, a note marked as the reviewer's note and a sent thread as the reviewer's finding, and counts them. It writes
+   nothing. The reviewer's answers and words are plain text, and only the questions, the scenarios and Claude's synthesis that the server rendered go in as HTML.
 -->
 <script lang="ts">
    import type { Snippet } from 'svelte';
@@ -111,9 +111,7 @@
       <li class="summary-item">
          <Button variant="link" size="sm" class="h-auto justify-start p-0 text-left whitespace-normal" onclick={() => onopenthread(entry.id)}>{shortened(entry.text, threadLength)}</Button>
          <div class="summary-meta">
-            {#if entry.note}
-               <span class="summary-state">Your note</span>
-            {/if}
+            <span class="summary-state">{entry.note ? 'Your note' : 'Your finding'}</span>
             {#if entry.state !== 'open'}
                <span class="summary-state">{threadStateLabels[entry.state]}</span>
             {/if}

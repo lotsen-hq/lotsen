@@ -53,6 +53,11 @@ function noteType(thread: QuestionThread | undefined): string | null | undefined
    return thread?.kind === 'note' ? (thread.type ?? null) : undefined;
 }
 
+/** Returns the type of a thread that asked a question, or null for one without a type, or undefined for any other thread. */
+function sentType(thread: QuestionThread | undefined): string | null | undefined {
+   return thread?.kind === 'asked' ? (thread.type ?? null) : undefined;
+}
+
 /** Returns the words of a thread that is a note, or undefined for a sent thread. */
 function noteText(thread: QuestionThread | undefined): string | undefined {
    return thread?.kind === 'note' ? thread.text : undefined;
@@ -320,6 +325,44 @@ describe('notes in the Threads panel', () => {
       await waitFor(() => expect(view.queryByText('Draft')).toBeNull());
       expect(view.getByText(/Waiting for Claude's reply/)).toBeTruthy();
       expect(noteText((await threadsOf(world, tourId)).find((thread) => thread.id === n1))).toBe('First.');
+   });
+
+   it("keeps a typed note's type in the thread view once it is sent, and changes it there without sending Claude anything", async () => {
+      const { world, tourId, transport } = await start(true);
+      const saved = (await world.reviewer.call('save_note', { tourId, text: 'The cap drifts.', anchor: { kind: 'tour' }, type: 'concern' })) as UpdatedThread;
+      const view = await openThreadView(saved.thread.id);
+      await fireEvent.click(view.getByRole('button', { name: 'Send to Claude' }));
+      await waitFor(async () => expect((await threadsOf(world, tourId))[0]?.kind).toBe('asked'));
+      const chip = () => view.getByRole('combobox', { name: 'Type' }) as HTMLSelectElement;
+      await waitFor(() => expect(chip().value).toBe('concern'));
+      expect(view.queryByRole('combobox', { name: 'Note type' })).toBeNull();
+      const [sent] = await threadsOf(world, tourId);
+
+      await fireEvent.change(chip(), { target: { value: 'decision' } });
+
+      await waitFor(async () => expect(sentType((await threadsOf(world, tourId))[0])).toBe('decision'));
+      expect(transport.requests.find((request) => request.operation === 'set_thread_type')?.input).toEqual({ tourId, threadId: saved.thread.id, type: 'decision' });
+      const [retyped] = await threadsOf(world, tourId);
+      expect(retyped?.kind === 'asked' && sent?.kind === 'asked' ? retyped.messages : null).toEqual(sent?.kind === 'asked' ? sent.messages : undefined);
+      await waitFor(() => expect(chip().value).toBe('decision'));
+
+      await fireEvent.change(chip(), { target: { value: '' } });
+
+      await waitFor(async () => expect(sentType((await threadsOf(world, tourId))[0])).toBeNull());
+   });
+
+   it("offers a type in the view of a question asked at once, and none in a tour action's thread", async () => {
+      const { world, tourId } = await start(true);
+      const asked = (await world.reviewer.call('ask_question', { tourId, text: 'Why here?', anchor: { kind: 'tour' } })) as QuestionThread;
+
+      const view = await openThreadView(asked.id);
+      await fireEvent.change(view.getByRole('combobox', { name: 'Type' }), { target: { value: 'openQuestion' } });
+
+      await waitFor(async () => expect(sentType((await threadsOf(world, tourId))[0])).toBe('openQuestion'));
+      await backToList();
+      const action = (await world.reviewer.call('request_tour_action', { tourId, action: { kind: 'replan' }, text: 'Shorter.' })) as QuestionThread;
+      const actionView = await openThreadView(action.id);
+      expect(actionView.queryByRole('combobox', { name: 'Type' })).toBeNull();
    });
 
    it('sends two chosen notes as a note batch from the bar above the ask box, each in its own thread', async () => {

@@ -17,6 +17,10 @@ namespace Lotsen.Tours;
 /// question that waits for its reply stays in view. The reviewer may resolve and open any thread, a note included.
 /// </para>
 /// <para>
+/// The type rule is this. The reviewer may set or take away the answer type of a note or of an asked thread that holds no tour action, in any state, and the change sends nothing. A sent note keeps
+/// its type, and every other change of an asked thread keeps it too.
+/// </para>
+/// <para>
 /// The request rules are these. A re-send cancels the question's pending request and adds a new one. A reply resolves the first request of the question that went to the replying session,
 /// whatever its state, and cancels every other pending request. The reply goes at the end of the thread, after any follow-up of its question. The end of a binding marks every pending request
 /// unanswered. A session's fetch marks its requests received once.
@@ -100,6 +104,7 @@ internal sealed partial class TourThreads
          ThreadCommand.DiscardNote discard => ThreadNamed(threads, discard.ThreadId),
          ThreadCommand.FollowUp followUp => ThreadNamed(threads, followUp.ThreadId),
          ThreadCommand.SetState set => ThreadNamed(threads, set.ThreadId),
+         ThreadCommand.SetType type => ThreadNamed(threads, type.ThreadId),
          ThreadCommand.AgentWrote wrote => ThreadNamed(threads, wrote.ThreadId),
          ThreadCommand.Outdate outdate => ThreadNamed(threads, outdate.ThreadId),
          ThreadCommand.Delete delete => ThreadNamed(threads, delete.ThreadId),
@@ -134,7 +139,7 @@ internal sealed partial class TourThreads
          (_, ThreadCommand.Start start) => new Decision.Put(QuestionThread.Sent.Started.Open(draft.NewId(), start.Anchor, ThreadMessage.AgentMessage.Written(draft.NewId(), draft.Now, start.Author.Id, start.Text))),
          (_, ThreadCommand.SaveNote save) => new Decision.Put(QuestionThread.Note.Saved(draft.NewId(), save.Anchor, save.Text, draft.Now, save.StopId, save.Type)),
 
-         (null, ThreadCommand.EditNote or ThreadCommand.DiscardNote or ThreadCommand.SendNotes or ThreadCommand.FollowUp or ThreadCommand.SetState or ThreadCommand.Remove) =>
+         (null, ThreadCommand.EditNote or ThreadCommand.DiscardNote or ThreadCommand.SendNotes or ThreadCommand.FollowUp or ThreadCommand.SetState or ThreadCommand.SetType or ThreadCommand.Remove) =>
             new Decision.Refuse(OperationError.ThreadNotFound(tour.Id, named.Id)),
          (null or QuestionThread.Note, ThreadCommand.AgentWrote or ThreadCommand.Outdate or ThreadCommand.Delete) => new Decision.Refuse(OperationError.ThreadNotFound(tour.Id, named.Id)),
          (null or QuestionThread.Note, ThreadCommand.Resend or ThreadCommand.Cancel or ThreadCommand.Reply or ThreadCommand.MarkReceived) =>
@@ -154,6 +159,12 @@ internal sealed partial class TourThreads
 
          (QuestionThread thread, ThreadCommand.SetState set) when thread.State == StateOf(set.State) => new Decision.Keep(),
          (QuestionThread thread, ThreadCommand.SetState set) => new Decision.Put(thread.WithState(StateOf(set.State))),
+
+         (QuestionThread.Note note, ThreadCommand.SetType set) when note.Type == set.Type => new Decision.Keep(),
+         (QuestionThread.Note note, ThreadCommand.SetType set) => new Decision.Put(note.Edited(note.Text, set.Type, draft.Now)),
+         (QuestionThread.Sent.Asked { Action: null } asked, ThreadCommand.SetType set) when asked.Type == set.Type => new Decision.Keep(),
+         (QuestionThread.Sent.Asked { Action: null } asked, ThreadCommand.SetType set) => new Decision.Put(asked.Typed(set.Type)),
+         (QuestionThread.Sent sent, ThreadCommand.SetType) => new Decision.Refuse(OperationError.ThreadTakesNoType(sent)),
 
          (QuestionThread.Sent { Waiting: { } waiting } sent, ThreadCommand.AgentWrote or ThreadCommand.Outdate or ThreadCommand.Delete) =>
             new Decision.Refuse(OperationError.QuestionWaitingForReply(sent.Id, waiting.Id)),

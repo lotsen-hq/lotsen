@@ -12,8 +12,8 @@ namespace Lotsen.Tours;
 /// fails to load. <see cref="TourThreads"/> decides every change of a tour's threads, and its table holds the rules for when a thread is open, resolved, outdated or waiting.
 /// </para>
 /// <para>
-/// Sending a note makes the note's words the first question of an <see cref="Sent.Asked"/> thread with the same ID and anchor. A <see cref="Sent.Decided"/> thread reports a reviewer decision
-/// on the tour anchor. A <see cref="Sent.Started"/> thread has no question until the reviewer follows up in it.
+/// Sending a note makes the note's words the first question of an <see cref="Sent.Asked"/> thread with the same ID, anchor and type. A <see cref="Sent.Decided"/> thread reports a
+/// reviewer decision on the tour anchor. A <see cref="Sent.Started"/> thread has no question until the reviewer follows up in it.
 /// </para>
 /// </remarks>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
@@ -174,7 +174,7 @@ internal closed record QuestionThread
          return replied.Count == resolved.Count ? messages : throw StoredData.Invalid($"Thread {id} has a resolved request without a reply.");
       }
 
-      /// <summary>A thread that starts with the reviewer's question. Only this kind holds a tour action.</summary>
+      /// <summary>A thread that starts with the reviewer's question. Only this kind holds a tour action, and only this kind of sent thread holds an answer type.</summary>
       [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
       internal sealed record Asked : Sent
       {
@@ -183,8 +183,9 @@ internal closed record QuestionThread
          /// <param name="state">The thread's state.</param>
          /// <param name="messages">The messages, the first a question.</param>
          /// <param name="action">The tour action that the thread's first question requests, or null for a question.</param>
+         /// <param name="type">The thread's answer type, or null for a thread without one. A thread with a tour action has none.</param>
          [JsonConstructor]
-         private Asked(string id, ThreadAnchor anchor, QuestionThreadState state, IReadOnlyList<ThreadMessage> messages, TourAction? action = null)
+         private Asked(string id, ThreadAnchor anchor, QuestionThreadState state, IReadOnlyList<ThreadMessage> messages, TourAction? action = null, AnswerType? type = null)
             : base(id, anchor, state, messages)
          {
             if (!StartsAsDeclared)
@@ -193,19 +194,32 @@ internal closed record QuestionThread
             }
 
             Action = action is null || !HasNullElement(action) ? action : throw StoredData.Invalid($"The tour action of thread {id} holds a null item.");
+            Type = action is null || type is null ? type : throw StoredData.Invalid($"Thread {id} holds a tour action, so it takes no type.");
          }
 
          /// <summary>The tour action that the thread's first question requests, or null for a question. A follow-up in the thread is a question about the action. JSON leaves it out when null.</summary>
          [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
          public TourAction? Action { get; }
 
+         /// <summary>
+         /// The kind of finding that the reviewer filed the thread as, or null for a thread without one. A sent note takes the note's type, and the reviewer may change it in any state. JSON
+         /// leaves it out when null.
+         /// </summary>
+         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+         public AnswerType? Type { get; }
+
          /// <summary>Returns a new open thread whose first message is the question.</summary>
          internal static Asked Open(string id, ThreadAnchor anchor, ThreadMessage.Question question, TourAction? action) => new(id, anchor, QuestionThreadState.Open, [question], action);
 
-         /// <summary>Returns the note sent as an open thread with the same ID and anchor, whose first message is the question.</summary>
-         internal static Asked From(Note note, ThreadMessage.Question question) => new(note.Id, note.Anchor, QuestionThreadState.Open, [question]);
+         /// <summary>Returns the note sent as an open thread with the same ID, anchor and type, whose first message is the question.</summary>
+         internal static Asked From(Note note, ThreadMessage.Question question) => new(note.Id, note.Anchor, QuestionThreadState.Open, [question], type: note.Type);
 
-         private protected override Sent Rebuilt(ThreadAnchor anchor, QuestionThreadState state, IReadOnlyList<ThreadMessage> messages) => new Asked(Id, anchor, state, messages, Action);
+         /// <summary>Returns the thread with the type, or without one when it is null.</summary>
+         /// <exception cref="InvalidOperationException">The thread holds a tour action and the type is not null.</exception>
+         internal Asked Typed(AnswerType? type) =>
+            Action is null || type is null ? new(Id, Anchor, State, Messages, Action, type) : throw new InvalidOperationException($"Thread {Id} holds a tour action, so it takes no type.");
+
+         private protected override Sent Rebuilt(ThreadAnchor anchor, QuestionThreadState state, IReadOnlyList<ThreadMessage> messages) => new Asked(Id, anchor, state, messages, Action, Type);
 
          // The serializer refuses a missing or null list, but not a null element in one.
          private static bool HasNullElement(TourAction action) => action switch

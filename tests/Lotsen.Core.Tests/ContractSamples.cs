@@ -163,7 +163,7 @@ internal static class ContractSamples
          AskedThread,
          new UpdatedThread(Id, Later, NoteThread),
          new DeletedThread(Id, Later, "t1"),
-         new SentNotes(Id, Later, [ThreadFixtures.Asked("t1", new ThreadAnchor.WholeStop("s2"), stopId: "s2", text: "Check the loop.")]),
+         new SentNotes(Id, Later, [ThreadFixtures.Asked("t1", new ThreadAnchor.WholeStop("s2"), stopId: "s2", text: "Check the loop.", type: AnswerType.Concern)]),
          new UpdatedAnswer(Id, Later, Draft),
          new ClearedAnswer(Id, Later, "s3", "c1"),
          new UpdatedBatch(Id, Later, "b1", [SentAnswer]),

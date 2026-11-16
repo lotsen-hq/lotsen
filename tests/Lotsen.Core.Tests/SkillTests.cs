@@ -249,6 +249,22 @@ public sealed partial class SkillTests
       Assert.Contains("a question in a resolved thread still needs your reply", McpAdapter.Instructions, StringComparison.Ordinal);
    }
 
+   /// <summary>The names come from the summary's types and the answer types, so a rename of the group or a new type must reach the sections.</summary>
+   [Fact]
+   public void Skill_tells_Claude_what_the_type_of_a_thread_means_and_where_the_summary_lists_a_typed_thread()
+   {
+      static string Normalized(string text) => string.Join(' ', text.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
+      var section = Normalized(Section9());
+      var summary = Normalized(Subsection("### The review summary"));
+      var types = Enum.GetValues<AnswerType>().Select(type => JsonSerializer.Serialize(type, LotsenJsonContext.Default.AnswerType).Trim('"'));
+
+      Assert.All(types, type => Assert.Contains($"`{type}`", section, StringComparison.Ordinal));
+      Assert.Contains("A note keeps its type when the reviewer sends it", section, StringComparison.Ordinal);
+      Assert.Contains("The reviewer can change the type at any time, and nothing tells you of the change", section, StringComparison.Ordinal);
+      Assert.Contains($"`{PropertyName(LotsenJsonContext.Default.ReviewSummary, nameof(ReviewSummary.TypedThreads))}`", summary, StringComparison.Ordinal);
+      Assert.Contains("A thread with a type is one that the reviewer filed as a finding", McpAdapter.Instructions, StringComparison.Ordinal);
+   }
+
    /// <summary>The names come from the stored types, so a rename of the version, the outdated marker or the revised status must reach the section.</summary>
    [Fact]
    [Trait("Category", "Versions")]

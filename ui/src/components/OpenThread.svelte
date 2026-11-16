@@ -2,8 +2,9 @@
    The thread view: one thread of the Threads panel in place of the thread list. A header holds the back arrow, the link to where the thread was asked, the title, the resolve or reopen and the
    thread's ⋯ button, and a right-click on the header opens the same menu, as `ThreadMenu` says. Under it the messages scroll in the order they were written, then a question that waits for Claude
    with its cancel and re-send. Claude's messages open with Claude's name. The line under each message holds its time and state, and the reviewer's messages name their writer there. The follow-up
-   box stays at the bottom. A note shows its words as a draft, with its type, its edit, its send and its choice for a note batch at the bottom instead. The reviewer's messages show as text and
-   Claude's as the server rendered them, as chat bubbles or across the panel's width, as the message style says.
+   box stays at the bottom. A note shows its words as a draft, with its type, its edit, its send and its choice for a note batch at the bottom instead. A sent thread that starts with the
+   reviewer's question and requests no tour action shows its type above its messages, where the reviewer changes it. The reviewer's messages show as text and Claude's as the server rendered
+   them, as chat bubbles or across the panel's width, as the message style says.
 -->
 <script lang="ts">
    import ArrowLeft from '@lucide/svelte/icons/arrow-left';
@@ -32,6 +33,7 @@
       questionOfRequest,
       questionWords,
       replyResolution,
+      takesSentType,
       threadStateLabels,
       threadTitle,
       writerOf,
@@ -111,6 +113,7 @@
    // One write per control, so a write in flight or a refusal of one control leaves the others as they are.
    const questionWrite = new PendingWrite();
    const stateWrite = new PendingWrite();
+   const typeWrite = new PendingWrite();
    // The writes that keep a draft belong to the thread, so a view that mounts again while one is in flight holds back a second one.
    const writes = $derived(drafts.writesOf(thread.id));
    const followUpWrite = $derived(writes.followUp);
@@ -158,6 +161,7 @@
    // A reason that the follow-up box shows already describes Send again too, so it shows once.
    const resendReasonShared = $derived(followable && resendReason !== null && resendReason === followUpReason);
    const note = $derived(thread.kind === 'note' ? thread : null);
+   const typeable = $derived(takesSentType(thread) ? thread : null);
    const bubbles = $derived(messageStyle === 'bubbles');
    // The commit that the anchor stays on, whose lines or file the pin may hold elsewhere or not at all, so the anchor neither opens nor highlights.
    const earlierCommit = $derived(earlierCommitOf(thread, commits));
@@ -271,6 +275,11 @@
       }
    }
 
+   async function setSentType(type: AnswerType | null): Promise<void> {
+      const threadId = thread.id;
+      await settle(typeWrite, () => actions.setType(threadId, type));
+   }
+
    function sendNote(): void {
       const threadId = thread.id;
       void settle(noteWrite, () => actions.sendNotes([threadId]));
@@ -368,6 +377,15 @@
       <p class="shrink-0 border-b px-4 py-2 text-sm text-destructive" role="alert">{stateWrite.refusal}</p>
    {/if}
    <div class="scroll-box flex min-h-0 flex-1 flex-col gap-3 px-3 py-3" data-messages={messageStyle}>
+      {#if typeable !== null}
+         <!-- The type scrolls with the messages, so a short panel keeps its room for them and the follow-up box. -->
+         <div class="flex flex-col gap-1" role="group" aria-label="Thread type">
+            <NoteTypeChip value={typeable.type ?? null} onpick={setSentType} label="Type" small />
+            {#if typeWrite.refusal !== null}
+               <p class="text-sm text-destructive" role="alert">{typeWrite.refusal}</p>
+            {/if}
+         </div>
+      {/if}
       {#if earlierCommit !== null}
          <p class="text-xs text-muted-foreground" data-earlier-commit>On commit <span class="font-mono">{earlierCommit.slice(0, 8)}</span>, which the tour no longer shows.</p>
       {/if}

@@ -4,6 +4,7 @@ import { atPin, inFile, type FilePaths, type PinCommits } from './pin';
 import { type CodeThread } from './passageMarks';
 import { subjectSummary } from './tourActions';
 import type {
+   AskedThread,
    NoteThread,
    Plan,
    QuestionOutcome,
@@ -49,6 +50,11 @@ export function questionOf(thread: QuestionThread): Question | null {
 /** Returns the tour action that the thread's first question requests, or null for a thread that requests none. */
 export function actionOf(thread: QuestionThread): TourAction | null {
    return thread.kind === 'asked' ? (thread.action ?? null) : null;
+}
+
+/** Returns whether the thread is a sent thread that takes an answer type: one that starts with the reviewer's question and requests no tour action. */
+export function takesSentType(thread: QuestionThread): thread is AskedThread {
+   return thread.kind === 'asked' && thread.action === undefined;
 }
 
 /** Returns the reviewer decision that a decided thread reports, or null for any other thread. */

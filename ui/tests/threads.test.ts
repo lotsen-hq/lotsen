@@ -235,6 +235,7 @@ function actionsFor(item: QuestionThread, writes: ItemWrites): ThreadActions {
       resendQuestion: (_, questionId) => answer(writes.onresend(questionId), item),
       cancelQuestion: (_, questionId) => answer(writes.oncancel(questionId), item),
       setThreadState: (tourId, threadId, state) => answer(writes.onsetstate(threadId, state), { tourId, updatedAt: '2026-10-23T00:00:00+00:00', thread: item }),
+      setThreadType: unused,
       saveNote: unused,
       editNote: unused,
       discardNote: unused,

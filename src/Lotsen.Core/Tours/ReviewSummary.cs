@@ -42,9 +42,9 @@ internal sealed record ReviewSummary(
 {
    /// <summary>Returns the review summary of the tour.</summary>
    /// <remarks>
-   /// Pass the tour as <see cref="AgentView.For"/> shows it to the viewer, so an agent session's summary holds none of the reviewer's draft answers or notes, typed notes included. Within a
-   /// group, answers follow plan order and then check order, an answer whose stop the plan no longer has comes last, and threads keep the order they were started in. A typed thread is listed
-   /// in the group of its type and in the group of its state.
+   /// Pass the tour as <see cref="AgentView.For"/> shows it to the viewer, so an agent session's summary holds none of the reviewer's draft answers or notes, typed notes included. It holds the
+   /// typed threads that the reviewer sent, as it holds the sent answers. Within a group, answers follow plan order and then check order, an answer whose stop the plan no longer has comes
+   /// last, and threads keep the order they were started in. A typed thread is listed in the group of its type and in the group of its state.
    /// </remarks>
    /// <param name="shown">The tour as the viewer reads it.</param>
    /// <param name="stored">The stored tour, whose stops' earlier versions hold the questions of outdated answers. Claude wrote those questions, so they hold none of the reviewer's words.</param>
@@ -81,7 +81,7 @@ internal sealed record ReviewSummary(
          };
          var entry = ThreadOf(thread, stops);
          group.Add(entry);
-         if (thread is QuestionThread.Note { Type: { } type } note)
+         if (TypedOf(thread) is var (type, text))
          {
             var typed = type switch
             {
@@ -90,7 +90,7 @@ internal sealed record ReviewSummary(
                AnswerType.OpenQuestion => typedOpenQuestions,
                _ => throw new UnreachableException($"The answer type {type} has no group in the review summary."),
             };
-            typed.Add(new SummaryTypedThread(entry.Id, entry.Anchor, entry.StopId, entry.StopTitle, note.Text, type, thread.State, Note: true));
+            typed.Add(new SummaryTypedThread(entry.Id, entry.Anchor, entry.StopId, entry.StopTitle, text, type, thread.State, Note: thread is QuestionThread.Note));
          }
       }
 
@@ -153,6 +153,14 @@ internal sealed record ReviewSummary(
       var question = checkIndex < int.MaxValue ? checks[checkIndex].Question : null;
       return (new SummaryAnswer(answer.StopId, stop?.Title, answer.CheckId, question, answer.Text, answer.Type, answer.State, answer.OutdatedOn), (stopIndex, checkIndex));
    }
+
+   // The type of a typed thread with the reviewer's words: a note's words, or an asked thread's first question.
+   private static (AnswerType Type, string Text)? TypedOf(QuestionThread thread) => thread switch
+   {
+      QuestionThread.Note { Type: { } type } note => (type, note.Text),
+      QuestionThread.Sent.Asked { Type: { } type } asked => (type, ((ThreadMessage.Question)asked.Messages[0]).Text),
+      _ => null,
+   };
 
    // The UI's thread filter finds a thread's stop with the same rule.
    private static SummaryThread ThreadOf(QuestionThread thread, IReadOnlyList<Stop> stops)
@@ -230,7 +238,7 @@ internal sealed record SummaryTypedThreads(IReadOnlyList<SummaryTypedThread> Dec
 /// <param name="Anchor">The thread's anchor as stored.</param>
 /// <param name="StopId">The stop that the thread is about, as <see cref="SummaryThread.StopId"/> names it. JSON leaves it out when null.</param>
 /// <param name="StopTitle">The stop's title, as <see cref="SummaryThread.StopTitle"/> names it. JSON leaves it out when null.</param>
-/// <param name="Text">The reviewer's words, as plain text.</param>
+/// <param name="Text">The reviewer's words, as plain text: the note's words, or the thread's first question.</param>
 /// <param name="Type">The thread's answer type, which the reviewer set.</param>
 /// <param name="State">The thread's state.</param>
 /// <param name="Note">Whether the thread is a note that the reviewer has not sent. JSON leaves it out when false.</param>

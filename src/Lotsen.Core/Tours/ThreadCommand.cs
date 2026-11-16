@@ -81,6 +81,11 @@ internal closed record ThreadCommand
    /// <summary>The reviewer's open or resolve of a thread.</summary>
    internal sealed record SetState(string ThreadId, ReviewerThreadState State) : ThreadCommand, ISendsNothing;
 
+   /// <summary>The reviewer's answer type for a note or an asked thread that holds no tour action, in any state.</summary>
+   /// <param name="ThreadId">The thread's ID.</param>
+   /// <param name="Type">The thread's answer type, or null for none.</param>
+   internal sealed record SetType(string ThreadId, AnswerType? Type) : ThreadCommand, ISendsNothing;
+
    /// <summary>The bound session's agent message at the end of a thread.</summary>
    internal sealed record AgentWrote(string ThreadId, string Text, Recipient Author) : ThreadCommand, ISendsNothing;
 

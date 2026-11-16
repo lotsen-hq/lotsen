@@ -237,6 +237,14 @@ export interface Api {
     */
    setThreadState(tourId: string, threadId: string, state: ReviewerThreadState): Promise<Revised<UpdatedThread>>;
    /**
+    * Sets the answer type of a note or of a thread that starts with the reviewer's question, or takes the type away when it is null, and returns the thread with the tour's update time, with
+    * each reply's prose as HTML. It works with or without a bound session, and nothing reaches Claude.
+    *
+    * @throws ApiError with status 409 and code `threadTakesNoType` for the thread of a tour action or a decision, or one that Claude started, and with status 404 and code `threadNotFound`
+    * when the tour has no such thread.
+    */
+   setThreadType(tourId: string, threadId: string, type: AnswerType | null): Promise<Revised<UpdatedThread>>;
+   /**
     * Deletes any thread for good, a note included, and returns the removal with the tour's update time. It works with or without a bound session. A question of the thread that waits is
     * canceled first, and the bound session is told of the delete of a thread that it received.
     *
@@ -405,6 +413,7 @@ export function createApi(fetchFn: typeof fetch, credential: string, onControls:
       resendQuestion: (tourId, questionId) => revised('resend_question', { tourId, questionId }),
       cancelQuestion: (tourId, questionId) => revised('cancel_question', { tourId, questionId }),
       setThreadState: (tourId, threadId, state) => revised('set_thread_state', { tourId, threadId, state }),
+      setThreadType: (tourId, threadId, type) => revised('set_thread_type', { tourId, threadId, ...(type === null ? {} : { type }) }),
       removeThread: (tourId, threadId) => revised('remove_thread', { tourId, threadId }),
       saveNote: (tourId, input) => revised('save_note', { tourId, ...input }),
       editNote: (tourId, threadId, text, type) => revised('edit_note', { tourId, threadId, text, ...(type === null ? {} : { type }) }),

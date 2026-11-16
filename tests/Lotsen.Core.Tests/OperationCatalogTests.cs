@@ -28,6 +28,7 @@ public sealed class OperationCatalogTests
             "resend_question",
             "cancel_question",
             "set_thread_state",
+            "set_thread_type",
             "remove_thread",
             "save_note",
             "edit_note",
@@ -89,8 +90,8 @@ public sealed class OperationCatalogTests
    {
       Assert.Equal(
          ["create_tour", "attach_tour", "set_plan", "put_stop", "read_state", "read_summary", "ask_question", "request_tour_action", "ask_follow_up", "resend_question", "cancel_question",
-          "set_thread_state", "save_note", "edit_note", "send_notes", "fetch_question", "reply", "start_thread", "add_thread_message", "outdate_thread", "pin_tour", "change_familiarity",
-          "approve_plan", "update_iteration"],
+          "set_thread_state", "set_thread_type", "save_note", "edit_note", "send_notes", "fetch_question", "reply", "start_thread", "add_thread_message", "outdate_thread", "pin_tour",
+          "change_familiarity", "approve_plan", "update_iteration"],
          OperationCatalog.All.Where(operation => operation.Prose != ProseView.None).Select(operation => operation.Name));
    }
 

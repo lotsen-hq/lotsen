@@ -15,8 +15,8 @@ namespace Lotsen.Tests;
 /// <remarks>
 /// A row reads the outcome in short forms. <c>Changes</c> lists each change as <c>created:t1</c>, <c>updated:t1</c> or <c>removed:t1</c>, in change order, and empty means the write stores
 /// nothing. <c>Thread</c> is the probed thread's kind and state, such as <c>asked open</c>. <c>Requests</c> lists the request states of each question of the probed thread, the questions apart
-/// by <c>;</c>. <c>Sends</c> lists the threads of the queued questions. <c>NoteType</c> is the probed note's answer type, or <c>none</c>, and <c>KeepsSavedAt</c> says that the note keeps
-/// the save time of the steps.
+/// by <c>;</c>. <c>Sends</c> lists the threads of the queued questions. <c>ThreadType</c> is the answer type of the probed note or asked thread, or <c>none</c>, and <c>KeepsSavedAt</c> says
+/// that the note keeps the save time of the steps.
 /// </remarks>
 [Trait("Category", "Threads")]
 public sealed class ThreadTableTests
@@ -107,20 +107,29 @@ public sealed class ThreadTableTests
       ["Report of an iteration update while an earlier one waits is refused"] = new([ReportStep(Update)], ReportCommand(Update, "t2", "q2", "r2"), Refused(OperationErrorCode.QuestionWaiting, "tourId: Claude still revises the stops that the last update made stale")),
       ["Report of an iteration update while a level change waits opens a thread"] = new([ReportStep(LevelChange)], ReportCommand(Update, "t2", "q2", "r2"), new(Changes: "created:t2", Decision: "iterationUpdated"), Probe: "t2"),
       ["Start opens a started thread with the author's agent message and sends nothing"] = new([], Command(StartTour(), "t1", "m1"), new(Changes: "created:t1", Thread: "started open", Requests: "", Sends: "")),
-      ["SaveNote opens a note and sends nothing"] = new([], Command(Note(), "t1"), new(Changes: "created:t1", Thread: "note open", Sends: "", NoteType: "none")),
-      ["SaveNote with a type opens a note of that type"] = new([], Command(Note(type: AnswerType.Concern), "t1"), new(Changes: "created:t1", Thread: "note open", NoteType: "concern")),
+      ["SaveNote opens a note and sends nothing"] = new([], Command(Note(), "t1"), new(Changes: "created:t1", Thread: "note open", Sends: "", ThreadType: "none")),
+      ["SaveNote with a type opens a note of that type"] = new([], Command(Note(type: AnswerType.Concern), "t1"), new(Changes: "created:t1", Thread: "note open", ThreadType: "concern")),
 
       ["EditNote on a missing thread is refused"] = new([], Command(new ThreadCommand.EditNote("t1", "New.", null)), Refused(OperationErrorCode.ThreadNotFound)),
       ["EditNote on a sent thread is refused"] = new([Ask()], Command(new ThreadCommand.EditNote("t1", "New.", null)), Refused(OperationErrorCode.NoteSent)),
       ["EditNote with the same words stores nothing"] = new([NoteStep()], Command(new ThreadCommand.EditNote("t1", "My words.", null)), new(Changes: "", Thread: "note open")),
-      ["EditNote with the same words and type stores nothing"] = new([NoteStep(type: AnswerType.Concern)], Command(new ThreadCommand.EditNote("t1", "My words.", AnswerType.Concern)), new(Changes: "", NoteType: "concern")),
+      ["EditNote with the same words and type stores nothing"] = new(
+         [NoteStep(type: AnswerType.Concern)],
+         Command(new ThreadCommand.EditNote("t1", "My words.", AnswerType.Concern)),
+         new(Changes: "", ThreadType: "concern")),
       ["EditNote with new words updates the note and its save time"] = new([NoteStep()], Command(new ThreadCommand.EditNote("t1", "New.", null)), new(Changes: "updated:t1", Thread: "note open", NoteText: "New.")),
-      ["EditNote with new words keeps the type that it names"] = new([NoteStep(type: AnswerType.Decision)], Command(new ThreadCommand.EditNote("t1", "New.", AnswerType.Decision)), new(NoteText: "New.", NoteType: "decision")),
+      ["EditNote with new words keeps the type that it names"] = new(
+         [NoteStep(type: AnswerType.Decision)],
+         Command(new ThreadCommand.EditNote("t1", "New.", AnswerType.Decision)),
+         new(NoteText: "New.", ThreadType: "decision")),
       ["EditNote with a new type alone updates the type and keeps the save time"] = new(
          [NoteStep()],
          Command(new ThreadCommand.EditNote("t1", "My words.", AnswerType.OpenQuestion)),
-         new(Changes: "updated:t1", Thread: "note open", NoteType: "openQuestion", KeepsSavedAt: true)),
-      ["EditNote without a type takes the note's type away"] = new([NoteStep(type: AnswerType.Concern)], Command(new ThreadCommand.EditNote("t1", "My words.", null)), new(Changes: "updated:t1", NoteType: "none", KeepsSavedAt: true)),
+         new(Changes: "updated:t1", Thread: "note open", ThreadType: "openQuestion", KeepsSavedAt: true)),
+      ["EditNote without a type takes the note's type away"] = new(
+         [NoteStep(type: AnswerType.Concern)],
+         Command(new ThreadCommand.EditNote("t1", "My words.", null)),
+         new(Changes: "updated:t1", ThreadType: "none", KeepsSavedAt: true)),
       ["DiscardNote on a missing thread is refused"] = new([], Command(new ThreadCommand.DiscardNote("t1")), Refused(OperationErrorCode.ThreadNotFound)),
       ["DiscardNote on a sent thread is refused"] = new([Ask()], Command(new ThreadCommand.DiscardNote("t1")), Refused(OperationErrorCode.NoteSent)),
       ["DiscardNote removes the note"] = new([NoteStep()], Command(new ThreadCommand.DiscardNote("t1")), new(Changes: "removed:t1", Sends: "")),
@@ -132,6 +141,87 @@ public sealed class ThreadTableTests
          Command(new ThreadCommand.SendNotes(["t2", "t1"], Bound), "q2", "r2", "q1", "r1"),
          new(Changes: "updated:t2 updated:t1", Thread: "asked open", Requests: "pending", Sends: "t2 t1")),
       ["SendNotes opens a resolved note"] = new([NoteStep(), SetState(ReviewerThreadState.Resolved)], Command(new ThreadCommand.SendNotes(["t1"], Bound), "q1", "r1"), new(Thread: "asked open")),
+      ["SendNotes gives each asked thread its note's type"] = new(
+         [NoteStep(type: AnswerType.Concern), NoteStep("t2")],
+         Command(new ThreadCommand.SendNotes(["t1", "t2"], Bound), "q1", "r1", "q2", "r2"),
+         new(Changes: "updated:t1 updated:t2", Thread: "asked open", Requests: "pending", Sends: "t1 t2", ThreadType: "concern")),
+      ["SendNotes of a typed note alone keeps its type"] = new(
+         [NoteStep(type: AnswerType.Decision)],
+         Command(new ThreadCommand.SendNotes(["t1"], Bound), "q1", "r1"),
+         new(Thread: "asked open", ThreadType: "decision")),
+      ["SendNotes of an untyped note opens a thread without a type"] = new(
+         [NoteStep(), NoteStep("t2", type: AnswerType.Concern)],
+         Command(new ThreadCommand.SendNotes(["t1", "t2"], Bound), "q1", "r1", "q2", "r2"),
+         new(ThreadType: "none")),
+
+      ["SetType on a missing thread is refused"] = new([], Command(SetTypeCommand(AnswerType.Concern)), Refused(OperationErrorCode.ThreadNotFound)),
+      ["SetType on a note updates its type, keeps its save time and sends nothing"] = new(
+         [NoteStep()],
+         Command(SetTypeCommand(AnswerType.Concern)),
+         new(Changes: "updated:t1", Thread: "note open", Sends: "", ThreadType: "concern", KeepsSavedAt: true)),
+      ["SetType on a note to its type stores nothing"] = new([NoteStep(type: AnswerType.Concern)], Command(SetTypeCommand(AnswerType.Concern)), new(Changes: "", ThreadType: "concern")),
+      ["SetType on an asked thread updates its type and sends nothing"] = new(
+         [Ask(), Reply("q1")],
+         Command(SetTypeCommand(AnswerType.OpenQuestion)),
+         new(Changes: "updated:t1", Thread: "asked open", Requests: "done", Messages: "question reply", Sends: "", ThreadType: "openQuestion")),
+      ["SetType on a sent note moves it to another type"] = new(
+         [.. TypedSent(AnswerType.Concern)],
+         Command(SetTypeCommand(AnswerType.Decision)),
+         new(Changes: "updated:t1", Sends: "", ThreadType: "decision")),
+      ["SetType on a sent note without a type takes its type away"] = new([.. TypedSent(AnswerType.Concern)], Command(SetTypeCommand(null)), new(Changes: "updated:t1", ThreadType: "none")),
+      ["SetType on an asked thread to its type stores nothing"] = new([.. TypedSent(AnswerType.Concern)], Command(SetTypeCommand(AnswerType.Concern)), new(Changes: "", ThreadType: "concern")),
+      ["SetType on a thread whose question waits keeps it waiting and its state"] = new(
+         [Ask(), SetState(ReviewerThreadState.Resolved)],
+         Command(SetTypeCommand(AnswerType.Concern)),
+         new(Changes: "updated:t1", Thread: "asked resolved", Requests: "pending", Sends: "", ThreadType: "concern")),
+      ["SetType on an outdated thread keeps it outdated"] = new([Ask(), Cancel("q1"), Outdate()], Command(SetTypeCommand(AnswerType.Concern)), new(Thread: "asked outdated", ThreadType: "concern")),
+      ["SetType on a tour action's thread is refused"] = new(
+         [RequestStep(ExplainStop)],
+         Command(SetTypeCommand(AnswerType.Concern)),
+         Refused(OperationErrorCode.ThreadTakesNoType, "holds a tour action")),
+      ["SetType without a type on a tour action's thread is refused"] = new([RequestStep(ExplainStop)], Command(SetTypeCommand(null)), Refused(OperationErrorCode.ThreadTakesNoType)),
+      ["SetType on a decided thread is refused"] = new([ReportStep(LevelChange)], Command(SetTypeCommand(AnswerType.Decision)), Refused(OperationErrorCode.ThreadTakesNoType, "reports a decision")),
+      ["SetType on a started thread is refused"] = new([Start()], Command(SetTypeCommand(AnswerType.Concern)), Refused(OperationErrorCode.ThreadTakesNoType, "Claude started")),
+
+      ["A typed thread keeps its type through a follow-up"] = new(
+         [.. TypedSent(AnswerType.Concern), Reply("q1")],
+         Command(FollowUp(), "q2", "r2"),
+         new(Requests: "done;pending", ThreadType: "concern")),
+      ["A typed thread keeps its type through a reply"] = new([.. TypedSent(AnswerType.Concern)], Command(ReplyCommand("q1"), "a1"), new(Requests: "done", ThreadType: "concern")),
+      ["A typed thread keeps its type through a cancel"] = new([.. TypedSent(AnswerType.Concern)], Command(new ThreadCommand.Cancel("q1")), new(Requests: "canceled", ThreadType: "concern")),
+      ["A typed thread keeps its type through a re-send"] = new(
+         [.. TypedSent(AnswerType.Concern), Cancel("q1")],
+         Command(new ThreadCommand.Resend("q1", Bound), "r2"),
+         new(Requests: "canceled,pending", ThreadType: "concern")),
+      ["A typed thread keeps its type through a mark received"] = new(
+         [.. TypedSent(AnswerType.Concern)],
+         Command(new ThreadCommand.MarkReceived("q1", Bound)),
+         new(Received: "r1", ThreadType: "concern")),
+      ["A typed thread keeps its type through a state change"] = new(
+         [.. TypedSent(AnswerType.OpenQuestion)],
+         Command(SetStateCommand(ReviewerThreadState.Resolved)),
+         new(Thread: "asked resolved", ThreadType: "openQuestion")),
+      ["A typed thread keeps its type through an outdate"] = new([.. TypedSent(AnswerType.Decision), Reply("q1")], Command(OutdateCommand()), new(Thread: "asked outdated", ThreadType: "decision")),
+      ["A typed thread keeps its type through an agent message"] = new(
+         [.. TypedSent(AnswerType.Decision), Reply("q1")],
+         Command(AgentWrote(), "m2"),
+         new(Messages: "question reply agentMessage", ThreadType: "decision")),
+      ["A typed thread keeps its type when the end of a binding leaves its question unanswered"] = new(
+         [.. TypedSent(AnswerType.Concern)],
+         Fact(new ThreadFact.Released()),
+         new(Requests: "unanswered", ThreadType: "concern")),
+      ["A typed thread keeps its type when a revision moves its anchor"] = new(
+         [.. TypedSent(AnswerType.Concern, How)],
+         Fact(new ThreadFact.StopRevised(Replaced, Written)),
+         new(Changes: "updated:t1", Thread: "asked open", AnchorVersion: 2, ThreadType: "concern")),
+      ["A typed thread keeps its type when a revision outdates it"] = new(
+         [.. TypedSent(AnswerType.Concern, Why), Reply("q1")],
+         Fact(new ThreadFact.StopRevised(Replaced, Written)),
+         new(Changes: "updated:t1", Thread: "asked outdated", ThreadType: "concern")),
+      ["A typed thread keeps its type when an iteration update moves its anchor"] = new(
+         [.. TypedSent(AnswerType.OpenQuestion, Code)],
+         Fact(Repinned(new Remapped<ThreadAnchor>.Moved(Code with { StartLine = 5, EndLine = 6 }))),
+         new(Changes: "updated:t1", Thread: "asked open", ThreadType: "openQuestion")),
 
       ["FollowUp on a missing thread is refused"] = new([], Command(FollowUp()), Refused(OperationErrorCode.ThreadNotFound)),
       ["FollowUp on a note is refused"] = new([NoteStep()], Command(FollowUp()), Refused(OperationErrorCode.ThreadIsNote)),
@@ -251,7 +341,10 @@ public sealed class ThreadTableTests
       ["SetState to the thread's state stores nothing"] = new([Ask()], Command(SetStateCommand(ReviewerThreadState.Open)), new(Changes: "", Thread: "asked open")),
       ["SetState resolves a note and sends nothing"] = new([NoteStep()], Command(SetStateCommand(ReviewerThreadState.Resolved)), new(Changes: "updated:t1", Thread: "note resolved", Sends: "")),
       ["SetState opens a resolved note"] = new([NoteStep(), SetState(ReviewerThreadState.Resolved)], Command(SetStateCommand(ReviewerThreadState.Open)), new(Changes: "updated:t1", Thread: "note open")),
-      ["SetState keeps a note's type"] = new([NoteStep(type: AnswerType.Concern)], Command(SetStateCommand(ReviewerThreadState.Resolved)), new(Thread: "note resolved", NoteType: "concern", KeepsSavedAt: true)),
+      ["SetState keeps a note's type"] = new(
+         [NoteStep(type: AnswerType.Concern)],
+         Command(SetStateCommand(ReviewerThreadState.Resolved)),
+         new(Thread: "note resolved", ThreadType: "concern", KeepsSavedAt: true)),
       ["SetState opens an outdated thread"] = new([Start(), Outdate()], Command(SetStateCommand(ReviewerThreadState.Open)), new(Changes: "updated:t1", Thread: "started open")),
       ["SetState resolves a thread whose question waits and keeps it waiting"] = new([Ask()], Command(SetStateCommand(ReviewerThreadState.Resolved)), new(Thread: "asked resolved", Requests: "pending", Sends: "")),
 
@@ -304,8 +397,14 @@ public sealed class ThreadTableTests
 
       ["StopRevised moves a stop text anchor whose field stayed the same, carried by the revision's event"] = new([Start(How)], Fact(new ThreadFact.StopRevised(Replaced, Written)), new(Changes: "updated:t1", Thread: "started open", AnchorVersion: 2, Carried: true)),
       ["StopRevised outdates an open thread whose field changed"] = new([Start(Why)], Fact(new ThreadFact.StopRevised(Replaced, Written)), new(Changes: "updated:t1", Thread: "started outdated", AnchorVersion: 1, Carried: true)),
-      ["StopRevised outdates an open note whose field changed and keeps its type"] = new([NoteStep("t1", Why, AnswerType.Decision)], Fact(new ThreadFact.StopRevised(Replaced, Written)), new(Thread: "note outdated", NoteType: "decision")),
-      ["StopRevised moves the anchor of a note and keeps its type"] = new([NoteStep("t1", How, AnswerType.Concern)], Fact(new ThreadFact.StopRevised(Replaced, Written)), new(Thread: "note open", NoteType: "concern", AnchorVersion: 2)),
+      ["StopRevised outdates an open note whose field changed and keeps its type"] = new(
+         [NoteStep("t1", Why, AnswerType.Decision)],
+         Fact(new ThreadFact.StopRevised(Replaced, Written)),
+         new(Thread: "note outdated", ThreadType: "decision")),
+      ["StopRevised moves the anchor of a note and keeps its type"] = new(
+         [NoteStep("t1", How, AnswerType.Concern)],
+         Fact(new ThreadFact.StopRevised(Replaced, Written)),
+         new(Thread: "note open", ThreadType: "concern", AnchorVersion: 2)),
       ["StopRevised keeps a waiting thread open"] = new([AskStep(new ThreadCommand.Ask(Why, "Why?", null, Bound))], Fact(new ThreadFact.StopRevised(Replaced, Written)), new(Changes: "", Thread: "asked open")),
       ["StopRevised keeps a resolved thread resolved"] = new([Start(Why), SetState(ReviewerThreadState.Resolved)], Fact(new ThreadFact.StopRevised(Replaced, Written)), new(Changes: "", Thread: "started resolved")),
       ["StopRevised leaves a thread on another version as it is"] = new([Start(new ThreadAnchor.StopText("s1", "why", "Old", 2))], Fact(new ThreadFact.StopRevised(Replaced, Written)), new(Changes: "")),
@@ -314,7 +413,7 @@ public sealed class ThreadTableTests
       ["Repinned moves the anchor of a note and keeps its type"] = new(
          [NoteStep("t1", Code, AnswerType.OpenQuestion)],
          Fact(Repinned(new Remapped<ThreadAnchor>.Moved(Code with { StartLine = 5, EndLine = 6 }))),
-         new(Changes: "updated:t1", Thread: "note open", NoteType: "openQuestion", KeepsSavedAt: true)),
+         new(Changes: "updated:t1", Thread: "note open", ThreadType: "openQuestion", KeepsSavedAt: true)),
       ["Repinned keeps an anchor that moved to its own place"] = new([Start(Code)], Fact(Repinned(new Remapped<ThreadAnchor>.Moved(Code))), new(Changes: "")),
       ["Repinned outdates an open thread whose anchor is stale"] = new([Start(Code)], Fact(Repinned(new Remapped<ThreadAnchor>.Stale(StaleReason.LinesChanged))), new(Changes: "updated:t1", Thread: "started outdated")),
       ["Repinned keeps an outdated thread outdated when it moves its anchor back to the pin"] = new([Start(EarlierCode), Outdate()], Fact(Repinned(new Remapped<ThreadAnchor>.Moved(Code))), new(Changes: "updated:t1", Thread: "started outdated")),
@@ -360,7 +459,7 @@ public sealed class ThreadTableTests
       Check(expect.Action, () => ((QuestionThread.Sent.Asked)probed!).Action!.Kind);
       Check(expect.Decision, () => ((QuestionThread.Sent.Decided)probed!).Decision.Kind);
       Check(expect.NoteText, () => ((QuestionThread.Note)probed!).Text);
-      Check(expect.NoteType, () => ((QuestionThread.Note)probed!).Type is { } type ? JsonNamingPolicy.CamelCase.ConvertName(type.ToString()) : "none");
+      Check(expect.ThreadType, () => TypeOf(probed!) is { } type ? JsonNamingPolicy.CamelCase.ConvertName(type.ToString()) : "none");
       if (expect.NoteText is not null)
       {
          Assert.Equal(Now, ((QuestionThread.Note)probed!).SavedAt);
@@ -498,6 +597,13 @@ public sealed class ThreadTableTests
       QuestionThread.Sent.Started => "started",
    };
 
+   private static AnswerType? TypeOf(QuestionThread thread) => thread switch
+   {
+      QuestionThread.Note note => note.Type,
+      QuestionThread.Sent.Asked asked => asked.Type,
+      _ => throw new InvalidOperationException($"Thread {thread.Id} is a {KindOf(thread)} thread, which holds no type."),
+   };
+
    private static string KindOf(ThreadMessage message) => message switch
    {
       ThreadMessage.Question => "question",
@@ -562,6 +668,8 @@ public sealed class ThreadTableTests
 
    private static ThreadCommand.SetState SetStateCommand(ReviewerThreadState state) => new("t1", state);
 
+   private static ThreadCommand.SetType SetTypeCommand(AnswerType? type) => new("t1", type);
+
    private static ThreadCommand.AgentWrote AgentWrote() => new("t1", "More.", Bound);
 
    private static ThreadCommand.Outdate OutdateCommand() => new("t1", Bound);
@@ -578,6 +686,9 @@ public sealed class ThreadTableTests
    private static Step NoteStep(string threadId = "t1", ThreadAnchor? anchor = null, AnswerType? type = null) => new(Note(anchor, type), threadId);
 
    private static Step FollowUpStep() => new(FollowUp(), "q2", "r2");
+
+   // A note of the type at the anchor, sent as thread t1 with question q1 and request r1.
+   private static Step[] TypedSent(AnswerType type, ThreadAnchor? anchor = null) => [NoteStep("t1", anchor, type), new(new ThreadCommand.SendNotes(["t1"], Bound), "q1", "r1")];
 
    private static Step Reply(string questionId) => ReplyStep(questionId, "a1");
 
@@ -638,7 +749,7 @@ public sealed class ThreadTableTests
       string? Action = null,
       string? Decision = null,
       string? NoteText = null,
-      string? NoteType = null,
+      string? ThreadType = null,
       bool? KeepsSavedAt = null,
       string? Received = null,
       int? AnchorVersion = null,

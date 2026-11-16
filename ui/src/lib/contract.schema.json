@@ -749,6 +749,9 @@
         "action": {
           "$ref": "#/definitions/TourAction"
         },
+        "type": {
+          "$ref": "#/definitions/AnswerType"
+        },
         "messages": {
           "type": "array",
           "items": [
@@ -2202,6 +2205,7 @@
         "wrongNonce",
         "noteSent",
         "threadIsNote",
+        "threadTakesNoType",
         "checkNotFound",
         "answerNotFound",
         "batchNotFound",
@@ -2229,6 +2233,7 @@
         "resend_question",
         "cancel_question",
         "set_thread_state",
+        "set_thread_type",
         "remove_thread",
         "save_note",
         "edit_note",
@@ -2396,6 +2401,22 @@
           "properties": {
             "input": {
               "$ref": "#/definitions/SetThreadStateInput"
+            },
+            "output": {
+              "$ref": "#/definitions/UpdatedThread"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "set_thread_type": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/SetThreadTypeInput"
             },
             "output": {
               "$ref": "#/definitions/UpdatedThread"
@@ -2865,6 +2886,7 @@
         "resend_question",
         "cancel_question",
         "set_thread_state",
+        "set_thread_type",
         "remove_thread",
         "save_note",
         "edit_note",
@@ -4039,6 +4061,38 @@
         "tourId",
         "threadId",
         "state"
+      ],
+      "additionalProperties": false
+    },
+    "SetThreadTypeInput": {
+      "title": "SetThreadTypeInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "threadId": {
+          "description": "The ID of the thread.",
+          "type": "string"
+        },
+        "type": {
+          "description": "The kind of finding that the thread holds: decision, concern or openQuestion. Omit it to take the thread's type away.",
+          "default": null,
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AnswerType"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "tourId",
+        "threadId"
       ],
       "additionalProperties": false
     },

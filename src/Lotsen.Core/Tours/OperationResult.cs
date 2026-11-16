@@ -219,6 +219,17 @@ internal sealed record OperationError(
       $"thread '{threadId}' is a note that is not sent yet, so it has no question to follow up on. Send the note first, or edit its words.",
       "threadId");
 
+   public static OperationError ThreadTakesNoType(QuestionThread.Sent thread)
+   {
+      var what = thread switch
+      {
+         QuestionThread.Sent.Asked => $"thread '{thread.Id}' holds a tour action",
+         QuestionThread.Sent.Decided => $"thread '{thread.Id}' reports a decision of yours",
+         QuestionThread.Sent.Started => $"Claude started thread '{thread.Id}'",
+      };
+      return new(OperationErrorCode.ThreadTakesNoType, $"{what}, so it takes no type. Give a type to a note or to a thread that starts with your question.", "threadId");
+   }
+
    public static OperationError PlanAwaitsApproval(TourId tourId) => new(
       OperationErrorCode.PlanAwaitsApproval,
       $"the plan of tour {tourId} awaits the reviewer's approval, because the reviewer asked for plan first. Wait for the planApproved decision, then write the stops. set_plan still revises the plan meanwhile.",

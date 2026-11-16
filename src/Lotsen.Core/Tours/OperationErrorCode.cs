@@ -118,6 +118,9 @@ internal sealed class OperationErrorCode
    /// <summary>The thread is a note that the reviewer has not sent, so it has no question to follow up on.</summary>
    public static readonly OperationErrorCode ThreadIsNote = new("threadIsNote", new RefusalKind.Conflict());
 
+   /// <summary>The thread holds a tour action or a reviewer decision, or an agent session started it, so it takes no answer type.</summary>
+   public static readonly OperationErrorCode ThreadTakesNoType = new("threadTakesNoType", new RefusalKind.Conflict());
+
    /// <summary>The stop's current content has no check with the given ID.</summary>
    public static readonly OperationErrorCode CheckNotFound = new("checkNotFound", new RefusalKind.NotFound());
 

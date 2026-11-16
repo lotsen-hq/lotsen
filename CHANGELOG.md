@@ -6,8 +6,8 @@ The notable changes in each release of lotsen, newest first. Versions follow [se
 
 ### Added
 
-- **Give a note a type.** The ask box and a note's thread view offer a note type: decision, concern or open question. The summary page lists a typed note under Decisions, Concerns or Open questions, marked as your note and linked to its thread, whether the thread is open, resolved or outdated. Claude still sees no note until you send it.
-- **lotsen 0.3.0 and earlier cannot read a tour that holds a typed note.** They leave the tour out of the tour list and refuse to prune clones while it exists. No data is lost, and this version reads the tour.
+- **Give a note a type.** The ask box and a note's thread view offer a note type: decision, concern or open question. The summary page lists a typed note under Decisions, Concerns or Open questions, marked as your note and linked to its thread, whether the thread is open, resolved or outdated. Claude still sees no note until you send it. A sent note keeps its type, and the summary page then marks it as your finding. Once sent, Claude sees the type when it fetches the question and in the review summary, so it reads the note as the decision, concern or open question you filed. The view of a sent question offers its type too, and you can change it at any time without sending Claude anything new.
+- **lotsen 0.3.0 and earlier cannot read a tour that holds a typed note or a typed sent thread.** They leave the tour out of the tour list and refuse to prune clones while it exists. No data is lost, and this version reads the tour.
 
 ## v0.3.0 - 2026-11-15
 
