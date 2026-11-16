@@ -79,13 +79,13 @@ public enum PullRequestState
    Abandoned,
 }
 
-/// <summary>What a mention in prose names on the platform of the tour's pull request.</summary>
+/// <summary>What a mention in prose names on the platform of the tour's pull request or repository.</summary>
 public enum MentionKind
 {
    /// <summary>A work item, which a <c>workitem:</c> link names.</summary>
    WorkItem,
 
-   /// <summary>A pull request in the repository of the tour's pull request, which a <c>pullrequest:</c> link names.</summary>
+   /// <summary>A pull request in the tour's repository, or in the repository of the tour's pull request, which a <c>pullrequest:</c> link names.</summary>
    PullRequest,
 }
 

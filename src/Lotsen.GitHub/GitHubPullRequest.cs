@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
@@ -17,9 +16,6 @@ internal sealed record GitHubPullRequest(string Owner, string Repository, int Nu
    public const string ExpectedForms = "https://github.com/{owner}/{repository}/pull/{number}, optionally followed by a path such as /files";
 
    private const string Host = "github.com";
-   private const string WwwHost = "www.github.com";
-
-   private static readonly SearchValues<char> NameCharacters = SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.");
 
    /// <summary>Returns the web URL of an issue in the pull request's repository: <c>https://github.com/{owner}/{repository}/issues/{number}</c>.</summary>
    public Uri IssueUrl(int number) => new($"https://{Host}/{Owner}/{Repository}/issues/{number}");
@@ -40,20 +36,12 @@ internal sealed record GitHubPullRequest(string Owner, string Repository, int Nu
    public static bool TryParse([NotNullWhen(true)] string? text, [NotNullWhen(true)] out GitHubPullRequest? pullRequest)
    {
       pullRequest = null;
-      if (!Uri.TryCreate(text, UriKind.Absolute, out var uri)
-         || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp)
-         || !uri.IsDefaultPort
-         || uri.UserInfo.Length > 0
-         || uri.Host is not (Host or WwwHost))
-      {
-         return false;
-      }
 
-      // The path starts with a slash, so its first segment is empty. Any segments after the number name a page of the pull request.
-      var segments = uri.AbsolutePath.Split('/');
-      if (segments.Length < 5
-         || !IsName(segments[1])
-         || !IsName(segments[2])
+      // Any segments after the number name a page of the pull request.
+      if (!GitHubRepository.TrySegments(text, out var segments)
+         || segments.Length < 5
+         || !GitHubRepository.IsName(segments[1])
+         || !GitHubRepository.IsName(segments[2])
          || segments[3] != "pull"
          || !int.TryParse(segments[4], NumberStyles.None, CultureInfo.InvariantCulture, out var number)
          || number <= 0)
@@ -66,7 +54,4 @@ internal sealed record GitHubPullRequest(string Owner, string Repository, int Nu
       pullRequest = new GitHubPullRequest(owner, repository, number, new Uri($"https://{Host}/{owner}/{repository}/pull/{number}"));
       return true;
    }
-
-   // A name of these characters needs no escaping in a URL, and a name that is a dot segment would move the parts of the path.
-   private static bool IsName(string segment) => segment.Length > 0 && segment is not ("." or "..") && !segment.AsSpan().ContainsAnyExcept(NameCharacters);
 }

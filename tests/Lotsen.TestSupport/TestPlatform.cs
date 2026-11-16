@@ -5,9 +5,12 @@ using Lotsen.Platforms;
 
 namespace Lotsen.Tests;
 
-/// <summary>A platform whose pull requests are <c>https://{host}/{repository}/pull/{id}</c> and resolve to the remote and commits that the test chooses.</summary>
-/// <remarks>A resolve that starts before the test chooses a pull request or a failure waits for the server to stop, so its pin stays in progress.</remarks>
-internal sealed class TestPlatform : IPullRequestPlatform
+/// <summary>
+/// A platform whose pull requests are <c>https://{host}/{repository}/pull/{id}</c> and whose repositories are <c>https://{host}/{repository}</c>, and which resolves them to the remotes and
+/// commits that the test chooses.
+/// </summary>
+/// <remarks>A resolve that starts before the test chooses an answer or a failure waits for the server to stop, so its pin stays in progress.</remarks>
+internal sealed class TestPlatform : IRepositoryPlatform
 {
    public const string DefaultId = "test";
 
@@ -26,6 +29,7 @@ internal sealed class TestPlatform : IPullRequestPlatform
    private CommitId? _pushedHead;
    private int _pushedIteration;
    private Func<CancellationToken, Task<ResolvedPullRequest>>? _answer;
+   private Func<string?, CancellationToken, Task<ResolvedRepository>>? _repositoryAnswer;
    private int _resolves;
 
    /// <param name="hold">Whether every resolve waits for <see cref="Release"/>.</param>
@@ -42,6 +46,8 @@ internal sealed class TestPlatform : IPullRequestPlatform
    public string Id { get; }
 
    public string ExpectedForms => $"https://{_host}/{{repository}}/pull/{{id}}";
+
+   public string ExpectedRepositoryForms => $"https://{_host}/{{repository}}, optionally followed by /tree/{{ref}}";
 
    public IGitCredential GitCredential { get; init; } = new TestGitCredential("lotsen-test-token");
 
@@ -90,6 +96,51 @@ internal sealed class TestPlatform : IPullRequestPlatform
       }
    }
 
+   /// <summary>Makes every repository resolve against these refs, to this remote.</summary>
+   /// <remarks>A resolve follows the order of <see cref="IRepositoryPlatform.ResolveRepositoryAsync"/>. A commit that a branch or a tag points to is a commit of the repository too.</remarks>
+   /// <param name="remoteUrl">The remote, normalized as for <see cref="PullRequest"/>.</param>
+   /// <param name="head">The commit that the default branch points to.</param>
+   /// <param name="defaultBranch">The name of the default branch.</param>
+   /// <param name="branches">The other branches by name, with the commit each points to, or null for none.</param>
+   /// <param name="tags">The tags by name, with the commit each names, or null for none.</param>
+   /// <param name="commits">The commits that no branch or tag points to, or null for none.</param>
+   public void Repository(
+      Uri remoteUrl, CommitId head, string defaultBranch = "main", IReadOnlyDictionary<string, CommitId>? branches = null, IReadOnlyDictionary<string, CommitId>? tags = null,
+      IReadOnlyList<CommitId>? commits = null)
+   {
+      var remote = new Uri(remoteUrl.AbsoluteUri);
+      var allBranches = new Dictionary<string, CommitId>(branches ?? new Dictionary<string, CommitId>(), StringComparer.Ordinal) { [defaultBranch] = head };
+      var allTags = new Dictionary<string, CommitId>(tags ?? new Dictionary<string, CommitId>(), StringComparer.Ordinal);
+      var allCommits = (commits ?? []).Concat(allBranches.Values).Concat(allTags.Values).ToHashSet();
+      AnswerRepository((@ref, _) =>
+      {
+         ResolvedRepository? resolved = @ref switch
+         {
+            null => new(remote, defaultBranch, RepositoryRefKind.Branch, head),
+            _ when !RefName.IsValid(@ref) => null,
+            _ when CommitId.TryParse(@ref, out var id) => allCommits.Contains(id) ? new(remote, id.Value, RepositoryRefKind.Commit, id) : null,
+            _ when allTags.TryGetValue(@ref, out var tagged) => new(remote, @ref, RepositoryRefKind.Tag, tagged),
+            _ when allBranches.TryGetValue(@ref, out var branchHead) => new(remote, @ref, RepositoryRefKind.Branch, branchHead),
+            _ => null,
+         };
+         return resolved is null
+            ? Task.FromException<ResolvedRepository>(new PlatformException($"The test platform has no branch, tag or commit '{@ref}' in the repository."))
+            : Task.FromResult(resolved);
+      });
+   }
+
+   /// <summary>Makes every repository resolve fail with this exception.</summary>
+   public void FailRepository(ExternalFailureException exception) => AnswerRepository((_, _) => Task.FromException<ResolvedRepository>(exception));
+
+   /// <summary>Makes every repository resolve return what the function returns for the resolve's ref.</summary>
+   public void AnswerRepository(Func<string?, CancellationToken, Task<ResolvedRepository>> answer)
+   {
+      lock (_lock)
+      {
+         _repositoryAnswer = answer;
+      }
+   }
+
    /// <summary>Lets held and later resolves continue.</summary>
    public void Release() => _released.TrySetResult();
 
@@ -119,15 +170,49 @@ internal sealed class TestPlatform : IPullRequestPlatform
       ? new Uri(recognized, kind == MentionKind.WorkItem ? $"../workitems/{id}" : id.ToString(CultureInfo.InvariantCulture))
       : null;
 
-   public async Task<ResolvedPullRequest> ResolveAsync(Uri url, CancellationToken cancellationToken)
+   public RecognizedRepository? RecognizeRepository(string text)
+   {
+      if (!Uri.TryCreate(text, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps || uri.Host != _host)
+      {
+         return null;
+      }
+
+      var segments = uri.AbsolutePath.Trim('/').Split('/');
+      return segments switch
+      {
+         [var repository] when NameOf(repository) is { } name => new RecognizedRepository(RepositoryUrlOf(name), null),
+         [var repository, "tree", .. var @ref] when NameOf(repository) is { } name && string.Join('/', @ref.Select(Uri.UnescapeDataString)) is var decoded && RefName.IsValid(decoded) =>
+            new RecognizedRepository(RepositoryUrlOf(name), decoded),
+         _ => null,
+      };
+
+      static string? NameOf(string segment) => segment.EndsWith(".git", StringComparison.Ordinal) ? segment[..^4] is { Length: > 0 } name ? name : null : segment.Length > 0 ? segment : null;
+   }
+
+   public string? RepositoryLabel(Uri url) => RecognizeRepository(url.AbsoluteUri) is { Ref: null } recognized ? recognized.Url.Segments[1] : null;
+
+   /// <summary>Returns <c>https://{host}/{repository}/workitems/{id}</c> for a work item, and <c>https://{host}/{repository}/pull/{id}</c> for a pull request.</summary>
+   public Uri? RepositoryMentionUrl(Uri url, MentionKind kind, int id) => RecognizeRepository(url.AbsoluteUri) is { Ref: null } recognized
+      ? new Uri($"{recognized.Url.AbsoluteUri}/{(kind == MentionKind.WorkItem ? "workitems" : "pull")}/{id}")
+      : null;
+
+   public Task<ResolvedRepository> ResolveRepositoryAsync(Uri url, string? @ref, CancellationToken cancellationToken) =>
+      AnswerAsync<ResolvedRepository>(() => _repositoryAnswer is { } answer ? token => answer(@ref, token) : null, cancellationToken);
+
+   public Task<ResolvedPullRequest> ResolveAsync(Uri url, CancellationToken cancellationToken) => AnswerAsync(() => _answer, cancellationToken);
+
+   private Uri RepositoryUrlOf(string repository) => new($"https://{_host}/{repository}");
+
+   /// <summary>Counts a resolve, waits for <see cref="Release"/>, and returns what the answer that <paramref name="answerOf"/> reads under the lock returns.</summary>
+   private async Task<T> AnswerAsync<T>(Func<Func<CancellationToken, Task<T>>?> answerOf, CancellationToken cancellationToken)
    {
       Interlocked.Increment(ref _resolves);
       _firstResolve.TrySetResult();
       await _released.Task.WaitAsync(cancellationToken);
-      Func<CancellationToken, Task<ResolvedPullRequest>>? answer;
+      Func<CancellationToken, Task<T>>? answer;
       lock (_lock)
       {
-         answer = _answer;
+         answer = answerOf();
       }
 
       if (answer is null)

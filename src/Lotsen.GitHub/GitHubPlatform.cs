@@ -4,11 +4,11 @@ using Lotsen.Platforms;
 
 namespace Lotsen.GitHub;
 
-/// <summary>Provides the pull requests of repositories on github.com, through the REST API as the user of the GitHub CLI's sign-in.</summary>
+/// <summary>Provides the repositories on github.com and their pull requests, through the REST API as the user of the GitHub CLI's sign-in.</summary>
 /// <remarks>
 /// GitHub does not number a pull request's iterations, so <see cref="GitHubIterationStore"/> counts them. Git receives the token provider's token through <see cref="GitHubGitCredential"/>.
 /// </remarks>
-public sealed class GitHubPlatform : IPullRequestPlatform, IDisposable
+public sealed class GitHubPlatform : IRepositoryPlatform, IDisposable
 {
    /// <summary>The platform ID that GitHub targets store.</summary>
    public const string PlatformId = "github";
@@ -26,6 +26,8 @@ public sealed class GitHubPlatform : IPullRequestPlatform, IDisposable
    public string Id => PlatformId;
 
    public string ExpectedForms => GitHubPullRequest.ExpectedForms;
+
+   public string ExpectedRepositoryForms => GitHubRepository.ExpectedForms;
 
    public IGitCredential GitCredential { get; }
 
@@ -84,7 +86,26 @@ public sealed class GitHubPlatform : IPullRequestPlatform, IDisposable
       return new ResolvedPullRequest(details.RemoteUrl, details.Head, details.Target, iteration, StateOf(details));
    }
 
+   public RecognizedRepository? RecognizeRepository(string text) => GitHubRepository.TryParse(text, out var repository, out var @ref) ? new RecognizedRepository(repository.Url, @ref) : null;
+
+   public string? RepositoryLabel(Uri url) => ParseNormalized(url) is { } repository ? repository.Label : null;
+
+   /// <remarks>A work item is an issue in the tour's repository.</remarks>
+   public Uri? RepositoryMentionUrl(Uri url, MentionKind kind, int id) => ParseNormalized(url) is not { } repository
+      ? null
+      : kind == MentionKind.WorkItem ? repository.IssueUrl(id) : repository.PullRequestUrl(id);
+
+   public async Task<ResolvedRepository> ResolveRepositoryAsync(Uri url, string? @ref, CancellationToken cancellationToken)
+   {
+      var repository = ParseNormalized(url)
+         ?? throw new PlatformException($"'{url.AbsoluteUri}' is not a GitHub repository URL without a ref. Expected https://github.com/{{owner}}/{{repository}}.");
+      return await _client.GetRepositoryAsync(repository, @ref, cancellationToken);
+   }
+
    public void Dispose() => _client.Dispose();
+
+   // A URL with a ref is no URL that RecognizeRepository returns, so it names no repository here.
+   private static GitHubRepository? ParseNormalized(Uri url) => GitHubRepository.TryParse(url.AbsoluteUri, out var repository, out var @ref) && @ref is null ? repository : null;
 
    // A draft is open, and a state that lotsen does not know leaves the tour unflagged.
    private static PullRequestState StateOf(GitHubPullRequestDetails details) => details.State switch
