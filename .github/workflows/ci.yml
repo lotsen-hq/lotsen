@@ -1,6 +1,6 @@
 name: CI
 
-# A push or pull request that changes only these paths starts no run. No test, build or publish reads them, so plugin/skills/tour/SKILL.md, which SkillTests reads, is not among them.
+# A push or pull request that changes only these paths starts no run. No test, build or publish reads them, so the skills under plugin/skills/, which SkillTests reads, are not among them.
 on:
   push:
     branches: [main]

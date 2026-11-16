@@ -126,7 +126,7 @@ public sealed partial class HowToActTests : IAsyncLifetime
       Assert.Contains(carrier, await RuleAsync(kind), StringComparison.Ordinal);
    }
 
-   /// <summary>A session without the skill reads the rule, so a citation of the skill's sections would lead nowhere. The headings come from the skill, so a section that it adds counts.</summary>
+   /// <summary>A session without the skills reads the rule, so a citation of the skills' sections would lead nowhere. The headings come from the skills, so a section that either adds counts.</summary>
    [Theory]
    [MemberData(nameof(ActionKinds))]
    [MemberData(nameof(DecisionKinds))]
@@ -300,9 +300,9 @@ public sealed partial class HowToActTests : IAsyncLifetime
       Assert.Equal(await RuleAsync(ReviewerDecision.IterationUpdatedKind), HowToActOf(fetched));
    }
 
-   // The skill's headings, without a section's number.
+   // The headings of the tour skill and its rules skill, without a section's number.
    private static IEnumerable<string> SkillHeadings() =>
-      HeadingLine().Matches(File.ReadAllText(RepositoryFile.PathOf("plugin/skills/tour/SKILL.md"))).Select(match => match.Groups[1].Value.TrimEnd());
+      new[] { SkillTests.Tour, SkillTests.Rules }.SelectMany(skill => HeadingLine().Matches(skill)).Select(match => match.Groups[1].Value.TrimEnd());
 
    private static TourAction Action(string json) => JsonSerializer.Deserialize(json, LotsenJsonContext.Default.TourAction)!;
 

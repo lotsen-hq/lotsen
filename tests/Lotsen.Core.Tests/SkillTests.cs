@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lotsen.Tests;
 
-/// <summary>Checks that the plugin's tour skill names the agent tools, inputs, kinds and levels that the code defines, and that its examples pass the server's rules.</summary>
+/// <summary>Checks that the plugin's tour skill and its shared rules skill name the agent tools, inputs, kinds and levels that the code defines, and that their examples pass the server's rules.</summary>
 [Trait("Category", "Skill")]
 public sealed partial class SkillTests
 {
@@ -25,7 +25,14 @@ public sealed partial class SkillTests
    // The plugin starts a release build through npx, so the adapter's messages name the npx form of that release.
    private static readonly LotsenCommand Release = LotsenCommand.Of(new VersionInfo("0.2.0+e23502b (8549f42b)", VersionInfo.CurrentProtocol));
 
-   private static readonly string Skill = File.ReadAllText(RepositoryFile.PathOf("plugin/skills/tour/SKILL.md"));
+   /// <summary>The <c>tour</c> skill, which holds the flow of a pull request tour.</summary>
+   internal static readonly string Tour = File.ReadAllText(RepositoryFile.PathOf("plugin/skills/tour/SKILL.md"));
+
+   /// <summary>The <c>tour-rules</c> skill, which the <c>tour</c> skill loads for the rules that every tour shares.</summary>
+   internal static readonly string Rules = File.ReadAllText(RepositoryFile.PathOf("plugin/skills/tour-rules/SKILL.md"));
+
+   // For the checks that some text is in one of the two skills, wherever it sits.
+   private static readonly string Skills = Tour + "\n" + Rules;
 
    // The reactions of the skill's paragraph on server errors, each with the words of an error that select it.
    private static readonly (string Reaction, string[] Words)[] ServerErrorRules =
@@ -35,31 +42,54 @@ public sealed partial class SkillTests
       (TellAndStop, ["could not start", "did not answer", "restart`"]),
    ];
 
-   /// <summary>A snake_case name in backticks is a tool name, so the skill names no other tool. A tool name without an underscore, such as <c>reply</c>, needs only its backticks in the skill.</summary>
+   /// <summary>A snake_case name in backticks is a tool name, so the skills name no other tool. A tool name without an underscore, such as <c>reply</c>, needs only its backticks in a skill.</summary>
    [Fact]
-   public void Skill_names_exactly_the_agent_tools()
+   public void Skills_name_exactly_the_agent_tools()
    {
-      var named = ToolName().Matches(Skill).Select(match => match.Groups[1].Value).ToHashSet();
+      var named = ToolName().Matches(Skills).Select(match => match.Groups[1].Value).ToHashSet();
       var tools = OperationCatalog.AgentTools.Select(operation => operation.Name).ToList();
 
       Assert.Equal(tools.Where(tool => tool.Contains('_', StringComparison.Ordinal)).Order(), named.Order());
       Assert.Contains("reply", tools);
-      Assert.All(tools, tool => Assert.Contains($"`{tool}`", Skill, StringComparison.Ordinal));
+      Assert.All(tools, tool => Assert.Contains($"`{tool}`", Skills, StringComparison.Ordinal));
    }
 
    /// <summary>The introduction, the text before the first numbered section, is where Claude learns which tools it has.</summary>
    [Fact]
    public void Skill_introduction_names_every_agent_tool()
    {
-      var introduction = Skill[..Skill.IndexOf("\n## 1. ", StringComparison.Ordinal)];
+      var introduction = Tour[..Tour.IndexOf("\n## 1. ", StringComparison.Ordinal)];
 
       Assert.All(OperationCatalog.AgentTools, operation => Assert.Contains($"`{operation.Name}`", introduction, StringComparison.Ordinal));
+   }
+
+   /// <summary>The qualified name comes from the plugin's manifest and the rules skill's front matter, so a rename of either must reach the tour skill's first mention of it.</summary>
+   [Fact]
+   public void Tour_skill_tells_Claude_to_load_the_rules_skill_once_it_has_a_tour_and_before_set_plan_and_put_stop_and_only_Claude_can_invoke_it()
+   {
+      using var manifest = JsonDocument.Parse(File.ReadAllText(RepositoryFile.PathOf("plugin/.claude-plugin/plugin.json")));
+      var frontMatter = FrontMatter(Rules);
+      var name = frontMatter.Single(line => line.StartsWith("name: ", StringComparison.Ordinal))["name: ".Length..];
+      var qualified = $"`{manifest.RootElement.GetProperty("name").GetString()}:{name}`";
+      var paragraph = Tour.Split("\n\n").First(candidate => candidate.Contains(qualified, StringComparison.Ordinal));
+      var at = Tour.IndexOf(paragraph, StringComparison.Ordinal);
+      var load = string.Join(' ', paragraph.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
+
+      Assert.Contains("user-invocable: false", frontMatter);
+      Assert.DoesNotContain("$ARGUMENTS", Rules, StringComparison.Ordinal);
+      Assert.Contains("load the skill", load, StringComparison.Ordinal);
+      Assert.Contains("with the Skill tool", load, StringComparison.Ordinal);
+      Assert.Contains("right after `create_tour` or `attach_tour` returns", load, StringComparison.Ordinal);
+      Assert.Contains("`set_plan`", load, StringComparison.Ordinal);
+      Assert.Contains("`put_stop`", load, StringComparison.Ordinal);
+      Assert.True(at < Tour.IndexOf("\n## 5. ", StringComparison.Ordinal), "The tour skill tells Claude to load the rules skill only after section 5 starts.");
+      Assert.True(at < Tour.IndexOf("Call `set_plan`", StringComparison.Ordinal), "The tour skill tells Claude to call set_plan before it loads the rules skill.");
    }
 
    [Fact]
    public void Skill_rules_name_exactly_the_tools_whose_input_requires_the_tour_id()
    {
-      var rules = string.Join(' ', Section("Rules", "## Rules").Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
+      var rules = string.Join(' ', Section(Rules, "## Rules").Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
       var sentence = rules[..rules.IndexOf("take the tour's `tourId`", StringComparison.Ordinal)];
       var named = Backticked().Matches(sentence).Select(match => match.Groups[1].Value).Order();
       var requiring = OperationCatalog.AgentTools.Where(operation => operation.InputType.Properties.Any(property => property is { Name: "tourId", IsRequired: true })).Select(operation => operation.Name);
@@ -74,7 +104,7 @@ public sealed partial class SkillTests
       var names = Enum.GetValues<StopKind>().Select(kind => JsonSerializer.Serialize(kind, LotsenJsonContext.Default.StopKind))
          .Concat(Enum.GetValues<Familiarity>().Select(level => JsonSerializer.Serialize(level, LotsenJsonContext.Default.Familiarity)));
 
-      Assert.All(names, name => Assert.Contains($"`{name.Trim('"')}`", Skill, StringComparison.Ordinal));
+      Assert.All(names, name => Assert.Contains($"`{name.Trim('"')}`", Skills, StringComparison.Ordinal));
    }
 
    [Fact]
@@ -83,7 +113,7 @@ public sealed partial class SkillTests
       var states = LotsenJsonContext.Default.TourPin.PolymorphismOptions!.DerivedTypes.Select(derived => (string)derived.TypeDiscriminator!).ToList();
 
       Assert.Equal(["pinning", "pinned", "failed"], states);
-      Assert.All(states, state => Assert.Contains($"`{state}`", Skill, StringComparison.Ordinal));
+      Assert.All(states, state => Assert.Contains($"`{state}`", Tour, StringComparison.Ordinal));
    }
 
    /// <summary>The names come from each tool's input type, nested types and enums included, so a field or a value that the contract adds must reach the skill.</summary>
@@ -98,14 +128,14 @@ public sealed partial class SkillTests
 
       Assert.Contains("expectedFirstLine", names);
       Assert.Contains("mechanical", names);
-      Assert.All(names, name => Assert.Contains($"`{name}`", Skill, StringComparison.Ordinal));
+      Assert.All(names, name => Assert.Contains($"`{name}`", Skills, StringComparison.Ordinal));
    }
 
    /// <summary>Every paragraph that names the take-over flag holds the condition, so none tells Claude to pass it freely.</summary>
    [Fact]
    public void Skill_tells_Claude_to_attach_a_tour_first_in_a_new_session_and_to_take_over_only_after_the_user_confirms()
    {
-      var paragraphs = Skill.Split("\n\n");
+      var paragraphs = Skills.Split("\n\n");
       var takeOver = paragraphs.Where(paragraph => paragraph.Contains("`takeOver`", StringComparison.Ordinal) || paragraph.Contains("\"takeOver\"", StringComparison.Ordinal)).ToList();
 
       Assert.Contains(paragraphs, paragraph => paragraph.Contains("call `attach_tour`", StringComparison.Ordinal) && paragraph.Contains("first", StringComparison.Ordinal));
@@ -129,7 +159,7 @@ public sealed partial class SkillTests
    [Trait("Category", "Versions")]
    public void Skill_tells_Claude_to_pass_on_a_reason_that_names_a_restart_and_never_to_run_a_server_command_itself()
    {
-      var skill = string.Join(' ', Skill.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
+      var skill = string.Join(' ', Skills.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
 
       Assert.Contains($"or to run a `restart` command, such as `{Release.With("restart")}`, tell the user the reason it gives", skill, StringComparison.Ordinal);
       Assert.Contains("Don't start, stop or restart the server yourself, with `lotsen serve`, `lotsen stop`, `lotsen restart`, their `npx -y lotsen@<version>` forms or any other command.", skill, StringComparison.Ordinal);
@@ -159,10 +189,10 @@ public sealed partial class SkillTests
    [Fact]
    public void Skill_opens_the_ui_on_the_tour()
    {
-      Assert.DoesNotMatch("`open_ui`[^.]*no arguments", Skill);
-      Assert.Contains("`open_ui` takes an optional `tourId`", Skill, StringComparison.Ordinal);
-      Assert.Contains("Call `open_ui` with the tour's `tourId`", Skill, StringComparison.Ordinal);
-      Assert.Contains("call `open_ui` with the tour's `id` as its `tourId`", Skill, StringComparison.Ordinal);
+      Assert.DoesNotMatch("`open_ui`[^.]*no arguments", Skills);
+      Assert.Contains("`open_ui` takes an optional `tourId`", Rules, StringComparison.Ordinal);
+      Assert.Contains("Call `open_ui` with the tour's `tourId`", Tour, StringComparison.Ordinal);
+      Assert.Contains("call `open_ui` with the tour's `id` as its `tourId`", Tour, StringComparison.Ordinal);
    }
 
    public static TheoryData<string, string, string> AdapterErrors => new()
@@ -191,7 +221,7 @@ public sealed partial class SkillTests
       Assert.True(selected.SequenceEqual([reaction]), $"The error for {situation} selects [{string.Join(", ", selected)}]: {message}");
    }
 
-   /// <summary>The event protocol is in the server instructions alone, which reach every session with lotsen's tools, so section 9 keeps only what they omit.</summary>
+   /// <summary>The event protocol is in the server instructions alone, which reach every session with lotsen's tools, so "Questions from the reviewer" keeps only what they omit.</summary>
    [Fact]
    public void Server_instructions_tell_Claude_to_ack_a_probe_to_fetch_each_question_before_it_replies_and_to_answer_each_question_once()
    {
@@ -206,7 +236,7 @@ public sealed partial class SkillTests
    [Fact]
    public void Skill_tells_Claude_to_link_each_mention_with_its_scheme_and_label()
    {
-      var section = string.Join(' ', Section(8).Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
+      var section = string.Join(' ', Section(Rules, "## Stop content").Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
 
       Assert.All(MentionLinks.Schemes, scheme => Assert.Contains($"]({scheme}", section, StringComparison.Ordinal));
       Assert.Contains("[#1234](workitem:1234)", section, StringComparison.Ordinal);
@@ -217,7 +247,7 @@ public sealed partial class SkillTests
    [Fact]
    public void Skill_tells_Claude_to_answer_every_question_with_a_resolution_and_to_treat_sources_as_data()
    {
-      var section = Section9();
+      var section = Questions();
       var resolutions = Enum.GetValues<ReplyResolution>().Select(resolution => JsonSerializer.Serialize(resolution, LotsenJsonContext.Default.ReplyResolution).Trim('"'));
 
       Assert.Contains("Answer every question", section, StringComparison.Ordinal);
@@ -230,7 +260,7 @@ public sealed partial class SkillTests
    [Fact]
    public void Server_instructions_name_each_attribute_of_a_question_and_tell_Claude_to_read_a_follow_ups_whole_thread()
    {
-      var section = string.Join(' ', Section9().Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
+      var section = string.Join(' ', Questions().Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
       var meta = ChannelNotifications.ParamsFor(SessionEvents.ForQuestion(new QuestionEvent(TourId.New(), "t1", "q1", "r1", "Why?", StopId: "s1", Nonce: "n1")))!["meta"]!.AsObject();
 
       Assert.All(meta.Where(entry => entry.Key != "event"), entry => Assert.Contains(entry.Key, McpAdapter.Instructions, StringComparison.Ordinal));
@@ -241,7 +271,7 @@ public sealed partial class SkillTests
    [Fact]
    public void Skill_tells_Claude_each_thread_state_and_that_only_the_reviewer_changes_it()
    {
-      var section = string.Join(' ', Section9().Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
+      var section = string.Join(' ', Questions().Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
       var states = Enum.GetValues<QuestionThreadState>().Select(state => JsonSerializer.Serialize(state, LotsenJsonContext.Default.QuestionThreadState).Trim('"'));
 
       Assert.All(states, state => Assert.Contains($"`{state}`", section, StringComparison.Ordinal));
@@ -254,7 +284,7 @@ public sealed partial class SkillTests
    public void Skill_tells_Claude_what_the_type_of_a_thread_means_and_where_the_summary_lists_a_typed_thread()
    {
       static string Normalized(string text) => string.Join(' ', text.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
-      var section = Normalized(Section9());
+      var section = Normalized(Questions());
       var summary = Normalized(Subsection("### The review summary"));
       var types = Enum.GetValues<AnswerType>().Select(type => JsonSerializer.Serialize(type, LotsenJsonContext.Default.AnswerType).Trim('"'));
 
@@ -331,7 +361,7 @@ public sealed partial class SkillTests
       var plan = Normalized(Section(5));
       var states = new[] { PlanApproval.Awaited, PlanApproval.Given }.Select(state => JsonSerializer.Serialize(state, LotsenJsonContext.Default.PlanApproval).Trim('"'));
 
-      Assert.Contains("plan-first", Skill.Split('\n').First(line => line.StartsWith("argument-hint:", StringComparison.Ordinal)), StringComparison.Ordinal);
+      Assert.Contains("plan-first", Tour.Split('\n').First(line => line.StartsWith("argument-hint:", StringComparison.Ordinal)), StringComparison.Ordinal);
       Assert.Contains("`\"planFirst\": true`", start, StringComparison.Ordinal);
       Assert.All(states, state => Assert.Contains($"`{state}`", plan, StringComparison.Ordinal));
       Assert.Contains("stop and wait for the reviewer's approval", plan, StringComparison.Ordinal);
@@ -401,7 +431,7 @@ public sealed partial class SkillTests
    [Fact]
    public void Skill_error_bullet_for_each_refusal_of_a_deleted_thread_tells_Claude_to_stop_work_on_it()
    {
-      var bullets = Section("Errors", "## Errors").Split("\n- ").Skip(1).Select(bullet => string.Join(' ', bullet.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries))).ToList();
+      var bullets = Section(Rules, "## Errors").Split("\n- ").Skip(1).Select(bullet => string.Join(' ', bullet.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries))).ToList();
       var question = Selected(OperationError.QuestionNotFound(TourId.New(), "q1").Reason);
       var thread = Selected(OperationError.ThreadNotFound(TourId.New(), "t1").Reason);
 
@@ -448,7 +478,7 @@ public sealed partial class SkillTests
    [Fact]
    public void Skill_example_plan_is_a_valid_set_plan_input()
    {
-      var input = JsonSerializer.Deserialize(Example("chapters", TourId.New().ToString()), LotsenJsonContext.Default.SetPlanInput)!;
+      var input = JsonSerializer.Deserialize(Example(Tour, "chapters", TourId.New().ToString()), LotsenJsonContext.Default.SetPlanInput)!;
 
       Assert.Null(PlanDrafts.Build(input, SummaryTours.Empty()).Error);
    }
@@ -460,7 +490,7 @@ public sealed partial class SkillTests
    [Fact]
    public async Task Skill_example_stop_passes_put_stop_on_the_example_plan()
    {
-      var example = JsonSerializer.Deserialize(Example("stopId", TourId.New().ToString()), LotsenJsonContext.Default.PutStopInput)!;
+      var example = JsonSerializer.Deserialize(Example(Rules, "stopId", TourId.New().ToString()), LotsenJsonContext.Default.PutStopInput)!;
       var passages = example.Passages ?? [];
       var references = ProseOf(example).SelectMany(prose => ProseRenderer.Render(prose).References).ToList();
       Assert.All(passages, passage => Assert.Equal(FileSide.Head, passage.Side));
@@ -476,7 +506,7 @@ public sealed partial class SkillTests
       var setPlan = Passes.Admit<Access.BoundSession.Pass>("set_plan", caller);
       var putStop = Passes.Admit<Access.BoundSession.Pass>("put_stop", caller);
 
-      var plan = plans.SetPlan(setPlan, JsonSerializer.Deserialize(Example("chapters", tour.TourId), LotsenJsonContext.Default.SetPlanInput)!);
+      var plan = plans.SetPlan(setPlan, JsonSerializer.Deserialize(Example(Tour, "chapters", tour.TourId), LotsenJsonContext.Default.SetPlanInput)!);
       Assert.True(plan.Error is null, plan.Error?.Reason);
       var primary = passages.Single(passage => passage.Role == PassageRole.Primary);
       var stop = plan.Value!.Plan!.Stops.Single(stop => stop is Stop.Pending { AnchorHint.Path: var path } && path == primary.Path);
@@ -486,45 +516,55 @@ public sealed partial class SkillTests
       Assert.Equal(StopStatus.Ready, result.Value!.Status);
    }
 
-   private static string Section9() => Section(9);
+   private static string Questions() => Section(Rules, "## Questions from the reviewer");
 
-   // The list item of the skill that starts "lotsen starts its server by itself", with its line breaks as spaces.
+   // The lines between the skill's opening and closing --- of its YAML front matter.
+   private static List<string> FrontMatter(string skill)
+   {
+      var lines = skill.Split('\n');
+      Assert.True(lines[0] == "---", "The skill does not open with front matter.");
+      return [.. lines.Skip(1).TakeWhile(line => line != "---")];
+   }
+
+   // The list item of the rules skill that starts "lotsen starts its server by itself", with its line breaks as spaces.
    private static string ServerErrorParagraph()
    {
-      var start = Skill.IndexOf("- lotsen starts its server by itself", StringComparison.Ordinal);
-      Assert.True(start >= 0, "The skill has no paragraph on server errors.");
-      var end = Skill.IndexOf("\n- ", start, StringComparison.Ordinal);
-      return string.Join(' ', Skill[start..(end < 0 ? Skill.Length : end)].Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
+      var start = Rules.IndexOf("- lotsen starts its server by itself", StringComparison.Ordinal);
+      Assert.True(start >= 0, "The rules skill has no paragraph on server errors.");
+      var end = Rules.IndexOf("\n- ", start, StringComparison.Ordinal);
+      return string.Join(' ', Rules[start..(end < 0 ? Rules.Length : end)].Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
    }
 
-   private static string Section(string name, string heading)
+   private static string Section(string skill, string heading)
    {
-      var start = Skill.IndexOf(heading + "\n", StringComparison.Ordinal);
-      Assert.True(start >= 0, $"The skill has no section {name}.");
-      var end = Skill.IndexOf("\n## ", start + heading.Length, StringComparison.Ordinal);
-      return Skill[start..(end < 0 ? Skill.Length : end)];
+      var start = skill.IndexOf(heading + "\n", StringComparison.Ordinal);
+      Assert.True(start >= 0, $"The skill has no section '{heading}'.");
+      var end = skill.IndexOf("\n## ", start + heading.Length, StringComparison.Ordinal);
+      return skill[start..(end < 0 ? skill.Length : end)];
    }
 
+   // A numbered section of the tour skill, the one skill that numbers its sections.
    private static string Section(int number)
    {
-      var start = Skill.IndexOf($"## {number}. ", StringComparison.Ordinal);
-      Assert.True(start >= 0, $"The skill has no section {number}.");
-      var end = Skill.IndexOf("\n## ", start, StringComparison.Ordinal);
-      return Skill[start..(end < 0 ? Skill.Length : end)];
+      var start = Tour.IndexOf($"## {number}. ", StringComparison.Ordinal);
+      Assert.True(start >= 0, $"The tour skill has no section {number}.");
+      var end = Tour.IndexOf("\n## ", start, StringComparison.Ordinal);
+      return Tour[start..(end < 0 ? Tour.Length : end)];
    }
 
+   // A subsection of the rules skill, which holds every subsection that these tests check.
    private static string Subsection(string heading)
    {
-      var start = Skill.IndexOf(heading + "\n", StringComparison.Ordinal);
-      Assert.True(start >= 0, $"The skill has no heading '{heading}'.");
-      var end = Skill.IndexOf("\n#", start + heading.Length, StringComparison.Ordinal);
-      return Skill[start..(end < 0 ? Skill.Length : end)];
+      var start = Rules.IndexOf(heading + "\n", StringComparison.Ordinal);
+      Assert.True(start >= 0, $"The rules skill has no heading '{heading}'.");
+      var end = Rules.IndexOf("\n#", start + heading.Length, StringComparison.Ordinal);
+      return Rules[start..(end < 0 ? Rules.Length : end)];
    }
 
    // Returns the skill's one JSON example that has the property, with a real tour ID in place of the placeholder.
-   private static string Example(string property, string tourId)
+   private static string Example(string skill, string property, string tourId)
    {
-      var examples = JsonBlock().Matches(Skill).Select(match => match.Groups[1].Value).Where(json => json.Contains($"\"{property}\":", StringComparison.Ordinal)).ToList();
+      var examples = JsonBlock().Matches(skill).Select(match => match.Groups[1].Value).Where(json => json.Contains($"\"{property}\":", StringComparison.Ordinal)).ToList();
       Assert.True(examples.Count == 1, $"The skill has {examples.Count} ```json examples with \"{property}\", not 1.");
       return examples[0].Replace(TourIdPlaceholder, tourId, StringComparison.Ordinal).Replace(StopIdPlaceholder, "placeholder", StringComparison.Ordinal);
    }
