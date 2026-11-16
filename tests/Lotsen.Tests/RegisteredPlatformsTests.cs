@@ -27,7 +27,12 @@ public sealed class RegisteredPlatformsTests : IAsyncDisposable
       Assert.Equal(
          new RepositoryTarget(new Uri("https://github.com/octo-org/hello-world"), "main", "github"),
          _platforms.RecognizeRepository("https://github.com/octo-org/hello-world/tree/main"));
-      Assert.Equal("https://github.com/{owner}/{repository}, optionally ending in .git or followed by /tree/{ref}", _platforms.ExpectedRepositoryForms);
+      Assert.Equal(
+         new RepositoryTarget(new Uri("https://github.com/octo-org/hello-world"), null, "github"),
+         _platforms.RecognizeRepository("git@github.com:octo-org/hello-world.git"));
+      Assert.Equal(
+         "https://github.com/{owner}/{repository}, optionally ending in .git or followed by /tree/{ref}, or an SSH remote, git@github.com:{owner}/{repository} or ssh://git@github.com/{owner}/{repository}, optionally ending in .git",
+         _platforms.ExpectedRepositoryForms);
    }
 
    [Theory]

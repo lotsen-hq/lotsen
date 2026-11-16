@@ -264,7 +264,7 @@ public sealed class TourBindingTests : IAsyncLifetime
       var caller = _harness.CallerOf(ended);
       ended.End();
 
-      var created = services.GetRequiredService<TourPins>().CreateTour(Passes.Admit<Access.AnySession.Pass>("create_tour", caller), new CreateTourInput(TestPlatform.PrUrl, Familiarity.Some));
+      var created = services.GetRequiredService<TourPins>().CreateTour(Passes.Admit<Access.AnySession.Pass>("create_tour", caller), new CreateTourInput(Familiarity.Some, PrUrl: TestPlatform.PrUrl));
       var attached = services.GetRequiredService<SessionOperations>().AttachTour(Passes.Admit<Access.AnySession.Pass>("attach_tour", caller), new AttachTourInput(created.Value!.Id, TakeOver: true));
 
       Assert.Null(services.GetRequiredService<TourWriter>().Exclusive(locked => locked.Holder(created.Value!.Id)));

@@ -2110,7 +2110,7 @@
           "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
         },
         "side": {
-          "description": "The side to list the directory at: base for the merge base, head for the head.",
+          "description": "The side to list the directory at: base for the merge base, head for the head. A repository tour has only head, its one commit.",
           "anyOf": [
             {
               "$ref": "#/definitions/FileSide"
@@ -3441,7 +3441,7 @@
           "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
         },
         "side": {
-          "description": "The side to read the file at: base for the merge base, head for the head.",
+          "description": "The side to read the file at: base for the merge base, head for the head. A repository tour has only head, its one commit.",
           "anyOf": [
             {
               "$ref": "#/definitions/FileSide"

@@ -508,7 +508,7 @@ public sealed class IterationLifecycleTests : IDisposable
    }
 
    [Fact]
-   public async Task First_pin_of_a_repository_target_stores_the_failure_and_asks_no_platform()
+   public async Task First_pin_of_a_repository_without_a_platform_stores_the_failure_and_asks_no_platform()
    {
       TourPin? stored = null;
 
@@ -518,7 +518,7 @@ public sealed class IterationLifecycleTests : IDisposable
          return Task.CompletedTask;
       }, TestContext.Current.CancellationToken);
 
-      Assert.Equal(new TourPin.Failed("lotsen cannot pin a repository tour."), stored);
+      Assert.StartsWith("lotsen pins a repository only through the platform that hosts it", Assert.IsType<TourPin.Failed>(stored).Reason, StringComparison.Ordinal);
       Assert.Equal((0, 0), (_platform.Resolves, _facts.Opens));
    }
 

@@ -88,8 +88,15 @@ internal sealed class IterationLifecycle
 
    /// <summary>Finds the pin of a tour of this target, and passes it to <paramref name="storeAsync"/> while the pin's clone is in use.</summary>
    /// <remarks>
-   /// The target's platform resolves the latest iteration. The scope syncs the pull request's repository into the clone cache with both commits, with the platform's token, so every later query
-   /// of the tour finds them there. A pin then downloads the contents of the changed files, so listing them and their diffs read the clone alone. A failed download is logged and leaves the pin.
+   /// <para>
+   /// For a pull request, the target's platform resolves the latest iteration. The scope syncs the pull request's repository into the clone cache with both commits, with the platform's token, so
+   /// every later query of the tour finds them there. A pin then downloads the contents of the changed files, so listing them and their diffs read the clone alone. A failed download is logged
+   /// and leaves the pin.
+   /// </para>
+   /// <para>
+   /// For a repository, the target's platform resolves the target's ref to one commit, and the scope syncs the repository into the clone cache with that commit, with the platform's token. The
+   /// pin is a snapshot of the commit, and the target keeps its ref as the tour's creator gave it, null for the default branch included.
+   /// </para>
    /// </remarks>
    /// <param name="id">The tour, which the log names.</param>
    /// <param name="target">What the tour reviews.</param>
@@ -125,8 +132,17 @@ internal sealed class IterationLifecycle
                   }
 
                   break;
-               case RepositoryTarget:
-                  pin = new TourPin.Failed("lotsen cannot pin a repository tour.");
+               case RepositoryTarget { Platform: null } repository:
+                  pin = new TourPin.Failed($"lotsen pins a repository only through the platform that hosts it, and no platform hosts {repository.Url.AbsoluteUri}. Create a tour of a repository URL that lotsen recognizes.");
+                  break;
+               case RepositoryTarget repository:
+                  var host = _platforms.RepositoryOf(repository);
+                  var resolved = await host.ResolveRepositoryAsync(repository.Url, repository.Ref, cancellationToken);
+                  scope = _facts.Open(TourRemote.OfRepository(resolved, host.GitCredential), [resolved.Commit], FetchPolicy.Sync);
+
+                  // Every later read of the tour opens this remote's clone, so the pin syncs the clone with the commit.
+                  await scope.OpenCloneAsync(cancellationToken);
+                  pin = new TourPin.Snapshot(resolved.Commit, resolved.RemoteUrl);
                   break;
                default:
                   pin = new TourPin.Failed("lotsen cannot pin this kind of tour target.");
@@ -141,6 +157,10 @@ internal sealed class IterationLifecycle
          if (pin is TourPin.Pinned stored)
          {
             _logger.LogInformation("Tour {TourId} is pinned to merge base {MergeBase} and head {Head} of iteration {Iteration}.", id.Value, stored.MergeBase.Value, stored.Head.Value, stored.Iteration);
+         }
+         else if (pin is TourPin.Snapshot snapshot)
+         {
+            _logger.LogInformation("Tour {TourId} is pinned to commit {Head} of {RemoteUrl}.", id.Value, snapshot.Head.Value, snapshot.RemoteUrl.AbsoluteUri);
          }
          else if (pin is TourPin.Failed failed)
          {

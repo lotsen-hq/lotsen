@@ -1,3 +1,4 @@
+using Lotsen.Credentials;
 using Lotsen.Prose;
 using Lotsen.Tours;
 
@@ -91,6 +92,21 @@ internal sealed class PullRequestPlatforms
    /// <returns>True when both have one platform ID and that platform's <see cref="IPullRequestPlatform.IsSamePullRequest"/> says so, or false when no registered platform has the ID.</returns>
    public bool IsSamePullRequest(TourTarget tourTarget, PullRequestTarget target) =>
       tourTarget is PullRequestTarget pullRequest && pullRequest.Platform == target.Platform && Find(target) is { } platform && platform.IsSamePullRequest(pullRequest.Url, target.Url);
+
+   /// <summary>Returns whether a tour's target names the same repository as the target, whatever the ref of either.</summary>
+   /// <returns>True when both have one platform ID and that platform's <see cref="IRepositoryPlatform.IsSameRepository"/> says so, or false when no registered platform with repositories has the ID.</returns>
+   public bool IsSameRepository(TourTarget tourTarget, RepositoryTarget target) =>
+      tourTarget is RepositoryTarget repository && repository.Platform == target.Platform && FindRepository(target) is { } platform && platform.IsSameRepository(repository.Url, target.Url);
+
+   /// <summary>Returns the git credential of a target's remotes, which its platform supplies.</summary>
+   /// <returns>The platform's credential, or null for a repository without a platform, whose remote git reaches without one.</returns>
+   /// <exception cref="PlatformException">No registered platform has the target's platform ID.</exception>
+   public IGitCredential? CredentialOf(TourTarget target) => target switch
+   {
+      RepositoryTarget { Platform: null } => null,
+      RepositoryTarget repository => RepositoryOf(repository).GitCredential,
+      _ => Of(target).GitCredential,
+   };
 
    /// <summary>Returns the short name of a target: its platform's label, or the URL when its platform is not registered or does not recognize the URL.</summary>
    /// <remarks>A repository's name ends in <c>@</c> and its ref, such as <c>octo-org/hello-world@v1.2.0</c>, unless the target follows the default branch.</remarks>

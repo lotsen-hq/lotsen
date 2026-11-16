@@ -30,10 +30,14 @@ public sealed class GitHubRepositoryPlatformContractTests : RepositoryPlatformCo
       "https://github.com/octo-org/hello-world.git",
       "http://www.github.com/octo-org/hello-world/",
       "https://github.com/octo-org/hello-world?tab=readme-ov-file#install",
+      "git@github.com:octo-org/hello-world.git",
+      "ssh://git@github.com/octo-org/hello-world.git",
    ];
 
    protected override IReadOnlyList<string> OtherRepositories =>
       ["https://github.com/octo-org/goodbye-world", "https://github.com/octocat/hello-world"];
+
+   protected override IReadOnlyList<string> SameRepositoryForms => ["https://github.com/Octo-Org/Hello-World"];
 
    protected override string PullRequestOfTheRepository => FakeGitHub.PrUrl;
 

@@ -88,6 +88,8 @@ public sealed class GitHubPlatform : IRepositoryPlatform, IDisposable
 
    public RecognizedRepository? RecognizeRepository(string text) => GitHubRepository.TryParse(text, out var repository, out var @ref) ? new RecognizedRepository(repository.Url, @ref) : null;
 
+   public bool IsSameRepository(Uri url, Uri other) => ParseNormalized(url) is { } repository && ParseNormalized(other) is { } otherRepository && repository.IsSame(otherRepository);
+
    public string? RepositoryLabel(Uri url) => ParseNormalized(url) is { } repository ? repository.Label : null;
 
    /// <remarks>A work item is an issue in the tour's repository.</remarks>

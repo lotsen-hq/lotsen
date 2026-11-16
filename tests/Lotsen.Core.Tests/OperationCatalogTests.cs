@@ -153,7 +153,9 @@ public sealed class OperationCatalogTests
       var setPlan = OperationCatalog.Get("set_plan").InputSchema();
       var stop = Items(Property(setPlan, "stops"));
 
-      Assert.Equal(["prUrl", "familiarity"], Required(createTour));
+      var repository = OneOfObject(Property(createTour, "repository"));
+      Assert.Equal(["familiarity"], Required(createTour));
+      Assert.Equal(["url", "purpose", "title"], Required(repository));
       Assert.Equal(["tourId", "chapters", "stops"], Required(setPlan));
       Assert.Equal(["id", "title"], Required(Items(Property(setPlan, "chapters"))));
       Assert.Equal(["title", "kind", "chapter"], Required(stop));
@@ -163,7 +165,7 @@ public sealed class OperationCatalogTests
       Assert.Equal(["tourId"], Required(OperationCatalog.Get("pin_tour").InputSchema()));
       var fileMark = Items(Property(setPlan, "fileMarks"));
       Assert.Equal(["path", "mark", "reason"], Required(fileMark));
-      Assert.All([createTour, setPlan, stop, fileMark], schema => Assert.False((bool)schema["additionalProperties"]!));
+      Assert.All([createTour, repository, setPlan, stop, fileMark], schema => Assert.False((bool)schema["additionalProperties"]!));
 
       var putStop = OperationCatalog.Get("put_stop").InputSchema();
       var passage = Items(Property(putStop, "passages"));

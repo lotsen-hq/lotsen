@@ -18,6 +18,9 @@ public interface IRepositoryPlatform : IPullRequestPlatform
    /// <returns>The repository, or null when the text is not one of this platform's repository URLs.</returns>
    RecognizedRepository? RecognizeRepository(string text);
 
+   /// <summary>Returns whether two URLs that <see cref="RecognizeRepository"/> returned name the same repository, such as two that differ only where the platform ignores letter case.</summary>
+   bool IsSameRepository(Uri url, Uri other);
+
    /// <summary>Returns a short name for a repository at a URL that <see cref="RecognizeRepository"/> returned, such as <c>octo-org/hello-world</c>.</summary>
    /// <returns>The name, or null when the URL is not one of this platform's repository URLs.</returns>
    string? RepositoryLabel(Uri url);

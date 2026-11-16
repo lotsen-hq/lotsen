@@ -12,7 +12,10 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lotsen.Tests;
 
-/// <summary>Checks that the plugin's tour skill and its shared rules skill name the agent tools, inputs, kinds and levels that the code defines, and that their examples pass the server's rules.</summary>
+/// <summary>
+/// Checks that the plugin's tour skill, its codebase skill and their shared rules skill name the agent tools, inputs, kinds and levels that the code defines, and that their examples pass the
+/// server's rules.
+/// </summary>
 [Trait("Category", "Skill")]
 public sealed partial class SkillTests
 {
@@ -31,8 +34,11 @@ public sealed partial class SkillTests
    /// <summary>The <c>tour-rules</c> skill, which the <c>tour</c> skill loads for the rules that every tour shares.</summary>
    internal static readonly string Rules = File.ReadAllText(RepositoryFile.PathOf("plugin/skills/tour-rules/SKILL.md"));
 
-   // For the checks that some text is in one of the two skills, wherever it sits.
-   private static readonly string Skills = Tour + "\n" + Rules;
+   /// <summary>The <c>codebase</c> skill, which holds the flow of a repository tour.</summary>
+   internal static readonly string Codebase = File.ReadAllText(RepositoryFile.PathOf("plugin/skills/codebase/SKILL.md"));
+
+   // For the checks that some text is in one of the skills, wherever it sits.
+   private static readonly string Skills = Tour + "\n" + Rules + "\n" + Codebase;
 
    // The reactions of the skill's paragraph on server errors, each with the words of an error that select it.
    private static readonly (string Reaction, string[] Words)[] ServerErrorRules =
@@ -84,6 +90,77 @@ public sealed partial class SkillTests
       Assert.Contains("`put_stop`", load, StringComparison.Ordinal);
       Assert.True(at < Tour.IndexOf("\n## 5. ", StringComparison.Ordinal), "The tour skill tells Claude to load the rules skill only after section 5 starts.");
       Assert.True(at < Tour.IndexOf("Call `set_plan`", StringComparison.Ordinal), "The tour skill tells Claude to call set_plan before it loads the rules skill.");
+   }
+
+   /// <summary>The qualified name comes from the plugin's manifest and the rules skill's front matter, as for the tour skill.</summary>
+   [Fact]
+   public void Codebase_skill_tells_Claude_to_load_the_rules_skill_once_it_has_a_tour()
+   {
+      using var manifest = JsonDocument.Parse(File.ReadAllText(RepositoryFile.PathOf("plugin/.claude-plugin/plugin.json")));
+      var name = FrontMatter(Rules).Single(line => line.StartsWith("name: ", StringComparison.Ordinal))["name: ".Length..];
+      var qualified = $"`{manifest.RootElement.GetProperty("name").GetString()}:{name}`";
+      var paragraph = Codebase.Split("\n\n").First(candidate => candidate.Contains(qualified, StringComparison.Ordinal));
+      var load = string.Join(' ', paragraph.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
+
+      Assert.Contains("load the skill", load, StringComparison.Ordinal);
+      Assert.Contains("with the Skill tool", load, StringComparison.Ordinal);
+      Assert.Contains("right after `create_tour` or `attach_tour` returns", load, StringComparison.Ordinal);
+   }
+
+   /// <summary>The codebase skill is the one that users invoke for a repository, so it has its own name, a description and its arguments.</summary>
+   [Fact]
+   public void Codebase_skill_is_one_that_the_user_invokes_by_its_name_with_its_arguments()
+   {
+      var frontMatter = FrontMatter(Codebase);
+
+      Assert.Contains("name: codebase", frontMatter);
+      Assert.Contains(frontMatter, line => line.StartsWith("description: ", StringComparison.Ordinal));
+      Assert.Contains(frontMatter, line => line.StartsWith("argument-hint: ", StringComparison.Ordinal));
+      Assert.DoesNotContain("user-invocable: false", frontMatter);
+      Assert.Contains("$ARGUMENTS", Codebase, StringComparison.Ordinal);
+   }
+
+   /// <summary>The names come from <c>create_tour</c>'s input type, so a field or a value that a repository tour adds must reach the codebase skill. Only a pull request's tour takes <c>prUrl</c>.</summary>
+   [Fact]
+   public void Codebase_skill_names_every_create_tour_input_of_a_repository_tour()
+   {
+      var names = new SortedSet<string>(StringComparer.Ordinal);
+      CollectNames(OperationCatalog.Get("create_tour").InputType, names, []);
+      names.Remove(PropertyName(LotsenJsonContext.Default.CreateTourInput, nameof(CreateTourInput.PrUrl)));
+
+      Assert.Contains("purpose", names);
+      Assert.Contains("orient", names);
+      Assert.All(names, name => Assert.Contains($"`{name}`", Codebase, StringComparison.Ordinal));
+   }
+
+   /// <summary>The introduction, the text before the first section, is where Claude learns which tools it has.</summary>
+   [Fact]
+   public void Codebase_skill_introduction_names_every_tool_that_the_skill_uses()
+   {
+      var introduction = Codebase[..Codebase.IndexOf("\n## ", StringComparison.Ordinal)];
+      var named = ToolName().Matches(Codebase).Select(match => match.Groups[1].Value).Distinct().ToList();
+
+      Assert.Contains("create_tour", named);
+      Assert.All(named, tool => Assert.Contains($"`{tool}`", introduction, StringComparison.Ordinal));
+   }
+
+   /// <summary>A reopened tour keeps its stored words and familiarity level, so the lookup comes before the questions as well as before <c>create_tour</c>.</summary>
+   [Fact]
+   public void Codebase_skill_tells_Claude_to_call_find_tours_with_the_repository_before_it_asks_for_the_words_and_before_create_tour()
+   {
+      var text = string.Join(' ', Codebase.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
+      var find = text.IndexOf("call `find_tours` with `repository`", StringComparison.Ordinal);
+
+      Assert.True(find >= 0, "The codebase skill does not say to call find_tours with repository.");
+      Assert.True(find < text.IndexOf("Ask the reviewer once what the tour should cover", StringComparison.Ordinal), "The codebase skill asks for the words before it calls find_tours.");
+      Assert.True(find < text.IndexOf("Call `create_tour`", StringComparison.Ordinal), "The codebase skill calls create_tour before find_tours.");
+   }
+
+   /// <summary>The skill tours repositories, so it names the pin states of a repository tour, which has a snapshot and no <c>pinned</c> state, as <see cref="TourRules"/> holds.</summary>
+   [Fact]
+   public void Codebase_skill_names_every_pin_state_of_a_repository_tour()
+   {
+      Assert.All(["pinning", "snapshot", "failed"], state => Assert.Contains($"`{state}`", Codebase, StringComparison.Ordinal));
    }
 
    [Fact]

@@ -41,6 +41,9 @@ public abstract class RepositoryPlatformContractTests
    /// <summary>Texts that name other repositories of the platform, in the same scope and in each other scope that the platform has.</summary>
    protected abstract IReadOnlyList<string> OtherRepositories { get; }
 
+   /// <summary>Texts that name the subclass's one repository but recognize as another URL, such as in another letter case where the platform ignores it.</summary>
+   protected abstract IReadOnlyList<string> SameRepositoryForms { get; }
+
    /// <summary>A pull request URL of the subclass's repository, which names no repository.</summary>
    protected abstract string PullRequestOfTheRepository { get; }
 
@@ -113,6 +116,14 @@ public abstract class RepositoryPlatformContractTests
          Assert.NotNull(other);
          Assert.NotEqual(RepositoryUrl, other.Url);
       });
+   }
+
+   [Fact]
+   public void Every_form_of_the_repository_names_the_same_repository_and_other_repositories_do_not()
+   {
+      Assert.NotEmpty(SameRepositoryForms);
+      Assert.All(RepositoryForms.Concat(SameRepositoryForms), form => Assert.True(Platform.IsSameRepository(RepositoryUrl, Platform.RecognizeRepository(form)!.Url), $"'{form}' names another repository."));
+      Assert.All(OtherRepositories, text => Assert.False(Platform.IsSameRepository(RepositoryUrl, Platform.RecognizeRepository(text)!.Url), $"'{text}' names the same repository."));
    }
 
    [Fact]

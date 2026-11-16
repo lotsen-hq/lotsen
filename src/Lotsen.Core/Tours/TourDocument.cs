@@ -52,9 +52,14 @@ internal sealed class TourDocument
    /// <param name="familiarity">How well the reviewer knows the code.</param>
    /// <param name="planApproval">Whether the plan waits for the reviewer's approval: <see cref="PlanApproval.Awaited"/> for a plan-first tour, or <see cref="PlanApproval.NotNeeded"/>.</param>
    /// <param name="now">The tour's creation time, which is also its update time.</param>
-   public static Checked<StoredTour> New(TourId id, TourTarget target, Familiarity familiarity, PlanApproval planApproval, DateTimeOffset now)
+   /// <param name="purpose">What a repository tour is for, or null for a pull request's tour.</param>
+   /// <param name="title">A repository tour's title, or null for a pull request's tour.</param>
+   /// <param name="words">The reviewer's words about what a repository tour should cover, or null for none.</param>
+   /// <returns>The document, or the first rule that the new tour breaks, as for a repository tour without a purpose.</returns>
+   public static Checked<StoredTour> New(
+      TourId id, TourTarget target, Familiarity familiarity, PlanApproval planApproval, DateTimeOffset now, TourPurpose? purpose = null, string? title = null, string? words = null)
    {
-      var tour = new Tour(id, target, familiarity, now, now, new TourPin.Pinning(), Plan: null, Threads: TourThreads.Empty, Answers: [], planApproval);
+      var tour = new Tour(id, target, familiarity, now, now, new TourPin.Pinning(), Plan: null, Threads: TourThreads.Empty, Answers: [], planApproval, Purpose: purpose, Words: words, Title: title);
       return StoredTour.Checked(tour, []);
    }
 

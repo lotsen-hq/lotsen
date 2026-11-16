@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text.Json.Serialization;
+using Lotsen.Credentials;
 using Lotsen.Git;
 using Lotsen.Hosting;
 using Lotsen.Json;
@@ -31,7 +32,7 @@ internal sealed record ListChangedFilesInput(
 internal sealed record ReadFileTextInput(
    [property: Description(OperationInputs.TourIdDescription)]
    TourId TourId,
-   [property: Description("The side to read the file at: base for the merge base, head for the head.")]
+   [property: Description("The side to read the file at: base for the merge base, head for the head. A repository tour has only head, its one commit.")]
    FileSide Side,
    [property: Description(FileOperations.PathDescription)]
    string Path,
@@ -57,7 +58,7 @@ internal sealed record DiffFileInput(
 internal sealed record ListDirectoryInput(
    [property: Description(OperationInputs.TourIdDescription)]
    TourId TourId,
-   [property: Description("The side to list the directory at: base for the merge base, head for the head.")]
+   [property: Description("The side to list the directory at: base for the merge base, head for the head. A repository tour has only head, its one commit.")]
    FileSide Side,
    [property: Description("The directory's repository path, relative, with forward slashes. Omit it for the repository's root directory.")]
    string? Path = null);
@@ -122,6 +123,7 @@ internal abstract record FileText(string Path, FileSide Side, CommitId Commit)
 
 /// <summary>
 /// The file operations: they read a pinned tour's changed files, directories, file texts and file diffs at its two commits, and set and clear the reviewer's review marks on its changed files.
+/// For a repository tour, they read only directories and file texts, at the snapshot's one commit, its head.
 /// </summary>
 /// <remarks>
 /// A read of a tour that is not pinned is refused with its pin, because without a pin no commit is known. Every path must follow <see cref="RepositoryPath.IsValid"/>, and a path that does not
@@ -230,12 +232,12 @@ internal sealed class FileOperations
    /// <summary>Returns the entries of one directory at one side of the tour.</summary>
    /// <remarks>The listing has no sizes and no binary marks, so <see cref="ReadFileTextAsync"/> applies the binary and large-file rules when a file is read.</remarks>
    public Task<OperationResult<DirectoryListing>> ListDirectoryAsync(ListDirectoryInput input, CancellationToken cancellationToken) =>
-      OnPinnedRepositoryAsync(
+      OnSideRepositoryAsync(
          input.TourId,
+         input.Side,
          input.Path is null ? [] : [("path", input.Path)],
-         async Task<OperationResult<DirectoryListing>> (repository, pin) =>
+         async Task<OperationResult<DirectoryListing>> (repository, commit) =>
          {
-            var commit = pin.CommitOf(input.Side);
             var entries = await repository.ListDirectoryAsync(commit, input.Path, cancellationToken);
             if (entries is null)
             {
@@ -252,12 +254,12 @@ internal sealed class FileOperations
    /// <see cref="MaxFileSize"/> is refused.
    /// </remarks>
    public Task<OperationResult<FileText>> ReadFileTextAsync(ReadFileTextInput input, CancellationToken cancellationToken) =>
-      OnPinnedFactsAsync(
+      OnSideFactsAsync(
          input.TourId,
+         input.Side,
          [("path", input.Path)],
-         async Task<OperationResult<FileText>> (facts, pin) =>
+         async Task<OperationResult<FileText>> (facts, commit) =>
          {
-            var commit = pin.CommitOf(input.Side);
             var file = await facts.FactAsync(new FactKey.Blob(commit, input.Path), cancellationToken);
             if (file is null)
             {
@@ -344,22 +346,56 @@ internal sealed class FileOperations
       where T : class =>
       OnPinnedTourAsync(id, paths, (tour, pin) => OnFactsAsync(tour, pin, facts => query(facts, pin)));
 
-   // Runs the query on the pinned tour's clone, after the tour, its pin and the paths pass their checks.
-   private Task<OperationResult<T>> OnPinnedRepositoryAsync<T>(
-      TourId id, IReadOnlyList<(string Field, string Path)> paths, Func<GitRepository, TourPin.Pinned, Task<OperationResult<T>>> query, CancellationToken cancellationToken)
+   // Runs the query on the git facts of the side's commit, after the tour, its pin, the paths and the side pass their checks.
+   private Task<OperationResult<T>> OnSideFactsAsync<T>(TourId id, FileSide side, IReadOnlyList<(string Field, string Path)> paths, Func<IFactScope, CommitId, Task<OperationResult<T>>> query)
       where T : class =>
-      OnPinnedTourAsync(id, paths, async (tour, pin) =>
+      OnSideAsync(id, side, paths, (tour, pin, commit) => OnPinFactsAsync(tour, pin, facts => query(facts, commit)));
+
+   // Runs the query on the clone that holds the side's commit, after the tour, its pin, the paths and the side pass their checks.
+   private Task<OperationResult<T>> OnSideRepositoryAsync<T>(
+      TourId id, FileSide side, IReadOnlyList<(string Field, string Path)> paths, Func<GitRepository, CommitId, Task<OperationResult<T>>> query, CancellationToken cancellationToken)
+      where T : class =>
+      OnSideAsync(id, side, paths, async (tour, pin, commit) =>
       {
          try
          {
-            using var repository = await _clones.OpenAsync(RemoteOf(tour, pin), [pin.MergeBase, pin.Head], FetchPolicy.WhenMissing, cancellationToken);
-            return await query(repository, pin);
+            using var repository = await _clones.OpenAsync(pin.Remote(_platforms.CredentialOf(tour.Target)), pin.Commits, FetchPolicy.WhenMissing, cancellationToken);
+            return await query(repository, commit);
          }
          catch (ExternalFailureException failure)
          {
             return Unavailable(tour, failure);
          }
       });
+
+   // Runs the query on the side's commit of a tour that is pinned or has a snapshot. A snapshot has only the head side.
+   private async Task<OperationResult<T>> OnSideAsync<T>(
+      TourId id, FileSide side, IReadOnlyList<(string Field, string Path)> paths, Func<Tour, ReadablePin, CommitId, Task<OperationResult<T>>> query)
+      where T : class
+   {
+      var read = _writer.Read(id);
+      if (read.Value is not { } tour)
+      {
+         return read.Error!;
+      }
+
+      if (ReadablePin.Of(tour.Pin) is not { } pin)
+      {
+         return OperationError.PinNotReady(tour);
+      }
+
+      if (PathFault(paths) is { } fault)
+      {
+         return fault;
+      }
+
+      if (pin.CommitOf(side) is not { } commit)
+      {
+         return OperationError.Invalid("side", $"tour {tour.Id} is a repository tour, pinned to one commit, so it has only the head side. Read it at head.");
+      }
+
+      return await query(tour, pin, commit);
+   }
 
    private async Task<OperationResult<T>> OnPinnedTourAsync<T>(
       TourId id, IReadOnlyList<(string Field, string Path)> paths, Func<Tour, TourPin.Pinned, Task<OperationResult<T>>> query)
@@ -376,13 +412,13 @@ internal sealed class FileOperations
          return OperationError.TourNotPinned(tour);
       }
 
-      if (paths.FirstOrDefault(entry => !RepositoryPath.IsValid(entry.Path)) is ({ } field, var path))
-      {
-         return OperationError.FileNotFound($"'{path}' is not a file path in the repository. Give {RepositoryPath.Expected}.", field);
-      }
-
-      return await query(tour, pin);
+      return PathFault(paths) ?? await query(tour, pin);
    }
+
+   private static OperationError? PathFault(IReadOnlyList<(string Field, string Path)> paths) =>
+      paths.FirstOrDefault(entry => !RepositoryPath.IsValid(entry.Path)) is ({ } field, var path)
+         ? OperationError.FileNotFound($"'{path}' is not a file path in the repository. Give {RepositoryPath.Expected}.", field)
+         : null;
 
    /// <summary>Runs a query on the git facts of a pinned tour, from a fact scope over its clone, which holds both of the tour's commits.</summary>
    /// <param name="tour">The tour, as the caller read it.</param>
@@ -393,12 +429,16 @@ internal sealed class FileOperations
    /// for a platform that lotsen does not know, a missing access token or a git failure.
    /// </returns>
    /// <remarks>The scope opens the clone only for a fact that the fact memo lacks, so a query that the memo answers runs no git.</remarks>
-   public async Task<OperationResult<T>> OnFactsAsync<T>(Tour tour, TourPin.Pinned pin, Func<IFactScope, Task<OperationResult<T>>> query)
+   public Task<OperationResult<T>> OnFactsAsync<T>(Tour tour, TourPin.Pinned pin, Func<IFactScope, Task<OperationResult<T>>> query)
+      where T : class =>
+      OnPinFactsAsync(tour, ReadablePin.Of(pin), query);
+
+   private async Task<OperationResult<T>> OnPinFactsAsync<T>(Tour tour, ReadablePin pin, Func<IFactScope, Task<OperationResult<T>>> query)
       where T : class
    {
       try
       {
-         await using var facts = _facts.Open(RemoteOf(tour, pin), [pin.MergeBase, pin.Head], FetchPolicy.WhenMissing);
+         await using var facts = _facts.Open(pin.Remote(_platforms.CredentialOf(tour.Target)), pin.Commits, FetchPolicy.WhenMissing);
          return await query(facts);
       }
       catch (ExternalFailureException failure)
@@ -492,7 +532,7 @@ internal sealed class FileOperations
    private bool Known(CommitId commit, string path) =>
       _facts.Known.TryGet(new FactKey.Blob(commit, path), out var file) && (!ReadableFile.Is(file) || _facts.Known.TryGet(new FactKey.Lines(commit, path), out _));
 
-   private TourRemote RemoteOf(Tour tour, TourPin.Pinned pin) => TourRemote.OfPin(pin, _platforms.Of(tour.Target).GitCredential);
+   private TourRemote RemoteOf(Tour tour, TourPin.Pinned pin) => TourRemote.OfPin(pin, _platforms.CredentialOf(tour.Target));
 
    private OperationError Unavailable(Tour tour, ExternalFailureException failure)
    {
@@ -501,6 +541,40 @@ internal sealed class FileOperations
    }
 
    private readonly record struct DownloadKey(Uri RemoteUrl, CommitId Commit, string Path);
+
+   /// <summary>The commits of a pin that the reads of a tour's files open: a pull request's merge base and head, or a snapshot's one commit as its head.</summary>
+   private sealed class ReadablePin
+   {
+      private readonly Func<IGitCredential?, TourRemote> _remote;
+      private readonly CommitId? _mergeBase;
+
+      private ReadablePin(Func<IGitCredential?, TourRemote> remote, CommitId head, CommitId? mergeBase)
+      {
+         _remote = remote;
+         _mergeBase = mergeBase;
+         Head = head;
+      }
+
+      public CommitId Head { get; }
+
+      /// <summary>The commits that the pin's clone must hold.</summary>
+      public IReadOnlyList<CommitId> Commits => _mergeBase is { } mergeBase ? [mergeBase, Head] : [Head];
+
+      public static ReadablePin Of(TourPin.Pinned pin) => new(credential => TourRemote.OfPin(pin, credential), pin.Head, pin.MergeBase);
+
+      /// <returns>The pin's commits, or null for a pin that names none yet.</returns>
+      public static ReadablePin? Of(TourPin pin) => pin switch
+      {
+         TourPin.Pinned pinned => Of(pinned),
+         TourPin.Snapshot snapshot => new(credential => TourRemote.OfSnapshot(snapshot, credential), snapshot.Head, null),
+         TourPin.Pinning or TourPin.Failed => null,
+      };
+
+      /// <returns>The side's commit, or null for the base of a snapshot.</returns>
+      public CommitId? CommitOf(FileSide side) => side == FileSide.Head ? Head : _mergeBase;
+
+      public TourRemote Remote(IGitCredential? credential) => _remote(credential);
+   }
 
    private enum SizeCheck
    {

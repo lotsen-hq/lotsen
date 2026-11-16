@@ -68,37 +68,72 @@ public sealed class FileApiTests
       Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""{ "state": "pinning" }"""), error["pin"]), error.ToJsonString());
    }
 
-   public static TheoryData<string, string, string> RepositoryFileReads =>
-      new(FileReads.SelectMany(row => new[] { "pinning", "failed", "snapshot" }.Select(pin => ((string)row.Data.Item1, (string)row.Data.Item2, pin))));
+   public static TheoryData<string, string, string> DiffReadsInEveryPinState =>
+      new(FileReads.Where(row => (string)row.Data.Item1 is "list_changed_files" or "diff_file")
+         .SelectMany(row => new[] { "pinning", "failed", "snapshot" }.Select(pin => ((string)row.Data.Item1, (string)row.Data.Item2, pin))));
 
    /// <summary>A repository tour has no merge base and no changed files, whatever its pin state, so the refusal names the target and not the pin.</summary>
    [Theory]
-   [MemberData(nameof(RepositoryFileReads))]
-   public async Task File_read_of_a_repository_tour_is_refused_in_every_pin_state(string operation, string input, string pinState)
+   [MemberData(nameof(DiffReadsInEveryPinState))]
+   public async Task Changed_files_and_diff_of_a_repository_tour_are_refused_in_every_pin_state(string operation, string input, string pinState)
    {
-      var platform = new TestPlatform();
-      platform.Fail("The pull request was not found. Check the URL.");
-      await using var harness = await ServerHarness.StartAsync(platform: platform);
-      var id = (string)harness.CreateUnboundTour(CreateBody)["id"]!;
-      await harness.PinsIdleAsync().WaitAsync(Timeout, TestContext.Current.CancellationToken);
-      Assert.True(TourId.TryParse(id, out var tourId));
-      harness.ChangeStored(tourId, tour => tour with
-      {
-         Target = new RepositoryTarget(new Uri("https://git.test/shop.git")),
-         Pin = pinState switch
-         {
-            "pinning" => new TourPin.Pinning(),
-            "failed" => new TourPin.Failed("lotsen cannot pin a repository tour."),
-            _ => TourValues.Snapshot,
-         },
-         Purpose = TourPurpose.Orient,
-         Title = "The shop",
-      });
+      await using var harness = await ServerHarness.StartAsync();
+      var id = RepositoryTourIn(harness, pinState);
 
       var (status, error) = await GetAsync(harness, On(operation, id), input);
 
       Assert.Equal((409, "notPullRequestTour"), (status, (string)error["code"]!));
       Assert.Equal($"tourId: tour {id} is a repository tour, so it has no merge base and pull request head to read files at.", (string)error["reason"]!);
+   }
+
+   public static TheoryData<string, string, string> SnapshotReadsBeforeThePin =>
+      new(FileReads.Where(row => (string)row.Data.Item1 is "read_file_text" or "list_directory")
+         .SelectMany(row => new[] { "pinning", "failed" }.Select(pin => ((string)row.Data.Item1, (string)row.Data.Item2, pin))));
+
+   [Theory]
+   [MemberData(nameof(SnapshotReadsBeforeThePin))]
+   public async Task Text_and_directory_read_of_a_repository_tour_without_its_snapshot_is_refused_with_its_pin(string operation, string input, string pinState)
+   {
+      await using var harness = await ServerHarness.StartAsync();
+      var id = RepositoryTourIn(harness, pinState);
+
+      var (status, error) = await GetAsync(harness, On(operation, id), input);
+
+      Assert.Equal((409, "tourNotPinned"), (status, (string)error["code"]!));
+      Assert.Equal(pinState, (string)error["pin"]!["state"]!);
+   }
+
+   [Fact]
+   public async Task Snapshot_reads_a_files_text_and_lists_a_directory_at_its_commit()
+   {
+      using var git = new GitFixture();
+      var commit = git.Commit("Base", ("src/added.txt", "one\n"), ("README.md", "shop\n"));
+      var platform = new TestPlatform();
+      platform.Repository(git.Url, commit);
+      await using var harness = await ServerHarness.StartAsync(platform: platform);
+      var id = (string)harness.CreateUnboundTour(RepositoryPinningTests.CreateBody(@ref: null))["id"]!;
+      await harness.PinsIdleAsync().WaitAsync(Timeout, TestContext.Current.CancellationToken);
+
+      var text = await harness.CallAsync(On("read_file_text", id), """{ "side": "head", "path": "src/added.txt" }""");
+      var listed = await harness.CallAsync(On("list_directory", id), """{ "side": "head" }""");
+
+      Assert.Equal(("text", commit.Value, "one\n"), ((string)text["content"]!, (string)text["commit"]!, (string)text["text"]!));
+      Assert.Equal(commit.Value, (string)listed["commit"]!);
+      Assert.Equal(["README.md", "src"], listed["entries"]!.AsArray().Select(entry => (string)entry!["path"]!));
+   }
+
+   [Theory]
+   [InlineData("read_file_text", """{ "side": "base", "path": "src/added.txt" }""")]
+   [InlineData("list_directory", """{ "side": "base" }""")]
+   public async Task Base_side_of_a_snapshot_is_refused(string operation, string input)
+   {
+      await using var harness = await ServerHarness.StartAsync();
+      var id = RepositoryTourIn(harness, "snapshot");
+
+      var (status, error) = await GetAsync(harness, On(operation, id), input);
+
+      Assert.Equal((400, "invalidInput", "side"), (status, (string)error["code"]!, (string)error["field"]!));
+      Assert.Equal($"side: tour {id} is a repository tour, pinned to one commit, so it has only the head side. Read it at head.", (string)error["reason"]!);
    }
 
    [Theory]
@@ -430,6 +465,22 @@ public sealed class FileApiTests
       {
          Assert.Equal(field, (string)error["field"]!);
       }
+   }
+
+   // Returns the ID of a repository tour in the pin state, which the test stores by hand, because a repository tour pins only against a repository.
+   private static string RepositoryTourIn(ServerHarness harness, string pinState)
+   {
+      var id = (string)harness.CreateUnboundTour(RepositoryPinningTests.CreateBody(@ref: null))["id"]!;
+      harness.ChangeStored(ParsedId(id), tour => tour with
+      {
+         Pin = pinState switch
+         {
+            "pinning" => new TourPin.Pinning(),
+            "failed" => new TourPin.Failed("The repository was not found."),
+            _ => TourValues.Snapshot,
+         },
+      });
+      return id;
    }
 
    private static TourId ParsedId(string text) => TourId.TryParse(text, out var id) ? id : throw new ArgumentException(text);

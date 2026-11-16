@@ -189,6 +189,12 @@ internal sealed class TestPlatform : IRepositoryPlatform
       static string? NameOf(string segment) => segment.EndsWith(".git", StringComparison.Ordinal) ? segment[..^4] is { Length: > 0 } name ? name : null : segment.Length > 0 ? segment : null;
    }
 
+   // RecognizeRepository keeps the repository's letter case, and the repository compares in any letter case.
+   public bool IsSameRepository(Uri url, Uri other) =>
+      RecognizeRepository(url.AbsoluteUri) is { Ref: null } recognized
+      && RecognizeRepository(other.AbsoluteUri) is { Ref: null } otherRecognized
+      && string.Equals(recognized.Url.AbsoluteUri, otherRecognized.Url.AbsoluteUri, StringComparison.OrdinalIgnoreCase);
+
    public string? RepositoryLabel(Uri url) => RecognizeRepository(url.AbsoluteUri) is { Ref: null } recognized ? recognized.Url.Segments[1] : null;
 
    /// <summary>Returns <c>https://{host}/{repository}/workitems/{id}</c> for a work item, and <c>https://{host}/{repository}/pull/{id}</c> for a pull request.</summary>

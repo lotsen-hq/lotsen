@@ -35,7 +35,7 @@ Be on `main` with a clean tree, and not behind `origin/main`. When local `main` 
 
 ## 3. Documentation
 
-Run `/decaf-quality:coherence-audit` over what a release publishes: `README.md`, `docs/versioning.md`, `docs/live-test.md` and the tour skills, `plugin/skills/tour/SKILL.md` and the rules it loads, `plugin/skills/tour-rules/SKILL.md`. Fix what it finds, or record with the maintainer why a finding ships as it is.
+Run `/decaf-quality:coherence-audit` over what a release publishes: `README.md`, `docs/versioning.md`, `docs/live-test.md` and the tour skills, `plugin/skills/tour/SKILL.md`, `plugin/skills/codebase/SKILL.md` and the rules they load, `plugin/skills/tour-rules/SKILL.md`. Fix what it finds, or record with the maintainer why a finding ships as it is.
 
 ## 4. Changelog (stable releases only)
 

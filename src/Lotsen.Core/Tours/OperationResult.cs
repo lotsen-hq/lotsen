@@ -70,18 +70,19 @@ internal sealed record OperationError(
       "no clone was pruned, because the stored tours could not be listed. Check that lotsen can read the tours directory in its data directory, then prune again.");
 
    /// <summary>Returns the refusal of an operation that reads the commits of a pull request's pinned tour, for a tour that has none.</summary>
-   /// <returns><see cref="OperationErrorCode.NotPullRequestTour"/> for a repository tour in any pin state, or <see cref="OperationErrorCode.TourNotPinned"/> while a pull request's tour pins or after its pin failed.</returns>
-   public static OperationError TourNotPinned(Tour tour) => tour.Target is RepositoryTarget
-      ? NotPullRequestTour(tour, "merge base and pull request head to read files at")
-      : tour.Pin switch
-      {
-         TourPin.Failed failed => new(OperationErrorCode.TourNotPinned, $"tour {tour.Id} has no commits to read files at, because its pin failed: {failed.Reason}", "tourId", tour.Pin),
-         TourPin.Pinning or TourPin.Pinned or TourPin.Snapshot => new(
-            OperationErrorCode.TourNotPinned,
-            $"tour {tour.Id} is still pinning, so it has no commits to read files at yet. Its files can be read once its pin is pinned.",
-            "tourId",
-            tour.Pin),
-      };
+   /// <returns><see cref="OperationErrorCode.NotPullRequestTour"/> for a repository tour in any pin state, or <see cref="PinNotReady"/>'s refusal for a pull request's tour.</returns>
+   public static OperationError TourNotPinned(Tour tour) => tour.Target is RepositoryTarget ? NotPullRequestTour(tour, "merge base and pull request head to read files at") : PinNotReady(tour);
+
+   /// <summary>Returns the <see cref="OperationErrorCode.TourNotPinned"/> refusal of an operation that reads files at a tour's pin, for a tour that pins or whose pin failed.</summary>
+   public static OperationError PinNotReady(Tour tour) => tour.Pin switch
+   {
+      TourPin.Failed failed => new(OperationErrorCode.TourNotPinned, $"tour {tour.Id} has no commits to read files at, because its pin failed: {failed.Reason}", "tourId", tour.Pin),
+      TourPin.Pinning or TourPin.Pinned or TourPin.Snapshot => new(
+         OperationErrorCode.TourNotPinned,
+         $"tour {tour.Id} is still pinning, so it has no commits to read files at yet. Its files can be read once the pin is done.",
+         "tourId",
+         tour.Pin),
+   };
 
    /// <summary>Returns the refusal of an iteration check of a tour that is not pinned to an iteration.</summary>
    /// <returns><see cref="OperationErrorCode.NotPullRequestTour"/> for a repository tour in any pin state, or <see cref="OperationErrorCode.TourNotPinned"/> while a pull request's tour pins or after its pin failed.</returns>

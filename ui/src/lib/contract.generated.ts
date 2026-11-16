@@ -1234,7 +1234,7 @@ export interface ListDirectoryInput {
     */
    tourId: string;
    /**
-    * The side to list the directory at: base for the merge base, head for the head.
+    * The side to list the directory at: base for the merge base, head for the head. A repository tour has only head, its one commit.
     */
    side: FileSide;
    /**
@@ -1690,7 +1690,7 @@ export interface ReadFileTextInput {
     */
    tourId: string;
    /**
-    * The side to read the file at: base for the merge base, head for the head.
+    * The side to read the file at: base for the merge base, head for the head. A repository tour has only head, its one commit.
     */
    side: FileSide;
    /**

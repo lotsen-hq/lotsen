@@ -19,6 +19,8 @@ public sealed class TestRepositoryPlatformContractTests : RepositoryPlatformCont
 
    protected override IReadOnlyList<string> OtherRepositories => [$"https://{TestPlatform.DefaultHost}/web"];
 
+   protected override IReadOnlyList<string> SameRepositoryForms => [$"https://{TestPlatform.DefaultHost}/SHOP"];
+
    protected override string PullRequestOfTheRepository => TestPlatform.PrUrl;
 
    protected override string AtRef(string @ref) => $"https://{TestPlatform.DefaultHost}/shop/tree/{@ref}";

@@ -737,15 +737,15 @@ internal sealed class TourWriter
       /// <inheritdoc cref="TourWriter.Read"/>
       public OperationResult<Tour> Read(TourId id) => _writer.Read(ThrowIfClosed(id));
 
-      /// <summary>Stores a new tour with a new ID, no plan and its pin in progress, as <see cref="TourDocument.New"/> builds it, and returns it.</summary>
-      public Tour Create(TourTarget target, Familiarity familiarity, PlanApproval planApproval)
+      /// <summary>Stores a new tour with a new ID, no plan and its pin in progress, as <see cref="TourDocument.New"/> builds it from the same values, and returns it.</summary>
+      public Tour Create(TourTarget target, Familiarity familiarity, PlanApproval planApproval, TourPurpose? purpose = null, string? title = null, string? words = null)
       {
          ThrowIfClosed(target);
          var now = _writer._timeProvider.GetUtcNow();
          TourDocument.StoredTour? created = null;
          _writer._store.Create(id =>
          {
-            created = _writer.Unbroken(_operation, id, TourDocument.New(id, target, familiarity, planApproval, now));
+            created = _writer.Unbroken(_operation, id, TourDocument.New(id, target, familiarity, planApproval, now, purpose, title, words));
             return created.Document;
          });
          return created!.Tour;

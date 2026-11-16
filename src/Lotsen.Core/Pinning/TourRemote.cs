@@ -49,6 +49,12 @@ internal sealed class TourRemote
    /// <summary>Returns the remote of a pin, which the iteration update opens for the available iteration's pin and the file operations open for the tour's pin.</summary>
    public static TourRemote OfPin(TourPin.Pinned pin, IGitCredential? credential) => new(new GitRemote(pin.RemoteUrl, credential));
 
+   /// <summary>Returns the remote of a snapshot, which the file operations open for a repository tour's pin.</summary>
+   public static TourRemote OfSnapshot(TourPin.Snapshot pin, IGitCredential? credential) => new(new GitRemote(pin.RemoteUrl, credential));
+
+   /// <summary>Returns the remote of a repository that its platform resolved, which the first pin of a repository tour opens, and which the tour's snapshot stores.</summary>
+   public static TourRemote OfRepository(ResolvedRepository repository, IGitCredential? credential) => new(new GitRemote(repository.RemoteUrl, credential));
+
    /// <summary>Returns the remote of an iteration that the platform resolved, which the first pin and the iteration check open, and which a pin of the iteration stores.</summary>
    public static TourRemote OfIteration(ResolvedPullRequest iteration, IGitCredential? credential) => new(new GitRemote(iteration.RemoteUrl, credential));
 }

@@ -20,6 +20,13 @@ public sealed class RepositoryUrlTests
    [InlineData("https://github.com:443/octo-org/hello-world")]
    [InlineData("https://github.com/octo-org/hello-world?tab=readme-ov-file")]
    [InlineData("https://github.com/octo-org/hello-world#readme")]
+   [InlineData("git@github.com:octo-org/hello-world")]
+   [InlineData("git@github.com:octo-org/hello-world.git")]
+   [InlineData("git@GitHub.com:octo-org/hello-world.git")]
+   [InlineData("ssh://git@github.com/octo-org/hello-world")]
+   [InlineData("ssh://git@github.com/octo-org/hello-world.git")]
+   [InlineData("ssh://git@github.com:22/octo-org/hello-world")]
+   [InlineData("ssh://git@github.com:22/octo-org/hello-world.git")]
    public void Repository_url_is_parsed_normalized_and_labeled_without_a_ref(string text)
    {
       Assert.True(GitHubRepository.TryParse(text, out var repository, out var @ref));
@@ -71,8 +78,40 @@ public sealed class RepositoryUrlTests
    [InlineData(null)]
    [InlineData("")]
    [InlineData("github.com/octo/hello")]
-   [InlineData("git@github.com:octo/hello.git")]
-   [InlineData("ssh://git@github.com/octo/hello.git")]
+   [InlineData("git@gitlab.com:octo/hello")]
+   [InlineData("git@github.com.evil.example:octo/hello")]
+   [InlineData("other@github.com:octo/hello")]
+   [InlineData("github.com:octo/hello")]
+   [InlineData("git@github.com:octo")]
+   [InlineData("git@github.com:octo/")]
+   [InlineData("git@github.com:octo/hello/extra")]
+   [InlineData("git@github.com:/octo/hello")]
+   [InlineData("git@github.com:octo/hello/tree/main")]
+   [InlineData("git@github.com:octo/hello world")]
+   [InlineData("git@github.com:octo/.git")]
+   [InlineData("ssh://github.com/octo/hello")]
+   [InlineData("ssh://other@github.com/octo/hello")]
+   [InlineData("ssh://git:secret@github.com/octo/hello")]
+   [InlineData("ssh://git@gitlab.com/octo/hello")]
+   [InlineData("ssh://git@www.github.com/octo/hello")]
+   [InlineData("ssh://git@github.com:2222/octo/hello")]
+   [InlineData("ssh://git@github.com/octo")]
+   [InlineData("ssh://git@github.com/octo/hello/extra")]
+   [InlineData("ssh://git@github.com/octo/hello/tree/main")]
+   [InlineData("ssh://git@github.com/octo/hello?x=1")]
+   [InlineData("ssh://git@github.com/octo/hello#readme")]
+   [InlineData("ssh://git@github.com/x/../octo/hello")]
+   [InlineData("ssh://git@github.com/octo/hello/../world")]
+   [InlineData("ssh://git@github.com/./octo/hello")]
+   [InlineData("ssh://git@github.com/octo\\hello")]
+   [InlineData("ssh://git@github.com/%6Fcto/hello")]
+   [InlineData("ssh://git@github.com/octo/hello%2Egit")]
+   [InlineData(" ssh://git@github.com/octo/hello")]
+   [InlineData("ssh://git@github.com/octo/hello ")]
+   [InlineData("ssh://git@github.com/octo/hello\n")]
+   [InlineData(" git@github.com:octo/hello")]
+   [InlineData("git@github.com:octo/hello\n")]
+   [InlineData("git@github.com:x/../hello")]
    [InlineData("ftp://github.com/octo/hello")]
    [InlineData("https://github.com:8443/octo/hello")]
    [InlineData("https://user@github.com/octo/hello")]
@@ -135,5 +174,7 @@ public sealed class RepositoryUrlTests
    {
       Assert.Equal(GitHubRepository.ExpectedForms, _platform.ExpectedRepositoryForms);
       Assert.StartsWith("https://github.com/{owner}/{repository}", _platform.ExpectedRepositoryForms, StringComparison.Ordinal);
+      Assert.Contains("git@github.com:{owner}/{repository}", _platform.ExpectedRepositoryForms, StringComparison.Ordinal);
+      Assert.Contains("ssh://git@github.com/{owner}/{repository}", _platform.ExpectedRepositoryForms, StringComparison.Ordinal);
    }
 }
