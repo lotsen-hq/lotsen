@@ -4359,6 +4359,12 @@
         "placement": {
           "$ref": "#/definitions/StopPlacement"
         },
+        "gotchas": {
+          "type": "string"
+        },
+        "tryIt": {
+          "type": "string"
+        },
         "html": {
           "$ref": "#/definitions/StopHtml"
         }
@@ -4395,6 +4401,12 @@
           }
         },
         "scenario": {
+          "type": "string"
+        },
+        "gotchas": {
+          "type": "string"
+        },
+        "tryIt": {
           "type": "string"
         }
       },
@@ -4593,7 +4605,7 @@
           "type": "string"
         },
         "field": {
-          "description": "The prose field of the stop's content: headline, how, why, designChoices, pinnedBy, scenario, or checks[<id>].question or checks[<id>].recommendation for the check with that id.",
+          "description": "The prose field of the stop's content: headline, how, why, designChoices, pinnedBy, scenario, gotchas, tryIt, or checks[<id>].question or checks[<id>].recommendation for the check with that id.",
           "type": "string"
         },
         "text": {
@@ -4628,7 +4640,7 @@
           "type": "string"
         },
         "field": {
-          "description": "The prose field of the stop's content: headline, how, why, designChoices, pinnedBy, scenario, or checks[<id>].question or checks[<id>].recommendation for the check with that id.",
+          "description": "The prose field of the stop's content: headline, how, why, designChoices, pinnedBy, scenario, gotchas, tryIt, or checks[<id>].question or checks[<id>].recommendation for the check with that id.",
           "type": "string"
         },
         "text": {

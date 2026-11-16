@@ -99,7 +99,9 @@ internal static class StopRules
       checks.Count > 0 ? checks : null,
       Text(input.Scenario),
       Texts(input.Tags),
-      input.Placement);
+      input.Placement,
+      Text(input.Gotchas),
+      Text(input.TryIt));
 
    /// <summary>Returns the input's checks as the stop stores them, each with its ID and without an empty recommendation or suggestion.</summary>
    /// <remarks>

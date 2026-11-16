@@ -6,7 +6,7 @@ internal closed record ProseField
 {
    /// <summary>The description of a property that names a prose field, for an input schema.</summary>
    public const string SchemaDescription =
-      $"The prose field of the stop's content: {HeadlineName}, {HowName}, {WhyName}, {DesignChoicesName}, {PinnedByName}, {ScenarioName}, or {ChecksName}[<id>].{QuestionName} or "
+      $"The prose field of the stop's content: {HeadlineName}, {HowName}, {WhyName}, {DesignChoicesName}, {PinnedByName}, {ScenarioName}, {GotchasName}, {TryItName}, or {ChecksName}[<id>].{QuestionName} or "
       + $"{ChecksName}[<id>].{RecommendationName} for the check with that id.";
 
    private const string HeadlineName = "headline";
@@ -15,6 +15,8 @@ internal closed record ProseField
    private const string DesignChoicesName = "designChoices";
    private const string PinnedByName = "pinnedBy";
    private const string ScenarioName = "scenario";
+   private const string GotchasName = "gotchas";
+   private const string TryItName = "tryIt";
    private const string ChecksName = "checks";
    private const string QuestionName = "question";
    private const string RecommendationName = "recommendation";
@@ -45,6 +47,8 @@ internal closed record ProseField
       DesignChoices => DesignChoicesName,
       PinnedBy => PinnedByName,
       Scenario => ScenarioName,
+      Gotchas => GotchasName,
+      TryIt => TryItName,
       CheckQuestion(var id) => check(id).Then(QuestionName),
       CheckRecommendation(var id) => check(id).Then(RecommendationName),
    };
@@ -89,6 +93,12 @@ internal closed record ProseField
    /// <summary>How the risk could happen.</summary>
    internal sealed record Scenario : ProseField;
 
+   /// <summary>The traps that a reader of the code should know.</summary>
+   internal sealed record Gotchas : ProseField;
+
+   /// <summary>A small experiment that the reader can run on the code.</summary>
+   internal sealed record TryIt : ProseField;
+
    /// <summary>The question of one check, which every check has.</summary>
    /// <param name="CheckId">The check's ID.</param>
    internal sealed record CheckQuestion(string CheckId) : ProseField;
@@ -102,7 +112,7 @@ internal closed record ProseField
 internal static class StopProse
 {
    /// <summary>Returns the content with each prose field that is not null mapped.</summary>
-   /// <remarks>It maps the fields in this order: the headline, how, why, the design choices, pinned by, each check's question and recommendation, then the scenario.</remarks>
+   /// <remarks>It maps the fields in this order: the headline, how, why, the design choices, pinned by, each check's question and recommendation, the scenario, the gotchas, then try it.</remarks>
    public static StopContent Map(StopContent content, Func<ProseField, string, string> map) => Visit(content, (field, prose) => prose is null ? null : map(field, prose));
 
    /// <summary>Returns each prose field that the content can hold, null or not, in the order of <see cref="Map"/>: every field outside a check, and the fields of each check that it has.</summary>
@@ -141,7 +151,7 @@ internal static class StopProse
    // variable for each parameter of the record, so a new parameter breaks it until this method handles the new field.
    private static StopContent Visit(StopContent content, Func<ProseField, string?, string?> visit)
    {
-      var (headline, passages, how, why, designChoices, pinnedBy, checks, scenario, tags, placement) = content;
+      var (headline, passages, how, why, designChoices, pinnedBy, checks, scenario, tags, placement, gotchas, tryIt) = content;
       return new StopContent(
          visit(new ProseField.Headline(), headline)!,
          passages,
@@ -156,6 +166,8 @@ internal static class StopProse
          }).ToList(),
          visit(new ProseField.Scenario(), scenario),
          tags,
-         placement);
+         placement,
+         visit(new ProseField.Gotchas(), gotchas),
+         visit(new ProseField.TryIt(), tryIt));
    }
 }

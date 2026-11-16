@@ -65,6 +65,10 @@ internal static class StopContentRules
    /// <remarks><c>put_stop</c> checks the rule against the pinned commits, and the remap makes a stop stale whose primary passage breaks it on a new pin.</remarks>
    public static bool PrimaryTouchesDiff(StopKind kind) => kind is StopKind.Inspect or StopKind.Risk or StopKind.Question;
 
+   /// <summary>Returns the name of the first field that the content holds of those that only a context or an inspect stop of a repository tour holds: gotchas, then tryIt.</summary>
+   /// <returns>The field's name as <c>put_stop</c>'s input names it, or null when the content holds neither field.</returns>
+   public static string? RepositoryOnlyField(StopContent content) => content.Gotchas is not null ? "gotchas" : content.TryIt is not null ? "tryIt" : null;
+
    /// <summary>Returns the kind's name as the JSON contract writes it, after its indefinite article, as in "an inspect".</summary>
    public static string KindWithArticle(StopKind kind) => kind switch
    {
@@ -83,6 +87,11 @@ internal static class StopContentRules
       if (kind == StopKind.Question && content.Checks is null or [])
       {
          return new(Checks, "a question stop needs at least one check for the reviewer to answer.");
+      }
+
+      if (kind is not (StopKind.Context or StopKind.Inspect) && RepositoryOnlyField(content) is { } field)
+      {
+         return new(field, $"{KindWithArticle(kind)} stop takes no {field}. Only a context or an inspect stop does, so leave {field} out or change the stop's kind.");
       }
 
       return kind != StopKind.Overview && content.Passages.Count == 0 ? new(Passages, $"{KindWithArticle(kind)} stop needs at least one passage. Only an overview may have none.") : null;

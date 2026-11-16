@@ -349,7 +349,7 @@ internal sealed class FileOperations
    // Runs the query on the git facts of the side's commit, after the tour, its pin, the paths and the side pass their checks.
    private Task<OperationResult<T>> OnSideFactsAsync<T>(TourId id, FileSide side, IReadOnlyList<(string Field, string Path)> paths, Func<IFactScope, CommitId, Task<OperationResult<T>>> query)
       where T : class =>
-      OnSideAsync(id, side, paths, (tour, pin, commit) => OnPinFactsAsync(tour, pin, facts => query(facts, commit)));
+      OnSideAsync(id, side, paths, (tour, pin, commit) => OnFactsAsync(tour, pin, facts => query(facts, commit)));
 
    // Runs the query on the clone that holds the side's commit, after the tour, its pin, the paths and the side pass their checks.
    private Task<OperationResult<T>> OnSideRepositoryAsync<T>(
@@ -431,9 +431,10 @@ internal sealed class FileOperations
    /// <remarks>The scope opens the clone only for a fact that the fact memo lacks, so a query that the memo answers runs no git.</remarks>
    public Task<OperationResult<T>> OnFactsAsync<T>(Tour tour, TourPin.Pinned pin, Func<IFactScope, Task<OperationResult<T>>> query)
       where T : class =>
-      OnPinFactsAsync(tour, ReadablePin.Of(pin), query);
+      OnFactsAsync(tour, ReadablePin.Of(pin), query);
 
-   private async Task<OperationResult<T>> OnPinFactsAsync<T>(Tour tour, ReadablePin pin, Func<IFactScope, Task<OperationResult<T>>> query)
+   /// <summary>Runs a query on the git facts of a tour's pin, as <see cref="OnFactsAsync{T}(Tour, TourPin.Pinned, Func{IFactScope, Task{OperationResult{T}}})"/> does, from a fact scope over a clone that holds the pin's commits.</summary>
+   public async Task<OperationResult<T>> OnFactsAsync<T>(Tour tour, ReadablePin pin, Func<IFactScope, Task<OperationResult<T>>> query)
       where T : class
    {
       try
@@ -447,10 +448,12 @@ internal sealed class FileOperations
       }
    }
 
-   /// <summary>Downloads into a pinned tour's clone the content of each named file at its side that the clone lacks, so later reads of those files download nothing.</summary>
+   /// <summary>Downloads into a tour's clone the content of each named file at its side that the clone lacks, so later reads of those files download nothing.</summary>
    /// <param name="tour">The tour, as the caller read it.</param>
-   /// <param name="pin">The tour's pin.</param>
-   /// <param name="files">The files, each with its side. A path that names no file at its side is skipped, as <see cref="GitRepository.DownloadFilesAsync"/> says.</param>
+   /// <param name="pin">The commits of the tour's pin.</param>
+   /// <param name="files">
+   /// The files, each with its side. A path that names no file at its side is skipped, as <see cref="GitRepository.DownloadFilesAsync"/> says, and so is a file at a side that the pin lacks.
+   /// </param>
    /// <param name="cancellationToken">Stops the wait for the download, but not the download.</param>
    /// <remarks>
    /// <para>
@@ -468,10 +471,18 @@ internal sealed class FileOperations
    /// </para>
    /// </remarks>
    /// <exception cref="OperationCanceledException">The token was canceled, or the server's stop ended the download.</exception>
-   public async Task DownloadFilesAsync(Tour tour, TourPin.Pinned pin, IReadOnlyCollection<(FileSide Side, string Path)> files, CancellationToken cancellationToken)
+   public async Task DownloadFilesAsync(Tour tour, ReadablePin pin, IReadOnlyCollection<(FileSide Side, string Path)> files, CancellationToken cancellationToken)
    {
-      files = [.. files.Where(file => !Known(pin.CommitOf(file.Side), file.Path))];
-      if (files.Count == 0)
+      var unknown = new List<(CommitId Commit, string Path)>();
+      foreach (var (side, path) in files)
+      {
+         if (pin.CommitOf(side) is { } commit && !Known(commit, path))
+         {
+            unknown.Add((commit, path));
+         }
+      }
+
+      if (unknown.Count == 0)
       {
          return;
       }
@@ -479,7 +490,7 @@ internal sealed class FileOperations
       TourRemote remote;
       try
       {
-         remote = RemoteOf(tour, pin);
+         remote = pin.Remote(_platforms.CredentialOf(tour.Target));
       }
       catch (ExternalFailureException)
       {
@@ -487,7 +498,7 @@ internal sealed class FileOperations
          return;
       }
 
-      var (running, started) = _downloads.Claim(files.Select(file => new DownloadKey(remote.Url, pin.CommitOf(file.Side), file.Path)));
+      var (running, started) = _downloads.Claim(unknown.Select(file => new DownloadKey(remote.Url, file.Commit, file.Path)));
       if (started is not null && !_jobs.Run(stopping => DownloadAsync(tour, pin, remote, started, stopping)))
       {
          started.End();
@@ -497,13 +508,13 @@ internal sealed class FileOperations
    }
 
    // Runs the download as a job. Any exception but an ExternalFailureException or the stop's cancellation ends the download with that exception, so its waiters rethrow it, and the jobs log it.
-   private async Task DownloadAsync(Tour tour, TourPin.Pinned pin, TourRemote remote, RunningDownloads<DownloadKey>.Download download, CancellationToken stopping)
+   private async Task DownloadAsync(Tour tour, ReadablePin pin, TourRemote remote, RunningDownloads<DownloadKey>.Download download, CancellationToken stopping)
    {
       try
       {
          try
          {
-            using var repository = await _clones.OpenAsync(remote, [pin.MergeBase, pin.Head], FetchPolicy.WhenMissing, stopping);
+            using var repository = await _clones.OpenAsync(remote, pin.Commits, FetchPolicy.WhenMissing, stopping);
             var missing = await repository.FindMissingAsync([.. download.Keys.Select(key => (key.Commit, key.Path))], stopping);
             foreach (var commit in missing.GroupBy(file => file.Commit))
             {
@@ -532,8 +543,6 @@ internal sealed class FileOperations
    private bool Known(CommitId commit, string path) =>
       _facts.Known.TryGet(new FactKey.Blob(commit, path), out var file) && (!ReadableFile.Is(file) || _facts.Known.TryGet(new FactKey.Lines(commit, path), out _));
 
-   private TourRemote RemoteOf(Tour tour, TourPin.Pinned pin) => TourRemote.OfPin(pin, _platforms.CredentialOf(tour.Target));
-
    private OperationError Unavailable(Tour tour, ExternalFailureException failure)
    {
       _logger.LogWarning("The repository of tour {TourId} could not be read. {Reason}", tour.Id.Value, failure.Reason);
@@ -541,40 +550,6 @@ internal sealed class FileOperations
    }
 
    private readonly record struct DownloadKey(Uri RemoteUrl, CommitId Commit, string Path);
-
-   /// <summary>The commits of a pin that the reads of a tour's files open: a pull request's merge base and head, or a snapshot's one commit as its head.</summary>
-   private sealed class ReadablePin
-   {
-      private readonly Func<IGitCredential?, TourRemote> _remote;
-      private readonly CommitId? _mergeBase;
-
-      private ReadablePin(Func<IGitCredential?, TourRemote> remote, CommitId head, CommitId? mergeBase)
-      {
-         _remote = remote;
-         _mergeBase = mergeBase;
-         Head = head;
-      }
-
-      public CommitId Head { get; }
-
-      /// <summary>The commits that the pin's clone must hold.</summary>
-      public IReadOnlyList<CommitId> Commits => _mergeBase is { } mergeBase ? [mergeBase, Head] : [Head];
-
-      public static ReadablePin Of(TourPin.Pinned pin) => new(credential => TourRemote.OfPin(pin, credential), pin.Head, pin.MergeBase);
-
-      /// <returns>The pin's commits, or null for a pin that names none yet.</returns>
-      public static ReadablePin? Of(TourPin pin) => pin switch
-      {
-         TourPin.Pinned pinned => Of(pinned),
-         TourPin.Snapshot snapshot => new(credential => TourRemote.OfSnapshot(snapshot, credential), snapshot.Head, null),
-         TourPin.Pinning or TourPin.Failed => null,
-      };
-
-      /// <returns>The side's commit, or null for the base of a snapshot.</returns>
-      public CommitId? CommitOf(FileSide side) => side == FileSide.Head ? Head : _mergeBase;
-
-      public TourRemote Remote(IGitCredential? credential) => _remote(credential);
-   }
 
    private enum SizeCheck
    {

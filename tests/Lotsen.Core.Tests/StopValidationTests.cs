@@ -100,6 +100,8 @@ public sealed class StopValidationTests : IClassFixture<StopTourFixture>
       { 4, Body(Passage("head", "src/renamed.txt", 3, 3), extra: """ "checks": [] """), "checks" },
       { 1, """{ "headline": "A headline." }""", "passages" },
       { 0, Body(Passage("head", "src/modified.txt", 1, 2), extra: """ "chapter": "code" """), "chapter" },
+      { Inspect, Body(Passage("head", "src/modified.txt", 1, 2), extra: """ "gotchas": "Mind the cache." """), "gotchas" },
+      { 1, Body(Passage("head", "src/same.txt", 1, 1), extra: """ "tryIt": "Run it." """), "tryIt" },
    };
 
    [Theory]
@@ -125,6 +127,18 @@ public sealed class StopValidationTests : IClassFixture<StopTourFixture>
       }
 
       await AssertUnchangedAsync(before);
+   }
+
+   /// <summary>A risk stop takes no gotchas in any tour, but the refusal names the tour's kind, because changing the stop's kind would not help.</summary>
+   [Fact]
+   public async Task Gotchas_on_a_risk_stop_are_refused_as_a_field_that_only_a_repository_tour_takes()
+   {
+      var ids = await SetPlanAsync();
+
+      using var response = await PutAsync(ids[3], Body(Passage("head", "src/renamed.txt", 3, 3), extra: """ "scenario": "It breaks.", "gotchas": "Mind the cache." """));
+
+      var error = await ReadErrorAsync(response, HttpStatusCode.BadRequest, "invalidInput");
+      Assert.Equal("gotchas: only a repository tour's stops take gotchas. Leave gotchas out.", (string)error["reason"]!);
    }
 
    [Fact]
@@ -640,7 +654,7 @@ public sealed class StopReferenceTests : IDisposable
 
       await using var facts = new CloneGitFacts(cache, NullLogger<CloneGitFacts>.Instance, budget: 1 << 20).Open(_fixture.Remote(), [mergeBase, head], FetchPolicy.WhenMissing);
 
-      var error = await new StopPassages(facts, new TourPin.Pinned(mergeBase, head, 1, _fixture.Url))
+      var error = await new StopPassages(facts, ReadablePin.Of(new TourPin.Pinned(mergeBase, head, 1, _fixture.Url)))
          .CheckReferencesAsync([.. prose.References.Select(reference => new ProseReference("how", reference))], TestContext.Current.CancellationToken);
 
       Assert.Null(error);

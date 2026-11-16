@@ -17,7 +17,9 @@ public sealed class StopProseTests
       [new StopCheck("c1", "*question 1*", "*recommendation 1*", [new SuggestedAnswer("*suggestion*", AnswerType.Decision)]), new StopCheck("c2", "*question 2*", "*recommendation 2*")],
       "*scenario*",
       ["tag"],
-      StopPlacement.Inline);
+      StopPlacement.Inline,
+      "*gotchas*",
+      "*try it*");
 
    private static readonly Dictionary<string, (ProseField Field, string Prose)> Expected = new()
    {
@@ -31,6 +33,8 @@ public sealed class StopProseTests
       ["checks[c2].question"] = (new ProseField.CheckQuestion("c2"), "*question 2*"),
       ["checks[c2].recommendation"] = (new ProseField.CheckRecommendation("c2"), "*recommendation 2*"),
       ["scenario"] = (new ProseField.Scenario(), "*scenario*"),
+      ["gotchas"] = (new ProseField.Gotchas(), "*gotchas*"),
+      ["tryIt"] = (new ProseField.TryIt(), "*try it*"),
    };
 
    public static TheoryData<string> Rows => [.. Expected.Keys];
@@ -99,6 +103,8 @@ public sealed class StopProseTests
          ProseField.DesignChoices => html["designChoices"],
          ProseField.PinnedBy => html["pinnedBy"],
          ProseField.Scenario => html["scenario"],
+         ProseField.Gotchas => html["gotchas"],
+         ProseField.TryIt => html["tryIt"],
          ProseField.CheckQuestion question => html["checks"]![IndexOf(question.CheckId)]!["question"],
          ProseField.CheckRecommendation recommendation => html["checks"]![IndexOf(recommendation.CheckId)]!["recommendation"],
       };

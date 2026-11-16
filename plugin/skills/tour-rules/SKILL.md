@@ -21,6 +21,8 @@ These rules hold for every lotsen tour: how to write its stops, how to handle wh
 | `pinnedBy` | The tests that pin the behavior, as `ref:` links. Say when a test covers only the happy path, or when no test pins it. |
 | `checks` | The decisions for the reviewer to make, one check each. See below. |
 | `scenario` | For a `risk` stop: how the risk could happen, step by step. |
+| `gotchas` | For a `context` or `inspect` stop of a repository tour: the traps a reader of this code should know, such as an order that matters or a name that misleads. |
+| `tryIt` | For a `context` or `inspect` stop of a repository tour: one small experiment the reader can run to see the code work, such as a command or a test to change. |
 | `passages` | The lines the stop points at, in reading order. See below. |
 | `tags` | Free tags, such as `security`, `performance`, `public-api`, `breaking-change`, `concurrency` or `data-migration`. |
 | `placement` | Optional hint for where the UI shows the text: `inline` at the primary passage for a short stop, `side` for the side panel. Leave it out to let the UI decide. |
@@ -110,6 +112,10 @@ passage at added or changed lines, or a base-side passage at removed lines. A fi
 lines. A related passage, and every passage of an `overview` or `context` stop, may point at unchanged code on either
 side.
 
+A repository tour is pinned to a snapshot of one commit, which is its `head`. It has no `base` side and no diff, so
+every passage is at `head`, and a passage of any kind may point anywhere in the snapshot. The server refuses a passage
+at `base`.
+
 ### `ref:` links
 
 Link to code in any Markdown field as `[label](ref:<side>/<path>#L<start>-<end>)`, such as
@@ -121,7 +127,8 @@ Link to code in any Markdown field as `[label](ref:<side>/<path>#L<start>-<end>)
 - `#L<start>-<end>` names both lines, even for one line: `#L7-7`.
 
 The server checks every link as it checks a passage: the file exists as text at that side and the lines exist. The
-diff rule does not apply, so a link may point at unchanged code.
+diff rule does not apply, so a link may point at unchanged code. In a repository tour, every link is `ref:head/...`,
+and the server refuses a `ref:base` link.
 
 A link or a passage covers exactly the lines its sentence names, such as the one call and not the whole method, and
 two links that compare the base and the head of the same code cover the same span on each side.
@@ -162,6 +169,10 @@ label. Keep nesting shallow; the server refuses lists, quotes, emphasis or links
 - `inspect`: at least one passage, and the primary passage touches the diff.
 - `risk`: at least one passage, the primary passage touches the diff, and a `scenario`.
 - `question`: at least one passage, the primary passage touches the diff, and at least one check in `checks`.
+
+In a repository tour, the primary passage of an `inspect`, `risk` or `question` stop need not touch a diff, because
+a snapshot has none. Only a `context` or an `inspect` stop of a repository tour takes `gotchas` and `tryIt`, and a
+pull request's tour takes neither.
 
 ### Example
 

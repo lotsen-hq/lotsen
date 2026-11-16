@@ -268,7 +268,9 @@ internal static class ProseHtml
          rendered.DesignChoices,
          rendered.PinnedBy,
          rendered.Checks?.Select(check => new CheckHtml(check.Question, check.Recommendation)).ToList(),
-         rendered.Scenario);
+         rendered.Scenario,
+         rendered.Gotchas,
+         rendered.TryIt);
    }
 
    private static string Html(string prose, MentionLinks mentions)

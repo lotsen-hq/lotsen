@@ -32,7 +32,7 @@ internal static class ThreadOpener
 
    /// <summary>Stores the reviewer's question of the type as a new thread at the input's anchor, and sends it to the tour's bound session.</summary>
    /// <remarks>
-   /// The tour needs a bound session. A code range or a file anchor is checked against the tour's pinned commits as a stop's passage is, except that it may point at unchanged code, and a code
+   /// The tour needs a bound session. A code range or a file anchor is checked against the commits of the tour's pin as a stop's passage is, except that it may point at unchanged code, and a code
    /// range's text holds at most <see cref="MaxCodeAnchorLength"/> characters. A stop text anchor takes the stop's version that is current when the thread is stored.
    /// </remarks>
    /// <param name="writer">Writes the tour.</param>
@@ -121,12 +121,12 @@ internal static class ThreadOpener
                return lines.Error!;
             }
 
-            var text = read.Text(code.StartLine, code.EndLine);
+            var text = read.Lines.Text(code.StartLine, code.EndLine);
             return text.Length > MaxCodeAnchorLength
                ? OperationError.Invalid(
                   ((FieldPath)"anchor").Then("endLine"),
                   $"lines {code.StartLine}-{code.EndLine} of '{code.Path}' at the {StopPassages.SideName(code.Side)} hold {text.Length} characters, but a question's code range holds at most {MaxCodeAnchorLength}. Select fewer lines, or ask about the whole file.")
-               : new ThreadAnchor.CodeRange(code.Side, code.Path, code.StartLine, code.EndLine, checks.CommitOf(code.Side), text);
+               : new ThreadAnchor.CodeRange(code.Side, code.Path, code.StartLine, code.EndLine, read.Commit, text);
          }
 
          var file = (AnchorInput.WholeFile)anchor;

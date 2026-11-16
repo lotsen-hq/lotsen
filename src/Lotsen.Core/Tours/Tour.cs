@@ -202,6 +202,9 @@ internal closed record TourPin
    /// <param name="RemoteUrl">The URL of the repository that the commit was fetched from, without user information. The clone cache keeps the tour's clone under this URL.</param>
    internal sealed record Snapshot(CommitId Head, Uri RemoteUrl) : TourPin
    {
+      /// <summary>The first sentence of a refusal of anything that names the base side in a repository tour. Each refusal adds its own fix after it.</summary>
+      public const string HeadOnly = "a repository tour has only the head side, the one commit of its snapshot.";
+
       /// <summary>Returns the commit that a side names.</summary>
       /// <returns>The snapshot's commit for the head, or null for the base, which a snapshot does not have.</returns>
       public CommitId? CommitOf(FileSide side) => side == FileSide.Head ? Head : null;
@@ -450,6 +453,8 @@ internal sealed record StopVersion(string Title, StopKind Kind, StopContent Cont
 /// <param name="Scenario">How the risk could happen, or null. A risk stop has one.</param>
 /// <param name="Tags">Free descriptive tags with no behavior, such as <c>security</c>, or null when there are none.</param>
 /// <param name="Placement">Where Claude suggests that the UI shows the stop's text, or null when Claude does not say.</param>
+/// <param name="Gotchas">The traps that a reader of the code should know, or null. Only a context or an inspect stop of a repository tour has them.</param>
+/// <param name="TryIt">A small experiment that the reader can run on the code, or null. Only a context or an inspect stop of a repository tour has one.</param>
 internal sealed record StopContent(
    string Headline,
    IReadOnlyList<StopPassage> Passages,
@@ -460,7 +465,9 @@ internal sealed record StopContent(
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<StopCheck>? Checks = null,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Scenario = null,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? Tags = null,
-   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] StopPlacement? Placement = null);
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] StopPlacement? Placement = null,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Gotchas = null,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TryIt = null);
 
 /// <summary>
 /// The HTML of each prose field of a stop's content, safe to insert into the UI as it is. Each property is null when its field is, and JSON then leaves it out.
@@ -475,6 +482,8 @@ internal sealed record StopContent(
 /// <param name="PinnedBy">The HTML of <see cref="StopContent.PinnedBy"/>, or null.</param>
 /// <param name="Checks">The HTML of each check's prose, in the order of <see cref="StopContent.Checks"/>, or null.</param>
 /// <param name="Scenario">The HTML of <see cref="StopContent.Scenario"/>, or null.</param>
+/// <param name="Gotchas">The HTML of <see cref="StopContent.Gotchas"/>, or null.</param>
+/// <param name="TryIt">The HTML of <see cref="StopContent.TryIt"/>, or null.</param>
 internal sealed record StopHtml(
    string Headline,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? How = null,
@@ -482,7 +491,9 @@ internal sealed record StopHtml(
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? DesignChoices = null,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? PinnedBy = null,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<CheckHtml>? Checks = null,
-   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Scenario = null);
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Scenario = null,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Gotchas = null,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TryIt = null);
 
 /// <summary>
 /// Lines of one file at one side of a pinned tour that a stop points at, with their text as the server read it at write time.

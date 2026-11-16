@@ -18,7 +18,9 @@ public sealed class ProseReferencesTests
          "[d](ref:head/a.txt#L4-4)",
          "[e](ref:head/a.txt#L5-5)",
          [new StopCheck("c1", "[f](ref:head/a.txt#L6-6)", "[g](ref:head/a.txt#L7-7)"), new StopCheck("c2", "[h](ref:base/a.txt#L8-8)", "[i](ref:base/a.txt#L9-9)")],
-         "[j](ref:head/a.txt#L10-10)");
+         "[j](ref:head/a.txt#L10-10)",
+         Gotchas: "[k](ref:head/a.txt#L11-11)",
+         TryIt: "[l](ref:head/a.txt#L12-12)");
 
       var references = ProseReferences.Of(content).Value;
 
@@ -26,7 +28,7 @@ public sealed class ProseReferencesTests
       Assert.Equal(
          [
             ("headline", 1), ("how", 2), ("why", 3), ("designChoices", 4), ("pinnedBy", 5), ("checks[c1].question", 6), ("checks[c1].recommendation", 7), ("checks[c2].question", 8),
-            ("checks[c2].recommendation", 9), ("scenario", 10),
+            ("checks[c2].recommendation", 9), ("scenario", 10), ("gotchas", 11), ("tryIt", 12),
          ],
          references.Select(reference => (reference.Field.ToString(), reference.Reference.StartLine)));
    }

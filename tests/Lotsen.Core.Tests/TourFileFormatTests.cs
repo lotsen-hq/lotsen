@@ -77,7 +77,7 @@ public sealed class TourFileFormatTests : IDisposable
       var tour = store.Create(PullRequest, Familiarity.Some);
       var parent = store.Create(PullRequest, Familiarity.Some);
 
-      var saved = store.Change(tour.Id, current => AsRepositoryTour(current) with { Plan = SamplePlan(), Words = "Is the cache safe?", DiveOrigin = new DiveOrigin(parent.Id, parent.Id, "s3") });
+      var saved = store.Change(tour.Id, current => AsRepositoryTour(current) with { Plan = SamplePlan() with { FileMarks = [] }, Words = "Is the cache safe?", DiveOrigin = new DiveOrigin(parent.Id, parent.Id, "s3") });
 
       Assert.NotNull(saved);
       Assert.Equivalent(saved, NewStore().Get(tour.Id), strict: true);

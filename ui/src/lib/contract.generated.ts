@@ -375,6 +375,8 @@ export interface StopContent {
    scenario?: string;
    tags?: string[];
    placement?: StopPlacement;
+   gotchas?: string;
+   tryIt?: string;
    html: StopHtml;
 }
 export interface StopPassage {
@@ -405,6 +407,8 @@ export interface StopHtml {
    pinnedBy?: string;
    checks?: CheckHtml[];
    scenario?: string;
+   gotchas?: string;
+   tryIt?: string;
 }
 export interface CheckHtml {
    question: string;
@@ -832,7 +836,7 @@ export interface StopTextTarget {
     */
    stopId: string;
    /**
-    * The prose field of the stop's content: headline, how, why, designChoices, pinnedBy, scenario, or checks[<id>].question or checks[<id>].recommendation for the check with that id.
+    * The prose field of the stop's content: headline, how, why, designChoices, pinnedBy, scenario, gotchas, tryIt, or checks[<id>].question or checks[<id>].recommendation for the check with that id.
     */
    field: string;
    /**
@@ -899,7 +903,7 @@ export interface StopTextInput {
     */
    stopId: string;
    /**
-    * The prose field of the stop's content: headline, how, why, designChoices, pinnedBy, scenario, or checks[<id>].question or checks[<id>].recommendation for the check with that id.
+    * The prose field of the stop's content: headline, how, why, designChoices, pinnedBy, scenario, gotchas, tryIt, or checks[<id>].question or checks[<id>].recommendation for the check with that id.
     */
    field: string;
    /**

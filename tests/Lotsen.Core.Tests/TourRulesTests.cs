@@ -57,6 +57,26 @@ public sealed class TourRulesTests
       ["pull request tour with a title"] = (Tour() with { Title = "Pricing" }, "title", "only a repository tour has a title."),
       ["pull request tour with a dive origin"] = (Tour() with { DiveOrigin = new DiveOrigin(OtherId, OtherId) }, "diveOrigin", "only a repository tour is a dive."),
       ["pull request tour pinned to a snapshot"] = (Tour() with { Pin = Snapshot }, "pin", "a pull request's tour is pinned to an iteration of the pull request, not to a snapshot."),
+      ["gotchas in a pull request's tour"] = (
+         Tour(Plan(Written("s1", content: Content() with { Gotchas = "Mind the cache." }))),
+         "plan.stops[0].content.gotchas",
+         "only a repository tour's stops take gotchas. Leave gotchas out."),
+      ["gotchas on a risk stop of a pull request's tour"] = (
+         Tour(Plan(Written("s1", StopKind.Risk, Content(StopKind.Risk) with { Gotchas = "Mind the cache." }))),
+         "plan.stops[0].content.gotchas",
+         "only a repository tour's stops take gotchas. Leave gotchas out."),
+      ["try it in an earlier version in a pull request's tour"] = (
+         Tour(Plan(Written("s1") with { Version = 2, Earlier = [new StopVersion("Old", StopKind.Context, Content(StopKind.Context) with { TryIt = "Run it." }, Now)] })),
+         "plan.stops[0].earlier[0].content.tryIt",
+         "only a repository tour's stops take tryIt. Leave tryIt out."),
+      ["passage at the base of a repository tour"] = (
+         RepositoryTour(Plan(Written("s1", content: Content() with { Passages = [Passage(), Passage(PassageRole.Related) with { Side = FileSide.Base }] }))),
+         "plan.stops[0].content.passages[1].side",
+         "a repository tour has only the head side, the one commit of its snapshot. Point the passage at head."),
+      ["file mark in a repository tour"] = (
+         RepositoryTour(Plan() with { FileMarks = [new FileMark("README.md", FileMarkKind.Generated, "A tool writes it.")] }),
+         "plan.fileMarks",
+         "a repository tour has no changed files to mark. Leave fileMarks out."),
    };
 
    private static TourId OtherId => TourId.TryParse("qrstuvwxyzabcdef", out var id) ? id : throw new InvalidOperationException("The ID does not parse.");
@@ -93,7 +113,7 @@ public sealed class TourRulesTests
    [Fact]
    public void Repository_tour_that_follows_every_rule_has_no_fault()
    {
-      var tour = RepositoryTour(Plan(Written("s1"))) with
+      var tour = RepositoryTour(Plan(Written("s1", content: Content() with { Gotchas = "Mind the cache.", TryIt = "Run it." }), Written("s2", StopKind.Context, Content(StopKind.Context) with { TryIt = "Run it." }))) with
       {
          Target = new RepositoryTarget(new Uri("https://example.test/repo"), "release/2.0", "test"),
          Purpose = TourPurpose.Evaluate,

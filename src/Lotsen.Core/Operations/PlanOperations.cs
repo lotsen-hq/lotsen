@@ -15,7 +15,7 @@ internal sealed record SetPlanInput(
    IReadOnlyList<ChapterInput> Chapters,
    [property: Description("The stops in tour order, chapter by chapter in the order of chapters. At most one stop is an overview, and it must be the first stop.")]
    IReadOnlyList<StopInput> Stops,
-   [property: Description("Marks on changed files that need little review, each path at most once. The UI shows a marked file collapsed, with its mark and reason. The plan's marks replace any earlier ones, so give them again with each plan. Omit it for a plan without marks.")]
+   [property: Description("Marks on changed files that need little review, each path at most once. The UI shows a marked file collapsed, with its mark and reason. The plan's marks replace any earlier ones, so give them again with each plan. Omit it for a plan without marks, and for a repository tour, which has no changed files.")]
    IReadOnlyList<FileMarkInput>? FileMarks = null,
    [property: Description("The parts in tour order, each a named group of consecutive chapters, which the reviewer can fold in the UI. Every part needs at least one chapter, and with parts every chapter names its part, chapters coming part by part in the order of parts. The plan's parts replace any earlier ones, so give them again with each plan. Omit it, or give an empty list, for a plan without parts.")]
    IReadOnlyList<PartInput>? Parts = null);
@@ -91,7 +91,11 @@ internal sealed record PutStopInput(
    IReadOnlyList<CheckInput>? Checks = null,
    [property: Description("How the risk could happen, in Markdown. A risk stop needs one.")]
    string? Scenario = null,
-   [property: Description("The lines the stop points at, in the order the reviewer should read them. Exactly one passage is primary when there are any. Every kind but overview needs at least one. The primary passage of an inspect, risk or question stop must touch the diff. Related passages may point at unchanged code on either side.")]
+   [property: Description("The traps that a reader of the code should know, in Markdown. Only a context or inspect stop of a repository tour takes it.")]
+   string? Gotchas = null,
+   [property: Description("A small experiment that the reader can run on the code, in Markdown. Only a context or inspect stop of a repository tour takes it.")]
+   string? TryIt = null,
+   [property: Description("The lines the stop points at, in the order the reviewer should read them. Exactly one passage is primary when there are any. Every kind but overview needs at least one. In a pull request's tour, the primary passage of an inspect, risk or question stop must touch the diff, and related passages may point at unchanged code on either side. A repository tour has no diff, and its passages may point anywhere at head.")]
    IReadOnlyList<PassageInput>? Passages = null,
    [property: Description("Free descriptive tags, such as security, performance, public-api or breaking-change.")]
    IReadOnlyList<string>? Tags = null,
@@ -127,7 +131,7 @@ internal sealed record SuggestionInput(
 /// <summary>A passage in the input of <c>put_stop</c>.</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record PassageInput(
-   [property: Description("The side the lines are on: base for the merge base, head for the head.")]
+   [property: Description("The side the lines are on: base for the merge base, head for the head. A repository tour has only head, its one commit.")]
    FileSide Side,
    [property: Description("The file's repository path at that side, relative, with forward slashes.")]
    string Path,
@@ -223,9 +227,9 @@ internal sealed class PlanOperations
          return refused;
       }
 
-      if (tour.Pin is not TourPin.Pinned)
+      if (ReadablePin.Of(tour.Pin) is null)
       {
-         return OperationError.TourNotPinned(tour);
+         return OperationError.PinNotReady(tour);
       }
 
       var change = StopRules.ApplyPlanChange(tour, input);
@@ -241,7 +245,7 @@ internal sealed class PlanOperations
       }
 
       // The same rules run again on the stored content, which holds the passages that git read.
-      return StopContentRules.Check(planned.Stop.Kind, content) is { } fault ? OperationError.Invalid(fault) : null;
+      return (TourRules.CheckContent(tour.Target, content) ?? StopContentRules.Check(planned.Stop.Kind, content)) is { } fault ? OperationError.Invalid(fault) : null;
    }
 
    private static OperationError? CheckPlanApproved(Tour tour) => tour.PlanWaits ? OperationError.PlanAwaitsApproval(tour.Id) : null;
@@ -255,8 +259,8 @@ internal static class PlanDrafts
 
    /// <summary>Returns the plan that the input sets: kept stops keep their content, and each new stop gets an ID that the tour does not name.</summary>
    /// <remarks>
-   /// The input's own limits and its kept stops come first, then <see cref="PlanRules"/> on the built plan, whose fault paths are the input's, because the plan keeps the input's order. A null
-   /// element of the input stays null in the plan, so the plan rules name it. An empty list of parts builds a plan without parts.
+   /// The input's own limits and its kept stops come first, then <see cref="PlanRules"/> and <see cref="TourRules.CheckPlan"/> on the built plan, whose fault paths are the input's, because the
+   /// plan keeps the input's order. A null element of the input stays null in the plan, so the plan rules name it. An empty list of parts builds a plan without parts.
    /// </remarks>
    /// <param name="input">The input.</param>
    /// <param name="latest">The latest stored tour, whose plan holds the stops that the input keeps.</param>
@@ -324,6 +328,6 @@ internal static class PlanDrafts
          stops,
          [.. marks.Select(mark => mark is null ? null! : new FileMark(mark.Path, mark.Mark, mark.Reason))],
          input.Parts is { Count: > 0 } parts ? [.. parts.Select(part => part is null ? null! : new Part(part.Id, part.Title))] : null);
-      return PlanRules.Check(plan) is { } fault ? OperationError.Invalid(fault) : plan;
+      return (PlanRules.Check(plan) ?? TourRules.CheckPlan(latest.Target, plan)) is { } fault ? OperationError.Invalid(fault) : plan;
    }
 }

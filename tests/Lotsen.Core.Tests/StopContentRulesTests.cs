@@ -34,6 +34,21 @@ public sealed class StopContentRulesTests
       ["question without a check"] = (StopKind.Question, Content(StopKind.Question) with { Checks = null }, "checks", "a question stop needs at least one check for the reviewer to answer."),
       ["inspect without a passage"] = (StopKind.Inspect, Content() with { Passages = [] }, "passages", "an inspect stop needs at least one passage. Only an overview may have none."),
       ["context without a passage"] = (StopKind.Context, Content(StopKind.Context) with { Passages = [] }, "passages", "a context stop needs at least one passage. Only an overview may have none."),
+      ["gotchas on an overview"] = (
+         StopKind.Overview,
+         Content(StopKind.Overview) with { Gotchas = "Mind the cache." },
+         "gotchas",
+         "an overview stop takes no gotchas. Only a context or an inspect stop does, so leave gotchas out or change the stop's kind."),
+      ["try it on a risk"] = (
+         StopKind.Risk,
+         Content(StopKind.Risk) with { TryIt = "Run it." },
+         "tryIt",
+         "a risk stop takes no tryIt. Only a context or an inspect stop does, so leave tryIt out or change the stop's kind."),
+      ["gotchas on a question"] = (
+         StopKind.Question,
+         Content(StopKind.Question) with { Gotchas = "Mind the cache." },
+         "gotchas",
+         "a question stop takes no gotchas. Only a context or an inspect stop does, so leave gotchas out or change the stop's kind."),
    };
 
    public static TheoryData<string> Rules => [.. Broken.Keys];

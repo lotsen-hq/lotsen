@@ -292,7 +292,7 @@ public sealed class TourWriterTests : IDisposable
          _ => null,
          (_, git, _) =>
          {
-            Assert.Equal(FirstPin, git.Pin("text").Value);
+            Assert.Equal(FirstPin, git.Pin("text").Value?.Pin);
             Publishing(tour.Id, "moved", latest => latest with { Pin = FirstPin with { Iteration = 2 } });
             return Task.FromResult<OperationResult<Gathered<string>>>(Gathered.Of("read"));
          },
