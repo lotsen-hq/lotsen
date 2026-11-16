@@ -6,6 +6,20 @@ using Lotsen.Tours;
 
 namespace Lotsen.Operations;
 
+/// <summary>The input of <c>save_note</c>, which takes the input of <c>ask_question</c> and the note's type.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+internal sealed record SaveNoteInput(
+   [property: Description(OperationInputs.TourIdDescription)]
+   TourId TourId,
+   [property: Description("The reviewer's words as plain text, with no control characters but tabs and line breaks.")]
+   string Text,
+   [property: Description("Where the reviewer wrote the note: code for whole lines at one side, stopText for text selected in a prose field of a stop, file, stop, or tour.")]
+   AnchorInput Anchor,
+   [property: Description("The ID of the stop that the reviewer views while writing the note. Omit it when no stop is open.")]
+   string? StopId = null,
+   [property: Description(OperationInputs.NoteTypeDescription)]
+   AnswerType? Type = null);
+
 /// <summary>The input of <c>edit_note</c>.</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record EditNoteInput(
@@ -14,7 +28,9 @@ internal sealed record EditNoteInput(
    [property: Description("The ID of the note's thread.")]
    string ThreadId,
    [property: Description("The note's new words as plain text, with no control characters but tabs and line breaks.")]
-   string Text);
+   string Text,
+   [property: Description(OperationInputs.NoteTypeDescription)]
+   AnswerType? Type = null);
 
 /// <summary>The input of <c>discard_note</c>.</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -58,19 +74,19 @@ internal sealed class NoteOperations
       _scheduler = scheduler;
    }
 
-   /// <summary>Stores the UI's words as a new thread that is a note: no request, and nothing reaches any session. Returns the thread with the tour's update time.</summary>
+   /// <summary>Stores the UI's words as a new thread that is a note, with its type: no request, and nothing reaches any session. Returns the thread with the tour's update time.</summary>
    /// <remarks>A note needs no bound session. Its words and anchor pass the checks of a question, as <see cref="ThreadOpener.StoreNoteAsync"/> describes.</remarks>
-   public async Task<OperationResult<UpdatedThread>> SaveNoteAsync(Access.Reviewer.Pass pass, AskQuestionInput input, CancellationToken cancellationToken)
+   public async Task<OperationResult<UpdatedThread>> SaveNoteAsync(Access.Reviewer.Pass pass, SaveNoteInput input, CancellationToken cancellationToken)
    {
-      var created = await ThreadOpener.StoreNoteAsync(_writer, _files, pass, NewThreadInput.Of(input), cancellationToken);
+      var created = await ThreadOpener.StoreNoteAsync(_writer, _files, pass, new NewThreadInput(input.TourId, input.Text, input.Anchor, input.StopId), input.Type, cancellationToken);
       return created.Value is { } stored ? new UpdatedThread(stored.Tour.Id, stored.Tour.UpdatedAt, stored.Thread) : created.Error!;
    }
 
-   /// <summary>Replaces the words of a note that is not sent, and returns the thread with the tour's update time.</summary>
-   /// <remarks>New words that equal the note's words change nothing, and the server publishes no event for them.</remarks>
+   /// <summary>Replaces the words and the type of a note that is not sent, and returns the thread with the tour's update time.</summary>
+   /// <remarks>Words and a type that equal the note's change nothing, and the server publishes no event for them.</remarks>
    public OperationResult<UpdatedThread> EditNote(Access.Reviewer.Pass pass, EditNoteInput input) =>
       _writer.Write(pass, input.TourId, edit =>
-         edit.Store(edit.Threads.Apply(new ThreadCommand.EditNote(input.ThreadId, input.Text)), (stored, written) => new UpdatedThread(stored.Tour.Id, stored.Tour.UpdatedAt, written.Thread!)),
+         edit.Store(edit.Threads.Apply(new ThreadCommand.EditNote(input.ThreadId, input.Text, input.Type)), (stored, written) => new UpdatedThread(stored.Tour.Id, stored.Tour.UpdatedAt, written.Thread!)),
          ReviewerWords.Check(input.Text));
 
    /// <summary>Removes a note that is not sent, with its thread, and returns the removal with the tour's update time.</summary>

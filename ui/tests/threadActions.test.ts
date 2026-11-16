@@ -96,13 +96,13 @@ const cases: Case[] = [
    },
    {
       name: 'saveNote',
-      run: (a) => a.saveNote(anchor, 'Mine.', 's2'),
-      call: ['saveNote', [tourId, { text: 'Mine.', anchor, stopId: 's2' }]],
+      run: (a) => a.saveNote(anchor, 'Mine.', 's2', 'concern'),
+      call: ['saveNote', [tourId, { text: 'Mine.', anchor, stopId: 's2', type: 'concern' }]],
       stored: [outputFixtures.save_note.thread],
       touches: true,
       reveals: true,
    },
-   { name: 'editNote', run: (a) => a.editNote('t1', 'Mine.'), call: ['editNote', [tourId, 't1', 'Mine.']], stored: [outputFixtures.edit_note.thread], touches: true, reveals: false },
+   { name: 'editNote', run: (a) => a.editNote('t1', 'Mine.', null), call: ['editNote', [tourId, 't1', 'Mine.', null]], stored: [outputFixtures.edit_note.thread], touches: true, reveals: false },
    { name: 'sendNotes', run: (a) => a.sendNotes(['t1']), call: ['sendNotes', [tourId, ['t1']]], stored: outputFixtures.send_notes.threads, touches: true, reveals: true },
 ];
 

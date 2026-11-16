@@ -51,10 +51,14 @@ internal closed record ThreadCommand
    /// <param name="Anchor">Where the reviewer wrote the note, as the feature read it.</param>
    /// <param name="Text">The reviewer's words.</param>
    /// <param name="StopId">The stop that the reviewer viewed, or null for none.</param>
-   internal sealed record SaveNote(ThreadAnchor Anchor, string Text, string? StopId) : ThreadCommand, ISendsNothing;
+   /// <param name="Type">The note's answer type, or null for none.</param>
+   internal sealed record SaveNote(ThreadAnchor Anchor, string Text, string? StopId, AnswerType? Type) : ThreadCommand, ISendsNothing;
 
-   /// <summary>New words for a note.</summary>
-   internal sealed record EditNote(string ThreadId, string Text) : ThreadCommand, ISendsNothing;
+   /// <summary>The words and the type of a note after an edit.</summary>
+   /// <param name="ThreadId">The note's thread.</param>
+   /// <param name="Text">The note's words.</param>
+   /// <param name="Type">The note's answer type, or null for none.</param>
+   internal sealed record EditNote(string ThreadId, string Text, AnswerType? Type) : ThreadCommand, ISendsNothing;
 
    /// <summary>The removal of a note.</summary>
    internal sealed record DiscardNote(string ThreadId) : ThreadCommand, ISendsNothing;

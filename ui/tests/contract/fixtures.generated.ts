@@ -1250,6 +1250,7 @@ export const outputFixtures = {
             "text": "Check the loop.",
             "savedAt": "2026-10-30T09:00:00+00:00",
             "stopId": "s2",
+            "type": "concern",
             "id": "t1",
             "anchor": {
                "kind": "code",
@@ -1642,6 +1643,30 @@ export const outputFixtures = {
                "outdatedOn": 1
             }
          ]
+      },
+      "typedThreads": {
+         "decisions": [],
+         "concerns": [
+            {
+               "id": "t1",
+               "anchor": {
+                  "kind": "code",
+                  "side": "head",
+                  "startLine": 1,
+                  "endLine": 2,
+                  "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "text": "line 1\nline 2",
+                  "path": "src/a.cs"
+               },
+               "stopId": "s2",
+               "stopTitle": "The writer",
+               "text": "Check the loop.",
+               "type": "concern",
+               "state": "open",
+               "note": true
+            }
+         ],
+         "openQuestions": []
       },
       "risks": [
          {
@@ -2153,6 +2178,7 @@ export const outputFixtures = {
          "text": "Check the loop.",
          "savedAt": "2026-10-30T09:00:00+00:00",
          "stopId": "s2",
+         "type": "concern",
          "id": "t1",
          "anchor": {
             "kind": "code",
@@ -2182,6 +2208,7 @@ export const outputFixtures = {
          "text": "Check the loop.",
          "savedAt": "2026-10-30T09:00:00+00:00",
          "stopId": "s2",
+         "type": "concern",
          "id": "t1",
          "anchor": {
             "kind": "code",
@@ -2206,6 +2233,7 @@ export const outputFixtures = {
          "text": "Check the loop.",
          "savedAt": "2026-10-30T09:00:00+00:00",
          "stopId": "s2",
+         "type": "concern",
          "id": "t1",
          "anchor": {
             "kind": "code",

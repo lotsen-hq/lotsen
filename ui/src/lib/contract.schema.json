@@ -1589,6 +1589,18 @@
         "text": {
           "description": "The note's new words as plain text, with no control characters but tabs and line breaks.",
           "type": "string"
+        },
+        "type": {
+          "description": "The kind of finding that the note holds: decision, concern or openQuestion. Omit it for a note without a type.",
+          "default": null,
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AnswerType"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -2087,6 +2099,9 @@
         "stopId": {
           "type": "string"
         },
+        "type": {
+          "$ref": "#/definitions/AnswerType"
+        },
         "id": {
           "type": "string"
         },
@@ -2412,7 +2427,7 @@
           "type": "object",
           "properties": {
             "input": {
-              "$ref": "#/definitions/AskQuestionInput"
+              "$ref": "#/definitions/SaveNoteInput"
             },
             "output": {
               "$ref": "#/definitions/UpdatedThread"
@@ -3696,6 +3711,9 @@
         "answers": {
           "$ref": "#/definitions/SummaryAnswers"
         },
+        "typedThreads": {
+          "$ref": "#/definitions/SummaryTypedThreads"
+        },
         "risks": {
           "type": "array",
           "items": {
@@ -3793,6 +3811,55 @@
       "required": [
         "kind",
         "target"
+      ],
+      "additionalProperties": false
+    },
+    "SaveNoteInput": {
+      "title": "SaveNoteInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "text": {
+          "description": "The reviewer's words as plain text, with no control characters but tabs and line breaks.",
+          "type": "string"
+        },
+        "anchor": {
+          "description": "Where the reviewer wrote the note: code for whole lines at one side, stopText for text selected in a prose field of a stop, file, stop, or tour.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AnchorInput"
+            }
+          ]
+        },
+        "stopId": {
+          "description": "The ID of the stop that the reviewer views while writing the note. Omit it when no stop is open.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "type": {
+          "description": "The kind of finding that the note holds: decision, concern or openQuestion. Omit it for a note without a type.",
+          "default": null,
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AnswerType"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "tourId",
+        "text",
+        "anchor"
       ],
       "additionalProperties": false
     },
@@ -4710,6 +4777,72 @@
         "open",
         "resolved",
         "outdated"
+      ]
+    },
+    "SummaryTypedThread": {
+      "title": "SummaryTypedThread",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "anchor": {
+          "$ref": "#/definitions/ThreadAnchor"
+        },
+        "stopId": {
+          "type": "string"
+        },
+        "stopTitle": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/AnswerType"
+        },
+        "state": {
+          "$ref": "#/definitions/ThreadState"
+        },
+        "note": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "anchor",
+        "text",
+        "type",
+        "state"
+      ]
+    },
+    "SummaryTypedThreads": {
+      "title": "SummaryTypedThreads",
+      "type": "object",
+      "properties": {
+        "decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SummaryTypedThread"
+          }
+        },
+        "concerns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SummaryTypedThread"
+          }
+        },
+        "openQuestions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SummaryTypedThread"
+          }
+        }
+      },
+      "required": [
+        "decisions",
+        "concerns",
+        "openQuestions"
       ]
     },
     "TextChange": {

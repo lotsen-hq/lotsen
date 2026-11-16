@@ -76,8 +76,9 @@ internal static class ThreadFixtures
    public static QuestionThread Started(string id, ThreadAnchor anchor, string text, string sessionId = "session1", QuestionThreadState state = QuestionThreadState.Open, DateTimeOffset? at = null) =>
       Parse(Thread("started", id, anchor, state, [AgentMessage($"m-{id}", sessionId, text, at ?? At)]));
 
-   /// <summary>Returns a note.</summary>
-   public static QuestionThread Note(string id, ThreadAnchor anchor, string text = "My note.", string? stopId = null, QuestionThreadState state = QuestionThreadState.Open, DateTimeOffset? at = null)
+   /// <summary>Returns a note, of the answer type when one is given.</summary>
+   public static QuestionThread Note(
+      string id, ThreadAnchor anchor, string text = "My note.", string? stopId = null, QuestionThreadState state = QuestionThreadState.Open, DateTimeOffset? at = null, AnswerType? type = null)
    {
       var thread = new JsonObject
       {
@@ -91,6 +92,11 @@ internal static class ThreadFixtures
       if (stopId is not null)
       {
          thread["stopId"] = stopId;
+      }
+
+      if (type is not null)
+      {
+         thread["type"] = JsonSerializer.SerializeToNode(type.Value, LotsenJsonContext.Default.AnswerType);
       }
 
       return Parse(thread);

@@ -25,6 +25,8 @@ public sealed class ThreadWalkTests : IDisposable
       new ThreadAnchor.StopText("s1", "why", "Old", 1),
    ];
 
+   private static readonly AnswerType?[] NoteTypes = [null, AnswerType.Decision, AnswerType.Concern, AnswerType.OpenQuestion];
+
    private static readonly Stop.Written Replaced = new("s1", "Rounding", StopKind.Inspect, "c1", new StopContent("Old.", [], How: "Kept.", Why: "Old why."), 1, []);
    private static readonly Stop.Written Written = Replaced with
    {
@@ -127,8 +129,8 @@ public sealed class ThreadWalkTests : IDisposable
             _ => new ThreadCommand.Ask(anchor, "Why?", null, session),
          },
          1 => new ThreadCommand.Start(anchor, "Look here.", session),
-         2 => new ThreadCommand.SaveNote(anchor, "My words.", null),
-         3 => new ThreadCommand.EditNote(threadId, random.Next(2) == 0 ? "My words." : "Other words."),
+         2 => new ThreadCommand.SaveNote(anchor, "My words.", null, Pick(random, NoteTypes)),
+         3 => new ThreadCommand.EditNote(threadId, random.Next(2) == 0 ? "My words." : "Other words.", Pick(random, NoteTypes)),
          4 => new ThreadCommand.DiscardNote(threadId),
          5 => new ThreadCommand.SendNotes([.. tour.Threads.OfType<QuestionThread.Note>().Select(note => note.Id).Where(_ => random.Next(2) == 0).DefaultIfEmpty(threadId)], session),
          6 => new ThreadCommand.FollowUp(threadId, "And?", null, session),

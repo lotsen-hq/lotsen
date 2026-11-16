@@ -2,7 +2,7 @@ import { createContext } from 'svelte';
 import { refusalReason, UnauthorizedError, type Api, type Revised } from './api';
 import type { ThreadsView } from './threadsView.svelte';
 import type { TourRecord } from './tourRecord.svelte';
-import type { AnchorInput, QuestionThread, ReviewerThreadState, TourActionInput } from './types';
+import type { AnchorInput, AnswerType, QuestionThread, ReviewerThreadState, TourActionInput } from './types';
 
 /** The operations that a tour's thread writes call. */
 export type ThreadOperations = Pick<
@@ -110,20 +110,21 @@ export class ThreadActions {
     * Saves the reviewer's words as a note about the anchor. It works with or without a bound session, and nothing reaches Claude until the reviewer sends the note.
     *
     * @param stopId - The stop under view, which the note names as the one the reviewer viewed, or null when none is open.
+    * @param type - The note's answer type, or null for a note without one.
     */
-   saveNote(anchor: AnchorInput, text: string, stopId: string | null): Promise<WriteResult> {
+   saveNote(anchor: AnchorInput, text: string, stopId: string | null, type: AnswerType | null): Promise<WriteResult> {
       return this.write(
-         (operations) => operations.saveNote(this.tourId, { text, anchor, ...viewed(stopId) }),
+         (operations) => operations.saveNote(this.tourId, { text, anchor, ...viewed(stopId), ...(type === null ? {} : { type }) }),
          ({ thread, updatedAt }) => ({ stored: [thread], updatedAt }),
          'The note could not be saved.',
          true,
       );
    }
 
-   /** Replaces the words of a note that is not sent. It works with or without a bound session. */
-   editNote(threadId: string, text: string): Promise<WriteResult> {
+   /** Replaces the words and the type of a note that is not sent, or takes the type away when it is null. It works with or without a bound session. */
+   editNote(threadId: string, text: string, type: AnswerType | null): Promise<WriteResult> {
       return this.write(
-         (operations) => operations.editNote(this.tourId, threadId, text),
+         (operations) => operations.editNote(this.tourId, threadId, text, type),
          ({ thread, updatedAt }) => ({ stored: [thread], updatedAt }),
          'The note could not be saved.',
          false,

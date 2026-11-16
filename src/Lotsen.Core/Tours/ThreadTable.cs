@@ -132,7 +132,7 @@ internal sealed partial class TourThreads
          (_, ThreadCommand.Report report) when CheckWaits(tour, DecisionRules.WaitsAlone(report.Decision), null, report.WaitField) is { } waits => new Decision.Refuse(waits),
          (_, ThreadCommand.Report report) => new Decision.Send(QuestionThread.Sent.Decided.Open(draft.NewId(), draft.NewQuestion(report.Text, report.StopId, report.Recipient), report.Decision), report.Recipient),
          (_, ThreadCommand.Start start) => new Decision.Put(QuestionThread.Sent.Started.Open(draft.NewId(), start.Anchor, ThreadMessage.AgentMessage.Written(draft.NewId(), draft.Now, start.Author.Id, start.Text))),
-         (_, ThreadCommand.SaveNote save) => new Decision.Put(QuestionThread.Note.Saved(draft.NewId(), save.Anchor, save.Text, draft.Now, save.StopId)),
+         (_, ThreadCommand.SaveNote save) => new Decision.Put(QuestionThread.Note.Saved(draft.NewId(), save.Anchor, save.Text, draft.Now, save.StopId, save.Type)),
 
          (null, ThreadCommand.EditNote or ThreadCommand.DiscardNote or ThreadCommand.SendNotes or ThreadCommand.FollowUp or ThreadCommand.SetState or ThreadCommand.Remove) =>
             new Decision.Refuse(OperationError.ThreadNotFound(tour.Id, named.Id)),
@@ -140,8 +140,8 @@ internal sealed partial class TourThreads
          (null or QuestionThread.Note, ThreadCommand.Resend or ThreadCommand.Cancel or ThreadCommand.Reply or ThreadCommand.MarkReceived) =>
             new Decision.Refuse(OperationError.QuestionNotFound(tour.Id, named.Id)),
 
-         (QuestionThread.Note note, ThreadCommand.EditNote edit) when note.Text == edit.Text => new Decision.Keep(),
-         (QuestionThread.Note note, ThreadCommand.EditNote edit) => new Decision.Put(note.Edited(edit.Text, draft.Now)),
+         (QuestionThread.Note note, ThreadCommand.EditNote edit) when note.Text == edit.Text && note.Type == edit.Type => new Decision.Keep(),
+         (QuestionThread.Note note, ThreadCommand.EditNote edit) => new Decision.Put(note.Edited(edit.Text, edit.Type, draft.Now)),
          (QuestionThread.Note, ThreadCommand.DiscardNote) => new Decision.Remove(),
          (QuestionThread.Note note, ThreadCommand.SendNotes send) => new Decision.Send(QuestionThread.Sent.Asked.From(note, draft.NewQuestion(note.Text, note.StopId, send.Recipient)), send.Recipient),
          (QuestionThread.Sent sent, ThreadCommand.EditNote or ThreadCommand.DiscardNote or ThreadCommand.SendNotes) => new Decision.Refuse(OperationError.NoteSent(sent.Id)),

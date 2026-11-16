@@ -11,6 +11,10 @@ namespace Lotsen.Tours;
 /// <param name="TourId">The tour's ID.</param>
 /// <param name="UpdatedAt">The tour's update time when the summary was built.</param>
 /// <param name="Answers">The reviewer's answers, grouped by their type, with the outdated answers apart.</param>
+/// <param name="TypedThreads">
+/// The threads that the reviewer gave an answer type, grouped by that type, or null when the summary holds none. JSON leaves it out when null, so a summary without one has the JSON and the
+/// <see cref="Fingerprint"/> of a summary from before typed threads.
+/// </param>
 /// <param name="Risks">The plan's risk stops, in plan order, which the summary lists as concerns.</param>
 /// <param name="Threads">The threads, notes and tour actions included, grouped by their state.</param>
 /// <param name="SkippedStops">The stops that the reviewer skipped, in plan order.</param>
@@ -27,6 +31,7 @@ internal sealed record ReviewSummary(
    TourId TourId,
    DateTimeOffset UpdatedAt,
    SummaryAnswers Answers,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SummaryTypedThreads? TypedThreads,
    IReadOnlyList<SummaryRisk> Risks,
    SummaryThreads Threads,
    IReadOnlyList<SummaryStop> SkippedStops,
@@ -37,8 +42,9 @@ internal sealed record ReviewSummary(
 {
    /// <summary>Returns the review summary of the tour.</summary>
    /// <remarks>
-   /// Pass the tour as <see cref="AgentView.For"/> shows it to the viewer, so an agent session's summary holds none of the reviewer's draft answers or notes. Within a group, answers follow
-   /// plan order and then check order, an answer whose stop the plan no longer has comes last, and threads keep the order they were started in.
+   /// Pass the tour as <see cref="AgentView.For"/> shows it to the viewer, so an agent session's summary holds none of the reviewer's draft answers or notes, typed notes included. Within a
+   /// group, answers follow plan order and then check order, an answer whose stop the plan no longer has comes last, and threads keep the order they were started in. A typed thread is listed
+   /// in the group of its type and in the group of its state.
    /// </remarks>
    /// <param name="shown">The tour as the viewer reads it.</param>
    /// <param name="stored">The stored tour, whose stops' earlier versions hold the questions of outdated answers. Claude wrote those questions, so they hold none of the reviewer's words.</param>
@@ -63,6 +69,7 @@ internal sealed record ReviewSummary(
       }
 
       List<SummaryThread> open = [], resolved = [], outdated = [];
+      List<SummaryTypedThread> typedDecisions = [], typedConcerns = [], typedOpenQuestions = [];
       foreach (var thread in shown.Threads)
       {
          var group = thread.State switch
@@ -72,13 +79,26 @@ internal sealed record ReviewSummary(
             QuestionThreadState.Outdated => outdated,
             _ => throw new UnreachableException($"The thread state {thread.State} has no group in the review summary."),
          };
-         group.Add(ThreadOf(thread, stops));
+         var entry = ThreadOf(thread, stops);
+         group.Add(entry);
+         if (thread is QuestionThread.Note { Type: { } type } note)
+         {
+            var typed = type switch
+            {
+               AnswerType.Decision => typedDecisions,
+               AnswerType.Concern => typedConcerns,
+               AnswerType.OpenQuestion => typedOpenQuestions,
+               _ => throw new UnreachableException($"The answer type {type} has no group in the review summary."),
+            };
+            typed.Add(new SummaryTypedThread(entry.Id, entry.Anchor, entry.StopId, entry.StopTitle, note.Text, type, thread.State, Note: true));
+         }
       }
 
       return new ReviewSummary(
          shown.Id,
          shown.UpdatedAt,
          new SummaryAnswers(decisions, concerns, openQuestions, outdatedAnswers),
+         typedDecisions.Count + typedConcerns.Count + typedOpenQuestions.Count == 0 ? null : new SummaryTypedThreads(typedDecisions, typedConcerns, typedOpenQuestions),
          [.. stops.Where(stop => stop.Kind == StopKind.Risk).Select(stop => new SummaryRisk(stop.Id, stop.Title, (stop as Stop.Written)?.Content.Scenario))],
          new SummaryThreads(open, resolved, outdated),
          [.. stops.Where(stop => stop.Skipped).Select(stop => new SummaryStop(stop.Id, stop.Title))],
@@ -198,6 +218,31 @@ internal sealed record SummaryAnswer(
    AnswerType Type,
    AnswerState State,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? OutdatedOn = null);
+
+/// <summary>The threads of a review summary that the reviewer gave an answer type, each group in the order the threads were started.</summary>
+/// <param name="Decisions">The threads of type decision.</param>
+/// <param name="Concerns">The threads of type concern.</param>
+/// <param name="OpenQuestions">The threads of type open question.</param>
+internal sealed record SummaryTypedThreads(IReadOnlyList<SummaryTypedThread> Decisions, IReadOnlyList<SummaryTypedThread> Concerns, IReadOnlyList<SummaryTypedThread> OpenQuestions);
+
+/// <summary>One thread of a review summary that the reviewer gave an answer type, with the reviewer's words and what its anchor is about.</summary>
+/// <param name="Id">The thread's ID.</param>
+/// <param name="Anchor">The thread's anchor as stored.</param>
+/// <param name="StopId">The stop that the thread is about, as <see cref="SummaryThread.StopId"/> names it. JSON leaves it out when null.</param>
+/// <param name="StopTitle">The stop's title, as <see cref="SummaryThread.StopTitle"/> names it. JSON leaves it out when null.</param>
+/// <param name="Text">The reviewer's words, as plain text.</param>
+/// <param name="Type">The thread's answer type, which the reviewer set.</param>
+/// <param name="State">The thread's state.</param>
+/// <param name="Note">Whether the thread is a note that the reviewer has not sent. JSON leaves it out when false.</param>
+internal sealed record SummaryTypedThread(
+   string Id,
+   ThreadAnchor Anchor,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? StopId,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? StopTitle,
+   string Text,
+   AnswerType Type,
+   QuestionThreadState State,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Note = false);
 
 /// <summary>One risk stop of a review summary.</summary>
 /// <param name="StopId">The stop's ID.</param>

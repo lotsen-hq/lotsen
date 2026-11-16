@@ -57,13 +57,15 @@ internal closed record QuestionThread
       /// <param name="text">The reviewer's words, as plain text.</param>
       /// <param name="savedAt">When the server stored the words, at the save or at the last edit that changed them.</param>
       /// <param name="stopId">The stop that the reviewer viewed while writing the note, or null for none.</param>
+      /// <param name="type">The note's answer type, or null for a note without one.</param>
       [JsonConstructor]
-      private Note(string id, ThreadAnchor anchor, QuestionThreadState state, string text, DateTimeOffset savedAt, string? stopId = null)
+      private Note(string id, ThreadAnchor anchor, QuestionThreadState state, string text, DateTimeOffset savedAt, string? stopId = null, AnswerType? type = null)
          : base(id, anchor, state)
       {
          Text = text ?? throw StoredData.Invalid($"Note {id} needs its words.");
          SavedAt = savedAt;
          StopId = stopId;
+         Type = type;
       }
 
       /// <summary>The reviewer's words, as plain text.</summary>
@@ -76,13 +78,20 @@ internal closed record QuestionThread
       [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
       public string? StopId { get; }
 
+      /// <summary>
+      /// The kind of finding that the reviewer filed the note as, or null for a note without one. The reviewer's review summary lists a typed note in the group of its type. JSON leaves it out
+      /// when null.
+      /// </summary>
+      [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+      public AnswerType? Type { get; }
+
       /// <summary>Returns a new open note.</summary>
-      internal static Note Saved(string id, ThreadAnchor anchor, string text, DateTimeOffset now, string? stopId) => new(id, anchor, QuestionThreadState.Open, text, now, stopId);
+      internal static Note Saved(string id, ThreadAnchor anchor, string text, DateTimeOffset now, string? stopId, AnswerType? type) => new(id, anchor, QuestionThreadState.Open, text, now, stopId, type);
 
-      /// <summary>Returns the note with new words, saved at <paramref name="now"/>.</summary>
-      internal Note Edited(string text, DateTimeOffset now) => new(Id, Anchor, State, text, now, StopId);
+      /// <summary>Returns the note with the words and the type. New words take <paramref name="now"/> as their save time, and the same words keep theirs.</summary>
+      internal Note Edited(string text, AnswerType? type, DateTimeOffset now) => new(Id, Anchor, State, text, text == Text ? SavedAt : now, StopId, type);
 
-      private protected override QuestionThread Rebuilt(ThreadAnchor anchor, QuestionThreadState state) => new Note(Id, anchor, state, Text, SavedAt, StopId);
+      private protected override QuestionThread Rebuilt(ThreadAnchor anchor, QuestionThreadState state) => new Note(Id, anchor, state, Text, SavedAt, StopId, Type);
    }
 
    /// <summary>A thread that reached an agent session, with its messages in the order they were written.</summary>

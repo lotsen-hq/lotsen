@@ -43,6 +43,7 @@ public sealed class ThreadLoadTests
          [With(ThreadFixtures.Thread("decided", "t1", new ThreadAnchor.WholeTour(), QuestionThreadState.Open, [ThreadFixtures.AgentMessage("m1", "s1", "Hi.", At)]), "decision", JsonNode.Parse(PlanApproved))],
       ["a decision of an unknown kind"] = () => [With(Decided("t1"), "decision", new JsonObject { ["kind"] = "approvePlan", ["stopIds"] = new JsonArray(), ["skippedStops"] = new JsonArray(), ["familiarity"] = "some" })],
       ["a note with messages"] = () => [With(Note("t1"), "messages", new JsonArray())],
+      ["a note of an unknown type"] = () => [With(Note("t1"), "type", "suggestion")],
       ["an asked thread that starts with an agent message"] = () => [ThreadFixtures.Thread("asked", "t1", new ThreadAnchor.WholeTour(), QuestionThreadState.Open, [ThreadFixtures.AgentMessage("m1", "s1", "Hi.", At)])],
       ["a started thread that starts with a question"] = () => [ThreadFixtures.Thread("started", "t1", new ThreadAnchor.WholeTour(), QuestionThreadState.Open, [Pending("q1", "r1")])],
       ["a sent thread with no messages"] = () => [Asked("t1", [])],
@@ -70,6 +71,7 @@ public sealed class ThreadLoadTests
          Started("t2"),
          Asked("t3", [ThreadFixtures.Question("q1", "Why?", "s1", At, ("r1", RequestState.Canceled, "s1"), ("r2", RequestState.Done, "s2")), Reply("a1", "r2", "s2"), Pending("q2", "r3")]),
          Decided("t4"),
+         With(Note("t5"), "type", "openQuestion"),
       ];
 
       var loaded = JsonSerializer.Deserialize(threads.ToJsonString(), LotsenJsonContext.Default.TourThreads)!;
@@ -79,6 +81,7 @@ public sealed class ThreadLoadTests
       Assert.Equal(("q2", "q2"), (asked.LastQuestion!.Id, asked.Waiting!.Id));
       Assert.Equal("r2", ((ThreadMessage.Question)asked.Messages[0]).Answered!.Id);
       Assert.Equal(["s2", "s1"], Assert.IsType<ReviewerDecision.PlanApproved>(Assert.IsType<QuestionThread.Sent.Decided>(loaded[3]).Decision).StopIds);
+      Assert.Equal(AnswerType.OpenQuestion, Assert.IsType<QuestionThread.Note>(loaded[4]).Type);
    }
 
    [Fact]

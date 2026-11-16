@@ -82,7 +82,7 @@ internal static class ContractSamples
 
    private static readonly CheckAnswer Outdated = new("s2", "c0", "Fine.", AnswerType.Decision, AnswerState.Received, At, Batch with { ReceivedAt = Later }, outdatedOn: 1);
 
-   private static readonly QuestionThread NoteThread = ThreadFixtures.Note("t1", new ThreadAnchor.CodeRange(FileSide.Head, "src/a.cs", 1, 2, Head, "line 1\nline 2"), "Check the loop.", stopId: "s2");
+   private static readonly QuestionThread NoteThread = ThreadFixtures.Note("t1", new ThreadAnchor.CodeRange(FileSide.Head, "src/a.cs", 1, 2, Head, "line 1\nline 2"), "Check the loop.", stopId: "s2", type: AnswerType.Concern);
 
    private static readonly QuestionThread AskedThread = ThreadFixtures.Parse(Asked());
 
@@ -197,6 +197,9 @@ internal static class ContractSamples
          new PreferenceList(new Dictionary<string, string> { ["lotsen.theme"] = "dark", [Preference.Key] = Preference.Value! }),
          Preference,
       ];
+
+   /// <summary>Returns the summary of the sample tour that an agent session reads, with its fingerprint at the tour's pin.</summary>
+   public static (ReviewSummary Summary, SummaryFingerprint Fingerprint) AgentSummary() => (AgentView.Summary(Tour), AgentView.Summary(Tour).Fingerprint(Tour.Pin));
 
    /// <summary>Returns the controls of the sample tour while a session holds it, as a response and a <c>controlsChanged</c> event carry them.</summary>
    public static TourControls Controls() => TourControls.Of(Tour, new AgentSessions().TryOpen()!.Recipient);

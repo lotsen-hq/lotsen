@@ -41,10 +41,16 @@ const askBox = () => panel().getByRole('textbox', { name: 'Question for Claude' 
 const sendButton = () => panel().getByRole('button', { name: 'Send' }) as HTMLButtonElement;
 const saveButton = () => panel().getByRole('button', { name: 'Save as note' }) as HTMLButtonElement;
 const batchButton = () => panel().getByRole('button', { name: 'Send chosen notes' }) as HTMLButtonElement;
+const askBoxType = () => panel().getByRole('combobox', { name: 'Note type' }) as HTMLSelectElement;
 /** Chooses a note for the next note batch in its thread view, and goes back to the thread list. */
 async function chooseNote(threadId: string): Promise<void> {
    await fireEvent.click((await openThreadView(threadId)).getByRole('checkbox', { name: 'Send with other notes' }));
    await backToList();
+}
+
+/** Returns the type of a thread that is a note, or null for a note without one, or undefined for a sent thread. */
+function noteType(thread: QuestionThread | undefined): string | null | undefined {
+   return thread?.kind === 'note' ? (thread.type ?? null) : undefined;
 }
 
 /** Returns the words of a thread that is a note, or undefined for a sent thread. */
@@ -150,6 +156,62 @@ describe('notes in the Threads panel', () => {
       expect(view.getByText('Draft')).toBeTruthy();
       expect(view.queryByRole('textbox', { name: 'Follow-up for Claude' })).toBeNull();
       expect((view.getByRole('button', { name: 'Send to Claude' }) as HTMLButtonElement).disabled).toBe(true);
+   });
+
+   it('saves a note with the type chosen in the ask box, and the next note starts without a type', async () => {
+      const { world, tourId, app } = await start(false);
+      expect(askBoxType().value).toBe('');
+
+      await fireEvent.change(askBoxType(), { target: { value: 'concern' } });
+      await saveNote(app, 'The cap drifts.');
+      await waitFor(() => expect(askBox().value).toBe(''));
+      await saveNote(app, 'Later.');
+
+      await waitFor(async () => expect((await threadsOf(world, tourId)).map(noteType)).toEqual(['concern', null]));
+      expect(askBoxType().value).toBe('');
+      expect([...askBoxType().options].map((option) => option.textContent)).toEqual(['No type', 'Decision', 'Concern', 'Open question']);
+   });
+
+   it("changes a note's type in its thread view, which keeps its words and the time it saved them", async () => {
+      const {
+         world,
+         tourId,
+         notes: [n1],
+      } = await start(false, ['The cap drifts.']);
+      const [saved] = await threadsOf(world, tourId);
+      const view = await openThreadView(n1);
+      const chip = () => view.getByRole('combobox', { name: 'Note type' }) as HTMLSelectElement;
+      expect(chip().value).toBe('');
+
+      await fireEvent.change(chip(), { target: { value: 'openQuestion' } });
+
+      await waitFor(async () => expect(noteType((await threadsOf(world, tourId))[0])).toBe('openQuestion'));
+      const [retyped] = await threadsOf(world, tourId);
+      expect(noteText(retyped)).toBe('The cap drifts.');
+      expect(retyped?.kind === 'note' && saved?.kind === 'note' && retyped.savedAt === saved.savedAt).toBe(true);
+      await waitFor(() => expect(chip().value).toBe('openQuestion'));
+
+      await fireEvent.change(chip(), { target: { value: '' } });
+
+      await waitFor(async () => expect(noteType((await threadsOf(world, tourId))[0])).toBeNull());
+   });
+
+   it("keeps a note's type when the reviewer edits its words", async () => {
+      const {
+         world,
+         tourId,
+         notes: [n1],
+      } = await start(false, ['First words.']);
+      const view = await openThreadView(n1);
+      await fireEvent.change(view.getByRole('combobox', { name: 'Note type' }), { target: { value: 'decision' } });
+      await waitFor(async () => expect(noteType((await threadsOf(world, tourId))[0])).toBe('decision'));
+
+      await fireEvent.click(view.getByRole('button', { name: 'Edit' }));
+      await fireEvent.input(view.getByRole('textbox', { name: 'Note' }), { target: { value: 'Second words.' } });
+      await fireEvent.click(view.getByRole('button', { name: 'Save' }));
+
+      await waitFor(async () => expect(noteText((await threadsOf(world, tourId))[0])).toBe('Second words.'));
+      expect(noteType((await threadsOf(world, tourId))[0])).toBe('decision');
    });
 
    it("edits a note's words and keeps it a draft", async () => {

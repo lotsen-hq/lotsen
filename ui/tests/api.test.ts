@@ -57,7 +57,8 @@ describe('the operation wire', () => {
       await api.askFollowUp('t1', 'th 1', { text: 'And then?', stopId: 's1' });
       await api.setThreadState('t1', 'th 1', 'resolved');
       await api.removeThread('t1', 'th 1');
-      await api.editNote('t1', 'n1', 'Words.');
+      await api.editNote('t1', 'n1', 'Words.', null);
+      await api.editNote('t1', 'n1', 'Words.', 'openQuestion');
       await api.discardNote('t1', 'n1');
       await api.sendNotes('t1', ['n1', 'n2']);
       await api.answerCheck('t1', 's1', 'c1', { text: 'Yes.', fromSuggestion: true });
@@ -87,6 +88,7 @@ describe('the operation wire', () => {
          ['set_thread_state', { tourId: 't1', threadId: 'th 1', state: 'resolved' }],
          ['remove_thread', { tourId: 't1', threadId: 'th 1' }],
          ['edit_note', { tourId: 't1', threadId: 'n1', text: 'Words.' }],
+         ['edit_note', { tourId: 't1', threadId: 'n1', text: 'Words.', type: 'openQuestion' }],
          ['discard_note', { tourId: 't1', threadId: 'n1' }],
          ['send_notes', { tourId: 't1', threadIds: ['n1', 'n2'] }],
          ['answer_check', { tourId: 't1', stopId: 's1', checkId: 'c1', text: 'Yes.', fromSuggestion: true }],

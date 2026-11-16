@@ -47,8 +47,13 @@ internal sealed class ThreadCalls
    public async Task<JsonNode> AskAsync(string tourId, string text = "What does this tour cover?") =>
       await CallAsync(await UiAsync(On("ask_question", tourId)), NoteBody(text));
 
-   /// <summary>Saves a note about the tour as the UI and returns the response, the thread with the tour's update time.</summary>
-   public async Task<JsonNode> SaveNoteAsync(string tourId, string text = "Check the rounding later.") => await CallAsync(await UiAsync(On("save_note", tourId)), NoteBody(text));
+   /// <summary>Saves a note about the tour as the UI, of the answer type when one is given, and returns the response, the thread with the tour's update time.</summary>
+   public async Task<JsonNode> SaveNoteAsync(string tourId, string text = "Check the rounding later.", string? type = null) =>
+      await CallAsync(await UiAsync(On("save_note", tourId)), type is null ? NoteBody(text) : $$"""{ "text": "{{text}}", "anchor": { "kind": "tour" }, "type": "{{type}}" }""");
+
+   /// <summary>Edits a note as the UI, to the words and the answer type when one is given, and returns the response, the thread with the tour's update time.</summary>
+   public async Task<JsonNode> EditNoteAsync(string tourId, string threadId, string text, string? type = null) =>
+      await CallAsync(await UiAsync(On("edit_note", tourId, threadId: threadId)), type is null ? $$"""{ "text": "{{text}}" }""" : $$"""{ "text": "{{text}}", "type": "{{type}}" }""");
 
    /// <summary>Sends notes as the UI and returns the response, the sent threads with the tour's update time.</summary>
    public async Task<JsonNode> SendNotesAsync(string tourId, params string[] threadIds) => await CallAsync(await UiAsync(On("send_notes", tourId)), SendBody(threadIds));

@@ -2,8 +2,8 @@
    The thread view: one thread of the Threads panel in place of the thread list. A header holds the back arrow, the link to where the thread was asked, the title, the resolve or reopen and the
    thread's ⋯ button, and a right-click on the header opens the same menu, as `ThreadMenu` says. Under it the messages scroll in the order they were written, then a question that waits for Claude
    with its cancel and re-send. Claude's messages open with Claude's name. The line under each message holds its time and state, and the reviewer's messages name their writer there. The follow-up
-   box stays at the bottom. A note shows its words as a draft, with its edit, its send and its choice for a note batch at the bottom instead. The reviewer's messages show as text and Claude's as
-   the server rendered them, as chat bubbles or across the panel's width, as the message style says.
+   box stays at the bottom. A note shows its words as a draft, with its type, its edit, its send and its choice for a note batch at the bottom instead. The reviewer's messages show as text and
+   Claude's as the server rendered them, as chat bubbles or across the panel's width, as the message style says.
 -->
 <script lang="ts">
    import ArrowLeft from '@lucide/svelte/icons/arrow-left';
@@ -39,8 +39,9 @@
       type Question,
    } from '../lib/threadView';
    import { subjectSummary } from '../lib/tourActions';
-   import type { CodeReference, Plan, QuestionThread, RequestState, ReviewerThreadState, ThreadAnchor, ThreadMessage, TourControls } from '../lib/types';
+   import type { AnswerType, CodeReference, Plan, QuestionThread, RequestState, ReviewerThreadState, ThreadAnchor, ThreadMessage, TourControls } from '../lib/types';
    import Composer from './Composer.svelte';
+   import NoteTypeChip from './NoteTypeChip.svelte';
    import Prose from './Prose.svelte';
    import ThreadMenu from './ThreadMenu.svelte';
    import TooltipButton from './TooltipButton.svelte';
@@ -251,12 +252,22 @@
 
       const threadId = thread.id;
       const words = editText;
+      const type = note?.type ?? null;
       writes.saving = words;
-      const saved = await settle(noteWrite, () => actions.editNote(threadId, words));
+      const saved = await settle(noteWrite, () => actions.editNote(threadId, words, type));
       writes.saving = null;
       // Words typed while the save was in flight keep the editor open.
       if (saved && drafts.noteEdit(threadId) === words) {
          drafts.setNoteEdit(threadId, null);
+      }
+   }
+
+   // A change of the type alone keeps the stored words, so an edit in progress stays open with its own.
+   async function setNoteType(type: AnswerType | null): Promise<void> {
+      if (note !== null) {
+         const threadId = note.id;
+         const words = note.text;
+         await settle(noteWrite, () => actions.editNote(threadId, words, type));
       }
    }
 
@@ -456,6 +467,7 @@
    {#if note !== null}
       <div class="flex shrink-0 flex-col gap-2 border-t px-4 py-3" role="group" aria-label="Note">
          <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <NoteTypeChip value={note.type ?? null} onpick={setNoteType} />
             <label class="flex items-center gap-1.5 text-sm">
                <input type="checkbox" class="size-4 accent-primary" checked={chosen} onchange={(event) => onchoose(event.currentTarget.checked)} />
                Send with other notes

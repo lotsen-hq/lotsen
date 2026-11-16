@@ -1,6 +1,7 @@
 <!--
    The tour's summary page, which the center shows after the plan's last stop: the review summary as the server built it, with each item linked to its stop, its check or its thread.
-   It writes nothing. The reviewer's answers are plain text, and only the questions, the scenarios and Claude's synthesis that the server rendered go in as HTML.
+   Each group of a type lists the reviewer's typed notes after the answers, marked as the reviewer's own, and counts them. It writes nothing. The reviewer's answers and notes are plain text,
+   and only the questions, the scenarios and Claude's synthesis that the server rendered go in as HTML.
 -->
 <script lang="ts">
    import type { Snippet } from 'svelte';
@@ -10,9 +11,9 @@
    import { anchorLabel, shortened } from '../lib/labels';
    import type { LinkHover } from '../lib/linkHover';
    import { pinnedReferenceAtPin, type PinCommits } from '../lib/pin';
-   import { threadWords } from '../lib/threadView';
    import { summaryThreadKindLabel } from '../lib/tourActions';
-   import type { CheckAnswer, CodeReference, Plan, QuestionThread, SummaryAnswer, SummaryThread } from '../lib/types';
+   import { threadStateLabels, threadWords } from '../lib/threadView';
+   import type { CheckAnswer, CodeReference, Plan, QuestionThread, SummaryAnswer, SummaryThread, SummaryTypedThread, SummaryTypedThreads } from '../lib/types';
    import Prose from './Prose.svelte';
    import StopKindPill from './StopKindPill.svelte';
    import WarningNotice from './WarningNotice.svelte';
@@ -60,6 +61,7 @@
 
    const id = $props.id();
    const threadLength = 160;
+   const noTypedThreads: SummaryTypedThreads = { decisions: [], concerns: [], openQuestions: [] };
    const byId = $derived(new Map(threads.map((thread) => [thread.id, thread])));
 
    // A thread that the page does not know yet, as when the summary arrives before the thread's event, shows what the summary says of it.
@@ -102,6 +104,23 @@
       <h3 id="{id}-{key}" class="summary-heading">{title} <span class="text-muted-foreground tabular-nums">{count}</span></h3>
       {@render body()}
    </section>
+{/snippet}
+
+{#snippet typedList(entries: readonly SummaryTypedThread[])}
+   {#each entries as entry (entry.id)}
+      <li class="summary-item">
+         <Button variant="link" size="sm" class="h-auto justify-start p-0 text-left whitespace-normal" onclick={() => onopenthread(entry.id)}>{shortened(entry.text, threadLength)}</Button>
+         <div class="summary-meta">
+            {#if entry.note}
+               <span class="summary-state">Your note</span>
+            {/if}
+            {#if entry.state !== 'open'}
+               <span class="summary-state">{threadStateLabels[entry.state]}</span>
+            {/if}
+            <span class="min-w-0 text-muted-foreground">{anchorLabel(entry.anchor, plan)}</span>
+         </div>
+      </li>
+   {/each}
 {/snippet}
 
 {#snippet answerList(answers: readonly SummaryAnswer[], empty: string, after?: Snippet)}
@@ -195,8 +214,12 @@
                </div>
             </section>
          {/if}
+         {@const typed = summary.typedThreads ?? noTypedThreads}
+         {#snippet typedDecisions()}
+            {@render typedList(typed.decisions)}
+         {/snippet}
          {#snippet decisions()}
-            {@render answerList(summary.answers.decisions, 'None yet.')}
+            {@render answerList(summary.answers.decisions, 'None yet.', typed.decisions.length > 0 ? typedDecisions : undefined)}
          {/snippet}
          {#snippet risks()}
             {#each summary.risks as risk (risk.stopId)}
@@ -213,11 +236,18 @@
                </li>
             {/each}
          {/snippet}
+         {#snippet typedConcernsAndRisks()}
+            {@render typedList(typed.concerns)}
+            {@render risks()}
+         {/snippet}
          {#snippet concerns()}
-            {@render answerList(summary.answers.concerns, 'None yet.', summary.risks.length > 0 ? risks : undefined)}
+            {@render answerList(summary.answers.concerns, 'None yet.', typed.concerns.length + summary.risks.length > 0 ? typedConcernsAndRisks : undefined)}
+         {/snippet}
+         {#snippet typedOpenQuestions()}
+            {@render typedList(typed.openQuestions)}
          {/snippet}
          {#snippet openQuestions()}
-            {@render answerList(summary.answers.openQuestions, 'None yet.')}
+            {@render answerList(summary.answers.openQuestions, 'None yet.', typed.openQuestions.length > 0 ? typedOpenQuestions : undefined)}
          {/snippet}
          {#snippet outdatedAnswers()}
             {@render answerList(summary.answers.outdated, 'None.')}
@@ -256,9 +286,9 @@
                </ul>
             {/if}
          {/snippet}
-         {@render group('decisions', 'Decisions', summary.answers.decisions.length, decisions)}
-         {@render group('concerns', 'Concerns', summary.answers.concerns.length + summary.risks.length, concerns)}
-         {@render group('open-questions', 'Open questions', summary.answers.openQuestions.length, openQuestions)}
+         {@render group('decisions', 'Decisions', summary.answers.decisions.length + typed.decisions.length, decisions)}
+         {@render group('concerns', 'Concerns', summary.answers.concerns.length + typed.concerns.length + summary.risks.length, concerns)}
+         {@render group('open-questions', 'Open questions', summary.answers.openQuestions.length + typed.openQuestions.length, openQuestions)}
          {#if summary.answers.outdated.length > 0}
             {@render group('outdated-answers', 'Outdated answers', summary.answers.outdated.length, outdatedAnswers)}
          {/if}

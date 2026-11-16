@@ -131,6 +131,87 @@ public sealed class NoteTests : IAsyncLifetime
    }
 
    [Fact]
+   public async Task Note_saved_with_a_type_keeps_it_and_one_saved_without_a_type_has_none()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+
+      var typed = await _calls.SaveNoteAsync(id, "The cap is wrong.", "concern");
+      var untyped = await _calls.SaveNoteAsync(id, "Later.");
+
+      Assert.Equal("concern", (string)typed["thread"]!["type"]!);
+      Assert.False(untyped["thread"]!.AsObject().ContainsKey("type"), $"A note without a type holds one: {untyped["thread"]}");
+      var stored = await _calls.ThreadsAsync(id);
+      Assert.True(JsonNode.DeepEquals(new JsonArray(typed["thread"]!.DeepClone(), untyped["thread"]!.DeepClone()), stored), $"The stored notes differ from the saves: {stored}");
+   }
+
+   /// <summary>The save time tells when the server stored the words, so a change of the type alone keeps it.</summary>
+   [Fact]
+   public async Task Note_edit_of_the_type_alone_stores_the_type_keeps_the_save_time_and_reaches_other_views_as_an_event()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      var saved = await _calls.SaveNoteAsync(id, "The cap is wrong.");
+      var threadId = ThreadIdOf(saved["thread"]!);
+      await using var stream = await EventStream.OpenAsync(_harness);
+
+      var edited = await _calls.EditNoteAsync(id, threadId, "The cap is wrong.", "openQuestion");
+      var updated = await stream.NextAsync(EventWait);
+
+      Assert.Equal("openQuestion", (string)edited["thread"]!["type"]!);
+      Assert.Equal((string)saved["thread"]!["savedAt"]!, (string)edited["thread"]!["savedAt"]!);
+      Assert.Equal(ServerEvents.ThreadUpdated.Name, updated.Type);
+      Assert.True(JsonNode.DeepEquals(edited["thread"], EventStream.WithoutStatus(updated.Data["thread"]!)), $"The event's thread differs from the response's: {updated.Data}");
+      Assert.True(JsonNode.DeepEquals(edited["thread"], (await _calls.ThreadsAsync(id))[0]), "The stored note differs from the edit's.");
+   }
+
+   [Fact]
+   public async Task Note_edit_without_a_type_takes_the_type_away()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      var saved = await _calls.SaveNoteAsync(id, "The cap is wrong.", "decision");
+
+      var edited = await _calls.EditNoteAsync(id, ThreadIdOf(saved["thread"]!), "The cap is wrong.");
+
+      Assert.False(edited["thread"]!.AsObject().ContainsKey("type"), $"The edited note keeps a type: {edited["thread"]}");
+      Assert.False((await _calls.ThreadsAsync(id))[0]!.AsObject().ContainsKey("type"), "The stored note keeps a type.");
+   }
+
+   /// <summary>The question asked after the edit is the next event of the stream, so the edit published none.</summary>
+   [Fact]
+   public async Task Note_edit_with_the_same_words_and_type_stores_nothing_and_publishes_no_event()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      var saved = await _calls.SaveNoteAsync(id, "The cap is wrong.", "concern");
+      await using var stream = await EventStream.OpenAsync(_harness);
+
+      var edited = await _calls.EditNoteAsync(id, ThreadIdOf(saved["thread"]!), "The cap is wrong.", "concern");
+      var marker = await _calls.AskAsync(id);
+      var next = await stream.NextAsync(EventWait);
+
+      Assert.Equal((string)saved["updatedAt"]!, (string)edited["updatedAt"]!);
+      Assert.Equal((ServerEvents.ThreadCreated.Name, ThreadIdOf(marker)), (next.Type, ThreadIdOf(next.Data["thread"]!)));
+   }
+
+   [Theory]
+   [InlineData("save_note", """{ "text": "Later.", "anchor": { "kind": "tour" }, "type": "suggestion" }""")]
+   [InlineData("edit_note", """{ "text": "Later.", "type": "Concern" }""")]
+   public async Task Note_with_an_unknown_type_is_refused_and_stores_nothing(string operation, string body)
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      var saved = await _calls.SaveNoteAsync(id, "Later.");
+
+      using var response = await _calls.SendAsync(await _calls.UiAsync(On(operation, id, threadId: operation == "edit_note" ? ThreadIdOf(saved["thread"]!) : null)), body);
+
+      var error = await ErrorAsync(response, HttpStatusCode.BadRequest, "invalidInput");
+      Assert.Equal("type", (string)error["field"]!);
+      Assert.True(JsonNode.DeepEquals(new JsonArray(saved["thread"]!.DeepClone()), await _calls.ThreadsAsync(id)), "The refused write changed the threads.");
+   }
+
+   [Fact]
    public async Task Note_edit_and_discard_work_with_no_session_bound()
    {
       var session = await AgentSessionConnection.OpenAsync(_harness);

@@ -45,11 +45,12 @@ internal static class ThreadOpener
          pass, input.TourId, Check(ThreadOpening.Question, input), Gather(files, ThreadOpening.Question, input),
          (edit, anchor) => Stored(edit, edit.Threads.Ask(Placed(edit, anchor), input.Text, input.StopId)), cancellationToken);
 
-   /// <summary>Stores the reviewer's note as a new thread at the input's anchor, with the anchor checks of <see cref="StoreQuestionAsync"/>. The tour needs no bound session.</summary>
-   public static Task<OperationResult<StoredThread>> StoreNoteAsync(TourWriter writer, FileOperations files, Access.Reviewer.Pass pass, NewThreadInput input, CancellationToken cancellationToken) =>
+   /// <summary>Stores the reviewer's note of the type as a new thread at the input's anchor, with the anchor checks of <see cref="StoreQuestionAsync"/>. The tour needs no bound session.</summary>
+   public static Task<OperationResult<StoredThread>> StoreNoteAsync(
+      TourWriter writer, FileOperations files, Access.Reviewer.Pass pass, NewThreadInput input, AnswerType? type, CancellationToken cancellationToken) =>
       writer.WriteAfterGitAsync<ThreadAnchor, StoredThread>(
          pass, input.TourId, Check(ThreadOpening.Note, input), Gather(files, ThreadOpening.Note, input),
-         (edit, anchor) => Stored(edit, edit.Threads.Apply(new ThreadCommand.SaveNote(Placed(edit, anchor), input.Text, input.StopId))), cancellationToken);
+         (edit, anchor) => Stored(edit, edit.Threads.Apply(new ThreadCommand.SaveNote(Placed(edit, anchor), input.Text, input.StopId, type))), cancellationToken);
 
    /// <summary>
    /// Stores the bound session's agent message as a new thread at the input's anchor, with the anchor checks of <see cref="StoreQuestionAsync"/>. Its <c>ref:</c> links pass the checks of a

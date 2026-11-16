@@ -81,8 +81,8 @@ async function threadWrite(app: LotsenApp, write: (actions: ThreadActions) => Pr
 }
 
 const writes: Write[] = [
-   { name: 'a note save', run: (app, { tour }) => threadWrite(app, (actions) => actions.saveNote({ kind: 'tour' }, 'A concern.', tour.stopIds[0]!)) },
-   { name: 'a note edit', setup: note, run: (app, { threadId }) => threadWrite(app, (actions) => actions.editNote(threadId, 'A sharper concern.')) },
+   { name: 'a note save', run: (app, { tour }) => threadWrite(app, (actions) => actions.saveNote({ kind: 'tour' }, 'A concern.', tour.stopIds[0]!, 'concern')) },
+   { name: 'a note edit', setup: note, run: (app, { threadId }) => threadWrite(app, (actions) => actions.editNote(threadId, 'A sharper concern.', 'concern')) },
    { name: 'a note discard', setup: note, run: (app, { threadId }) => threadWrite(app, (actions) => actions.discardNote(threadId)) },
    { name: 'a note send', setup: note, run: (app, { threadId }) => threadWrite(app, (actions) => actions.sendNotes([threadId])) },
    {

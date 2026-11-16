@@ -60,6 +60,52 @@ public sealed class ReadSummaryTests : IAsyncLifetime
       Assert.Equal(["t1", "t3", "t6"], summary["threads"]!["open"]!.AsArray().Select(thread => (string)thread!["id"]!));
    }
 
+   [Theory]
+   [InlineData("open")]
+   [InlineData("resolved")]
+   [InlineData("outdated")]
+   public async Task Ui_summary_lists_a_typed_note_in_the_group_of_its_type_in_each_thread_state_and_the_agent_summary_does_not(string state)
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      var stored = Seed(id, session.Id, tour => tour with
+      {
+         Threads = ThreadFixtures.Threads([.. tour.Threads, ThreadFixtures.Note("t9", new ThreadAnchor.WholeStop("s3"), "The cap drifts.", state: StateOf(state), type: AnswerType.Concern)]),
+      });
+
+      var ui = await _calls.CallAsync(await _calls.UiAsync(On("read_summary", id)));
+      var agent = await _calls.CallAsync(_calls.Agent(session, On("read_summary", id)));
+
+      var concern = Assert.Single(ui["typedThreads"]!["concerns"]!.AsArray())!;
+      var expected = JsonNode.Parse(
+         $$"""{ "id": "t9", "anchor": { "kind": "stop", "stopId": "s3" }, "stopId": "s3", "stopTitle": "Rounding on stacked discounts", "text": "The cap drifts.", "type": "concern", "state": "{{state}}", "note": true }""");
+      Assert.True(JsonNode.DeepEquals(expected, concern), $"The typed note reads {concern}");
+      Assert.Empty(ui["typedThreads"]!["decisions"]!.AsArray());
+      Assert.Empty(ui["typedThreads"]!["openQuestions"]!.AsArray());
+      Assert.Contains(ui["threads"]![state]!.AsArray(), thread => (string)thread!["id"]! == "t9");
+      Assert.Null(agent["typedThreads"]);
+      Assert.DoesNotContain("The cap drifts.", agent.ToJsonString(), StringComparison.Ordinal);
+      Assert.Equal(stored.UpdatedAt, ui["updatedAt"]!.GetValue<DateTimeOffset>());
+   }
+
+   /// <summary>A follow-up action collects its items from the summary that Claude reads, so a typed note gives draftWorkItems nothing to hand.</summary>
+   [Fact]
+   public async Task Ui_summary_with_a_typed_decision_note_and_no_decision_sent_names_why_draft_work_items_has_nothing_to_hand()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(_harness);
+      var id = await _calls.CreateAsync(session);
+      Seed(id, session.Id, tour => tour with
+      {
+         Answers = [.. tour.Answers.Where(answer => answer.Type != AnswerType.Decision)],
+         Threads = ThreadFixtures.Threads(ThreadFixtures.Note("t9", new ThreadAnchor.WholeTour(), "Keep the cap.", type: AnswerType.Decision)),
+      });
+
+      var summary = await _calls.CallAsync(await _calls.UiAsync(On("read_summary", id)));
+
+      Assert.Single(summary["typedThreads"]!["decisions"]!.AsArray());
+      Assert.Equal(ActionRules.NoDecisionSent, (string)summary["followUps"]![TourAction.DraftWorkItemsKind]!);
+   }
+
    /// <summary>An agent session's tour holds no earlier versions, so the question of an outdated answer comes from the stored tour.</summary>
    [Fact]
    public async Task Agent_summary_names_the_question_of_an_outdated_answer()
@@ -121,6 +167,7 @@ public sealed class ReadSummaryTests : IAsyncLifetime
       Assert.Equal(id, (string)summary["tourId"]!);
       Assert.All(["decisions", "concerns", "openQuestions", "outdated"], group => Assert.Empty(summary["answers"]![group]!.AsArray()));
       Assert.All(["open", "resolved", "outdated"], group => Assert.Empty(summary["threads"]![group]!.AsArray()));
+      Assert.Null(summary["typedThreads"]);
       Assert.All(["risks", "skippedStops", "staleStops"], list => Assert.Empty(summary[list]!.AsArray()));
    }
 
@@ -134,9 +181,16 @@ public sealed class ReadSummaryTests : IAsyncLifetime
 
    private static IEnumerable<string> CheckIds(JsonNode answers) => answers.AsArray().Select(answer => (string)answer!["checkId"]!);
 
-   private Tour Seed(string tourId, string sessionId)
+   private Tour Seed(string tourId, string sessionId, Func<Tour, Tour>? change = null)
    {
       Assert.True(TourId.TryParse(tourId, out var id), $"The tour ID {tourId} does not parse.");
-      return _harness.ChangeStored(id, tour => SummaryTours.Apply(tour, sessionId))!;
+      return _harness.ChangeStored(id, tour => (change ?? (seeded => seeded))(SummaryTours.Apply(tour, sessionId)))!;
    }
+
+   private static QuestionThreadState StateOf(string state) => state switch
+   {
+      "resolved" => QuestionThreadState.Resolved,
+      "outdated" => QuestionThreadState.Outdated,
+      _ => QuestionThreadState.Open,
+   };
 }

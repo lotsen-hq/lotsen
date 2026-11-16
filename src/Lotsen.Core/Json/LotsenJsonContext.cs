@@ -94,6 +94,7 @@ namespace Lotsen.Json;
 [JsonSerializable(typeof(DeleteThreadInput))]
 [JsonSerializable(typeof(RemoveThreadInput))]
 [JsonSerializable(typeof(UpdatedThread))]
+[JsonSerializable(typeof(SaveNoteInput))]
 [JsonSerializable(typeof(EditNoteInput))]
 [JsonSerializable(typeof(DiscardNoteInput))]
 [JsonSerializable(typeof(SendNotesInput))]

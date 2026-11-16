@@ -395,6 +395,34 @@ public sealed class SynthesisTests : IClassFixture<StopTourFixture>, IAsyncLifet
       Assert.Equal(64, before.Length);
    }
 
+   /// <summary>An unsent typed note is the reviewer's own, so neither its save nor a change of its type or state reaches the summary that Claude reads or its fingerprint.</summary>
+   [Fact]
+   public async Task Agent_summary_and_fingerprint_stay_the_same_when_a_typed_note_is_saved_retyped_or_resolved()
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(Harness);
+      var tour = await Answers.TourAsync(session);
+      var before = await AgentSummaryAsync(session, tour.Id);
+
+      var saved = await Calls.SaveNoteAsync(tour.Id, NoteText, "concern");
+      var afterSave = await AgentSummaryAsync(session, tour.Id);
+      var threadId = ThreadIdOf(saved["thread"]!);
+      await Calls.EditNoteAsync(tour.Id, threadId, NoteText, "decision");
+      var afterRetype = await AgentSummaryAsync(session, tour.Id);
+      await Calls.CallAsync(await Calls.UiAsync(On("set_thread_state", tour.Id, threadId: threadId)), """{ "state": "resolved" }""");
+      var afterResolve = await AgentSummaryAsync(session, tour.Id);
+
+      Assert.All([afterSave, afterRetype, afterResolve], after => Assert.True(JsonNode.DeepEquals(WithoutUpdateTime(before), WithoutUpdateTime(after)), $"The agent summary changed: {after}"));
+      Assert.DoesNotContain(NoteText, afterRetype.ToJsonString(), StringComparison.Ordinal);
+      Assert.Equal("decision", (string)(await UiSummaryAsync(tour.Id))["typedThreads"]!["decisions"]![0]!["type"]!);
+   }
+
+   private static JsonNode WithoutUpdateTime(JsonNode summary)
+   {
+      var copy = summary.DeepClone().AsObject();
+      copy.Remove("updatedAt");
+      return copy;
+   }
+
    /// <summary>The summary names the check's question and the stop's title beside the answer, so Claude's own writes change it too.</summary>
    [Theory]
    [InlineData("question")]

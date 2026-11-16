@@ -15,6 +15,7 @@ import type {
    FileText,
    FollowUpInput,
    OperationError,
+   NoteInput,
    OperationName,
    OperationResponseBody,
    Operations,
@@ -243,17 +244,18 @@ export interface Api {
     */
    removeThread(tourId: string, threadId: string): Promise<Revised<DeletedThread>>;
    /**
-    * Stores the reviewer's words as a note, a thread that reaches no session, and returns the thread with the tour's update time. It works with or without a bound session.
+    * Stores the reviewer's words as a note, with its type if any, a thread that reaches no session, and returns the thread with the tour's update time. It works with or without a bound
+    * session.
     *
     * @throws ApiError with status 400 when the words or the anchor are invalid.
     */
-   saveNote(tourId: string, input: QuestionInput): Promise<Revised<UpdatedThread>>;
+   saveNote(tourId: string, input: NoteInput): Promise<Revised<UpdatedThread>>;
    /**
-    * Replaces the words of a note that is not sent, and returns the thread with the tour's update time.
+    * Replaces the words and the type of a note that is not sent, and returns the thread with the tour's update time. A null type leaves the note without one.
     *
     * @throws ApiError with status 409 and code `noteSent` when the thread is not a note any more, and with status 404 and code `threadNotFound` when the tour has no such thread.
     */
-   editNote(tourId: string, threadId: string, text: string): Promise<Revised<UpdatedThread>>;
+   editNote(tourId: string, threadId: string, text: string, type: AnswerType | null): Promise<Revised<UpdatedThread>>;
    /**
     * Removes a note that is not sent, with its thread, and returns the removal with the tour's update time.
     *
@@ -405,7 +407,7 @@ export function createApi(fetchFn: typeof fetch, credential: string, onControls:
       setThreadState: (tourId, threadId, state) => revised('set_thread_state', { tourId, threadId, state }),
       removeThread: (tourId, threadId) => revised('remove_thread', { tourId, threadId }),
       saveNote: (tourId, input) => revised('save_note', { tourId, ...input }),
-      editNote: (tourId, threadId, text) => revised('edit_note', { tourId, threadId, text }),
+      editNote: (tourId, threadId, text, type) => revised('edit_note', { tourId, threadId, text, ...(type === null ? {} : { type }) }),
       discardNote: (tourId, threadId) => revised('discard_note', { tourId, threadId }),
       sendNotes: (tourId, threadIds) => revised('send_notes', { tourId, threadIds: [...threadIds] }),
       answerCheck: (tourId, stopId, checkId, input) => revised('answer_check', { tourId, stopId, checkId, ...input }),

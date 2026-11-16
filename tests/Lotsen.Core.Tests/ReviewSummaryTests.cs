@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Lotsen.Json;
 using Lotsen.Operations;
 using Lotsen.Tours;
 
@@ -90,6 +92,64 @@ public sealed class ReviewSummaryTests
    }
 
    [Fact]
+   public void Typed_notes_are_grouped_by_their_type_apart_from_the_answers_in_every_thread_state()
+   {
+      var tour = Sample with { Threads = TypedNotes() };
+
+      var typed = ReviewSummary.Of(tour, tour).TypedThreads!;
+
+      var anchor = new ThreadAnchor.WholeStop("s3");
+      Assert.Equal(
+         [
+            new SummaryTypedThread("n1", anchor, "s3", "Rounding on stacked discounts", "Keep the cap.", AnswerType.Decision, QuestionThreadState.Open, Note: true),
+            new SummaryTypedThread("n4", new ThreadAnchor.WholeTour(), null, null, "Ship it.", AnswerType.Decision, QuestionThreadState.Outdated, Note: true),
+         ],
+         typed.Decisions);
+      Assert.Equal([new SummaryTypedThread("n2", anchor, "s3", "Rounding on stacked discounts", "The cap drifts.", AnswerType.Concern, QuestionThreadState.Resolved, Note: true)], typed.Concerns);
+      Assert.Equal([new SummaryTypedThread("n3", anchor, "s3", "Rounding on stacked discounts", "Who owns it?", AnswerType.OpenQuestion, QuestionThreadState.Open, Note: true)], typed.OpenQuestions);
+      var answers = ReviewSummary.Of(tour, tour).Answers;
+      var sampleAnswers = ReviewSummary.Of(Sample, Sample).Answers;
+      Assert.Equal(
+         [sampleAnswers.Decisions, sampleAnswers.Concerns, sampleAnswers.OpenQuestions, sampleAnswers.Outdated],
+         [answers.Decisions, answers.Concerns, answers.OpenQuestions, answers.Outdated]);
+   }
+
+   [Fact]
+   public void Typed_note_stays_in_the_thread_group_of_its_state()
+   {
+      var tour = Sample with { Threads = TypedNotes() };
+
+      var threads = ReviewSummary.Of(tour, tour).Threads;
+
+      Assert.Equal(["n1", "n3", "n5"], threads.Open.Select(thread => thread.Id));
+      Assert.Equal(["n2"], threads.Resolved.Select(thread => thread.Id));
+      Assert.Equal(["n4"], threads.Outdated.Select(thread => thread.Id));
+      Assert.All([.. threads.Open, .. threads.Resolved, .. threads.Outdated], thread => Assert.True(thread.Note));
+   }
+
+   /// <summary>An unsent note is the reviewer's own and <see cref="AgentView.Of(Tour)"/> leaves it out, so the summary that Claude reads has no typed note.</summary>
+   [Fact]
+   public void Summary_of_the_agent_view_holds_no_typed_note()
+   {
+      var tour = Sample with { Threads = TypedNotes() };
+
+      Assert.Null(AgentView.Summary(tour).TypedThreads);
+   }
+
+   /// <summary>
+   /// The value is the fingerprint of the contract sample's agent summary in the golden fixture of lotsen 0.3.0. A summary without a typed thread writes the JSON of that release, so a
+   /// synthesis that it stored keeps its verdict.
+   /// </summary>
+   [Fact]
+   public void Agent_summary_without_a_typed_thread_leaves_typed_threads_out_of_its_json_and_keeps_the_fingerprint_of_earlier_releases()
+   {
+      var (summary, fingerprint) = ContractSamples.AgentSummary();
+
+      Assert.False(JsonSerializer.SerializeToNode(summary, LotsenJsonContext.Default.ReviewSummary)!.AsObject().ContainsKey("typedThreads"));
+      Assert.Equal("69f8e422a7a8a7bbeedd5a5943ca2fed4f2785b379d08f3a7efa351eaf5671f0", fingerprint.ToString());
+   }
+
+   [Fact]
    public void Thread_on_a_stop_that_the_plan_no_longer_has_names_the_stop_without_a_title()
    {
       var tour = Sample with { Threads = ThreadFixtures.Threads(ThreadFixtures.Note("t9", new ThreadAnchor.WholeStop("gone"))) };
@@ -124,7 +184,20 @@ public sealed class ReviewSummaryTests
       Assert.Empty(summary.Threads.Open);
       Assert.Empty(summary.Threads.Resolved);
       Assert.Empty(summary.Threads.Outdated);
+      Assert.Null(summary.TypedThreads);
       Assert.Empty(summary.SkippedStops);
       Assert.Empty(summary.StaleStops);
+   }
+
+   // A note of each type in the thread states, the last without a type, in the order the reviewer wrote them.
+   private static TourThreads TypedNotes()
+   {
+      var anchor = new ThreadAnchor.WholeStop("s3");
+      return ThreadFixtures.Threads(
+         ThreadFixtures.Note("n1", anchor, "Keep the cap.", type: AnswerType.Decision),
+         ThreadFixtures.Note("n2", anchor, "The cap drifts.", state: QuestionThreadState.Resolved, type: AnswerType.Concern),
+         ThreadFixtures.Note("n3", anchor, "Who owns it?", type: AnswerType.OpenQuestion),
+         ThreadFixtures.Note("n4", new ThreadAnchor.WholeTour(), "Ship it.", state: QuestionThreadState.Outdated, type: AnswerType.Decision),
+         ThreadFixtures.Note("n5", anchor, "Just a reminder."));
    }
 }

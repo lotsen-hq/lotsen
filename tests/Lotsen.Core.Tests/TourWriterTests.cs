@@ -382,8 +382,8 @@ public sealed class TourWriterTests : IDisposable
    {
       var tour = Create();
       Bind(tour.Id);
-      var first = Threaded(tour.Id, edit => edit.Threads.Apply(new ThreadCommand.SaveNote(new ThreadAnchor.WholeTour(), "First.", null)));
-      var second = Threaded(tour.Id, edit => edit.Threads.Apply(new ThreadCommand.SaveNote(new ThreadAnchor.WholeTour(), "Second.", null)));
+      var first = Threaded(tour.Id, edit => edit.Threads.Apply(new ThreadCommand.SaveNote(new ThreadAnchor.WholeTour(), "First.", null, null)));
+      var second = Threaded(tour.Id, edit => edit.Threads.Apply(new ThreadCommand.SaveNote(new ThreadAnchor.WholeTour(), "Second.", null, null)));
       using var subscription = _events.Subscribe();
 
       var result = _writer.Write(ToSession, tour.Id, edit => edit.Store(edit.Threads.SendNotes([second, first]), (stored, _) =>
@@ -424,11 +424,11 @@ public sealed class TourWriterTests : IDisposable
    public void Thread_write_that_changes_nothing_stores_nothing_and_publishes_nothing()
    {
       var tour = Create();
-      var noteId = Threaded(tour.Id, edit => edit.Threads.Apply(new ThreadCommand.SaveNote(new ThreadAnchor.WholeTour(), "Kept.", null)));
+      var noteId = Threaded(tour.Id, edit => edit.Threads.Apply(new ThreadCommand.SaveNote(new ThreadAnchor.WholeTour(), "Kept.", null, null)));
       var stored = File.ReadAllText(_store.PathOf(tour.Id));
       using var subscription = _events.Subscribe();
 
-      var result = _writer.Write(Unbound, tour.Id, edit => edit.Store(edit.Threads.Apply(new ThreadCommand.EditNote(noteId, "Kept.")), (written, _) => written.Tour));
+      var result = _writer.Write(Unbound, tour.Id, edit => edit.Store(edit.Threads.Apply(new ThreadCommand.EditNote(noteId, "Kept.", null)), (written, _) => written.Tour));
 
       Assert.Null(result.Error);
       Assert.Equal(stored, File.ReadAllText(_store.PathOf(tour.Id)));
@@ -439,9 +439,9 @@ public sealed class TourWriterTests : IDisposable
    public void Thread_change_through_the_plain_store_or_from_other_threads_than_the_latest_is_refused()
    {
       var tour = Create();
-      Threaded(tour.Id, edit => edit.Threads.Apply(new ThreadCommand.SaveNote(new ThreadAnchor.WholeTour(), "Mine.", null)));
+      Threaded(tour.Id, edit => edit.Threads.Apply(new ThreadCommand.SaveNote(new ThreadAnchor.WholeTour(), "Mine.", null, null)));
       var stale = _store.Get(tour.Id)!;
-      Threaded(tour.Id, edit => edit.Threads.Apply(new ThreadCommand.SaveNote(new ThreadAnchor.WholeTour(), "Later.", null)));
+      Threaded(tour.Id, edit => edit.Threads.Apply(new ThreadCommand.SaveNote(new ThreadAnchor.WholeTour(), "Later.", null, null)));
 
       Assert.Throws<InvalidOperationException>(() => _writer.Write(Unbound, tour.Id, edit => edit.Store(edit.Latest with { Threads = edit.Latest.Threads.WithoutNotes() }, written => written.Tour)));
       Assert.Throws<InvalidOperationException>(() => _writer.Write(Unbound, tour.Id, edit =>

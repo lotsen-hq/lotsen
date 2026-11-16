@@ -144,6 +144,7 @@ const summaryPage = () => within(screen.getByRole('main', { name: 'Summary' }));
 const region = (name: string | RegExp) => within(summaryPage().getByRole('region', { name }));
 const items = (name: string | RegExp) => summaryPage().getByRole('region', { name }).querySelectorAll(':scope li');
 const itemTexts = (name: string | RegExp) => [...items(name)].map((item) => item.textContent.replace(/\s+/g, ' ').trim());
+const heading = (name: string | RegExp) => summaryPage().getByRole('heading', { name }).textContent.replace(/\s+/g, ' ').trim();
 const summaryLoads = (transport: Transport) => transport.requests.filter((sent) => sent.operation === 'read_summary').length;
 const showsSummary = async () => expect(await screen.findByRole('main', { name: 'Summary' })).toBeTruthy();
 const focusedCheck = () => document.activeElement?.closest('[data-check-id]')?.getAttribute('data-check-id') ?? null;
@@ -278,6 +279,39 @@ describe('the summary page', () => {
          expect(itemTexts(/^Open questions/)[0]).toMatch(/Ask the platform team\.\s*Not received\s*Retry policy/);
       });
 
+      it("lists each typed note in the group of its type as the reader's note, counted in the group, in every thread state, and in the threads too", async () => {
+         const { world, seed } = await reviewWorld();
+         const { tourId, stopIds } = seed;
+         const note = async (text: string, type: AnswerType | null, anchor: Record<string, unknown>) =>
+            (await world.reviewer.call('save_note', { tourId, text, anchor, ...(type === null ? {} : { type }) } as never)).thread.id;
+         await note('The cap drifts.', 'concern', { kind: 'stop', stopId: stopIds[0] });
+         const resolved = await note('Totals need a test.', 'concern', { kind: 'tour' });
+         await world.reviewer.call('set_thread_state', { tourId, threadId: resolved, state: 'resolved' });
+         await note('Two discounts round twice.', 'decision', { kind: 'stopText', stopId: stopIds[1], field: 'scenario', text: 'round twice' });
+         await note('Who owns retries?', 'openQuestion', { kind: 'tour' });
+         await note('Just a reminder.', null, { kind: 'tour' });
+         const claude = await attachClaude(world, tourId);
+         await claude.call('put_stop', { tourId, stopId: stopIds[1], headline: 'Drift.', scenario: 'Discounts stack.', passages: [passage('src/cart.ts', 3)] });
+         await open(world);
+         await openSummary();
+
+         expect(heading(/^Concerns/)).toBe('Concerns 4');
+         expect(itemTexts(/^Concerns/)).toEqual([
+            expect.stringMatching(/Should the cap move\?/),
+            expect.stringMatching(/^The cap drifts\.\s*Your note\s*Stop 1 · Cart totals$/),
+            expect.stringMatching(/^Totals need a test\.\s*Your note\s*Resolved\s*The tour$/),
+            expect.stringMatching(/Risk.*Rounding drift/),
+         ]);
+         expect(heading(/^Decisions/)).toBe('Decisions 2');
+         expect(itemTexts(/^Decisions/)[1]).toMatch(/^Two discounts round twice\.\s*Your note\s*Outdated\s*Stop 2 · Rounding drift/);
+         expect(heading(/^Open questions/)).toBe('Open questions 2');
+         expect(itemTexts(/^Open questions/)[1]).toMatch(/^Who owns retries\?\s*Your note\s*The tour$/);
+         expect([/^Decisions/, /^Concerns/, /^Open questions/].flatMap(itemTexts).join(' ')).not.toMatch(/Just a reminder/);
+         expect(itemTexts(/^Open threads/)).toEqual(expect.arrayContaining([expect.stringMatching(/The cap drifts\./), expect.stringMatching(/Just a reminder\./)]));
+         expect(itemTexts(/^Resolved threads/)).toEqual(expect.arrayContaining([expect.stringMatching(/Totals need a test\./)]));
+         expect(itemTexts(/^Outdated threads/)).toEqual(expect.arrayContaining([expect.stringMatching(/Two discounts round twice\./)]));
+      });
+
       it('lists the risk stops as concerns with their scenario', async () => {
          const { world } = await reviewWorld();
          await open(world);
@@ -398,6 +432,18 @@ describe('the summary page', () => {
          expect(app.shownVersion?.number).toBe(1);
       });
 
+      it("from a typed note to the note's thread, which opens in the Threads panel", async () => {
+         const { world, seed } = await reviewWorld();
+         const saved = await world.reviewer.call('save_note', { tourId: seed.tourId, text: 'The cap drifts.', anchor: { kind: 'tour' }, type: 'concern' });
+         const { app } = await open(world);
+         await openSummary();
+
+         await fireEvent.click(within(items(/^Concerns/)[1] as HTMLElement).getByRole('button', { name: 'The cap drifts.' }));
+
+         await waitFor(() => expect(app.openedThread).toEqual({ id: saved.thread.id }));
+         await showsSummary();
+      });
+
       it('to its thread, which opens in the Threads panel', async () => {
          const { world, seed } = await reviewWorld();
          const { app } = await open(world);
@@ -500,6 +546,20 @@ describe('the summary page', () => {
          // An answer whose text changes becomes a draft and keeps its type.
          await waitFor(() => expect(itemTexts(/^Open questions/)).toEqual([expect.stringMatching(/How often should it retry\?.*Every five seconds\..*Draft/)]));
          expect(itemTexts(/^Decisions/)).toHaveLength(1);
+      });
+
+      it('moves a typed note to the group of its new type when an event brings the change', async () => {
+         const { world, seed } = await reviewWorld();
+         const saved = await world.reviewer.call('save_note', { tourId: seed.tourId, text: 'The cap drifts.', anchor: { kind: 'tour' }, type: 'concern' });
+         await open(world);
+         await openSummary();
+         await waitFor(() => expect(heading(/^Concerns/)).toBe('Concerns 3'));
+
+         await world.reviewer.call('edit_note', { tourId: seed.tourId, threadId: saved.thread.id, text: 'The cap drifts.', type: 'openQuestion' });
+
+         await waitFor(() => expect(heading(/^Open questions/)).toBe('Open questions 2'));
+         expect(itemTexts(/^Open questions/)[1]).toMatch(/^The cap drifts\.\s*Your note/);
+         expect(heading(/^Concerns/)).toBe('Concerns 2');
       });
 
       it('shows a thread that an event brings, and a skip', async () => {

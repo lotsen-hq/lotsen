@@ -13,4 +13,6 @@ internal static class OperationInputs
    public const string AnswerStopIdDescription = "The ID of the stop whose content holds the check.";
 
    public const string CheckIdDescription = "The ID of a check of the stop's current content.";
+
+   public const string NoteTypeDescription = "The kind of finding that the note holds: decision, concern or openQuestion. Omit it for a note without a type.";
 }

@@ -269,6 +269,10 @@ which the browser's address shows after `#tour=`.
   the anchor that `fetch_question` returned. Its kind is `stopText`, with the stop and the words you selected.
 - Write two questions at two places and save each with "Save as note". Each note shows "Draft" once you open it. Ask
   Claude for the tour's `read_state`: it has neither note.
+- Write a third question, pick "Concern" as its "Note type" in the ask box and save it as a note. Open the summary page:
+  the note shows under Concerns, marked "Your note", and its link opens its thread. In the thread view, change its type
+  to "Open question": it moves to Open questions. Ask Claude for the tour's `read_summary`: it has no typed note.
+  Discard the note from its thread's menu.
 - Open each note and tick "Send with other notes". Back in the list, click "Send chosen notes" in the bar above the ask
   box, which says "2 notes chosen.". Each thread shows "Sent", then "Received" once Claude calls `fetch_question` for
   it. Claude answers each in its own thread.

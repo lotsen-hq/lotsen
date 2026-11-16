@@ -443,6 +443,7 @@ export interface NoteThread {
    text: string;
    savedAt: string;
    stopId?: string;
+   type?: AnswerType;
    id: string;
    anchor: ThreadAnchor;
    state: ThreadState;
@@ -1147,6 +1148,10 @@ export interface EditNoteInput {
     * The note's new words as plain text, with no control characters but tabs and line breaks.
     */
    text: string;
+   /**
+    * The kind of finding that the note holds: decision, concern or openQuestion. Omit it for a note without a type.
+    */
+   type?: AnswerType | null;
 }
 export interface TextDiff {
    content: 'text';
@@ -1265,7 +1270,7 @@ export interface Operations {
       output: DeletedThread;
    };
    save_note: {
-      input: AskQuestionInput;
+      input: SaveNoteInput;
       output: UpdatedThread;
    };
    edit_note: {
@@ -1417,6 +1422,7 @@ export interface ReviewSummary {
    tourId: string;
    updatedAt: string;
    answers: SummaryAnswers;
+   typedThreads?: SummaryTypedThreads;
    risks: SummaryRisk[];
    threads: SummaryThreads;
    skippedStops: SummaryStop[];
@@ -1441,6 +1447,21 @@ export interface SummaryAnswer {
    state: AnswerState;
    outdatedOn?: number;
    questionHtml?: string;
+}
+export interface SummaryTypedThreads {
+   decisions: SummaryTypedThread[];
+   concerns: SummaryTypedThread[];
+   openQuestions: SummaryTypedThread[];
+}
+export interface SummaryTypedThread {
+   id: string;
+   anchor: ThreadAnchor;
+   stopId?: string;
+   stopTitle?: string;
+   text: string;
+   type: AnswerType;
+   state: ThreadState;
+   note?: boolean;
 }
 export interface SummaryRisk {
    stopId: string;
@@ -1539,6 +1560,28 @@ export interface RemoveThreadInput {
     * The ID of the thread.
     */
    threadId: string;
+}
+export interface SaveNoteInput {
+   /**
+    * The tour's ID, as create_tour or list_tours returned it, or as the user gave it.
+    */
+   tourId: string;
+   /**
+    * The reviewer's words as plain text, with no control characters but tabs and line breaks.
+    */
+   text: string;
+   /**
+    * Where the reviewer wrote the note: code for whole lines at one side, stopText for text selected in a prose field of a stop, file, stop, or tour.
+    */
+   anchor: AnchorInput;
+   /**
+    * The ID of the stop that the reviewer views while writing the note. Omit it when no stop is open.
+    */
+   stopId?: string | null;
+   /**
+    * The kind of finding that the note holds: decision, concern or openQuestion. Omit it for a note without a type.
+    */
+   type?: AnswerType | null;
 }
 export interface SendNotesInput {
    /**

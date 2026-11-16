@@ -11,6 +11,7 @@ import type {
    QuestionThread,
    RequestTourActionInput,
    ReviewerDecision,
+   SaveNoteInput,
    StopPassage,
    TourAction,
 } from './contract.generated';
@@ -47,8 +48,11 @@ export type WithheldLargeFile = Pick<FileDiffLarge, 'content' | 'size'>;
 /** The input of `answer_check` besides the IDs of the tour, the stop and the check. */
 export type AnswerInput = Omit<AnswerCheckInput, 'tourId' | 'stopId' | 'checkId'>;
 
-/** The input of `ask_question` and `save_note` besides the tour's ID. */
+/** The input of `ask_question` besides the tour's ID. */
 export type QuestionInput = Omit<AskQuestionInput, 'tourId'>;
+
+/** The input of `save_note` besides the tour's ID. */
+export type NoteInput = Omit<SaveNoteInput, 'tourId'>;
 
 /** The input of `request_tour_action` besides the tour's ID. */
 export type TourActionInput = Omit<RequestTourActionInput, 'tourId'>;

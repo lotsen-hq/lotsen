@@ -1,6 +1,6 @@
 <!--
    The Threads panel's ask box under the thread list, which asks Claude about the open stop, the tour or the pick that waits in it, or saves the words as a note. A chip's menu chooses what the
-   box asks about, and a pick that the box asks about shows as a quote above the field. The box is a Composer.
+   box asks about, and a second chip the type of the next note. A pick that the box asks about shows as a quote above the field. The box is a Composer.
 -->
 <script lang="ts">
    import ChevronDown from '@lucide/svelte/icons/chevron-down';
@@ -15,9 +15,10 @@
    import { PendingWrite } from '../lib/pendingWrite.svelte';
    import { getThreadActions } from '../lib/threadActions.svelte';
    import type { Pick, ThreadsView } from '../lib/threadsView.svelte';
-   import type { AnchorInput, Plan, Stop, TourBinding, TourControls } from '../lib/types';
+   import type { AnchorInput, AnswerType, Plan, Stop, TourBinding, TourControls } from '../lib/types';
    import type { AskAbout, PickedAnchor } from '../lib/viewState';
    import Composer from './Composer.svelte';
+   import NoteTypeChip from './NoteTypeChip.svelte';
    import TooltipButton from './TooltipButton.svelte';
 
    let {
@@ -48,6 +49,7 @@
 
    let about = $state<'stop' | 'tour' | 'picked'>('stop');
    let text = $state('');
+   let noteType = $state<AnswerType | null>(null);
    let box = $state<Composer>();
    const home = panelDocument();
 
@@ -125,8 +127,9 @@
       const target = asked;
       const anchor = anchorOf(target);
       const stopId = stop?.id ?? null;
-      const result = await asking.run(() => (asNote ? actions.saveNote(anchor, sent, stopId) : actions.ask(anchor, sent, stopId)));
-      // The box stays editable while the question sends, so words typed meanwhile stay.
+      const type = noteType;
+      const result = await asking.run(() => (asNote ? actions.saveNote(anchor, sent, stopId, type) : actions.ask(anchor, sent, stopId)));
+      // The box stays editable while the question sends, so words typed meanwhile stay. The type belongs to the saved words, so the next note starts without one.
       if (result?.ok === true) {
          if (pick !== null && pick.anchor === target) {
             view.release(pick);
@@ -134,6 +137,10 @@
 
          if (text === sent) {
             text = '';
+         }
+
+         if (asNote && noteType === type) {
+            noteType = null;
          }
       }
 
@@ -165,6 +172,15 @@
          </DropdownMenu.RadioGroup>
       </DropdownMenu.Content>
    </DropdownMenu.Root>
+   <span class="ml-1.5 min-w-0">
+      <NoteTypeChip
+         small
+         value={noteType}
+         onpick={(type) => {
+            noteType = type;
+         }}
+      />
+   </span>
 {/snippet}
 
 {#snippet quote(classes: string)}
