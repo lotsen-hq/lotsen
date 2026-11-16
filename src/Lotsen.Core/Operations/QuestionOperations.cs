@@ -117,13 +117,18 @@ internal sealed record FetchQuestionInput(
 /// Whether each thread item of the thread's follow-up action still applies to the current tour, as <see cref="ActionRules.ThreadItemsNow"/> decides, for each question of a thread whose action
 /// holds thread items. Null otherwise, and JSON then leaves it out. The stored action keeps each item as the reviewer sent it.
 /// </param>
+/// <param name="Redo">
+/// Why Claude cannot redo the thread's tour action or reviewer decision on the current tour for a follow-up, with what the reviewer can do instead, as <see cref="TourThreads.CheckRedo"/> decides.
+/// Null for the thread's first question, while a redo fits and for a kind without the check, and JSON then leaves it out. The stored thread stays as it is.
+/// </param>
 internal sealed record FetchedQuestion(
    TourId TourId,
    string QuestionId,
    QuestionThread Thread,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Stop? Stop,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? HowToAct,
-   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ThreadItemNow>? ThreadItems);
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ThreadItemNow>? ThreadItems,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Redo);
 
 /// <summary>The input of <c>resend_question</c>.</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -253,7 +258,9 @@ internal sealed class QuestionOperations
          _ => question.StopId,
       };
       var threadItems = thread is QuestionThread.Sent.Asked { Action: { } action } ? ActionRules.ThreadItemsNow(tour, action) : null;
-      return new FetchedQuestion(tour.Id, question.Id, thread, stopId is null || tour.FindStop(stopId) is not { } found ? null : AgentView.Of(found), HowToAct(thread), threadItems);
+      var about = stopId is null || tour.FindStop(stopId) is not { } found ? null : AgentView.Of(found);
+      var redo = thread.Messages[0].Id == question.Id ? null : TourThreads.CheckRedo(tour, thread);
+      return new FetchedQuestion(tour.Id, question.Id, thread, about, HowToAct(thread), threadItems, redo);
    }
 
    private static string? HowToAct(QuestionThread.Sent thread) => thread switch

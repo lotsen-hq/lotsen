@@ -67,7 +67,7 @@ public sealed partial class HowToActTests : IAsyncLifetime
       [ReviewerDecision.PlanApprovedKind] = (
          """{ "kind": "planApproved", "stopIds": [], "skippedStops": [], "familiarity": "some" }""",
          "put_stop",
-         ["Act on planApproved in this order", "give every stop the id it has, and keep each skipped stop", "write the stops with put_stop at the decision's familiarity", "in plan order", "say in the reply where your order differs from the proposal and why", "Say in the reply where your plan differs from the reviewer's order or words and why", "A declined reply leaves the decision made"]),
+         ["Act on planApproved in this order", "give every stop the id it has, and keep each skipped stop", "write the stops with put_stop at the tour's familiarity level as read_state shows it now", "in plan order", "say in the reply where your order differs from the proposal and why", "Say in the reply where your plan differs from the reviewer's order or words and why", "A declined reply leaves the decision made"]),
       [ReviewerDecision.IterationUpdatedKind] = (
          """{ "kind": "iterationUpdated", "iteration": 2, "stopIds": [] }""",
          "put_stop",
@@ -190,6 +190,42 @@ public sealed partial class HowToActTests : IAsyncLifetime
       Assert.All(fields, field => Assert.Contains(field, howToAct, StringComparison.Ordinal));
       Assert.Contains(ThreadItemFields(), howToAct, StringComparison.Ordinal);
       Assert.All(ThreadItemsNowRule(), phrase => Assert.Contains(phrase, howToAct, StringComparison.Ordinal));
+   }
+
+   /// <summary>The kinds whose <c>redo</c> <see cref="TourThreads.CheckRedo"/> checks, and the others, whose rule leaves the field out.</summary>
+   [Theory]
+   [InlineData(TourAction.ExplainKind, false)]
+   [InlineData(TourAction.ReviseKind, false)]
+   [InlineData(TourAction.ReplanKind, false)]
+   [InlineData(TourAction.ReorderKind, true)]
+   [InlineData(TourAction.SummarizeKind, false)]
+   [InlineData(TourAction.DraftWorkItemsKind, false)]
+   [InlineData(TourAction.WalkOpenQuestionsKind, false)]
+   [InlineData(TourAction.DraftCommentsKind, false)]
+   [InlineData(ReviewerDecision.FamiliarityChangedKind, true)]
+   [InlineData(ReviewerDecision.PlanApprovedKind, true)]
+   [InlineData(ReviewerDecision.IterationUpdatedKind, true)]
+   public async Task Rule_names_redo_and_how_to_decline_a_redo_that_no_longer_fits_only_for_a_checked_kind(string kind, bool checks)
+   {
+      var howToAct = await RuleAsync(kind);
+      var redo = SkillTests.PropertyName(LotsenJsonContext.Default.FetchedQuestion, nameof(FetchedQuestion.Redo));
+      string[] phrases =
+      [
+         $"fetch_question's {redo} says whether you can still redo this work on the tour as it is now",
+         "it is absent while you can, and otherwise holds the reason with what the reviewer can do instead",
+         $"When a follow-up in this thread asks for the work again and {redo} holds a reason, do not redo it: quote the reason in your reply",
+         "still answer any question that the follow-up asks",
+         "A follow-up that answers your needsAnswer asks for work that you have not done yet",
+      ];
+
+      if (checks)
+      {
+         Assert.All(phrases, phrase => Assert.Contains(phrase, howToAct, StringComparison.Ordinal));
+      }
+      else
+      {
+         Assert.DoesNotContain($"fetch_question's {redo} ", howToAct, StringComparison.Ordinal);
+      }
    }
 
    // The phrases of the rule that name fetch_question's threadItems, every field of their items and every reason, and that tell Claude to skip an item that no longer applies on a redo.

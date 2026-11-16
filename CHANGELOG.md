@@ -10,6 +10,10 @@ The notable changes in each release of lotsen, newest first. Versions follow [se
 - **The summary page's follow-ups take your typed threads.** Draft work items takes the sent threads of type decision, the open questions follow-up those of type open question, and Draft PR comments those of type concern, beside the sent answers. A follow-up is available when its group holds only such a thread. For an open question thread, Claude adds to that thread instead of starting a new one. An outdated thread never goes, and neither does a concern or an open question that you resolved, so a follow-up that you send again after such a change, or after you delete one of its threads, is refused. When you ask Claude in the follow-up's thread to do the work again, Claude skips such a thread and says which ones it skipped. Claude reads each as your own finding, and a synthesis lists it as yours. A note that you have not sent never goes to Claude.
 - **lotsen 0.3.0 and earlier cannot read a tour that holds a typed note, a typed sent thread, or a follow-up that handed Claude a typed thread.** They leave the tour out of the tour list and refuse to prune clones while it exists. No data is lost, and this version reads the tour.
 
+### Changed
+
+- **Claude does not redo a reorder or a decision that the tour has moved past.** When you ask in the thread of a reorder, a familiarity change, a plan approval or an iteration update for the work again, lotsen tells Claude whether the tour moved past it: the plan's stops changed since the reorder or the approval, you changed the familiarity level again, or the tour moved to another update. Then Claude declines the work, says why and what you can use instead, such as Re-plan… or Reorder… in the Plan panel, and still answers your question. A plan approval's stops now follow the familiarity level that the tour holds when Claude writes them.
+
 ## v0.3.0 - 2026-11-15
 
 ### Added

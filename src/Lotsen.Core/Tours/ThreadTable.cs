@@ -252,6 +252,28 @@ internal sealed partial class TourThreads
          }
          ?? CheckWaits(tour, WaitGroupOf(thread), thread, "questionId");
 
+   /// <summary>Returns why Claude cannot redo the thread's tour action or reviewer decision for a follow-up, with what the reviewer can do instead, or null while a redo fits or the kind takes no check.</summary>
+   /// <remarks>
+   /// A follow-up goes without the re-send rules, because it may only ask a question, so <c>fetch_question</c> shows this beside it. A reorder and each decision have a redo rule of their own,
+   /// which flags a tour whose plan's stops, level or update no longer match the work, and never written, revised or skipped stops alone. So an approval whose words made Claude add or drop stops
+   /// is flagged once Claude carries it out. Explain and revise take no check, because their work is a revision of their stop. Replan and summarize need only the plan that their request already needed, and a follow-up action shows its thread items with <see cref="ActionRules.ThreadItemsNow"/>.
+   /// </remarks>
+   public static string? CheckRedo(Tour tour, QuestionThread.Sent thread) => thread switch
+   {
+      QuestionThread.Sent.Asked asked => asked.Action switch
+      {
+         TourAction.Reorder reorder => ActionRules.CheckRedo(tour, reorder),
+         TourAction.Explain or TourAction.Revise or TourAction.Replan or TourAction.Summarize or TourAction.FollowUp or null => null,
+      },
+      QuestionThread.Sent.Decided decided => decided.Decision switch
+      {
+         ReviewerDecision.FamiliarityChanged change => DecisionRules.CheckRedo(tour, change),
+         ReviewerDecision.PlanApproved approval => DecisionRules.CheckRedo(tour, approval),
+         ReviewerDecision.IterationUpdated update => DecisionRules.CheckRedo(tour, update),
+      },
+      QuestionThread.Sent.Started => null,
+   };
+
    private static int FirstRequestTo(ThreadMessage.Question question, Recipient session)
    {
       for (var i = 0; i < question.Requests.Count; i++)

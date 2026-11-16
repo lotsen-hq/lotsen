@@ -26,6 +26,34 @@ public sealed class DecisionRulesTests
 
    public static TheoryData<string> ResendRows => [.. Resends.Keys];
 
+   private static readonly Dictionary<string, (Tour Tour, ReviewerDecision Decision, string? Reason)> Redos = new()
+   {
+      ["a familiarity change fits while the tour holds its level"] = (Leveled(Familiarity.New), Change(), null),
+      ["a familiarity change after a later change of the level"] = (
+         Leveled(Familiarity.Familiar),
+         Change(),
+         "You changed the tour's familiarity level again since this change, so the later change replaced it. To have Claude rewrite stops at the current level, ask in the thread of your latest familiarity change, or use Re-plan… with your words."),
+      ["an approval fits after Claude wrote stops and the reviewer skipped one"] = (
+         Approving() with { Plan = Plan(Written("s1") with { Skipped = true }, Written("s2")), Familiarity = Familiarity.New },
+         Approval(Approving()),
+         null),
+      ["an approval after the plan's stops changed"] = (
+         Approving() with { Plan = Plan(Written("s1"), Pending("s3")) },
+         Approval(Approving()),
+         "The plan's stops changed since you approved the plan, so the approved order no longer names each stop once. To have Claude change or rewrite stops of the current plan, use Re-plan… in the Plan panel's ⋯ menu."),
+      ["an approval whose words made Claude drop a stop"] = (
+         Approving() with { Plan = Plan(Written("s1")) },
+         Approval(Approving()),
+         "The plan's stops changed since you approved the plan, so the approved order no longer names each stop once. To have Claude change or rewrite stops of the current plan, use Re-plan… in the Plan panel's ⋯ menu."),
+      ["an iteration update fits after Claude revised every stale stop"] = (Approving(), ReviewerDecision.IterationUpdated.For(1, ["s1"]), null),
+      ["an iteration update after the tour moved to another iteration"] = (
+         Stale(),
+         ReviewerDecision.IterationUpdated.For(2, ["s1"]),
+         "The tour moved to another update since this move to update 2, so its stops point at other code now. To have Claude revise stops against the update the tour is on, use Move to update when a newer update is offered, or ask for a revise in a stop's Stop panel."),
+   };
+
+   public static TheoryData<string> RedoRows => [.. Redos.Keys];
+
    [Theory]
    [MemberData(nameof(ResendRows))]
    public void Resend_row(string row)
@@ -44,6 +72,29 @@ public sealed class DecisionRulesTests
       Assert.NotNull(refused);
       Assert.Equal(field, refused.Field?.ToString());
       Assert.Contains(problem!, refused.Problem, StringComparison.Ordinal);
+   }
+
+   /// <summary>
+   /// The reviewer views no stop, so the change names the written stop s1. The approval after Claude wrote and the reviewer skipped stops at a later level, and the update with no stale stop left,
+   /// are states that the re-send refuses and a redo does not.
+   /// </summary>
+   [Theory]
+   [MemberData(nameof(RedoRows))]
+   public void Redo_row(string row)
+   {
+      var (tour, decision, reason) = Redos[row];
+      var thread = (QuestionThread.Sent.Decided)ThreadFixtures.Decided("t1", decision, request: RequestState.Done);
+
+      var redo = TourThreads.CheckRedo(tour, thread);
+
+      if (reason is null)
+      {
+         Assert.Null(redo);
+      }
+      else
+      {
+         Assert.Equal(reason, redo);
+      }
    }
 
    [Fact]
@@ -84,6 +135,10 @@ public sealed class DecisionRulesTests
    private static Tour Approving() => Tour(Plan(Pending("s1"), Pending("s2") with { Skipped = true })) with { PlanApproval = PlanApproval.Given };
 
    private static Tour Stale() => Tour(Plan(Written("s1") with { StaleOn = 1 }, Pending("s2") with { Skipped = true }));
+
+   private static Tour Leveled(Familiarity level) => Tour(Plan(Written("s1"))) with { Familiarity = level };
+
+   private static ReviewerDecision Change() => ReviewerDecision.FamiliarityChanged.For(Leveled(Familiarity.Some), Familiarity.Some, Familiarity.New, null);
 
    private static ReviewerDecision Approval(Tour tour) => ReviewerDecision.PlanApproved.For(tour, ["s1", "s2"]);
 }

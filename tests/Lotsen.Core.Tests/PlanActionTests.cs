@@ -148,4 +148,29 @@ public sealed class PlanActionTests : IClassFixture<StopTourFixture>, IAsyncLife
 
       Assert.Equal(("reorder", (string)RequestOf(resent, 0, 1)["id"]!), ((string?)sent.Data["action"], (string?)sent.Data["requestId"]));
    }
+
+   /// <summary>
+   /// Claude answered the reorder and then set a plan, and the reviewer asks in the reorder's thread for the work again. A plan with a new stop leaves the proposed order short of a stop, and a plan
+   /// of the same stops keeps it fitting, as <see cref="Lotsen.Tours.TourThreads.CheckRedo"/> decides.
+   /// </summary>
+   [Theory]
+   [InlineData(true, "Claude changed the plan's stops since you proposed this order, so the order no longer names each stop once. Propose an order of the current stops with Reorder… in the Plan panel's ⋯ menu.")]
+   [InlineData(false, null)]
+   public async Task Follow_up_in_the_thread_of_a_reorder_shows_whether_a_redo_still_fits_the_plan(bool addStop, string? redo)
+   {
+      await using var session = await AgentSessionConnection.OpenAsync(Harness);
+      var tour = await Answers.TourAsync(session);
+      var ids = await StopIdsAsync(tour.Id);
+      var thread = await Calls.CallAsync(await Calls.UiAsync(On("request_tour_action", tour.Id)), ReorderBody([ids[1], ids[0]]));
+      await Calls.CallAsync(Calls.Agent(session, On("reply", tour.Id, questionId: QuestionIdOf(thread))), """{ "resolution": "done", "text": "Reordered." }""");
+      var added = addStop ? """, { "title": "Tests", "kind": "inspect", "chapter": "code" }""" : "";
+      await SetPlanAsync(session, tour.Id, $$"""[{ "id": "{{ids[1]}}", "title": "Later", "kind": "inspect", "chapter": "code" }, { "id": "{{ids[0]}}", "title": "Keep the rename?", "kind": "question", "chapter": "code" }{{added}}]""");
+      var followed = await Calls.CallAsync(await Calls.UiAsync(On("ask_follow_up", tour.Id, threadId: ThreadIdOf(thread))), """{ "text": "Redo it." }""");
+
+      var fetched = await Calls.FetchAsync(session, tour.Id, QuestionIdOf(followed, message: 2));
+
+      Assert.Equal(redo, (string?)fetched["redo"]);
+      Assert.Equal(redo is not null, fetched.AsObject().ContainsKey("redo"));
+      Assert.Equal([ids[1], ids[0]], fetched["thread"]!["action"]!["stopIds"]!.AsArray().Select(id => (string)id!));
+   }
 }

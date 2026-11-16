@@ -272,6 +272,8 @@ public sealed class ActionRulesTests
 
    public static TheoryData<string> ResendRows => [.. Resends.Keys];
 
+   public static TheoryData<string> UncheckedRedoRows => [.. Resends.Where(row => row.Value.Action is not TourAction.Reorder).Select(row => row.Key)];
+
    public static TheoryData<string> ThreadItemRows =>
    [
       .. Resends.Where(row => row.Value.Action is TourAction.FollowUp.DraftWorkItems { DecisionThreads: not null }
@@ -325,6 +327,47 @@ public sealed class ActionRulesTests
       Assert.Equal("t1", item.ThreadId);
       Assert.Equal(refused is null, item.Applies);
       Assert.Equal(refused is null, item.Reason is null);
+   }
+
+   [Fact]
+   public void Redo_of_a_reorder_fits_while_its_order_names_each_stop_of_the_plan_once()
+   {
+      var reorder = new TourAction.Reorder(["s2", "s1"]);
+
+      Assert.Null(ActionRules.CheckRedo(Tour(Plan(Written("s2"), Written("s1"))), reorder));
+      Assert.Equal(
+         "Claude changed the plan's stops since you proposed this order, so the order no longer names each stop once. Propose an order of the current stops with Reorder… in the Plan panel's ⋯ menu.",
+         ActionRules.CheckRedo(Tour(Plan(Written("s1"), Pending("s3"))), reorder));
+   }
+
+   /// <summary>Each re-send row of a kind other than reorder, a refused one included, so <see cref="TourThreads.CheckRedo"/> checks no redo of these kinds.</summary>
+   [Theory]
+   [MemberData(nameof(UncheckedRedoRows))]
+   public void Redo_is_unchecked_for_every_action_kind_but_reorder(string row)
+   {
+      var (tour, anchor, action, _) = Resends[row];
+
+      Assert.Null(TourThreads.CheckRedo(tour, (QuestionThread.Sent)ThreadFixtures.Asked("t1", anchor, action: action, request: RequestState.Done)));
+   }
+
+   /// <summary>The reorder's thread hands the action's rule to <see cref="TourThreads.CheckRedo"/>.</summary>
+   [Fact]
+   public void Redo_of_a_reorder_thread_takes_the_rule_of_the_reorder()
+   {
+      var tour = Tour(Plan(Written("s1"), Pending("s3")));
+      var reorder = new TourAction.Reorder(["s2", "s1"]);
+
+      var redo = TourThreads.CheckRedo(tour, (QuestionThread.Sent)ThreadFixtures.Asked("t1", new ThreadAnchor.WholeTour(), action: reorder, request: RequestState.Done));
+
+      Assert.Equal(ActionRules.CheckRedo(tour, reorder), redo);
+      Assert.NotNull(redo);
+   }
+
+   [Fact]
+   public void Redo_is_unchecked_for_a_thread_without_an_action_or_decision()
+   {
+      Assert.Null(TourThreads.CheckRedo(Tour(), (QuestionThread.Sent)ThreadFixtures.Asked("t1", new ThreadAnchor.WholeTour())));
+      Assert.Null(TourThreads.CheckRedo(Tour(), (QuestionThread.Sent)ThreadFixtures.Started("t1", new ThreadAnchor.WholeTour(), "The rounding needs a test.")));
    }
 
    [Fact]

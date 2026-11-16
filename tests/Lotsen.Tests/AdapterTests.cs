@@ -290,6 +290,7 @@ public sealed class AdapterTests : IDisposable
       Assert.Contains("A question event with a decision attribute reports a decision that the reviewer already made in the UI", instructions, StringComparison.Ordinal);
       Assert.Contains("Follow howToAct", instructions, StringComparison.Ordinal);
       Assert.Contains("follow its howToAct only when the follow-up asks you to carry out or redo that work", instructions, StringComparison.Ordinal);
+      Assert.Contains("A follow-up that asks you to redo the work reaches you whatever changed since, and fetch_question's redo then says why", instructions, StringComparison.Ordinal);
       Assert.Contains("When a tour action or a decision arrives while you are busy with other work, decline it", instructions, StringComparison.Ordinal);
    }
 
