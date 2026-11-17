@@ -1019,6 +1019,13 @@ export interface ApprovedPlan {
    skippedStops: string[];
    thread: QuestionThread;
 }
+export interface ArchivedSubtree {
+   tourId: string;
+   updatedAt: string;
+   state: TourState;
+   pullRequestState: PullRequestState;
+   dives?: UpdatedTourState[];
+}
 export interface AskFollowUpInput {
    /**
     * The tour's ID, as create_tour or list_tours returned it, or as the user gave it.
@@ -1159,6 +1166,10 @@ export interface DeleteTourInput {
     * The tour's ID, as create_tour or list_tours returned it, or as the user gave it.
     */
    tourId: string;
+}
+export interface DeletedSubtree {
+   tourId: string;
+   dives?: DeletedTour[];
 }
 export interface DiffFileInput {
    /**
@@ -1414,11 +1425,11 @@ export interface Operations {
    };
    set_tour_archived: {
       input: SetTourArchivedInput;
-      output: UpdatedTourState;
+      output: ArchivedSubtree;
    };
    delete_tour: {
       input: DeleteTourInput;
-      output: DeletedTour;
+      output: DeletedSubtree;
    };
    prune_clones: {
       input: NoInput;
@@ -1475,6 +1486,7 @@ export interface Tour {
    words?: string;
    title?: string;
    diveOrigin?: DiveOrigin;
+   archivedWith?: string;
    revision: number;
    dives?: TourDive[];
 }

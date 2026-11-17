@@ -50,6 +50,11 @@ public sealed class TourRulesTests
       ["title over the limit"] = (RepositoryTour() with { Title = new string('t', TourRules.MaxTitleLength + 1) }, "title", $"a title holds at most {TourRules.MaxTitleLength} characters, and this one holds {TourRules.MaxTitleLength + 1}."),
       ["repository tour with blank words"] = (RepositoryTour() with { Words = " " }, "words", "words are null when the reviewer gave none, never empty."),
       ["dive origin with an empty stop ID"] = (RepositoryTour() with { DiveOrigin = new DiveOrigin(OtherId, OtherId, "") }, "diveOrigin.stopId", "a dive's stop ID is null for a dive from the whole tour, never empty."),
+      ["archive's tour on a dive that is not archived"] = (
+         RepositoryTour() with { DiveOrigin = new DiveOrigin(OtherId, OtherId), ArchivedWith = OtherId },
+         "archivedWith",
+         "only an archived dive names the tour whose archive took it."),
+      ["archive's tour on a tour that is no dive"] = (RepositoryTour() with { Archived = true, ArchivedWith = OtherId }, "archivedWith", "only an archived dive names the tour whose archive took it."),
       ["repository tour pinned to an iteration"] = (RepositoryTour() with { Pin = Pinned }, "pin", "a repository tour is pinned to a snapshot of one commit, not to an iteration of a pull request."),
       ["repository tour with a pull request state"] = (RepositoryTour() with { PullRequestState = PullRequestState.Completed }, "pullRequestState", "only a pull request's tour has a pull request state."),
       ["pull request tour with a purpose"] = (Tour() with { Purpose = TourPurpose.Evaluate }, "purpose", "only a repository tour has a purpose."),

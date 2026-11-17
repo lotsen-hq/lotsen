@@ -675,20 +675,25 @@ export class LotsenApp {
    }
 
    /**
-    * Deletes a tour for good, with or without a bound session. The page drops the tour once the server answers, as the `tourDeleted` event does, and leaves it when it shows it.
+    * Deletes a tour for good with its subtree of dives, with or without a bound session. The page drops each deleted tour once the server answers, as the `tourDeleted` events do, and leaves
+    * the tour that it shows when it is one of them.
     *
     * @returns Null once the tour is gone, also when the server no longer had it, or the reason the delete failed.
     */
    async deleteTour(tourId: string): Promise<string | null> {
+      let dives: readonly { tourId: string }[] = [];
       try {
-         await this.requireApi().deleteTour(tourId);
+         dives = (await this.requireApi().deleteTour(tourId)).dives ?? [];
       } catch (error) {
          if (!(error instanceof ApiError && error.status === 404)) {
             return this.refusalOf(error, 'The tour could not be deleted.');
          }
       }
 
-      this.dropTour(tourId);
+      for (const id of [tourId, ...dives.map((dive) => dive.tourId)]) {
+         this.dropTour(id);
+      }
+
       return null;
    }
 

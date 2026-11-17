@@ -2,12 +2,13 @@ import type {
    AnswerInput,
    AnswerType,
    ApprovedPlan,
+   ArchivedSubtree,
    ChangedFamiliarity,
    ChangedFileList,
    CheckedIteration,
    ClearedAnswer,
+   DeletedSubtree,
    DeletedThread,
-   DeletedTour,
    DirectoryListing,
    Familiarity,
    FileDiff,
@@ -41,7 +42,6 @@ import type {
    UpdatedPreference,
    UpdatedSkips,
    UpdatedThread,
-   UpdatedTourState,
 } from './types';
 
 /** The server refused the UI credential, so the page needs a new link from `lotsen open`. */
@@ -146,17 +146,18 @@ export interface Api {
     */
    recordProgress(tourId: string, place: ReadingPlace): Promise<Revised<RecordedProgress>>;
    /**
-    * Archives the tour or unarchives it, and returns the tour's state with its update time. It works with or without a bound session.
+    * Archives the tour or unarchives it with its subtree of dives, and returns the tour's state with its update time, and the state of each dive that changed with it. It works with or without
+    * a bound session.
     *
     * @throws ApiError with status 404 when no tour has the ID.
     */
-   setTourArchived(tourId: string, archived: boolean): Promise<UpdatedTourState>;
+   setTourArchived(tourId: string, archived: boolean): Promise<ArchivedSubtree>;
    /**
-    * Deletes the tour for good, with or without a bound session. Every page receives the `tourDeleted` event.
+    * Deletes the tour for good with its subtree of dives, with or without a bound session, and returns the IDs of the deleted tours. Every page receives a `tourDeleted` event for each.
     *
     * @throws ApiError with status 404 when no tour has the ID.
     */
-   deleteTour(tourId: string): Promise<DeletedTour>;
+   deleteTour(tourId: string): Promise<DeletedSubtree>;
    /** Removes the repository clones that no tour refers to, and the temporary clones that an interrupted clone left, and returns how many it removed. */
    pruneClones(): Promise<PrunedClones>;
    /** Returns the server's versions. */

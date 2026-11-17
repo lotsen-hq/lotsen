@@ -77,7 +77,7 @@ public sealed class TourFileFormatTests : IDisposable
       var tour = store.Create(PullRequest, Familiarity.Some);
       var parent = store.Create(PullRequest, Familiarity.Some);
 
-      var saved = store.Change(tour.Id, current => AsRepositoryTour(current) with { Plan = SamplePlan() with { FileMarks = [] }, Words = "Is the cache safe?", DiveOrigin = new DiveOrigin(parent.Id, parent.Id, "s3") });
+      var saved = store.Change(tour.Id, current => AsRepositoryTour(current) with { Plan = SamplePlan() with { FileMarks = [] }, Words = "Is the cache safe?", DiveOrigin = new DiveOrigin(parent.Id, parent.Id, "s3"), Archived = true, ArchivedWith = parent.Id });
 
       Assert.NotNull(saved);
       Assert.Equivalent(saved, NewStore().Get(tour.Id), strict: true);
@@ -88,6 +88,7 @@ public sealed class TourFileFormatTests : IDisposable
       Assert.Equal($$"""{"state":"snapshot","head":"{{new string('c', 40)}}","remoteUrl":"https://platform.test/shop.git"}""", file["pin"]!.ToJsonString());
       Assert.Equal(("evaluate", "The cache under load", "Is the cache safe?"), ((string)file["purpose"]!, (string)file["title"]!, (string)file["words"]!));
       Assert.Equal($$"""{"parentId":"{{parent.Id}}","rootId":"{{parent.Id}}","stopId":"s3"}""", file["diveOrigin"]!.ToJsonString());
+      Assert.Equal(parent.Id.ToString(), (string)file["archivedWith"]!);
    }
 
    [Fact]
@@ -102,6 +103,24 @@ public sealed class TourFileFormatTests : IDisposable
       Assert.Equal("""{"kind":"repository","url":"https://git.test/shop.git"}""", JsonNode.Parse(File.ReadAllText(PathOf(tour.Id)))!["tour"]!["target"]!.ToJsonString());
    }
 
+   /// <summary>Each row is the raw JSON of a file that does not decode, with what its dive origin says of the parent.</summary>
+   [Theory]
+   [InlineData("""{"schemaVersion":23,"tour":{"diveOrigin":{"parentId":"abcdefghijklmnop","rootId":"abcdefghijklmnop"}}}""", "abcdefghijklmnop")]
+   [InlineData("""{"schemaVersion":23,"tour":{"title":""}}""", "none")]
+   [InlineData("""{"schemaVersion":21,"tour":{"diveOrigin":{"parentId":"abcdefghijklmnop"}}}""", "none")]
+   [InlineData("""{"SchemaVersion":23,"Tour":{"DiveOrigin":{"ParentId":"abcdefghijklmnop"}}}""", "abcdefghijklmnop")]
+   [InlineData("""{"schemaVersion":23,"tour":{"diveOrigin":null,"DiveOrigin":{"parentId":"abcdefghijklmnop"}}}""", "unknown")]
+   [InlineData("""{"schemaVersion":24,"tour":{}}""", "newer")]
+   [InlineData("""{"schemaVersion":23,"tour":{"diveOrigin":{"parentId":"not an ID"}}}""", "unknown")]
+   [InlineData("""{"schemaVersion":"23","tour":{}}""", "unknown")]
+   [InlineData("""{"schemaVersion":23,"tour":{"diveOr""", "unknown")]
+   public void Raw_file_names_the_parent_of_a_dive_that_does_not_decode(string json, string expected)
+   {
+      var parent = TourDocument.ParentIn(System.Text.Encoding.UTF8.GetBytes(json));
+
+      Assert.Equal(expected, parent switch { StoredParent.Of of => of.ParentId.Value, StoredParent.None => "none", StoredParent.NewerLayout => "newer", _ => "unknown" });
+   }
+
    [Fact]
    public void Pull_request_tour_file_holds_none_of_the_properties_of_a_repository_tour()
    {
@@ -111,7 +130,7 @@ public sealed class TourFileFormatTests : IDisposable
 
       var file = JsonNode.Parse(File.ReadAllText(PathOf(tour.Id)))!["tour"]!.AsObject();
 
-      Assert.DoesNotContain(file, property => property.Key is "purpose" or "words" or "title" or "diveOrigin");
+      Assert.DoesNotContain(file, property => property.Key is "purpose" or "words" or "title" or "diveOrigin" or "archivedWith");
    }
 
    /// <summary>A repository's URL is absolute and holds no user information, a ref or a platform ID that is given is not empty, and a dive origin names its root.</summary>

@@ -33,6 +33,10 @@ namespace Lotsen.Tours;
 /// <param name="Words">The reviewer's words about what a repository tour should cover, or null when the reviewer gave none and for a pull request's tour. JSON leaves them out when null.</param>
 /// <param name="Title">A repository tour's title, one line of plain text, or null for a pull request's tour. JSON leaves it out when null.</param>
 /// <param name="DiveOrigin">Where a dive started, or null for a tour that is no dive. Only a repository tour can be a dive. JSON leaves it out when null.</param>
+/// <param name="ArchivedWith">
+/// The tour above this archived dive whose archive took the dive with it, or null for a tour that is not archived or that the reviewer archived on its own. Unarchiving that tour restores the
+/// dive, and so does unarchiving a tour between them that the same archive took. JSON leaves it out when null.
+/// </param>
 internal sealed record Tour(
    TourId Id,
    TourTarget Target,
@@ -52,7 +56,8 @@ internal sealed record Tour(
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TourPurpose? Purpose = null,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Words = null,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Title = null,
-   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiveOrigin? DiveOrigin = null)
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiveOrigin? DiveOrigin = null,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TourId? ArchivedWith = null)
 {
    /// <summary>The number of the tour's stores, from 1 for the new tour, which every store and every change of the tour's binding raises by one.</summary>
    /// <remarks>Every tour-scoped event and every operation's output carries the revision that it shows, so the UI keeps the value with the higher one.</remarks>

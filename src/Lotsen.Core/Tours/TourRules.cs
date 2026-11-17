@@ -11,7 +11,7 @@ namespace Lotsen.Tours;
 /// <see cref="Check"/> runs, in order: no null element in the tour's own lists, <see cref="CheckPlan"/> under <c>plan</c>, and for each written stop <see cref="CheckContent"/> on its content,
 /// a version that counts the earlier versions, each earlier version's kind under <see cref="PurposeRules"/> and <see cref="CheckContent"/> on its content under its kind, check IDs that no other
 /// current content of the tour holds, and a stale marker from 1. Then it checks one answer for each stop and check, the fields and the pin that the target's kind allows, and an available
-/// iteration compared with the tour's pin.
+/// iteration compared with the tour's pin. Last it checks that only an archived dive names the tour whose archive took it.
 /// </para>
 /// <para>
 /// A rule that one value can hold lives on that value instead, as an answer's state and batch do in <see cref="CheckAnswer"/>, and the threads' rules in <see cref="TourThreads"/>. Add a rule
@@ -36,7 +36,8 @@ internal static class TourRules
       ?? (tour.Plan is { } plan ? CheckPlan(tour, plan)?.Under(PlanField) ?? CheckStops(tour, plan) : null)
       ?? CheckAnswers(tour.Answers)
       ?? CheckTargetKind(tour)
-      ?? CheckAvailableIteration(tour);
+      ?? CheckAvailableIteration(tour)
+      ?? CheckArchivedWith(tour);
 
    // The serializer checks nullability on properties but not on collection elements. The plan's own lists are the plan rules'.
    private static RuleFault? CheckNulls(Tour tour) =>
@@ -226,6 +227,10 @@ internal static class TourRules
 
       return tour.PullRequestState != PullRequestState.Active ? new("pullRequestState", "only a pull request's tour has a pull request state.") : null;
    }
+
+   // Unarchiving the tour that ArchivedWith names restores the dive, so only an archived dive holds it.
+   private static RuleFault? CheckArchivedWith(Tour tour) =>
+      tour.ArchivedWith is not null && (!tour.Archived || tour.DiveOrigin is null) ? new("archivedWith", "only an archived dive names the tour whose archive took it.") : null;
 
    // An available iteration is relative to the tour's pin, so only a pinned tour holds one.
    private static RuleFault? CheckAvailableIteration(Tour tour) =>

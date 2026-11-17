@@ -212,7 +212,7 @@ internal static class ServerEvents
 
    /// <summary>
    /// A tour's state changed: the reviewer opened its first stop or its summary page, or archived or unarchived it, or a plan or a stop's content changed whether a stop is pending. The payload is
-   /// an <see cref="UpdatedTourState"/>. A write that leaves the state as it was publishes none.
+   /// an <see cref="UpdatedTourState"/>. A write that leaves the state as it was publishes none. An archive of a tour with dives publishes one event for each tour of its subtree that it changed.
    /// </summary>
    public static readonly ServerEventKind<UpdatedTourState> TourStateChanged = Declare("tourStateChanged", LotsenJsonContext.Default.UpdatedTourState, ProseView.None);
 
@@ -227,7 +227,7 @@ internal static class ServerEvents
 
    /// <summary>
    /// The reviewer deleted a tour, whose file is gone for good. The payload is a <see cref="DeletedTour"/>. A page drops the tour and leaves it when it shows it. The delete releases the tour's
-   /// binding without a <see cref="TourBindingChanged"/> event.
+   /// binding without a <see cref="TourBindingChanged"/> event. A delete of a tour with dives publishes one event for each tour of its subtree.
    /// </summary>
    public static readonly ServerEventKind<DeletedTour> TourDeleted = Declare("tourDeleted", LotsenJsonContext.Default.DeletedTour, ProseView.None, tourScoped: false);
 

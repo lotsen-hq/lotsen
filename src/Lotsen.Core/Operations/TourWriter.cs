@@ -578,10 +578,7 @@ internal sealed class TourWriter
       {
          try
          {
-            _dives = List().Tours
-               .Where(tour => tour.DiveOrigin is not null)
-               .GroupBy(tour => tour.DiveOrigin!.ParentId)
-               .ToDictionary(family => family.Key, family => family.Select(tour => tour.Id).ToList());
+            _dives = DiveIndexOf(List().Tours);
          }
          catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
          {
@@ -590,6 +587,23 @@ internal sealed class TourWriter
       }
 
       return _dives;
+   }
+
+   // Returns the IDs of each parent's dives among the tours, in the order of the tours.
+   private static Dictionary<TourId, List<TourId>> DiveIndexOf(IEnumerable<Tour> tours) =>
+      tours.Where(tour => tour.DiveOrigin is not null).GroupBy(tour => tour.DiveOrigin!.ParentId).ToDictionary(family => family.Key, family => family.Select(tour => tour.Id).ToList());
+
+   // Returns the parent that the file of a tour that cannot be read names, or Unknown when the file cannot be opened.
+   private StoredParent StoredParentOf(TourId id)
+   {
+      try
+      {
+         return TourDocument.ParentIn(File.ReadAllBytes(PathOf(id)));
+      }
+      catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+      {
+         return new StoredParent.Unknown();
+      }
    }
 
    // Returns the stored tour of a document that the store read, or why it cannot be used. A fault is logged with its path, and the tour counts as unreadable.
@@ -796,6 +810,84 @@ internal sealed class TourWriter
          }
 
          return created!.Tour;
+      }
+
+      /// <summary>Returns the tour's subtree as stored: the tour first, each tour before its dives, and the dives of one tour oldest first.</summary>
+      /// <remarks>
+      /// <para>
+      /// Only a repository tour has dives, so the subtree of a pull request's tour is the tour alone, and its read lists no other tour.
+      /// </para>
+      /// <para>
+      /// A repository tour's subtree comes from a listing of the stored tours, which also refreshes the dive index. The parent of each tour that cannot be read comes from its raw file, as
+      /// <see cref="TourDocument.ParentIn"/> reads it. So a fixed file counts on the next call, without a restart.
+      /// </para>
+      /// </remarks>
+      /// <returns>
+      /// The tours, or the tour's own <see cref="Read"/> refusal, or <see cref="OperationError.DivesUnlisted"/>. It is <see cref="OperationError.DivesUnreadable"/> while a tour that cannot be read
+      /// is a dive in the subtree, or names no parent that rules it out.
+      /// </returns>
+      public OperationResult<IReadOnlyList<Tour>> Subtree(TourId id)
+      {
+         var read = Read(id);
+         if (read.Value is not { } tour)
+         {
+            return read.Error!;
+         }
+
+         if (tour.Target is not RepositoryTarget)
+         {
+            return OperationResult<IReadOnlyList<Tour>>.Of([tour]);
+         }
+
+         TourListing listing;
+         try
+         {
+            listing = _writer.List();
+         }
+         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+         {
+            _writer._logger.LogWarning("The tours could not be listed, so tour {TourId} and its dives stay as they are: {Reason}", id.Value, exception.Message);
+            return OperationError.DivesUnlisted(id);
+         }
+
+         _writer._dives = DiveIndexOf(listing.Tours);
+         var stored = listing.Tours.ToDictionary(stored => stored.Id);
+         var unreadable = listing.Unreadable.Concat(listing.OtherSchema).Select(unread => (Id: unread, Parent: _writer.StoredParentOf(unread))).ToList();
+         List<TourId> blocking = [.. unreadable.Where(unread => unread.Parent is StoredParent.Unknown or StoredParent.NewerLayout).Select(unread => unread.Id)];
+         List<Tour> tours = [tour];
+         var parents = new Queue<TourId>([id]);
+
+         // The walk visits each tour once, so a cycle of dive origins, which only a damaged store holds, still ends it.
+         var seen = new HashSet<TourId> { id };
+         while (parents.TryDequeue(out var parent))
+         {
+            foreach (var diveId in _writer._dives.GetValueOrDefault(parent) ?? [])
+            {
+               if (seen.Add(diveId))
+               {
+                  parents.Enqueue(diveId);
+                  tours.Add(stored[diveId]);
+               }
+            }
+
+            foreach (var (diveId, _) in unreadable.Where(unread => unread.Parent is StoredParent.Of(var of) && of == parent))
+            {
+               if (seen.Add(diveId))
+               {
+                  parents.Enqueue(diveId);
+                  blocking.Add(diveId);
+               }
+            }
+         }
+
+         if (blocking.Count == 0)
+         {
+            return OperationResult<IReadOnlyList<Tour>>.Of(tours);
+         }
+
+         var newer = unreadable.Where(unread => unread.Parent is StoredParent.NewerLayout).Select(unread => unread.Id).ToHashSet();
+         var files = blocking.Distinct().Order().Select(unread => (Id: unread, File: Path.GetFileName(_writer.PathOf(unread)))).ToList();
+         return OperationError.DivesUnreadable(id, [.. files.Where(file => !newer.Contains(file.Id))], [.. files.Where(file => newer.Contains(file.Id))]);
       }
 
       /// <summary>Removes the tour for good and forgets its binding without an event, and returns the tour as it was stored.</summary>

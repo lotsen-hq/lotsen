@@ -673,6 +673,38 @@
         "thread"
       ]
     },
+    "ArchivedSubtree": {
+      "title": "ArchivedSubtree",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "state": {
+          "$ref": "#/definitions/TourState"
+        },
+        "pullRequestState": {
+          "$ref": "#/definitions/PullRequestState"
+        },
+        "dives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/UpdatedTourState"
+          }
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "state",
+        "pullRequestState"
+      ]
+    },
     "AskFollowUpInput": {
       "title": "AskFollowUpInput",
       "type": "object",
@@ -1381,6 +1413,25 @@
         "tourId"
       ],
       "additionalProperties": false
+    },
+    "DeletedSubtree": {
+      "title": "DeletedSubtree",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "dives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DeletedTour"
+          }
+        }
+      },
+      "required": [
+        "tourId"
+      ]
     },
     "DeletedThread": {
       "title": "DeletedThread",
@@ -2880,7 +2931,7 @@
               "$ref": "#/definitions/SetTourArchivedInput"
             },
             "output": {
-              "$ref": "#/definitions/UpdatedTourState"
+              "$ref": "#/definitions/ArchivedSubtree"
             }
           },
           "required": [
@@ -2896,7 +2947,7 @@
               "$ref": "#/definitions/DeleteTourInput"
             },
             "output": {
-              "$ref": "#/definitions/DeletedTour"
+              "$ref": "#/definitions/DeletedSubtree"
             }
           },
           "required": [
@@ -5491,6 +5542,10 @@
         },
         "diveOrigin": {
           "$ref": "#/definitions/DiveOrigin"
+        },
+        "archivedWith": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
         },
         "revision": {
           "type": "integer"

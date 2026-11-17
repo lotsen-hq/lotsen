@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import type { LotsenApp } from '../../src/lib/app.svelte';
 import type { World } from '../backend/backend';
-import { attachClaude, backend, openStop, openTour, seedDive, seedRepositoryTour, settled, startApp } from '../harness';
+import { attachClaude, backend, openStop, openTour, seedDive, seedRepositoryTour, settled, startApp, withEventHolds } from '../harness';
 import { openTourList } from '../tourPicker';
 import { planPanel, resetPageEachTest, tab, worldOf } from './appPanels';
 
@@ -208,5 +208,22 @@ describe("a parent's dives", () => {
 
       await waitFor(() => expect(row().getByRole('button', { name: 'Rounding, once more' }).getAttribute('aria-describedby')).toBeTruthy());
       expect(descriptionOf(row().getByRole('button', { name: 'Rounding, once more' }))).toBe('In progress');
+   });
+});
+
+describe('deleting a dive', () => {
+   it('drops the dive and the dives below it once the server answers, before their tourDeleted events arrive', async () => {
+      const { world, seed } = await worldOf(family);
+      const transport = withEventHolds(world.transport());
+      const { app } = await startApp(world, { transport });
+      transport.holdKinds('tourDeleted');
+
+      expect(await app.deleteTour(seed.stopDiveId)).toBeNull();
+
+      const ids = app.tours.map((tour) => tour.id);
+      expect(ids).toEqual(expect.arrayContaining([seed.rootId, seed.wholeDiveId]));
+      expect(ids).not.toContain(seed.stopDiveId);
+      expect(ids).not.toContain(seed.deeperId);
+      expect(ids).toHaveLength(3);
    });
 });

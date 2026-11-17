@@ -14,9 +14,14 @@ internal sealed record DeleteTourInput(
    [property: Description(OperationInputs.TourIdDescription)]
    TourId TourId);
 
-/// <summary>A tour that the reviewer deleted: the output of <c>delete_tour</c> and the payload of <see cref="ServerEvents.TourDeleted"/>.</summary>
+/// <summary>A tour that the reviewer deleted, alone or with a tour above it: the payload of <see cref="ServerEvents.TourDeleted"/>.</summary>
 /// <param name="TourId">The deleted tour's ID.</param>
 internal sealed record DeletedTour(TourId TourId);
+
+/// <summary>The output of <c>delete_tour</c>: the tour that the reviewer deleted, with the dives that the delete took.</summary>
+/// <param name="TourId">The deleted tour's ID.</param>
+/// <param name="Dives">The deleted tour's subtree of dives, each tour before its dives, or null for a tour without dives. JSON leaves them out when null.</param>
+internal sealed record DeletedSubtree(TourId TourId, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<DeletedTour>? Dives = null);
 
 /// <summary>The output of <c>prune_clones</c>.</summary>
 /// <param name="Removed">The number of clones and temporary clones that the prune removed.</param>
@@ -46,37 +51,56 @@ internal sealed class TourDeletion
       _logger = logger;
    }
 
-   /// <summary>Removes the tour for good, releases its binding and tells every page, then removes the clones that the tour referred to and no other tour refers to.</summary>
+   /// <summary>
+   /// Removes the tour and its subtree of dives for good, releases their bindings and tells every page, then removes the clones that those tours referred to and no other tour refers to.
+   /// </summary>
    /// <remarks>
    /// <para>
-   /// The tour needs no bound session, and no session event tells of the delete. The bound session's later calls on the tour are refused as not found. Every write runs through <see
+   /// The tours need no bound session, and no session event tells of the delete. The bound sessions' later calls on the tours are refused as not found. Every write runs through <see
    /// cref="ITourStore.Update"/>, which finds no tour after the delete, so a pin, an iteration check or any other write that ends later stores nothing and publishes nothing.
    /// </para>
    /// <para>
-   /// The prune of the tour's clones runs as a background job after the answer, as <see cref="CloneCache.PruneAsync"/> describes, and leaves a clone that another tour refers to or that a pin, fetch
+   /// One hold of the writer's lock reads the whole subtree, then deletes it, so no dive created meanwhile outlives its parent. A refusal of <see cref="TourWriter.Locked.Subtree"/> comes
+   /// before the delete removes any tour. Each dive goes before its parent, so a delete that a failed removal stops leaves no dive whose parent is gone. Each removal publishes its own <see cref="ServerEvents.TourDeleted"/>.
+   /// </para>
+   /// <para>
+   /// The prune of the tours' clones runs as a background job after the answer, as <see cref="CloneCache.PruneAsync"/> describes, and leaves a clone that another tour refers to or that a pin, fetch
    /// or file read uses. A tour deleted while it pins refers to no clone yet, so the clone of that pin stays until <see cref="PruneClonesAsync"/>.
    /// </para>
    /// </remarks>
-   public OperationResult<DeletedTour> DeleteTour(Access.Reviewer.Pass pass, DeleteTourInput input)
+   public OperationResult<DeletedSubtree> DeleteTour(Access.Reviewer.Pass pass, DeleteTourInput input)
    {
-      var result = _writer.Exclusive(pass, locked =>
+      List<Tour> deleted = [];
+      var refusal = _writer.Exclusive(pass, locked =>
       {
-         var deleted = locked.Delete(input.TourId);
-         if (deleted.Value is { } tour)
+         var subtree = locked.Subtree(input.TourId);
+         if (subtree.Value is not { } tours)
          {
-            locked.Publish(ServerEvents.ForTourDeleted(new DeletedTour(tour.Id)));
+            return subtree.Error;
          }
 
-         return deleted;
+         foreach (var tour in tours.Reverse())
+         {
+            var removed = locked.Delete(tour.Id);
+            if (removed.Value is not { } stored)
+            {
+               return removed.Error;
+            }
+
+            deleted.Add(stored);
+            locked.Publish(ServerEvents.ForTourDeleted(new DeletedTour(stored.Id)));
+         }
+
+         return null;
       });
-      if (result.Value is not { } deleted)
+
+      foreach (var tour in deleted)
       {
-         return result.Error!;
+         _logger.LogInformation("Tour {TourId} was deleted.", tour.Id.Value);
+         _scheduler.Forget(tour.Id);
       }
 
-      _logger.LogInformation("Tour {TourId} was deleted.", deleted.Id.Value);
-      _scheduler.Forget(deleted.Id);
-      IReadOnlyCollection<Uri> clones = [.. UrlsOf(deleted)];
+      IReadOnlyCollection<Uri> clones = [.. deleted.SelectMany(UrlsOf).Distinct()];
       if (clones.Count > 0)
       {
          _jobs.Run(async stopping =>
@@ -86,7 +110,13 @@ internal sealed class TourDeletion
          });
       }
 
-      return new DeletedTour(deleted.Id);
+      if (refusal is not null)
+      {
+         return refusal;
+      }
+
+      deleted.Reverse();
+      return new DeletedSubtree(deleted[0].Id, deleted.Count > 1 ? [.. deleted.Skip(1).Select(tour => new DeletedTour(tour.Id))] : null);
    }
 
    /// <summary>Removes every clone that no tour refers to and every temporary clone that a clone cut short left, and returns how many it removed.</summary>

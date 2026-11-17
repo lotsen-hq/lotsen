@@ -60,7 +60,18 @@ internal sealed class TourIdJsonConverter : JsonConverter<TourId>, IJsonSchemaCo
          ? id
          : throw new JsonException("The value is not a tour ID.");
 
-   public override void Write(Utf8JsonWriter writer, TourId value, JsonSerializerOptions options) => writer.WriteStringValue(value.Value);
+   // HandleNull hands a null ID here too, such as the default value of an optional ID that a schema export writes.
+   public override void Write(Utf8JsonWriter writer, TourId value, JsonSerializerOptions options)
+   {
+      if (value is null)
+      {
+         writer.WriteNullValue();
+      }
+      else
+      {
+         writer.WriteStringValue(value.Value);
+      }
+   }
 
    public JsonObject GetSchema() => new() { ["type"] = "string", ["pattern"] = TourId.Pattern };
 }

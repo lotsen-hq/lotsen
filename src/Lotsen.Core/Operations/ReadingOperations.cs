@@ -34,6 +34,19 @@ internal sealed record SetTourArchivedInput(
 /// <param name="PullRequestState">The pull request's state, as <see cref="Tour.PullRequestState"/> holds it.</param>
 internal sealed record UpdatedTourState(TourId TourId, DateTimeOffset UpdatedAt, TourState State, PullRequestState PullRequestState);
 
+/// <summary>The output of <c>set_tour_archived</c>: the tour's state after the write, with the state of each dive that the write archived or unarchived with it.</summary>
+/// <param name="TourId">The tour.</param>
+/// <param name="UpdatedAt">The tour's update time after the write, or the tour's current update time when the write left the tour as it was.</param>
+/// <param name="State">The tour's state, as <see cref="TourStates.Of"/> derives it.</param>
+/// <param name="PullRequestState">The pull request's state, as <see cref="Tour.PullRequestState"/> holds it.</param>
+/// <param name="Dives">The states of the dives that the write changed, each tour before its dives, or null when it changed none. JSON leaves them out when null.</param>
+internal sealed record ArchivedSubtree(
+   TourId TourId,
+   DateTimeOffset UpdatedAt,
+   TourState State,
+   PullRequestState PullRequestState,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<UpdatedTourState>? Dives = null);
+
 /// <summary>The reviewer's reading progress on a tour as one write stored it, with the tour's state, pull request state and update time after that write.</summary>
 /// <param name="TourId">The tour.</param>
 /// <param name="UpdatedAt">The tour's update time after the write, or the tour's current update time when the write changed nothing.</param>
@@ -131,15 +144,48 @@ internal sealed class ReadingOperations
          ? OperationError.Invalid("stopId", "give the ID of the stop that the reviewer opened, or summary true for the summary page, but not both.")
          : null);
 
-   /// <summary>Archives the tour or unarchives it, and returns the tour's state.</summary>
+   /// <summary>Archives the tour or unarchives it with its subtree of dives, and returns the states of the tours that changed.</summary>
    /// <remarks>
+   /// <para>
    /// The tour needs no bound session, and nothing reaches any session. An unarchived tour has the state that its plan and reading progress give. A tour already in the state stays as it is, and the
    /// server publishes no event for it.
+   /// </para>
+   /// <para>
+   /// One hold of the writer's lock reads the whole subtree, then writes each dive before the tour, so the output's revision is the tour's. A refusal of <see cref="TourWriter.Locked.Subtree"/> comes
+   /// before the write changes any tour. An archive takes each dive that is not archived yet, and <see cref="Tour.ArchivedWith"/> names the tour whose archive took it. An unarchive restores the dives that name the
+   /// same archive as the tour, so a dive that the reviewer archived on its own, or with a dive between, stays archived.
+   /// </para>
    /// </remarks>
-   public OperationResult<UpdatedTourState> SetTourArchived(Access.Reviewer.Pass pass, SetTourArchivedInput input) =>
-      _writer.Write(pass, input.TourId, edit => edit.Store(
-         edit.Latest.Archived == input.Archived ? edit.Latest : edit.Latest with { Archived = input.Archived },
-         stored => new UpdatedTourState(stored.Tour.Id, stored.Tour.UpdatedAt, TourStates.Of(stored.Tour), stored.Tour.PullRequestState)));
+   public OperationResult<ArchivedSubtree> SetTourArchived(Access.Reviewer.Pass pass, SetTourArchivedInput input) =>
+      _writer.Exclusive(pass, locked =>
+      {
+         var subtree = locked.Subtree(input.TourId);
+         if (subtree.Value is not { } tours)
+         {
+            return subtree.Error!;
+         }
+
+         var tour = tours[0];
+         var archive = tour.ArchivedWith ?? tour.Id;
+         List<UpdatedTourState> dives = [];
+         foreach (var dive in tours.Skip(1))
+         {
+            var written = locked.Write(dive.Id, edit => edit.Store(DiveArchived(edit.Latest, input.Archived, archive), stored => stored.Tour));
+            if (written.Value is not { } after)
+            {
+               return written.Error!;
+            }
+
+            if (after.Archived != dive.Archived)
+            {
+               dives.Add(StateOf(after));
+            }
+         }
+
+         return locked.Write(tour.Id, edit => edit.Store(
+            edit.Latest.Archived == input.Archived ? edit.Latest : edit.Latest with { Archived = input.Archived, ArchivedWith = null },
+            stored => new ArchivedSubtree(stored.Tour.Id, stored.Tour.UpdatedAt, TourStates.Of(stored.Tour), stored.Tour.PullRequestState, dives.Count > 0 ? dives : null)));
+      });
 
    /// <summary>
    /// Returns the review summary of the tour as the viewer reads it, built from <see cref="AgentView.For"/>, so an agent session's summary holds no draft answer and no note. Every viewer gets the
@@ -187,6 +233,13 @@ internal sealed class ReadingOperations
                return written;
             }),
          cancellationToken);
+
+   // An archive takes a dive that is not archived yet, and an unarchive restores a dive that names the same archive.
+   private static Tour DiveArchived(Tour dive, bool archived, TourId archive) => archived
+      ? dive.Archived ? dive : dive with { Archived = true, ArchivedWith = archive }
+      : dive.ArchivedWith == archive ? dive with { Archived = false, ArchivedWith = null } : dive;
+
+   private static UpdatedTourState StateOf(Tour tour) => new(tour.Id, tour.UpdatedAt, TourStates.Of(tour), tour.PullRequestState);
 
    // Call it on a tour that CheckSynthesis accepts.
    private static SynthesisPin PinOf(Tour tour) => SynthesisPin.Of(tour.Pin) ?? throw new ArgumentException("The tour has no commits to write a synthesis at.", nameof(tour));

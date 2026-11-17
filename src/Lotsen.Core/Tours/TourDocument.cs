@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Lotsen.Tours;
@@ -42,6 +43,65 @@ internal sealed class TourDocument
 
    /// <summary>The tour as the file holds it, which <see cref="Decode"/> checks.</summary>
    public Tour Tour { get; }
+
+   /// <summary>Returns the parent that the raw JSON of a tour's file names in the tour's dive origin, read without the tour's types, for a file that does not decode.</summary>
+   /// <remarks>It matches property names in any letter case, as the decoder does, and a name that two properties match leaves the parent unknown.</remarks>
+   /// <returns>
+   /// <see cref="StoredParent.None"/> for a tour that is no dive, or for a layout older than <see cref="PullRequestOnlySchemaVersion"/>, which predates dives.
+   /// <see cref="StoredParent.NewerLayout"/> for a layout newer than <see cref="CurrentSchemaVersion"/>, which a newer lotsen wrote. <see cref="StoredParent.Unknown"/> for JSON that
+   /// does not parse or a dive origin without a valid parent ID.
+   /// </returns>
+   public static StoredParent ParentIn(ReadOnlyMemory<byte> json)
+   {
+      try
+      {
+         using var document = JsonDocument.Parse(json);
+         if (PropertyOf(document.RootElement, "schemaVersion") is not { } version || !version.TryGetInt32(out var number))
+         {
+            return new StoredParent.Unknown();
+         }
+
+         if (number > CurrentSchemaVersion)
+         {
+            return new StoredParent.NewerLayout();
+         }
+
+         if (number < PullRequestOnlySchemaVersion)
+         {
+            return new StoredParent.None();
+         }
+
+         if (PropertyOf(document.RootElement, "tour") is not { ValueKind: JsonValueKind.Object } tour)
+         {
+            return new StoredParent.Unknown();
+         }
+
+         if (PropertyOf(tour, "diveOrigin") is not { ValueKind: not JsonValueKind.Null } origin)
+         {
+            return new StoredParent.None();
+         }
+
+         return PropertyOf(origin, "parentId") is { ValueKind: JsonValueKind.String } parent && TourId.TryParse(parent.GetString(), out var parentId)
+            ? new StoredParent.Of(parentId)
+            : new StoredParent.Unknown();
+      }
+      catch (Exception exception) when (exception is JsonException or InvalidOperationException)
+      {
+         return new StoredParent.Unknown();
+      }
+   }
+
+   // Returns the object's property of the name in any letter case, or null when it has none.
+   private static JsonElement? PropertyOf(JsonElement element, string name)
+   {
+      List<JsonElement> found = [.. element.EnumerateObject().Where(property => string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase)).Select(property => property.Value)];
+      return found.Count switch
+      {
+         0 => null,
+         1 => found[0],
+         _ => throw new InvalidOperationException($"Two properties match '{name}'."),
+      };
+   }
 
    /// <summary>The review marks as the file holds them, which <see cref="Decode"/> checks.</summary>
    public IReadOnlyList<ReviewMark> ReviewMarks { get; }
@@ -195,4 +255,21 @@ internal sealed class Checked<T>
    public static implicit operator Checked<T>(T value) => new(value, null);
 
    public static implicit operator Checked<T>(RuleFault fault) => new(null, fault);
+}
+
+/// <summary>The parent that the raw file of a tour names, as <see cref="TourDocument.ParentIn"/> reads it.</summary>
+internal closed record StoredParent
+{
+   /// <summary>The tour is no dive.</summary>
+   internal sealed record None : StoredParent;
+
+   /// <summary>The tour is a dive of the parent.</summary>
+   /// <param name="ParentId">The parent's ID.</param>
+   internal sealed record Of(TourId ParentId) : StoredParent;
+
+   /// <summary>The file does not say whether the tour is a dive, or of which tour.</summary>
+   internal sealed record Unknown : StoredParent;
+
+   /// <summary>A newer lotsen wrote the file, in a layout that this build cannot read, so the file does not say whether the tour is a dive.</summary>
+   internal sealed record NewerLayout : StoredParent;
 }

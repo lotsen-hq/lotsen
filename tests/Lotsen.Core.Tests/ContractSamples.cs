@@ -20,6 +20,7 @@ internal static class ContractSamples
    private static readonly DateTimeOffset At = TourValues.Now;
    private static readonly DateTimeOffset Later = At.AddMinutes(5);
    private static readonly TourId Id = TourValues.Id;
+   private static readonly TourId DiveId = TourId.TryParse("qrstuvwxyzabcdef", out var id) ? id : throw new InvalidOperationException("The ID does not parse.");
    private static readonly TourPin.Pinned Pin = TourValues.Pinned;
    private static readonly CommitId Head = TourValues.Head;
    private static readonly TourPin.Pinned NextPin = new(Pin.MergeBase, CommitId.Parse(new string('c', 40)), 2, Pin.RemoteUrl);
@@ -204,8 +205,8 @@ internal static class ContractSamples
          new UpdatedSkips(Id, Later, ["s6"]),
          new UpdatedDoneVersion(Id, Later, "s2", 2),
          new RecordedProgress(Id, Later, TourState.InProgress, PullRequestState.Active, new ReadingProgress(false, "s2"), SeenVersion: 2),
-         new UpdatedTourState(Id, Later, TourState.Archived, PullRequestState.Completed),
-         new DeletedTour(Id),
+         new ArchivedSubtree(Id, Later, TourState.Archived, PullRequestState.Completed, [new UpdatedTourState(DiveId, Later, TourState.Archived, PullRequestState.Active)]),
+         new DeletedSubtree(Id, [new DeletedTour(DiveId)]),
          new PrunedClones(2),
          new ChangedFamiliarity(Id, Later, Familiarity.New, FamiliarityThread),
          new ApprovedPlan(Id, Later, PlanApproval.Given, Familiarity.Some, ["s6"], ApprovalThread),

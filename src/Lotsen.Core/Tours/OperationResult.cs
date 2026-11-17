@@ -69,6 +69,40 @@ internal sealed record OperationError(
       OperationErrorCode.TourUnreadable,
       "no clone was pruned, because the stored tours could not be listed. Check that lotsen can read the tours directory in its data directory, then prune again.");
 
+   /// <summary>
+   /// Returns the refusal of a delete or an archive of a tour while stored tours could not be read that are, or could be, dives below it. It names each tour's file in the data directory's
+   /// tours directory. Nothing was changed.
+   /// </summary>
+   /// <remarks>A file that a newer lotsen wrote holds a tour that the newer version can read, so its advice never says to delete the file.</remarks>
+   /// <param name="tourId">The tour that the operation names.</param>
+   /// <param name="unreadable">Each tour whose file is damaged, with the name of its file.</param>
+   /// <param name="newer">Each tour whose file a newer lotsen wrote, with the name of its file.</param>
+   public static OperationError DivesUnreadable(TourId tourId, IReadOnlyList<(TourId Id, string File)> unreadable, IReadOnlyList<(TourId Id, string File)> newer)
+   {
+      var reason = $"tour {tourId} and its dives stay as they are.";
+      if (unreadable.Count > 0)
+      {
+         reason += unreadable.Count == 1
+            ? $" Tour {unreadable[0].Id} could not be read, and it may be a dive below tour {tourId}. Make its file {unreadable[0].File} in the tours directory of lotsen's data directory readable, or move or delete that file, then try again."
+            : $" Tours {string.Join(", ", unreadable.Select(tour => tour.Id))} could not be read, and each may be a dive below tour {tourId}. Make their files in the tours directory of lotsen's data directory readable, or move or delete those files, then try again: {string.Join(", ", unreadable.Select(tour => tour.File))}.";
+      }
+
+      if (newer.Count > 0)
+      {
+         reason += newer.Count == 1
+            ? $" Tour {newer[0].Id} could not be read, because a newer version of lotsen wrote it, and it may be a dive below tour {tourId}. Delete or archive tour {tourId} with that newer version, or move the file {newer[0].File} out of the tours directory of lotsen's data directory and try again."
+            : $" Tours {string.Join(", ", newer.Select(tour => tour.Id))} could not be read, because a newer version of lotsen wrote them, and each may be a dive below tour {tourId}. Delete or archive tour {tourId} with that newer version, or move their files out of the tours directory of lotsen's data directory and try again: {string.Join(", ", newer.Select(tour => tour.File))}.";
+      }
+
+      return new(OperationErrorCode.TourUnreadable, reason, "tourId");
+   }
+
+   /// <summary>Returns the refusal of a delete or an archive of a repository tour when the stored tours could not be listed to find its dives. Nothing was changed.</summary>
+   public static OperationError DivesUnlisted(TourId tourId) => new(
+      OperationErrorCode.TourUnreadable,
+      $"tour {tourId} and its dives stay as they are, because the stored tours could not be listed to find its dives. Check that lotsen can read the tours directory in its data directory, then try again.",
+      "tourId");
+
    /// <summary>Returns the refusal of an operation that reads the commits of a pull request's pinned tour, for a tour that has none.</summary>
    /// <returns><see cref="OperationErrorCode.NotPullRequestTour"/> for a repository tour in any pin state, or <see cref="PinNotReady"/>'s refusal for a pull request's tour.</returns>
    public static OperationError TourNotPinned(Tour tour) => tour.Target is RepositoryTarget ? NotPullRequestTour(tour, "merge base and pull request head to read files at") : PinNotReady(tour);

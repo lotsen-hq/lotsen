@@ -2558,10 +2558,23 @@ export const outputFixtures = {
       "tourId": "abcdefghijklmnop",
       "updatedAt": "2026-10-30T09:05:00+00:00",
       "state": "archived",
-      "pullRequestState": "completed"
+      "pullRequestState": "completed",
+      "dives": [
+         {
+            "tourId": "qrstuvwxyzabcdef",
+            "updatedAt": "2026-10-30T09:05:00+00:00",
+            "state": "archived",
+            "pullRequestState": "active"
+         }
+      ]
    },
    "delete_tour": {
-      "tourId": "abcdefghijklmnop"
+      "tourId": "abcdefghijklmnop",
+      "dives": [
+         {
+            "tourId": "qrstuvwxyzabcdef"
+         }
+      ]
    },
    "prune_clones": {
       "removed": 2
