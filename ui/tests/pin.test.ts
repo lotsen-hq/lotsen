@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { atPin, changedFilePaths, inFile, pinCommits, pinnedReferenceAtPin, pinStepOf, pointsInto, referenceAtPin } from '../src/lib/pin';
-import type { CodeReference, FileSide, StopPassage, WrittenStop } from '../src/lib/types';
+import { atPin, changedFilePaths, inFile, pinCommits, pinnedReferenceAtPin, pinStepOf, pointsInto, referenceAtPin, visitedCode } from '../src/lib/pin';
+import type { CodeReference, FileSide, Stop, StopPassage, WrittenStop } from '../src/lib/types';
+import { stopOf } from './stops';
 
 function stopPassage(side: FileSide, path: string, startLine: number, endLine: number, role: StopPassage['role'] = 'related', label?: string): StopPassage {
    return { side, path, startLine, endLine, role, commit: 'c'.repeat(40), text: 'text', ...(label === undefined ? {} : { label }) };
@@ -137,6 +138,34 @@ describe('a ref: link at the pin', () => {
    it('is at the pin in a stale stop or an earlier version while the tour is not pinned', () => {
       expect(sides(referenceAtPin(stop([], 2), true, null))).toEqual([true, true]);
       expect(sides(referenceAtPin(stop([]), false, null))).toEqual([true, true]);
+   });
+});
+
+describe('the code that a stop visits at the pin', () => {
+   const commits = { base: 'a'.repeat(40), head: 'b'.repeat(40) };
+   const passage = (side: FileSide, commit: string): StopPassage => ({ side, path: `${side}-passage.ts`, startLine: 1, endLine: 1, role: 'primary', commit, text: '' });
+   const links = [reference('base', 'base-link.ts', 1, 2), reference('head', 'head-link.ts', 3, 4)];
+   const stop = (passages: StopPassage[], staleOn?: number): Stop =>
+      stopOf({
+         id: 's1',
+         title: 'T',
+         kind: 'inspect',
+         chapter: 'c',
+         content: { headline: 'T.', passages, html: { headline: '<p>T.</p>\n' }, references: links },
+         ...(staleOn === undefined ? {} : { staleOn }),
+      });
+   const paths = (code: readonly CodeReference[]) => code.map((visited) => visited.path);
+
+   it.each([
+      ['a fresh stop', stop([passage('base', 'a'.repeat(40)), passage('head', 'c'.repeat(40))]), ['base-passage.ts', 'base-link.ts', 'head-link.ts']],
+      ['a stale stop', stop([passage('base', 'a'.repeat(40)), passage('head', 'c'.repeat(40))], 2), ['base-passage.ts', 'base-link.ts']],
+      ['a stale stop without a passage at the pin', stop([passage('head', 'c'.repeat(40))], 2), []],
+   ])('in %s is its passages at the pin and its ref: links at the pin', (_, visiting, expected) => {
+      expect(paths(visitedCode(visiting, commits))).toEqual(expected);
+   });
+
+   it('is none for a pending stop', () => {
+      expect(visitedCode(stopOf({ id: 'p', title: 'P', kind: 'inspect', chapter: 'c', content: null }), commits)).toEqual([]);
    });
 });
 

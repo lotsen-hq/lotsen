@@ -9,7 +9,6 @@
    import SunDim from '@lucide/svelte/icons/sun-dim';
    import type { KnownDirectory } from '../lib/viewState';
    import type { KnownFiles } from '../lib/tourRecord.svelte';
-   import { contentOf } from '../lib/stops';
    import { isHTMLElement } from '../lib/dom';
    import {
       buildFileList,
@@ -24,7 +23,7 @@
    } from '../lib/fileTree';
    import { panelDocument } from '../lib/panelDocument.svelte';
    import { pinFailedLines, pinningLines } from '../lib/labels';
-   import { atPin, pinCommits } from '../lib/pin';
+   import { pinCommits, visitedCode } from '../lib/pin';
    import { changedFilesAt, stopVisits } from '../lib/repositoryTree';
    import type { FileReference } from '../lib/stopFiles';
    import type { ChangedFile, FileMark, FileSide, Stop, TourSummary } from '../lib/types';
@@ -56,9 +55,9 @@
       selectedText?: FileReference | null;
       /** Claude's marks on the changed files, by path. */
       fileMarks?: ReadonlyMap<string, FileMark>;
-      /** The stop the reviewer has open, whose files at the pin the list can show first, or null when none is open. */
+      /** The stop the reviewer has open, whose visited files at the pin the list can show first, or null when none is open. */
       currentStop?: Stop | null;
-      /** The plan's stops, whose passages give a repository tour's tour markers. */
+      /** The plan's stops, whose visited files give a repository tour's tour markers. */
       stops?: readonly Stop[];
       /** The paths of the changed files that the reviewer marked reviewed. */
       reviewedPaths?: ReadonlySet<string>;
@@ -109,9 +108,7 @@
    const snapshotHead = $derived(tour?.pin.state === 'snapshot' ? tour.pin.head : '');
    const visits = $derived(snapshotHead === '' ? new Map<string, number>() : stopVisits(stops, snapshotHead));
    const reviewedCount = $derived(files.filter((file) => reviewedPaths.has(file.path)).length);
-   // Only the passages at the pin group and un-dim files, as they alone get decorations and a place in the stop-files stack.
-   const stopPassages = $derived((contentOf(currentStop)?.passages ?? []).filter((passage) => atPin(passage, pinCommits(tour?.pin))));
-   const stopGroups = $derived(groupByStop(files, stopPassages));
+   const stopGroups = $derived(groupByStop(files, currentStop === null ? [] : visitedCode(currentStop, pinCommits(tour?.pin))));
    const groups = $derived(grouped ? stopGroups : null);
    const undimmedPaths = $derived(dimOthers && stopGroups !== null ? new Set(stopGroups.stop.map((file) => file.path)) : null);
    const repositorySelectedPath = $derived.by(() => {

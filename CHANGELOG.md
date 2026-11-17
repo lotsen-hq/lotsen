@@ -17,6 +17,7 @@ The notable changes in each release of lotsen, newest first. Versions follow [se
 
 - **The pull request tour skill is now `/lotsen:tour-pr`, so `/lotsen:tour` no longer works.** Run `/lotsen:tour-pr` with the pull request's URL instead, or ask Claude to tour a PR in words, as before.
 - **Claude does not redo a reorder or a decision that the tour has moved past.** When you ask in the thread of a reorder, a familiarity change, a plan approval or an iteration update for the work again, lotsen tells Claude whether the tour moved past it: the plan's stops changed since the reorder or the approval, you changed the familiarity level again, or the tour moved to another update. Then Claude declines the work, says why and what you can use instead, such as Re-plan… or Reorder… in the Plan panel, and still answers your question. A plan approval's stops now follow the familiarity level that the tour holds when Claude writes them.
+- **A stop's links to code count as its files.** The Files panel's Group by stop lists a changed file that a stop names only through a link in its text under This stop, and Dim other files leaves it undimmed. A codebase tour's markers count such a file and its folders too. A stale stop's links count only on a side where one of its code passages is still at the tour's commit.
 - **The ask box's Save as note button shows a save icon**, so it no longer looks like a button that adds an attachment.
 
 ## v0.3.0 - 2026-11-15

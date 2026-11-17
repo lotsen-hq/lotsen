@@ -143,15 +143,16 @@ export interface StopGroups {
 }
 
 /**
- * Returns the changed files that the passages point at, and the rest.
+ * Returns the changed files that the stop's code points at, and the rest.
  *
- * A passage finds a file by its path at the passage's side, so a base-side passage finds a renamed file by its old path. A passage in an unchanged file finds none.
+ * A passage or a code reference finds a file by its path at its side, so a base-side one finds a renamed file by its old path. One in an unchanged file finds none.
  *
- * @returns The groups, or null when the passages find no changed file.
+ * @param code The code that the stop visits, as `visitedCode` in `pin.ts` returns it.
+ * @returns The groups, or null when the code finds no changed file.
  */
-export function groupByStop(files: readonly ChangedFile[], passages: readonly CodeReference[]): StopGroups | null {
+export function groupByStop(files: readonly ChangedFile[], code: readonly CodeReference[]): StopGroups | null {
    const sides = { base: changedFilesAt(files, 'base'), head: changedFilesAt(files, 'head') };
-   const found = new Set(passages.map((passage) => sides[passage.side].get(passage.path)).filter((file) => file !== undefined));
+   const found = new Set(code.map((reference) => sides[reference.side].get(reference.path)).filter((file) => file !== undefined));
    if (found.size === 0) {
       return null;
    }

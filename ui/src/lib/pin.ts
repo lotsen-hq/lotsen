@@ -1,4 +1,4 @@
-import type { ChangedFile, CodeReference, FileSide, StopContent, SynthesisPin, TourPin } from './types';
+import type { ChangedFile, CodeReference, FileSide, Stop, StopContent, SynthesisPin, TourPin } from './types';
 
 /** The repository paths of one file at each side, or null for a side where it does not exist. */
 export interface FilePaths {
@@ -75,6 +75,20 @@ export function referenceAtPin(stop: { content: StopContent | null; staleOn?: nu
 
    const kept = new Set((stop.content?.passages ?? []).filter((passage) => atPin(passage, commits)).map((passage) => passage.side));
    return (reference) => kept.has(reference.side);
+}
+
+/**
+ * Returns the code that a stop's current version visits at the pin: its passages at the pin, then the code references of its `ref:` links that {@link referenceAtPin} counts at the pin.
+ *
+ * A stop visits a file when one of these points into it. A pending stop visits none.
+ */
+export function visitedCode(stop: Stop, commits: PinCommits | null): CodeReference[] {
+   if (stop.stage !== 'written') {
+      return [];
+   }
+
+   const linkAtPin = referenceAtPin(stop, true, commits);
+   return [...stop.content.passages.filter((passage) => atPin(passage, commits)), ...stop.content.references.filter(linkAtPin)];
 }
 
 /**

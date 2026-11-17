@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { stopOf, writtenOf } from './stops';
 import FilesPanel from '../src/components/FilesPanel.svelte';
 import type { KnownFiles } from '../src/lib/tourRecord.svelte';
-import type { ChangedFile, FileMark, FileSide, RepositoryEntry, Stop, StopPassage, TourSummary } from '../src/lib/types';
+import type { ChangedFile, CodeReference, FileMark, FileSide, RepositoryEntry, Stop, StopPassage, TourSummary } from '../src/lib/types';
 import type { KnownDirectory } from '../src/lib/viewState';
 import { eventFixtures } from './contract/fixtures.generated';
 import { hoverTooltip } from './tooltip';
@@ -26,8 +26,12 @@ function passage(side: StopPassage['side'], path: string, role: StopPassage['rol
    return { side, path, startLine: 1, endLine: 2, role, commit: side === 'base' ? pinnedPin.mergeBase : pinnedPin.head, text: 'text' };
 }
 
-function stop(id: string, passages: StopPassage[] | null): Stop {
-   return stopOf({ id, title: id, kind: 'inspect', chapter: 'only', content: passages === null ? null : { headline: id, passages, html: { headline: id }, references: [] } });
+function stop(id: string, passages: StopPassage[] | null, references: CodeReference[] = []): Stop {
+   return stopOf({ id, title: id, kind: 'inspect', chapter: 'only', content: passages === null ? null : { headline: id, passages, html: { headline: id }, references } });
+}
+
+function link(side: CodeReference['side'], path: string): CodeReference {
+   return { side, path, startLine: 3, endLine: 4 };
 }
 
 // The pay stop points at a changed file at the head and at a renamed file by its old path at the base.
@@ -191,6 +195,25 @@ describe('FilesPanel', () => {
          }
       });
 
+      it('lists a changed file that only a ref: link reaches under This stop', async () => {
+         renderPanel(stop('linked', [passage('head', 'src/pay.ts')], [link('head', 'README.md')]));
+
+         await fireEvent.click(toggle('Group by stop'));
+         await fireEvent.click(toggle('Flat'));
+
+         expect(rowIds(stopTree())).toEqual(['README.md', 'src/pay.ts']);
+      });
+
+      it("groups a stale stop's ref: links only on a side where one of the stop's passages is at the pin", async () => {
+         const stale = stop('stale', [{ ...passage('head', 'src/pay.ts'), commit: 'c'.repeat(40) }, passage('base', 'src/pay.ts')], [link('head', 'README.md'), link('base', 'src/total.ts')]);
+         renderPanel({ ...writtenOf(stale), staleOn: 2 });
+
+         await fireEvent.click(toggle('Group by stop'));
+         await fireEvent.click(toggle('Flat'));
+
+         expect(rowIds(stopTree())).toEqual(['lib/total.ts', 'src/pay.ts']);
+      });
+
       it("leaves out the other files' heading when the stop points at every file", async () => {
          const everything = stop(
             'all',
@@ -346,6 +369,13 @@ describe('FilesPanel', () => {
          await fireEvent.click(toggle('Group by stop'));
 
          expect(dimmedRows()).toEqual(['src/', 'src/app/', 'src/app/main.ts', 'src/client.g.ts', 'crlf.txt', 'README.md']);
+      });
+
+      it('leaves a changed file that only a ref: link reaches undimmed', async () => {
+         renderPanel(stop('linked', [], [link('head', 'README.md')]));
+         await fireEvent.click(toggle('Flat'));
+
+         expect(dimmedRows()).toEqual(['crlf.txt', 'lib/total.ts', 'src/app/main.ts', 'src/client.g.ts', 'src/pay.ts']);
       });
 
       it('dims nothing for a stop whose passages are all at an earlier commit, as for a stop outside the changed files', async () => {

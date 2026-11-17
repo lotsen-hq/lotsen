@@ -1,5 +1,5 @@
 import type { TreeRow } from './fileTree';
-import { contentOf } from './stops';
+import { visitedCode } from './pin';
 import type { ChangedFile, FileSide, RepositoryEntry, RepositoryEntryType, Stop } from './types';
 
 /** An entry of the whole-repository tree. A directory is a folder, and every other entry is a file row. */
@@ -46,9 +46,9 @@ export function changedFilesAt(files: readonly ChangedFile[], side: FileSide): M
 }
 
 /**
- * Returns how many stops visit each row of a repository tour's tree that a tour marker marks, by the row's node ID: each file that a passage of a stop points into, and each folder that holds one.
+ * Returns how many stops visit each row of a repository tour's tree that a tour marker marks, by the row's node ID: each file that {@link visitedCode} of a stop points into, and each folder that holds one.
  *
- * Only passages at the snapshot's head count, because the tree shows that commit alone. The folders come from the passages' paths, so a folder carries its count before its listing loads.
+ * Only code at the snapshot's head counts, because the tree shows that commit alone. The folders come from the code's paths, so a folder carries its count before its listing loads.
  *
  * @param head The snapshot's head commit.
  */
@@ -63,12 +63,14 @@ export function stopVisits(stops: readonly Stop[], head: string): Map<string, nu
       }
    };
 
+   // A fresh stop's links count at either side, so the side check excludes its base links, which a snapshot does not have.
+   const commits = { base: '', head };
    for (const stop of stops) {
-      for (const passage of contentOf(stop)?.passages ?? []) {
-         if (passage.side === 'head' && passage.commit === head) {
-            visit(passage.path, stop.id);
-            for (let end = passage.path.indexOf('/'); end !== -1; end = passage.path.indexOf('/', end + 1)) {
-               visit(passage.path.slice(0, end + 1), stop.id);
+      for (const { side, path } of visitedCode(stop, commits)) {
+         if (side === 'head') {
+            visit(path, stop.id);
+            for (let end = path.indexOf('/'); end !== -1; end = path.indexOf('/', end + 1)) {
+               visit(path.slice(0, end + 1), stop.id);
             }
          }
       }

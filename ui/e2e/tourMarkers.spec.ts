@@ -23,9 +23,9 @@ for (const palette of palettes) {
       await openDemoTour(page, orientTour, palette);
       await expectPalette(page, palette);
       await page.getByRole('tab', { name: 'Files' }).click();
-      const src = files(page).getByRole('treeitem', { name: 'src, Visited by 2 stops' });
+      const src = files(page).getByRole('treeitem', { name: 'src, Visited by 3 stops' });
       const marker = src.locator(':scope > .row > .visits');
-      await expect(marker).toHaveText('2');
+      await expect(marker).toHaveText('3');
       await page.mouse.move(0, 0);
 
       await expectContrasts(marker, 'at rest');

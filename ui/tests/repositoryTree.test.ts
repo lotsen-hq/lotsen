@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { changedFilesAt, repositoryNodes, repositoryRows, stopVisits, type DirectoryState } from '../src/lib/repositoryTree';
-import type { ChangedFile, FileSide, Stop, StopPassage } from '../src/lib/types';
+import type { ChangedFile, CodeReference, FileSide, Stop, StopPassage } from '../src/lib/types';
 import { stopOf } from './stops';
 
 describe('repositoryNodes', () => {
@@ -85,5 +85,28 @@ describe('stopVisits', () => {
       const pending = stopOf({ id: 'p', title: 'p', kind: 'context', chapter: 'c', content: null });
 
       expect(stopVisits([pending, stop('s1', passage('base.ts', 'base'), passage('old.ts', 'head', 'h0'))], head).size).toBe(0);
+   });
+
+   describe('with ref: links', () => {
+      const link = (path: string, side: FileSide = 'head'): CodeReference => ({ side, path, startLine: 3, endLine: 4 });
+      const linking = (id: string, references: CodeReference[], passages: StopPassage[] = [], staleOn?: number): Stop =>
+         stopOf({ id, title: id, kind: 'context', chapter: 'c', content: { headline: id, passages, html: { headline: `<p>${id}</p>\n` }, references }, ...(staleOn === undefined ? {} : { staleOn }) });
+
+      it('counts a file and its folders that only a link of a stop reaches, once for the stop', () => {
+         const visits = stopVisits([linking('s1', [link('src/server/endpoints.ts'), link('src/cart/total.ts')], [passage('src/cart/total.ts')])], head);
+
+         expect(Object.fromEntries(visits)).toEqual({ 'src/': 1, 'src/cart/': 1, 'src/cart/total.ts': 1, 'src/server/': 1, 'src/server/endpoints.ts': 1 });
+      });
+
+      it('leaves out a link at the base, which a snapshot does not have', () => {
+         expect(stopVisits([linking('s1', [link('base.ts', 'base')])], head).size).toBe(0);
+      });
+
+      it("counts a stale stop's link only on a side where one of the stop's passages is at the pin", () => {
+         const kept = linking('kept', [link('kept.ts')], [passage('shown.ts')], 1);
+         const lost = linking('lost', [link('lost.ts')], [passage('old.ts', 'head', 'h0')], 1);
+
+         expect(Object.fromEntries(stopVisits([kept, lost], head))).toEqual({ 'shown.ts': 1, 'kept.ts': 1 });
+      });
    });
 });

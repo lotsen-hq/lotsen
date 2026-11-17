@@ -2,7 +2,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import FileTree from '../src/components/FileTree.svelte';
 import { buildFileList, buildFileTree, compareRepositoryPaths, fileTreeKeyAction, groupByStop, nodesOutside, visibleRows, type FileTreeNode, type TreeNode } from '../src/lib/fileTree';
-import type { ChangedFile, CodeReference, FileMark } from '../src/lib/types';
+import { visitedCode } from '../src/lib/pin';
+import type { ChangedFile, CodeReference, FileMark, Stop, StopPassage } from '../src/lib/types';
+import { stopOf } from './stops';
 import { currentRows, rowParts } from './treeRows';
 
 const modified = (path: string): ChangedFile => ({ path, kind: 'modified' });
@@ -202,6 +204,29 @@ describe('groupByStop', () => {
       const groups = groupByStop([modified('a.ts')], [at('head', 'a.ts')]);
 
       expect(groups && [paths(groups.stop), paths(groups.rest)]).toEqual([['a.ts'], []]);
+   });
+
+   describe("with the stop's ref: links", () => {
+      const commits = { base: 'a'.repeat(40), head: 'b'.repeat(40) };
+      const linking = (references: CodeReference[], passages: StopPassage[] = []): Stop =>
+         stopOf({ id: 's1', title: 'T', kind: 'inspect', chapter: 'c', content: { headline: 'T.', passages, html: { headline: '<p>T.</p>\n' }, references } });
+      const passage: StopPassage = { ...at('head', 'src/pay.ts'), role: 'primary', commit: commits.head, text: '' };
+
+      it("puts a changed file that only a link reaches in the stop's group", () => {
+         const groups = groupByStop(files, visitedCode(linking([at('head', 'src/cart.ts')], [passage]), commits));
+
+         expect(groups && paths(groups.stop)).toEqual(['src/cart.ts', 'src/pay.ts']);
+      });
+
+      it('finds a renamed file by its old path for a base-side link', () => {
+         const groups = groupByStop(files, visitedCode(linking([at('base', 'src/total.ts')]), commits));
+
+         expect(groups && paths(groups.stop)).toEqual(['lib/total.ts']);
+      });
+
+      it('finds no file for a link into an unchanged file', () => {
+         expect(groupByStop(files, visitedCode(linking([at('head', 'src/catalog.ts')]), commits))).toBeNull();
+      });
    });
 });
 
