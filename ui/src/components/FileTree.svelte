@@ -6,7 +6,7 @@
    import Square from '@lucide/svelte/icons/square';
    import SquareCheck from '@lucide/svelte/icons/square-check';
    import { SvelteSet } from 'svelte/reactivity';
-   import { holds, nodesOutside, visibleRows, type FileTreeFile, type FileTreeListing, type FileTreeNode } from '../lib/fileTree';
+   import { fileWithFolders, folderIds, holds, nodesOutside, visibleRows, type FileTreeFile, type FileTreeListing, type FileTreeNode } from '../lib/fileTree';
    import { changeKindLabels, fileMarkLabels, lineEndingsOnlyLabel, stopVisitsLabel } from '../lib/labels';
    import { TreeFocus } from '../lib/treeFocus.svelte';
    import FileIcon from './FileIcon.svelte';
@@ -31,6 +31,7 @@
    // Every folder starts expanded, so the set holds the folders the user collapsed.
    const collapsed = new SvelteSet<string>();
    const tree = new TreeFocus();
+   let element = $state<HTMLElement | null>(null);
 
    const nodes: FileTreeNode[] = $derived(files.nodes);
    const showReasons = $derived(files.kind === 'changed' && files.showReasons);
@@ -74,6 +75,27 @@
       collapse: (node: FileTreeNode) => collapsed.add(node.id),
       check: onreview === undefined ? undefined : (node: FileTreeNode) => onreview(node.path, !reviewedPaths.has(node.path)),
    });
+
+   export function collapseAll(): void {
+      for (const id of folderIds(nodes)) {
+         collapsed.add(id);
+      }
+   }
+
+   /** Expands the folders that hold the file at the path, makes its row the tab stop and scrolls the row into view, and returns whether the tree holds the file. */
+   export function reveal(path: string): boolean {
+      const found = fileWithFolders(nodes, path);
+      if (found === null) {
+         return false;
+      }
+
+      for (const folder of found.folders) {
+         collapsed.delete(folder.id);
+      }
+
+      void tree.reveal(() => element, found.file.id);
+      return true;
+   }
 </script>
 
 <!-- A path in the flat view loses its start, as the diff toolbar's OpenPath does, so the file name stays visible longest. -->
@@ -169,6 +191,7 @@
 
 <TooltipGroup>
    <ul
+      bind:this={element}
       class="tree"
       role="tree"
       aria-label={label}

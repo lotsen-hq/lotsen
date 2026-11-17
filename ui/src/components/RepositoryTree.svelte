@@ -3,7 +3,7 @@
    import Folder from '@lucide/svelte/icons/folder';
    import FolderOpen from '@lucide/svelte/icons/folder-open';
    import MapPin from '@lucide/svelte/icons/map-pin';
-   import { onMount } from 'svelte';
+   import { onDestroy, onMount } from 'svelte';
    import { SvelteMap, SvelteSet } from 'svelte/reactivity';
    import { Button } from '$lib/components/ui/button';
    import type { KnownDirectory } from '../lib/viewState';
@@ -37,15 +37,26 @@
    const listings = new SvelteMap<string, DirectoryState>();
    const expanded = new SvelteSet<string>();
    const tree = new TreeFocus();
+   let element = $state<HTMLElement | null>(null);
+   // The listings in progress, by path, which a reveal waits for.
+   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- only reveal reads it, and never in a reactive context.
+   const inProgress = new Map<string, Promise<void>>();
+   // Each reveal, each Collapse all and the tree's removal take the next number, so an earlier reveal ends at its next await.
+   let revealRun = 0;
+   onDestroy(() => revealRun++);
 
    const rows = $derived(repositoryRows(listings, expanded));
    const tabStop = $derived(tree.tabStop(rows, selectedPath));
    const root = $derived(listings.get(''));
 
-   async function load(path: string) {
+   function load(path: string): Promise<void> {
       listings.set(path, { state: 'loading' });
-      const known = await listDirectory(path === '' ? null : path);
-      listings.set(path, known.state === 'loaded' ? { state: 'loaded', nodes: repositoryNodes(known.listing.entries) } : known);
+      const loading = listDirectory(path === '' ? null : path).then((known) => {
+         listings.set(path, known.state === 'loaded' ? { state: 'loaded', nodes: repositoryNodes(known.listing.entries) } : known);
+         inProgress.delete(path);
+      });
+      inProgress.set(path, loading);
+      return loading;
    }
 
    // A folder whose listing failed lists again each time it expands.
@@ -74,6 +85,42 @@
    };
 
    onMount(() => void load(''));
+
+   /** Collapses every folder and keeps the listings, so a folder that expands again lists nothing. */
+   export function collapseAll(): void {
+      revealRun++;
+      expanded.clear();
+   }
+
+   /**
+    * Lists and expands each folder that holds the file at the path, top down, then makes the file's row the tab stop and scrolls the row into view.
+    *
+    * A folder whose listing fails, or a listing without the next entry of the path, ends the reveal there.
+    */
+   export async function reveal(path: string): Promise<void> {
+      const run = ++revealRun;
+      await inProgress.get('');
+      let listing = listings.get('');
+      for (let end = path.indexOf('/'); run === revealRun && listing?.state === 'loaded'; end = path.indexOf('/', end + 1)) {
+         const entry = end === -1 ? path : path.slice(0, end);
+         const node = listing.nodes.find((candidate) => candidate.path === entry);
+         if (end === -1) {
+            if (node?.type === 'file') {
+               await tree.reveal(() => element, node.id);
+            }
+
+            return;
+         }
+
+         if (node?.type !== 'folder') {
+            return;
+         }
+
+         expand(node);
+         await inProgress.get(node.path);
+         listing = listings.get(node.path);
+      }
+   }
 
    // The tour marker is hidden from assistive technology, so the label and the tooltip say it.
    function label(node: RepositoryTreeNode, change: ChangedFile | undefined): string {
@@ -175,6 +222,7 @@
 {#if root?.state === 'loaded'}
    <TooltipGroup>
       <ul
+         bind:this={element}
          class="tree"
          role="tree"
          aria-label="Repository files"

@@ -77,8 +77,6 @@ beforeEach(() => {
    sessionStorage.clear();
    sessionStorage.setItem('lotsen.uiCredential', 'credential');
    history.replaceState(null, '', '/');
-   Element.prototype.scrollIntoView = () => {};
-   return () => delete (Element.prototype as Partial<Element>).scrollIntoView;
 });
 
 afterEach(() => {

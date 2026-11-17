@@ -1,6 +1,7 @@
 import { preference } from './preference';
 import { changedFilesAt } from './repositoryTree';
 import type { ChangedFile, CodeReference, FileChangeKind, FileMark } from './types';
+import type { FileReference } from './stopFiles';
 
 /** A changed file's row in the tree, named by the last segment of its path, or in the flat list, named by its whole path. */
 export interface ChangedFileRow {
@@ -81,6 +82,9 @@ export type FileTreeRow = TreeRow<FileTreeNode>;
 
 /** What a key press on a tree row asks for. `activate` selects a file or toggles a folder, and `check` toggles a file's review mark. */
 export type FileTreeAction = { type: 'focus'; id: string } | { type: 'expand'; id: string } | { type: 'collapse'; id: string } | { type: 'activate'; id: string } | { type: 'check'; id: string };
+
+/** A request that the Files panel reveal a file at a side, which a deliberate jump to the file sends. Each request has a sequence number one above the last, so the same jump twice reveals twice. */
+export type RevealRequest = FileReference & { readonly sequence: number };
 
 /** How the Files panel shows the changed files: as a directory tree, or as one list of full paths. */
 export type FileLayout = 'tree' | 'flat';
@@ -249,6 +253,31 @@ function finishFolder<F extends FileTreeFile>(name: string, draft: DraftFolder<F
    }
 
    return { type: 'folder', id: `${draft.path}/`, name, path: draft.path, children: childrenOf(draft) };
+}
+
+/** Returns the IDs of every folder among the nodes, at any depth. */
+export function folderIds(nodes: readonly FileTreeNode[]): string[] {
+   return nodes.flatMap((node) => (node.type === 'folder' ? [node.id, ...folderIds(node.children)] : []));
+}
+
+/**
+ * Returns the file node at the path, with the folders that hold it, outermost first.
+ *
+ * @returns The file and its folders, or null when the nodes hold no file at the path.
+ */
+export function fileWithFolders<F extends FileTreeFile>(nodes: readonly FileTreeNode<F>[], path: string): { file: F; folders: FileTreeFolder<F>[] } | null {
+   for (const node of nodes) {
+      if (node.type === 'file') {
+         if (node.path === path) {
+            return { file: node, folders: [] };
+         }
+      } else if (holds(node.path, path)) {
+         const found = fileWithFolders(node.children, path);
+         return found === null ? null : { file: found.file, folders: [node, ...found.folders] };
+      }
+   }
+
+   return null;
 }
 
 /** Returns the rows the tree shows, in display order, leaving out what the collapsed folders hold. */

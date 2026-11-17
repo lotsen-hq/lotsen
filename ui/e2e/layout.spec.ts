@@ -837,6 +837,52 @@ test.describe('the Files tree', () => {
          expect(await height(file)).toBeCloseTo(await height(folder), 1);
       });
    }
+
+   test('scrolls a file deep in unloaded folders of the Repository view into view, to reveal the open file and on a ref: link', async ({ page }) => {
+      // A short window and large text leave the revealed rows below the panel's first screen once the folders above them are open.
+      await page.setViewportSize({ width: 1600, height: 560 });
+      await openDemoTour(page, checkoutTour, { placement: 'side', fontSize: 'large' });
+      await openStop(page, paymentStop);
+      await page.getByRole('tab', { name: 'Files' }).click();
+      const panel = page.getByRole('tabpanel', { name: 'Files' });
+      const repository = panel.getByRole('tree', { name: 'Repository files' });
+      // The keyboard presses the controls, because the demo's own panel can cover them.
+      const press = async (control: Locator, key = 'Enter') => {
+         await control.focus();
+         await page.keyboard.press(key);
+      };
+      const openFoldersAbove = async () => {
+         for (const [folder, file] of [
+            ['assets', 'logo.png'],
+            ['data', 'catalog.json'],
+            ['docs', 'changes.md'],
+            ['scripts', 'deploy.sh'],
+            ['services', 'orders'],
+            ['orders', 'OrderService.cs'],
+         ]) {
+            await press(repository.getByRole('treeitem', { name: folder!, exact: true }), 'ArrowRight');
+            await expect(repository.getByRole('treeitem', { name: new RegExp(`^${file!.replace('.', '\\.')}`) })).toBeVisible();
+         }
+      };
+      await press(panel.getByRole('button', { name: 'Repository' }));
+      await openFoldersAbove();
+
+      await press(panel.getByRole('button', { name: 'Reveal the open file' }));
+
+      const payment = repository.getByRole('treeitem', { name: /^payment\.ts/ });
+      await expect(payment).toHaveAttribute('aria-current', 'true');
+      await expect(payment.locator(':scope > .row')).toBeInViewport();
+      await expect(panel.getByRole('button', { name: 'Reveal the open file' })).toBeFocused();
+
+      await press(panel.getByRole('button', { name: 'Collapse all' }));
+      await expect(payment).toBeHidden();
+      await openFoldersAbove();
+      const link = page.getByRole('region', { name: 'Stop', exact: true }).getByRole('link', { name: 'one of two bodies' });
+      await press(link);
+
+      await expect(repository.getByRole('treeitem', { name: /^gateway\.generated\.ts/ }).locator(':scope > .row')).toBeInViewport();
+      await expect(link).toBeFocused();
+   });
 });
 
 test.describe('the page height', () => {

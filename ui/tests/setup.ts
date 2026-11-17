@@ -19,6 +19,9 @@ if (typeof globalThis.ResizeObserver !== 'function') {
 // https://github.com/huntabyte/bits-ui/blob/bits-ui%402.20.2/packages/bits-ui/src/lib/internal/floating-svelte/use-floating.svelte.ts#L220-L224
 Element.prototype.getClientRects = () => [new DOMRect()] as unknown as DOMRectList;
 
+// jsdom has no scrollIntoView, and the Files panel scrolls each row that it reveals.
+Element.prototype.scrollIntoView ??= () => {};
+
 // jsdom has no IntersectionObserver, and the Stop panel watches its header with one.
 if (typeof globalThis.IntersectionObserver !== 'function') {
    globalThis.IntersectionObserver = class {

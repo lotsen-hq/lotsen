@@ -360,6 +360,7 @@
                      onselect={(path) => app.selectFile(path)}
                      onopen={(side, path) => app.openRepositoryFile(side, path)}
                      listDirectory={(side, path) => app.listDirectory(tourId, side, path)}
+                     revealRequest={app.revealRequest}
                   />
                {/key}
             {/snippet}

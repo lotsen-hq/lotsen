@@ -11,8 +11,6 @@ beforeEach(() => {
    localStorage.clear();
    localStorage.setItem('lotsen.placement', 'side');
    history.replaceState(null, '', '/');
-   Element.prototype.scrollIntoView = () => {};
-   return () => delete (Element.prototype as Partial<Element>).scrollIntoView;
 });
 
 // The app of a test that writes before the page's tour list loads, which startApp waits for.

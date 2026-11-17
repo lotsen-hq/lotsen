@@ -7,6 +7,7 @@ import { availableOn, iterationCheckState, type IterationCheck, type IterationCh
 import { connectEventStream, logEventFailure, type ConnectionState, type EventStreamConnection, type helloEvent, type Schedule } from './eventStream';
 import { historyWrite, navigationFragment, navigationState, noNavigation, readNavigation, recordedNavigation, type LineSpan, type Navigation } from './navigation';
 import { applyPreference, booleanPreference, detachPreferences, syncPreferences } from './preference';
+import type { RevealRequest } from './fileTree';
 import { changedFilePaths, inFile, pinStepOf, referenceAtPin, type FilePaths, type PinCommits, pinCommits } from './pin';
 import { filePassageDecorations, noPassageDecorations, withHoveredReference, withThreads, type CodeThread, type DecorationSwitches, type PassageDecorations } from './passageMarks';
 import { changedFilesAt } from './repositoryTree';
@@ -131,6 +132,8 @@ export class LotsenApp {
    selectedText = $state.raw<KnownText | null>(null);
    /** Whether the center shows the selected tour's summary page, which no stop or file is open beside. Opening a stop or a file leaves it. */
    showsSummary = $state(false);
+   /** The last request that the Files panel reveal a file, or null before the first. Only a `ref:` link and a thread's code or file anchor send one, so a scroll through the code or another stop never moves the tree. */
+   revealRequest = $state.raw<RevealRequest | null>(null);
    /** The selected tour's review summary while its summary page shows, or else null. */
    selectedSummary = $derived<KnownSummary | null>(this.showsSummary ? (this.selectedRecord?.summary ?? null) : null);
    /** The check that the reviewer opened last from the summary page, or null for none. */
@@ -933,6 +936,11 @@ export class LotsenApp {
    /** Opens the code reference of a `ref:` link in the open stop's prose, as {@link LotsenApp.openPassage} does. It adds a history entry. */
    followReference(reference: CodeReference): void {
       this.move(() => this.openPassage(reference));
+      this.requestReveal(reference);
+   }
+
+   private requestReveal(file: FileReference): void {
+      this.revealRequest = { side: file.side, path: file.path, sequence: (this.revealRequest?.sequence ?? 0) + 1 };
    }
 
    /**
@@ -946,6 +954,7 @@ export class LotsenApp {
             return;
          case 'file':
             this.openRepositoryFile(anchor.side, anchor.path);
+            this.requestReveal(anchor);
             return;
          case 'stopText':
          case 'stop':

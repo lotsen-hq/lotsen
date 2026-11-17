@@ -30,8 +30,17 @@ export class TreeFocus {
    async focus(tree: HTMLElement, id: string): Promise<void> {
       this.focusedId = id;
       await tick();
-      // Node IDs are paths, which a CSS attribute selector would have to escape.
-      [...tree.querySelectorAll<HTMLElement>('[role="treeitem"]')].find((row) => row.dataset.id === id)?.focus();
+      rowOf(tree, id)?.focus();
+   }
+
+   /** Makes a row the tab stop without moving the focus, and scrolls the row into view once the tree has rendered it. The tree element may render in the same update. */
+   async reveal(tree: () => HTMLElement | null, id: string): Promise<void> {
+      this.focusedId = id;
+      await tick();
+      const element = tree();
+      if (element !== null) {
+         rowOf(element, id)?.scrollIntoView({ block: 'nearest' });
+      }
    }
 
    /** Handles a key press on the tree, from the row that holds the tab stop. */
@@ -80,4 +89,9 @@ export class TreeFocus {
          }
       }
    }
+}
+
+function rowOf(tree: HTMLElement, id: string): HTMLElement | undefined {
+   // Node IDs are paths, which a CSS attribute selector would have to escape.
+   return [...tree.querySelectorAll<HTMLElement>('[role="treeitem"]')].find((row) => row.dataset.id === id);
 }

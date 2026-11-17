@@ -38,14 +38,16 @@ import {
 resetPageEachTest();
 spyOnEditorsEachTest();
 
+// The elements that the center scrolled into view, in order. The Files panel's reveal of a ref: link's file scrolls a tree row, which is left out.
 let scrolledItems: Element[];
 
 beforeEach(() => {
    scrolledItems = [];
-   Element.prototype.scrollIntoView = function (this: Element) {
-      scrolledItems.push(this);
-   };
-   return () => delete (Element.prototype as Partial<Element>).scrollIntoView;
+   vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(function (this: Element) {
+      if (this.closest('[role="tree"]') === null) {
+         scrolledItems.push(this);
+      }
+   });
 });
 
 const seeded = (name: string, spec: Parameters<typeof seedTour>[1]) =>

@@ -4,10 +4,13 @@
    import FolderGit2 from '@lucide/svelte/icons/folder-git-2';
    import Group from '@lucide/svelte/icons/group';
    import List from '@lucide/svelte/icons/list';
+   import ListChevronsDownUp from '@lucide/svelte/icons/list-chevrons-down-up';
    import ListTree from '@lucide/svelte/icons/list-tree';
+   import LocateFixed from '@lucide/svelte/icons/locate-fixed';
    import MapPin from '@lucide/svelte/icons/map-pin';
    import MessageSquareText from '@lucide/svelte/icons/message-square-text';
    import SunDim from '@lucide/svelte/icons/sun-dim';
+   import { tick, untrack } from 'svelte';
    import type { KnownDirectory } from '../lib/viewState';
    import type { KnownFiles } from '../lib/tourRecord.svelte';
    import { isHTMLElement } from '../lib/dom';
@@ -26,6 +29,7 @@
       type ChangedFileRow,
       type FileLayout,
       type FileTreeNode,
+      type RevealRequest,
       type VisitedFileRow,
    } from '../lib/fileTree';
    import { panelDocument } from '../lib/panelDocument.svelte';
@@ -37,7 +41,8 @@
    import FileTree from './FileTree.svelte';
    import IconToggle from './IconToggle.svelte';
    import RepositoryTree from './RepositoryTree.svelte';
-   import ToolbarToggle from './ToolbarToggle.svelte';
+   import ToolbarToggle, { toolbarToggleClass } from './ToolbarToggle.svelte';
+   import TooltipButton from './TooltipButton.svelte';
 
    let {
       tour,
@@ -53,6 +58,7 @@
       onreview,
       onopen = () => {},
       listDirectory = () => new Promise(() => {}),
+      revealRequest = null,
    }: {
       tour: TourSummary | null;
       known: KnownFiles | undefined;
@@ -77,6 +83,8 @@
       onopen?: (side: FileSide, path: string) => void;
       /** Lists a directory of the tour at a side, or the root directory for a null path. */
       listDirectory?: (side: FileSide, path: string | null) => Promise<KnownDirectory>;
+      /** The last jump's request to reveal a file, which the panel follows in its current view alone, or null before any. */
+      revealRequest?: RevealRequest | null;
    } = $props();
 
    // The list view is a pull request's changed files, or the files a repository tour's stops visit.
@@ -188,10 +196,109 @@
       view = next;
       repositoryOpened ||= next === 'repository';
    }
+
+   // The trees that the toolbar's Collapse all and the reveals drive: the list view's two trees, of which only the other files' shows while ungrouped, and the whole-repository view's.
+   let stopTree = $state<FileTree>();
+   let otherTree = $state<FileTree>();
+   let repositoryTree = $state<RepositoryTree>();
+
+   // The open file at its side: a repository tour's text at the head, else the open text, or the open changed file at the head, or at the base for a deleted file.
+   const openFile = $derived.by((): FileReference | null => {
+      if (tour?.target.kind === 'repository') {
+         return selectedText?.side === 'head' ? selectedText : null;
+      }
+
+      if (selectedText !== null || selectedPath === null) {
+         return selectedText;
+      }
+
+      return { side: files.find((file) => file.path === selectedPath)?.kind === 'deleted' ? 'base' : 'head', path: selectedPath };
+   });
+
+   /** Returns the file's path at a side: its own at its side, a changed file's path there, or the same path for a file that the loaded changed files lack, or null when the side lacks the file. */
+   function pathAt(file: FileReference, at: FileSide): string | null {
+      if (file.side === at) {
+         return file.path;
+      }
+
+      if (known?.state !== 'loaded') {
+         return null;
+      }
+
+      const changed = changedFilesAt(files, file.side).get(file.path);
+      return changed === undefined ? file.path : ([...changedFilesAt(files, at)].find(([, candidate]) => candidate === changed)?.[0] ?? null);
+   }
+
+   /** Reveals the file in the current view, which never changes, and returns whether the view holds the file. */
+   function revealInView(file: FileReference): boolean {
+      if (view === 'repository') {
+         const path = pathAt(file, side);
+         if (path !== null) {
+            void repositoryTree?.reveal(path);
+         }
+
+         return path !== null;
+      }
+
+      const path = tour?.target.kind === 'repository' ? (file.side === 'head' && visits.has(file.path) ? file.path : null) : (changedFilesAt(files, file.side).get(file.path)?.path ?? null);
+      return path !== null && [stopTree, otherTree].some((tree) => tree?.reveal(path) === true);
+   }
+
+   /** Reveals the open file, in the whole-repository view at the file's side when the current view does not hold the file. */
+   async function revealOpenFile() {
+      const file = openFile;
+      if (file === null || revealInView(file)) {
+         return;
+      }
+
+      chooseView('repository');
+      side = file.side;
+      await tick();
+      await repositoryTree?.reveal(file.path);
+   }
+
+   function collapseAll() {
+      if (view === 'repository') {
+         repositoryTree?.collapseAll();
+      } else {
+         stopTree?.collapseAll();
+         otherTree?.collapseAll();
+      }
+   }
+
+   // The panel follows only the requests that come after it mounts, so a tour's new panel does not reveal the last jump of the tour before.
+   let revealed = untrack(() => revealRequest?.sequence ?? 0);
+   $effect(() => {
+      const request = revealRequest;
+      if (request !== null && request.sequence > revealed) {
+         revealed = request.sequence;
+         untrack(() => revealInView(request));
+      }
+   });
 </script>
 
 {#snippet groupHeading(text: string, space: 'pt-2' | 'pt-6')}
    <h3 class="px-4 {space} text-xs font-semibold tracking-wider text-muted-foreground uppercase">{text}</h3>
+{/snippet}
+
+<!-- The actions on the current view's trees, which stay mounted across a switch of the view, so a reveal that switches it keeps the focus on its button. -->
+{#snippet treeActions()}
+   <div class="flex *:not-first:*:border-l-0" role="group" aria-label="File tree actions">
+      <TooltipButton tooltip="Collapse all" aria-label="Collapse all" variant="outline" size="icon-sm" class={toolbarToggleClass} disabled={view === 'list' && layout === 'flat'} onclick={collapseAll}>
+         <ListChevronsDownUp />
+      </TooltipButton>
+      <TooltipButton
+         tooltip="Reveal the open file"
+         aria-label="Reveal the open file"
+         variant="outline"
+         size="icon-sm"
+         class={toolbarToggleClass}
+         disabled={openFile === null}
+         onclick={() => void revealOpenFile()}
+      >
+         <LocateFixed />
+      </TooltipButton>
+   </div>
 {/snippet}
 
 {#snippet viewSwitch(options: ViewOption[])}
@@ -235,6 +342,7 @@
          {#if view === 'list'}
             {@render listControls(false)}
          {/if}
+         {@render treeActions()}
       </div>
       <div hidden={view !== 'list'} bind:this={listView}>
          {#if visited.length === 0}
@@ -244,6 +352,7 @@
                {@render groupHeading('This stop', 'pt-2')}
                {#key currentStop?.id}
                   <FileTree
+                     bind:this={stopTree}
                      files={{ kind: 'visited', nodes: visitedNodesOf(visitedGroups.stop) }}
                      label="Visited files in this stop"
                      selectedPath={snapshotSelectedPath}
@@ -257,6 +366,7 @@
             {/if}
             {#if !visitedGroups || visitedGroups.rest.length > 0}
                <FileTree
+                  bind:this={otherTree}
                   files={{ kind: 'visited', nodes: visitedNodesOf(visitedGroups?.rest ?? visited) }}
                   label={visitedGroups ? 'Other visited files' : 'Visited files'}
                   selectedPath={snapshotSelectedPath}
@@ -269,7 +379,7 @@
       {#if repositoryOpened}
          <div hidden={view !== 'repository'}>
             {#key snapshotHead}
-               <RepositoryTree listDirectory={(path) => listDirectory('head', path)} {visits} selectedPath={snapshotSelectedPath} onopen={(path) => onopen('head', path)} />
+               <RepositoryTree bind:this={repositoryTree} listDirectory={(path) => listDirectory('head', path)} {visits} selectedPath={snapshotSelectedPath} onopen={(path) => onopen('head', path)} />
             {/key}
          </div>
       {/if}
@@ -285,6 +395,7 @@
                {/each}
             </div>
          {/if}
+         {@render treeActions()}
       </div>
       <div hidden={view !== 'list'} bind:this={listView}>
          {#if known?.state === 'failed'}
@@ -309,7 +420,14 @@
                {@render groupHeading('This stop', 'pt-2')}
                <!-- Each stop gets its own tree, so a folder collapsed at one stop does not hide the files of the next. -->
                {#key currentStop?.id}
-                  <FileTree files={{ kind: 'changed', nodes: stopNodes, showReasons, reviewedPaths, onreview }} label="Changed files in this stop" {selectedPath} {undimmedPaths} {onselect} />
+                  <FileTree
+                     bind:this={stopTree}
+                     files={{ kind: 'changed', nodes: stopNodes, showReasons, reviewedPaths, onreview }}
+                     label="Changed files in this stop"
+                     {selectedPath}
+                     {undimmedPaths}
+                     {onselect}
+                  />
                {/key}
                {#if groups.rest.length > 0}
                   {@render groupHeading('Other files', 'pt-6')}
@@ -318,6 +436,7 @@
             <!-- One tree holds the files outside the stop's group whether or not the list is grouped, so a stop update keeps its rows and their focus. -->
             {#if !groups || groups.rest.length > 0}
                <FileTree
+                  bind:this={otherTree}
                   files={{ kind: 'changed', nodes: restNodes, showReasons, reviewedPaths, onreview }}
                   label={groups ? 'Other changed files' : 'Changed files'}
                   {selectedPath}
@@ -331,7 +450,13 @@
          <div hidden={view !== 'repository'}>
             <!-- Each side and each commit gets its own tree, because two commits hold different folders. -->
             {#key `${side}:${sideCommit}`}
-               <RepositoryTree listDirectory={(path) => listDirectory(side, path)} changed={changedAtSide} selectedPath={repositorySelectedPath} onopen={(path) => onopen(side, path)} />
+               <RepositoryTree
+                  bind:this={repositoryTree}
+                  listDirectory={(path) => listDirectory(side, path)}
+                  changed={changedAtSide}
+                  selectedPath={repositorySelectedPath}
+                  onopen={(path) => onopen(side, path)}
+               />
             {/key}
          </div>
       {/if}

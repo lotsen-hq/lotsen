@@ -8,8 +8,6 @@ beforeEach(() => {
    sessionStorage.clear();
    localStorage.clear();
    history.replaceState(null, '', '/');
-   Element.prototype.scrollIntoView = () => {};
-   return () => delete (Element.prototype as Partial<Element>).scrollIntoView;
 });
 
 // A negative check needs the page to have handled what the server sent, which no condition on the page shows.

@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, within } from '@testing-library/svelte';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { tick } from 'svelte';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { stopOf, writtenOf } from './stops';
 import FilesPanel from '../src/components/FilesPanel.svelte';
 import type { FileReference } from '../src/lib/stopFiles';
@@ -62,7 +63,28 @@ const rowIds = (tree: HTMLElement) =>
       .getAllByRole('treeitem')
       .map((item) => item.dataset.id);
 
-beforeEach(() => localStorage.clear());
+// The IDs of the rows that a reveal scrolled into view, in order.
+let scrolls: MockInstance<Element['scrollIntoView']>;
+const scrolledRows = () => scrolls.mock.contexts.map((row) => (row as HTMLElement).dataset.id);
+const tabStops = (tree: HTMLElement) =>
+   rowIds(tree).filter(
+      (id) =>
+         within(tree)
+            .getAllByRole('treeitem')
+            .find((item) => item.dataset.id === id)?.tabIndex === 0,
+   );
+
+/** Clicks Reveal the open file, which keeps the focus that the click gives it. */
+async function revealOpenFile(): Promise<void> {
+   const button = toggle('Reveal the open file');
+   button.focus();
+   await fireEvent.click(button);
+}
+
+beforeEach(() => {
+   localStorage.clear();
+   scrolls = vi.spyOn(Element.prototype, 'scrollIntoView');
+});
 afterEach(() => vi.restoreAllMocks());
 
 describe('FilesPanel', () => {
@@ -87,7 +109,7 @@ describe('FilesPanel', () => {
    it('names each icon toggle in its tooltip', async () => {
       renderPanel();
 
-      for (const name of ['Changed', 'Repository', 'Tree', 'Flat', 'Group by stop', 'Dim other files', 'Show reasons']) {
+      for (const name of ['Changed', 'Repository', 'Tree', 'Flat', 'Group by stop', 'Dim other files', 'Show reasons', 'Collapse all']) {
          expect(await hoverTooltip(toggle(name))).toBe(name);
       }
    });
@@ -555,11 +577,24 @@ describe('FilesPanel', () => {
             { path: 'src/lib', type: 'directory' },
             { path: 'src/cart.ts', type: 'file' },
          ],
+         'src/lib': [
+            { path: 'src/lib/money.ts', type: 'file' },
+            { path: 'src/lib/util.ts', type: 'file' },
+         ],
       };
 
-      function renderRepositoryTour({ selectedText = null, currentStop = null, plan = stops }: { selectedText?: FileReference | null; currentStop?: Stop | null; plan?: Stop[] } = {}) {
+      function renderRepositoryTour({
+         selectedText = null,
+         currentStop = null,
+         plan = stops,
+         failing,
+      }: { selectedText?: FileReference | null; currentStop?: Stop | null; plan?: Stop[]; failing?: string } = {}) {
          const listDirectory = vi.fn((side: FileSide, path: string | null): Promise<KnownDirectory> =>
-            Promise.resolve({ state: 'loaded', listing: { path, side, commit: snapshot, entries: entries[path ?? '']! } }),
+            Promise.resolve(
+               path === failing
+                  ? { state: 'failed', message: `The folder ${path} could not be listed.`, reason: null }
+                  : { state: 'loaded', listing: { path, side, commit: snapshot, entries: entries[path ?? '']! } },
+            ),
          );
          const onopen = vi.fn();
          const view = render(FilesPanel, {
@@ -585,7 +620,16 @@ describe('FilesPanel', () => {
 
          expect(toggle('Visited').getAttribute('aria-pressed')).toBe('true');
          expect(toggle('Repository').getAttribute('aria-pressed')).toBe('false');
-         expect(screen.getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual(['Visited', 'Repository', 'Tree', 'Flat', 'Group by stop', 'Dim other files']);
+         expect(screen.getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual([
+            'Visited',
+            'Repository',
+            'Tree',
+            'Flat',
+            'Group by stop',
+            'Dim other files',
+            'Collapse all',
+            'Reveal the open file',
+         ]);
          expect(visitedTree()).toBeTruthy();
          expect(screen.queryByText(/reviewed/)).toBeNull();
          expect(
@@ -730,6 +774,301 @@ describe('FilesPanel', () => {
 
          expect(onopen).toHaveBeenCalledWith('head', 'README.md');
          expect(within(tree).getByRole('treeitem', { name: 'README.md, Visited by 1 stop' }).getAttribute('aria-current')).toBe('true');
+      });
+
+      it('collapse all closes every folder of the Visited view', async () => {
+         renderRepositoryTour();
+
+         await fireEvent.click(toggle('Collapse all'));
+
+         expect(rowIds(visitedTree())).toEqual(['src/', 'README.md']);
+      });
+
+      it('collapse all closes every folder of the Repository view and keeps the listings, so no folder lists again when it expands', async () => {
+         const { listDirectory } = renderRepositoryTour();
+         const tree = await openRepository();
+         await fireEvent.click(within(tree).getByText('src'));
+         await fireEvent.click(await within(tree).findByText('lib'));
+         await within(tree).findByText('money.ts');
+
+         await fireEvent.click(toggle('Collapse all'));
+
+         expect(rowIds(tree)).toEqual(['src/', 'README.md']);
+         await fireEvent.click(within(tree).getByText('src'));
+         expect(rowIds(tree)).toEqual(['src/', 'src/lib/', 'src/cart.ts', 'README.md']);
+         expect(listDirectory.mock.calls).toEqual([
+            ['head', null],
+            ['head', 'src'],
+            ['head', 'src/lib'],
+         ]);
+      });
+
+      it("reveal the open file reopens its folders in a repository tour's Visited view, without a listing", async () => {
+         const { listDirectory } = renderRepositoryTour({ selectedText: { side: 'head', path: 'src/lib/money.ts' } });
+         await fireEvent.click(toggle('Collapse all'));
+
+         await revealOpenFile();
+
+         expect(rowIds(visitedTree())).toEqual(['src/', 'src/lib/', 'src/lib/money.ts', 'src/cart.ts', 'README.md']);
+         await waitFor(() => expect(scrolledRows()).toEqual(['src/lib/money.ts']));
+         expect(listDirectory).not.toHaveBeenCalled();
+      });
+
+      it('reveal the open file lists and expands each folder that holds it in order in the Repository view, and makes its row the tab stop', async () => {
+         const { listDirectory } = renderRepositoryTour({ selectedText: { side: 'head', path: 'src/lib/money.ts' } });
+         const tree = await openRepository();
+
+         await revealOpenFile();
+
+         await waitFor(() => expect(scrolledRows()).toEqual(['src/lib/money.ts']));
+         expect(listDirectory.mock.calls).toEqual([
+            ['head', null],
+            ['head', 'src'],
+            ['head', 'src/lib'],
+         ]);
+         expect(rowIds(tree)).toEqual(['src/', 'src/lib/', 'src/lib/money.ts', 'src/lib/util.ts', 'src/cart.ts', 'README.md']);
+         expect(tabStops(tree)).toEqual(['src/lib/money.ts']);
+      });
+
+      it('reveal the open file stops at a folder whose listing fails, which shows its failure', async () => {
+         const { listDirectory } = renderRepositoryTour({ selectedText: { side: 'head', path: 'src/lib/money.ts' }, failing: 'src/lib' });
+         const tree = await openRepository();
+
+         await revealOpenFile();
+
+         expect(await within(tree).findByText('The folder src/lib could not be listed.')).toBeTruthy();
+         expect(rowIds(tree)).toEqual(['src/', 'src/lib/', 'src/cart.ts', 'README.md']);
+         expect(within(tree).getByRole('treeitem', { name: 'lib, Visited by 1 stop' }).getAttribute('aria-expanded')).toBe('true');
+         expect(listDirectory.mock.calls).toEqual([
+            ['head', null],
+            ['head', 'src'],
+            ['head', 'src/lib'],
+         ]);
+         expect(scrolledRows()).toEqual([]);
+      });
+
+      it('reveal the open file switches from the Visited view to the Repository view for a file that no stop visits', async () => {
+         renderRepositoryTour({ selectedText: { side: 'head', path: 'src/lib/util.ts' } });
+
+         await revealOpenFile();
+
+         expect(toggle('Repository').getAttribute('aria-pressed')).toBe('true');
+         await waitFor(() => expect(scrolledRows()).toEqual(['src/lib/util.ts']));
+         expect(document.activeElement).toBe(toggle('Reveal the open file'));
+      });
+
+      it('an automatic reveal request for a file that the Visited view does not hold changes nothing', async () => {
+         const { listDirectory, rerender } = renderRepositoryTour({ selectedText: { side: 'head', path: 'src/lib/util.ts' } });
+         await fireEvent.click(toggle('Collapse all'));
+
+         await rerender({ revealRequest: { side: 'head', path: 'src/lib/util.ts', sequence: 1 } });
+         await tick();
+
+         expect(toggle('Visited').getAttribute('aria-pressed')).toBe('true');
+         expect(rowIds(visitedTree())).toEqual(['src/', 'README.md']);
+         expect(listDirectory).not.toHaveBeenCalled();
+         expect(scrolledRows()).toEqual([]);
+      });
+   });
+
+   describe('collapse all', () => {
+      it('closes every folder of the Changed view', async () => {
+         renderPanel();
+
+         await fireEvent.click(toggle('Collapse all'));
+
+         expect(rowIds(screen.getByRole('tree', { name: 'Changed files' }))).toEqual(['lib/', 'src/', 'crlf.txt', 'README.md']);
+      });
+
+      it('closes every folder of both trees when the files are grouped by stop', async () => {
+         renderPanel(payStop);
+         await fireEvent.click(toggle('Group by stop'));
+
+         await fireEvent.click(toggle('Collapse all'));
+
+         expect(rowIds(screen.getByRole('tree', { name: 'Changed files in this stop' }))).toEqual(['lib/', 'src/']);
+         expect(rowIds(screen.getByRole('tree', { name: 'Other changed files' }))).toEqual(['src/', 'crlf.txt', 'README.md']);
+      });
+
+      it('is disabled in the flat layout, which has no folders, and enabled in the Repository view', async () => {
+         renderPanel();
+
+         await fireEvent.click(toggle('Flat'));
+         expect(toggle('Collapse all').hasAttribute('disabled')).toBe(true);
+
+         await fireEvent.click(toggle('Repository'));
+         expect(toggle('Collapse all').hasAttribute('disabled')).toBe(false);
+      });
+   });
+
+   describe('reveal', () => {
+      const changedTree = () => screen.getByRole('tree', { name: 'Changed files' });
+      // The whole repository at either side: the same folders, with an unchanged file deep in src and the renamed file's old path.
+      const prEntries: Record<string, RepositoryEntry[]> = {
+         '': [
+            { path: 'src', type: 'directory' },
+            { path: 'README.md', type: 'file' },
+         ],
+         src: [
+            { path: 'src/old', type: 'directory' },
+            { path: 'src/pay.ts', type: 'file' },
+            { path: 'src/total.ts', type: 'file' },
+         ],
+         'src/old': [{ path: 'src/old/legacy.ts', type: 'file' }],
+      };
+
+      function renderOpen(open: { selectedPath?: string | null; selectedText?: FileReference | null }, currentStop: Stop | null = null) {
+         const listDirectory = vi.fn((side: FileSide, path: string | null): Promise<KnownDirectory> =>
+            Promise.resolve({ state: 'loaded', listing: { path, side, commit: side === 'base' ? pinnedPin.mergeBase : pinnedPin.head, entries: prEntries[path ?? '']! } }),
+         );
+         const view = render(FilesPanel, { props: { tour, known, selectedPath: null, selectedText: null, currentStop, onselect: vi.fn(), listDirectory, ...open } });
+         return { listDirectory, rerender: view.rerender };
+      }
+
+      it('reveal the open file is disabled while no file is open', async () => {
+         const { rerender } = renderOpen({});
+
+         expect(toggle('Reveal the open file').hasAttribute('disabled')).toBe(true);
+
+         await rerender({ selectedPath: 'src/pay.ts' });
+         expect(toggle('Reveal the open file').hasAttribute('disabled')).toBe(false);
+      });
+
+      it('reveal the open file reopens the collapsed folders that hold it in the Changed tree, keeps the focus on the button and makes its row the tab stop', async () => {
+         renderOpen({ selectedPath: 'src/app/main.ts' });
+         await fireEvent.click(toggle('Collapse all'));
+
+         await revealOpenFile();
+
+         expect(rowIds(changedTree())).toEqual(['lib/', 'src/', 'src/app/', 'src/app/main.ts', 'src/client.g.ts', 'src/pay.ts', 'crlf.txt', 'README.md']);
+         await waitFor(() => expect(scrolledRows()).toEqual(['src/app/main.ts']));
+         expect(document.activeElement).toBe(toggle('Reveal the open file'));
+         expect(tabStops(changedTree())).toEqual(['src/app/main.ts']);
+      });
+
+      it.each([
+         ['the stop group', 'lib/total.ts', 'Changed files in this stop', ['lib/', 'lib/total.ts', 'src/']],
+         ['the other files', 'src/app/main.ts', 'Other changed files', ['src/', 'src/app/', 'src/app/main.ts', 'src/client.g.ts', 'crlf.txt', 'README.md']],
+      ])('reveal the open file reopens its folders in %s when the files are grouped by stop', async (_group, path, treeName, rows) => {
+         renderOpen({ selectedPath: path }, payStop);
+         await fireEvent.click(toggle('Group by stop'));
+         await fireEvent.click(toggle('Collapse all'));
+
+         await revealOpenFile();
+
+         expect(rowIds(screen.getByRole('tree', { name: treeName }))).toEqual(rows);
+         await waitFor(() => expect(scrolledRows()).toEqual([path]));
+      });
+
+      it('reveal the open file scrolls to its row in the flat layout, in whichever list holds it', async () => {
+         renderOpen({ selectedPath: 'src/client.g.ts' }, payStop);
+         await fireEvent.click(toggle('Flat'));
+         await fireEvent.click(toggle('Group by stop'));
+
+         await revealOpenFile();
+
+         await waitFor(() => expect(scrolledRows()).toEqual(['src/client.g.ts']));
+         expect(tabStops(screen.getByRole('tree', { name: 'Other changed files' }))).toEqual(['src/client.g.ts']);
+      });
+
+      it("reveal the open file switches to the Repository view at the file's side for a file that the Changed view does not hold, and keeps the focus on the button", async () => {
+         const { listDirectory } = renderOpen({ selectedText: { side: 'base', path: 'src/old/legacy.ts' } });
+         toggle('Reveal the open file').focus();
+
+         await revealOpenFile();
+
+         expect(toggle('Repository').getAttribute('aria-pressed')).toBe('true');
+         expect(toggle('Base').getAttribute('aria-pressed')).toBe('true');
+         await waitFor(() => expect(scrolledRows()).toEqual(['src/old/legacy.ts']));
+         expect(listDirectory.mock.calls).toEqual([
+            ['base', null],
+            ['base', 'src'],
+            ['base', 'src/old'],
+         ]);
+         expect(document.activeElement).toBe(toggle('Reveal the open file'));
+         expect(tabStops(screen.getByRole('tree', { name: 'Repository files' }))).toEqual(['src/old/legacy.ts']);
+      });
+
+      it("reveal the open file shows a changed file in the Repository view at the view's side, by the file's path there", async () => {
+         const { listDirectory } = renderOpen({ selectedPath: 'lib/total.ts' });
+         await fireEvent.click(toggle('Repository'));
+         await fireEvent.click(toggle('Base'));
+
+         await revealOpenFile();
+
+         await waitFor(() => expect(scrolledRows()).toEqual(['src/total.ts']));
+         expect(toggle('Base').getAttribute('aria-pressed')).toBe('true');
+         expect(listDirectory.mock.calls.at(-1)).toEqual(['base', 'src']);
+      });
+
+      it('an automatic reveal request reopens the folders of a file that the current view holds, leaves the focus where it was, and acts once on each sequence number', async () => {
+         const { rerender } = renderOpen({ selectedPath: 'src/pay.ts' });
+         await fireEvent.click(toggle('Collapse all'));
+         const outside = document.body.appendChild(document.createElement('button'));
+         outside.focus();
+
+         await rerender({ revealRequest: { side: 'head', path: 'src/app/main.ts', sequence: 1 } });
+
+         await waitFor(() => expect(scrolledRows()).toEqual(['src/app/main.ts']));
+         expect(rowIds(changedTree())).toContain('src/app/main.ts');
+         expect(document.activeElement).toBe(outside);
+         outside.remove();
+
+         await fireEvent.click(toggle('Collapse all'));
+         await rerender({ revealRequest: { side: 'head', path: 'src/app/main.ts', sequence: 1 } });
+         expect(rowIds(changedTree())).toEqual(['lib/', 'src/', 'crlf.txt', 'README.md']);
+
+         await rerender({ revealRequest: { side: 'head', path: 'src/app/main.ts', sequence: 2 } });
+         expect(rowIds(changedTree())).toContain('src/app/main.ts');
+      });
+
+      it('an automatic reveal request for a file that the current view does not hold changes nothing', async () => {
+         const { listDirectory, rerender } = renderOpen({ selectedPath: 'src/pay.ts' });
+         await fireEvent.click(toggle('Collapse all'));
+
+         await rerender({ revealRequest: { side: 'base', path: 'src/old/legacy.ts', sequence: 1 } });
+         await tick();
+
+         expect(toggle('Changed').getAttribute('aria-pressed')).toBe('true');
+         expect(rowIds(changedTree())).toEqual(['lib/', 'src/', 'crlf.txt', 'README.md']);
+         expect(listDirectory).not.toHaveBeenCalled();
+         expect(scrolledRows()).toEqual([]);
+
+         await fireEvent.click(toggle('Repository'));
+         await fireEvent.click(toggle('Base'));
+         await screen.findByRole('tree', { name: 'Repository files' });
+         await rerender({ revealRequest: { side: 'head', path: 'src/app/main.ts', sequence: 2 } });
+         await tick();
+
+         expect(toggle('Base').getAttribute('aria-pressed')).toBe('true');
+         expect(listDirectory.mock.calls).toEqual([
+            ['head', null],
+            ['base', null],
+         ]);
+         expect(scrolledRows()).toEqual([]);
+      });
+
+      it('an automatic reveal request lists the folders of a file at the side of the Repository view', async () => {
+         const { listDirectory, rerender } = renderOpen({});
+         await fireEvent.click(toggle('Repository'));
+         await screen.findByRole('tree', { name: 'Repository files' });
+
+         await rerender({ revealRequest: { side: 'head', path: 'src/old/legacy.ts', sequence: 1 } });
+
+         await waitFor(() => expect(scrolledRows()).toEqual(['src/old/legacy.ts']));
+         expect(listDirectory.mock.calls).toEqual([
+            ['head', null],
+            ['head', 'src'],
+            ['head', 'src/old'],
+         ]);
+      });
+
+      it('a reveal request from before the panel mounted reveals nothing', async () => {
+         render(FilesPanel, { props: { tour, known, selectedPath: null, onselect: vi.fn(), revealRequest: { side: 'head', path: 'src/app/main.ts', sequence: 4 } } });
+         await tick();
+         await tick();
+
+         expect(scrolledRows()).toEqual([]);
       });
    });
 

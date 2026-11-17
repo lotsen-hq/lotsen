@@ -9,8 +9,6 @@ beforeEach(() => {
    sessionStorage.clear();
    localStorage.clear();
    history.replaceState(null, '', '/');
-   Element.prototype.scrollIntoView = () => {};
-   return () => delete (Element.prototype as Partial<Element>).scrollIntoView;
 });
 
 interface Seeded {

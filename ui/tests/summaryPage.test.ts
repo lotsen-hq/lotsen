@@ -1,5 +1,5 @@
 import { fireEvent, render, waitFor, within } from '@testing-library/svelte';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { stopOf, writtenOf } from './stops';
 import ExplanationBlock from '../src/components/ExplanationBlock.svelte';
 import StopPanel from '../src/components/StopPanel.svelte';
@@ -75,11 +75,6 @@ describe('where next and back go from a position in the plan', () => {
 });
 
 describe('a check that the summary page opens', () => {
-   beforeEach(() => {
-      Element.prototype.scrollIntoView = () => {};
-      return () => delete (Element.prototype as Partial<Element>).scrollIntoView;
-   });
-
    const passage = { side: 'head', path: 'src/cart.ts', startLine: 1, endLine: 1, role: 'primary', commit: 'b'.repeat(40), text: 'x' } as const;
    const written = writtenOf(stops[0]);
    // Stop s1 with a primary passage, so inline placement puts its explanation inline.
