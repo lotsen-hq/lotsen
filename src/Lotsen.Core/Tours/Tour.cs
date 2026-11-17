@@ -230,7 +230,10 @@ internal sealed record AvailableIteration(TourPin.Pinned Pin, IReadOnlyList<stri
    public bool HasSameResult(AvailableIteration other) => Pin == other.Pin && StaleStops.SequenceEqual(other.StaleStops, StringComparer.Ordinal);
 }
 
-/// <summary>The bound session's synthesis of the review: what the review decided, what worries the reviewer and what stays open, which <c>write_synthesis</c> stores.</summary>
+/// <summary>
+/// The bound session's synthesis of the review, which <c>write_synthesis</c> stores: for a pull request's tour, what the review decided, what worries the reviewer and what stays open, and for a
+/// repository tour, what its purpose asks for, as <see cref="ActionRules.HowToAct"/> says.
+/// </summary>
 internal sealed record TourSynthesis
 {
    /// <param name="text">The synthesis as prose, whose <c>ref:</c> links read at <paramref name="pin"/>.</param>
@@ -238,7 +241,7 @@ internal sealed record TourSynthesis
    /// <param name="pin">The tour's pin when the session wrote it, which its <c>ref:</c> links were checked against.</param>
    /// <param name="basedOn">The fingerprint of the review summary that the session read before it wrote the synthesis, as the session passed it.</param>
    /// <exception cref="ArgumentException">The text is empty or whitespace, the write time is missing, or the fingerprint is not one.</exception>
-   public TourSynthesis(string text, DateTimeOffset writtenAt, TourPin.Pinned pin, SummaryFingerprint basedOn)
+   public TourSynthesis(string text, DateTimeOffset writtenAt, SynthesisPin pin, SummaryFingerprint basedOn)
    {
       if (string.IsNullOrWhiteSpace(text) || writtenAt == default || !basedOn.IsValid)
       {
@@ -258,7 +261,7 @@ internal sealed record TourSynthesis
    public DateTimeOffset WrittenAt { get; }
 
    /// <summary>The tour's pin when the session wrote it, which its <c>ref:</c> links were checked against.</summary>
-   public TourPin.Pinned Pin { get; }
+   public SynthesisPin Pin { get; }
 
    /// <summary>The <see cref="ReviewSummary.Fingerprint"/> of the review summary that the session read before it wrote the synthesis, as the session passed it.</summary>
    public SummaryFingerprint BasedOn { get; }

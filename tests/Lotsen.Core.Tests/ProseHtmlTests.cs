@@ -144,7 +144,7 @@ public sealed class ProseHtmlTests
    public void Mention_in_a_summarys_synthesis_links_to_the_url_that_the_tours_platform_builds()
    {
       var tour = SummaryTours.Apply(SummaryTours.Empty());
-      var summary = ReviewSummary.Of(tour, tour) with { Synthesis = new SummarySynthesis("Follows [!42](pullrequest:42).", TourValues.Now, TourValues.Pinned, PredatesSummary: false) };
+      var summary = ReviewSummary.Of(tour, tour) with { Synthesis = new SummarySynthesis("Follows [!42](pullrequest:42).", TourValues.Now, new SynthesisPin.PullRequest(TourValues.Pinned), PredatesSummary: false) };
       var mentions = new PullRequestPlatforms([new TestPlatform()]).MentionsOf(new PullRequestTarget(TestPlatform.DefaultId, new Uri(TestPlatform.PrUrl)));
 
       var node = ProseHtml.Of(summary, mentions);

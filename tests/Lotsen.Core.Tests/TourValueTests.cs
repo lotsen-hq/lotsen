@@ -83,7 +83,7 @@ public sealed class TourValueTests
    {
       _ = SummaryFingerprint.TryParse(validFingerprint ? new string('a', 64) : "x", out var fingerprint);
 
-      Assert.Throws<ArgumentException>(() => new TourSynthesis(text, unwritten ? default : Now, Pinned, fingerprint));
+      Assert.Throws<ArgumentException>(() => new TourSynthesis(text, unwritten ? default : Now, new SynthesisPin.PullRequest(Pinned), fingerprint));
    }
 
    [Theory]

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { pinnedReferenceAtPin } from '../src/lib/pin';
 import type { PinnedCommits } from '../src/lib/types';
 
-const pin: Pick<PinnedCommits, 'mergeBase' | 'head'> = { mergeBase: 'a'.repeat(40), head: 'b'.repeat(40) };
+const pin: PinnedCommits = { mergeBase: 'a'.repeat(40), head: 'b'.repeat(40), iteration: 1, remoteUrl: 'https://code.example/repo.git' };
 
 describe("Claude's synthesis on the summary page", () => {
    it('treats a ref: link as at an earlier commit once the tour has another pin', () => {

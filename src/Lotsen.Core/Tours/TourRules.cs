@@ -28,6 +28,7 @@ internal static class TourRules
 
    private static readonly FieldPath PlanField = "plan";
    private static readonly FieldPath Answers = "answers";
+   private static readonly FieldPath SynthesisPinField = ((FieldPath)"synthesis").Then("pin");
 
    /// <summary>Returns the first rule that the tour breaks, with its path in the tour, or null when it follows them all.</summary>
    public static RuleFault? Check(Tour tour) =>
@@ -167,7 +168,7 @@ internal static class TourRules
       return null;
    }
 
-   // A pull request's tour has none of a repository tour's fields, and each kind has its own kind of pin.
+   // A pull request's tour has none of a repository tour's fields, and each kind has its own kind of pin, for the tour and for its synthesis.
    private static RuleFault? CheckTargetKind(Tour tour) => tour.Target switch
    {
       RepositoryTarget => CheckRepositoryTour(tour),
@@ -176,6 +177,7 @@ internal static class TourRules
       _ when tour.Title is not null => new("title", "only a repository tour has a title."),
       _ when tour.DiveOrigin is not null => new("diveOrigin", "only a repository tour is a dive."),
       _ when tour.Pin is TourPin.Snapshot => new("pin", "a pull request's tour is pinned to an iteration of the pull request, not to a snapshot."),
+      _ when tour.Synthesis?.Pin is SynthesisPin.Repository => new(SynthesisPinField, "a pull request's tour has a synthesis written at an iteration of the pull request, not at a snapshot."),
       _ => null,
    };
 
@@ -215,6 +217,11 @@ internal static class TourRules
       if (tour.Pin is TourPin.Pinned)
       {
          return new("pin", "a repository tour is pinned to a snapshot of one commit, not to an iteration of a pull request.");
+      }
+
+      if (tour.Synthesis?.Pin is SynthesisPin.PullRequest)
+      {
+         return new(SynthesisPinField, "a repository tour has a synthesis written at a snapshot, not at an iteration of a pull request.");
       }
 
       return tour.PullRequestState != PullRequestState.Active ? new("pullRequestState", "only a pull request's tour has a pull request state.") : null;

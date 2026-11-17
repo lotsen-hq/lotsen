@@ -164,9 +164,9 @@ internal sealed class ReadingOperations
 
    /// <summary>Stores the calling session's synthesis of the review on the tour, in place of the last one, and returns its write time with the tour's update time.</summary>
    /// <remarks>
-   /// Only the bound session writes it, and only on a pinned tour, whose pin the synthesis keeps. The text's <c>ref:</c> links pass the checks of a reply. The synthesis keeps the fingerprint of
-   /// the summary that the session read before it wrote the synthesis, from which <see cref="ReadSummary"/> tells whether it predates a later summary. The session passes the fingerprint, because
-   /// the reviewer can change the review while the session writes.
+   /// Only the bound session writes it, and only on a tour pinned to an iteration or a snapshot, whose pin the synthesis keeps. The text's <c>ref:</c> links pass the checks of a reply. The
+   /// synthesis keeps the fingerprint of the summary that the session read before it wrote the synthesis, from which <see cref="ReadSummary"/> tells whether it predates a later summary. The
+   /// session passes the fingerprint, because the reviewer can change the review while the session writes.
    /// </remarks>
    public Task<OperationResult<WrittenSynthesis>> WriteSynthesisAsync(Access.BoundSession.Pass pass, WriteSynthesisInput input, CancellationToken cancellationToken) =>
       _writer.WriteAfterGitAsync<IReadOnlyList<ProseReference>, WrittenSynthesis>(
@@ -179,7 +179,7 @@ internal sealed class ReadingOperations
             return links.Value is { } references ? Gathered.Of(references) : links.Error!;
          },
          (edit, _) => edit.Store(
-            edit.Latest with { Synthesis = new TourSynthesis(input.Text, edit.Now, (TourPin.Pinned)edit.Latest.Pin, Fingerprint(input.BasedOn)) },
+            edit.Latest with { Synthesis = new TourSynthesis(input.Text, edit.Now, PinOf(edit.Latest), Fingerprint(input.BasedOn)) },
             stored =>
             {
                var written = new WrittenSynthesis(stored.Tour.Id, stored.Tour.UpdatedAt, stored.Tour.Synthesis!.WrittenAt);
@@ -188,6 +188,9 @@ internal sealed class ReadingOperations
             }),
          cancellationToken);
 
+   // Call it on a tour that CheckSynthesis accepts.
+   private static SynthesisPin PinOf(Tour tour) => SynthesisPin.Of(tour.Pin) ?? throw new ArgumentException("The tour has no commits to write a synthesis at.", nameof(tour));
+
    // Call it on an input that CheckSynthesis accepts.
    private static SummaryFingerprint Fingerprint(string text) => SummaryFingerprint.TryParse(text, out var fingerprint) ? fingerprint : throw new ArgumentException("The text is not a fingerprint.", nameof(text));
 
@@ -195,7 +198,7 @@ internal sealed class ReadingOperations
    {
       if (string.IsNullOrWhiteSpace(input.Text))
       {
-         return OperationError.Invalid("text", "a synthesis needs text. Write what the review decided, what worries the reviewer and what stays open.");
+         return OperationError.Invalid("text", "a synthesis needs text: the whole synthesis, as the howToAct of the summarize action describes it.");
       }
 
       if (!SummaryFingerprint.TryParse(input.BasedOn, out _))
@@ -203,6 +206,6 @@ internal sealed class ReadingOperations
          return OperationError.Invalid("basedOn", "this is not a summaryFingerprint. Pass the summaryFingerprint that read_summary returned with the summary that you based the synthesis on.");
       }
 
-      return tour.Pin is TourPin.Pinned ? null : OperationError.TourNotPinned(tour);
+      return SynthesisPin.Of(tour.Pin) is null ? OperationError.PinNotReady(tour) : null;
    };
 }

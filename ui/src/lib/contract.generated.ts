@@ -134,6 +134,7 @@ export type OperationName =
    | 'update_iteration'
    | 'read_preferences'
    | 'write_preference';
+export type SynthesisPin = PinnedCommits | SnapshotCommit;
 
 export interface EventPayloads {
    hello: HelloEvent;
@@ -1456,8 +1457,12 @@ export interface Tour {
 export interface TourSynthesis {
    text: string;
    writtenAt: string;
-   pin: PinnedCommits;
+   pin: SynthesisPin;
    basedOn: string;
+}
+export interface SnapshotCommit {
+   head: string;
+   remoteUrl: string;
 }
 export interface ReadingProgress {
    finished: boolean;
@@ -1546,7 +1551,7 @@ export interface SummaryStaleStop {
 export interface SummarySynthesis {
    text: string;
    writtenAt: string;
-   pin: PinnedCommits;
+   pin: SynthesisPin;
    predatesSummary: boolean;
    html: string;
 }

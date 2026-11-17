@@ -312,7 +312,7 @@ internal sealed record SummaryStaleStop(string StopId, string Title, int StaleOn
 /// state, a skip, a stale stop, a risk stop or its scenario, a stop title or check question that the summary names, or another merge base or head. Claude's fetch of a batch of answers is no
 /// change.
 /// </param>
-internal sealed record SummarySynthesis(string Text, DateTimeOffset WrittenAt, TourPin.Pinned Pin, bool PredatesSummary);
+internal sealed record SummarySynthesis(string Text, DateTimeOffset WrittenAt, SynthesisPin Pin, bool PredatesSummary);
 
 /// <summary>Why each follow-up action has nothing to hand to Claude, the reason that a request of it gets, so the summary page disables its button with that reason.</summary>
 /// <param name="DraftWorkItems">

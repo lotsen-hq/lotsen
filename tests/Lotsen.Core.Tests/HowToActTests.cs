@@ -58,6 +58,14 @@ public sealed partial class HowToActTests : IAsyncLifetime
          ["never their draft answers", "lotsen itself creates no work item, posts no comment and changes nothing in the repository", "its risks the risk stops that you wrote and the reviewer did not skip, a stale one included", "because you post a comment in the reviewer's name", "read its code again at the tour's pin", "Say which concerns need none", "Return the drafts as text in your reply", "ask the user in the terminal which drafts to post", "Post a comment only with your own tools, such as the hosting platform's CLI, after the user approves it in the terminal", "never their draft answers or their unsent notes", ThreadsAreTheirs, OutdatedLeftOut, "lotsen also leaves out a concern thread that the reviewer resolved, because the discussion settled it"]),
    };
 
+   // What the summarize rule of a repository tour asks for, by the purpose's JSON name, in the words of the rule.
+   private static readonly IReadOnlyDictionary<string, string[]> Syntheses = new Dictionary<string, string[]>
+   {
+      ["orient"] = ["a map of the code for the reviewer to keep", "its parts and how they fit together", "the vocabulary that the code uses", "the main paths through it", "where to look next"],
+      ["prepare"] = ["a change plan", "what to change and in what order", "what each change touches", "what the tests pin", "the risks"],
+      ["evaluate"] = ["a judgment", "whether to rely on the code", "its strengths and its weak spots", "what stays open", "Name the open questions and the concerns that no answer settled yet"],
+   };
+
    private static readonly IReadOnlyDictionary<string, (string Sample, string Carrier, string[] Says)> Decisions = new Dictionary<string, (string, string, string[])>
    {
       [ReviewerDecision.FamiliarityChangedKind] = (
@@ -78,6 +86,8 @@ public sealed partial class HowToActTests : IAsyncLifetime
    private ThreadCalls _calls = null!;
 
    public static TheoryData<string> ActionKinds => [.. LotsenJsonContext.Default.TourAction.PolymorphismOptions!.DerivedTypes.Select(derived => (string)derived.TypeDiscriminator!)];
+
+   public static TheoryData<string> Purposes => [.. Enum.GetValues<TourPurpose>().Select(purpose => JsonSerializer.Serialize(purpose, LotsenJsonContext.Default.TourPurpose).Trim('"'))];
 
    public static TheoryData<string> DecisionKinds => [.. LotsenJsonContext.Default.ReviewerDecision.PolymorphismOptions!.DerivedTypes.Select(derived => (string)derived.TypeDiscriminator!)];
 
@@ -136,6 +146,32 @@ public sealed partial class HowToActTests : IAsyncLifetime
 
       Assert.DoesNotMatch("(?i)section [0-9]", howToAct);
       Assert.All(SkillHeadings(), heading => Assert.DoesNotContain($"\"{heading}\"", howToAct, StringComparison.Ordinal));
+   }
+
+   /// <summary>The purposes come from the JSON contract of <see cref="TourPurpose"/>, so a purpose that the code adds fails here until <see cref="Syntheses"/> holds it.</summary>
+   [Theory]
+   [MemberData(nameof(Purposes))]
+   public async Task Summarize_rule_of_a_repository_tour_asks_for_the_synthesis_of_its_purpose_with_the_reviewers_findings_as_theirs(string purpose)
+   {
+      var howToAct = await RuleAsync(TourAction.SummarizeKind, purpose);
+      var others = Syntheses.Where(other => other.Key != purpose).SelectMany(other => other.Value).Except(Syntheses[purpose]);
+
+      Assert.All(Syntheses[purpose], phrase => Assert.Contains(phrase, howToAct, StringComparison.Ordinal));
+      Assert.All(others, phrase => Assert.DoesNotContain(phrase, howToAct, StringComparison.Ordinal));
+      Assert.DoesNotContain("what worries the reviewer", howToAct, StringComparison.Ordinal);
+      Assert.All(
+         ["Carry out summarize with write_synthesis", "with ref: links to the code each point is about", $"{TypedThreads} are the reviewer's own findings", "as the reviewer's, never in your own voice", $"Pass as {BasedOn} the {Fingerprint} of the summary that you read", "never the synthesis itself"],
+         phrase => Assert.Contains(phrase, howToAct, StringComparison.Ordinal));
+   }
+
+   [Fact]
+   public async Task Summarize_rule_of_a_pull_requests_tour_asks_for_no_synthesis_of_a_purpose()
+   {
+      var howToAct = await RuleAsync(TourAction.SummarizeKind);
+      var purposeOnly = Syntheses.Values.SelectMany(phrases => phrases).Where(phrase => !Actions[TourAction.SummarizeKind].Says.Any(says => says.Contains(phrase, StringComparison.Ordinal)));
+
+      Assert.DoesNotContain("purpose", howToAct, StringComparison.Ordinal);
+      Assert.All(purposeOnly, phrase => Assert.DoesNotContain(phrase, howToAct, StringComparison.Ordinal));
    }
 
    [Theory]
@@ -325,14 +361,17 @@ public sealed partial class HowToActTests : IAsyncLifetime
       ]);
    }
 
-   private async Task<string> RuleAsync(string kind) => HowToActOf(Actions.TryGetValue(kind, out var action)
-      ? await FetchAsync(ThreadFixtures.Asked(ThreadId, new ThreadAnchor.WholeTour(), action: Action(action.Sample), text: ""))
-      : await FetchAsync(ThreadFixtures.Decided(ThreadId, ThreadFixtures.Decision(Decisions[kind].Sample))));
+   // The rule in a pull request's tour, or in a repository tour of the purpose when one is given.
+   private async Task<string> RuleAsync(string kind, string? purpose = null) => HowToActOf(Actions.TryGetValue(kind, out var action)
+      ? await FetchAsync(ThreadFixtures.Asked(ThreadId, new ThreadAnchor.WholeTour(), action: Action(action.Sample), text: ""), purpose: purpose)
+      : await FetchAsync(ThreadFixtures.Decided(ThreadId, ThreadFixtures.Decision(Decisions[kind].Sample)), purpose: purpose));
 
-   private async Task<JsonNode> FetchAsync(QuestionThread thread, string questionId = OpeningId)
+   private async Task<JsonNode> FetchAsync(QuestionThread thread, string questionId = OpeningId, string? purpose = null)
    {
       await using var session = await AgentSessionConnection.OpenAsync(_harness);
-      var tourId = await _calls.CreateAsync(session);
+      var tourId = purpose is null
+         ? await _calls.CreateAsync(session)
+         : (string)(await _calls.CallAsync(_calls.Agent(session, "create_tour"), RepositoryPinningTests.CreateBody(@ref: null, purpose: purpose)))["id"]!;
       Assert.True(TourId.TryParse(tourId, out var id), $"The tour ID {tourId} does not parse.");
       _harness.ChangeStored(id, tour => tour with { Threads = ThreadFixtures.Threads(thread) });
       return await _calls.FetchAsync(session, tourId, questionId);

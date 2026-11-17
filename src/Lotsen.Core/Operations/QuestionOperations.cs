@@ -260,12 +260,12 @@ internal sealed class QuestionOperations
       var threadItems = thread is QuestionThread.Sent.Asked { Action: { } action } ? ActionRules.ThreadItemsNow(tour, action) : null;
       var about = stopId is null || tour.FindStop(stopId) is not { } found ? null : AgentView.Of(found);
       var redo = thread.Messages[0].Id == question.Id ? null : TourThreads.CheckRedo(tour, thread);
-      return new FetchedQuestion(tour.Id, question.Id, thread, about, HowToAct(thread), threadItems, redo);
+      return new FetchedQuestion(tour.Id, question.Id, thread, about, HowToAct(tour, thread), threadItems, redo);
    }
 
-   private static string? HowToAct(QuestionThread.Sent thread) => thread switch
+   private static string? HowToAct(Tour tour, QuestionThread.Sent thread) => thread switch
    {
-      QuestionThread.Sent.Asked asked => asked.Action is { } action ? ActionRules.HowToAct(action) : null,
+      QuestionThread.Sent.Asked asked => asked.Action is { } action ? ActionRules.HowToAct(tour, action) : null,
       QuestionThread.Sent.Decided decided => DecisionRules.HowToAct(decided.Decision),
       QuestionThread.Sent.Started => null,
    };

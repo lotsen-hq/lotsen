@@ -511,6 +511,39 @@ public sealed class TourFileFormatTests : IDisposable
       Assert.Equal(synthesis, NewStore().Get(tour.Id)!.Synthesis);
    }
 
+   [Fact]
+   [Trait("Category", "Summary")]
+   public void Stored_synthesis_of_a_repository_tour_reads_back_with_its_snapshot_as_the_snapshot_object_without_its_state()
+   {
+      var store = NewStore();
+      var tour = store.Create(PullRequest, Familiarity.Some);
+      var snapshot = (TourPin.Snapshot)AsRepositoryTour(tour).Pin;
+      var synthesis = SampleSynthesis(new SynthesisPin.Repository(snapshot));
+
+      store.Change(tour.Id, current => AsRepositoryTour(current) with { Synthesis = synthesis });
+
+      Assert.Equal(synthesis, NewStore().Get(tour.Id)!.Synthesis);
+      Assert.Equal(
+         $$"""{"head":"{{snapshot.Head.Value}}","remoteUrl":"https://platform.test/shop.git"}""",
+         JsonNode.Parse(File.ReadAllText(PathOf(tour.Id)))!["tour"]!["synthesis"]!["pin"]!.ToJsonString());
+   }
+
+   /// <summary>The pin is the object that schema version 22 holds, a pull request's pin without its <c>state</c>, so a synthesis that an earlier release stored reads.</summary>
+   [Fact]
+   [Trait("Category", "Summary")]
+   public void Synthesis_of_a_pull_request_keeps_the_pin_object_of_version_22()
+   {
+      const string Pin = """{"mergeBase":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","head":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","iteration":1,"remoteUrl":"https://platform.test/shop.git"}""";
+      var store = NewStore();
+      var tour = store.Create(PullRequest, Familiarity.Some);
+      store.Change(tour.Id, current => current with { Synthesis = SampleSynthesis() });
+      var content = File.ReadAllText(PathOf(tour.Id));
+
+      Assert.Equal(Pin, JsonNode.Parse(content)!["tour"]!["synthesis"]!["pin"]!.ToJsonString());
+      File.WriteAllText(PathOf(tour.Id), content.Replace($"\"schemaVersion\":{TourDocument.CurrentSchemaVersion}", "\"schemaVersion\":22"));
+      Assert.Equal(SampleSynthesis(), NewStore().Get(tour.Id)!.Synthesis);
+   }
+
    [Theory]
    [Trait("Category", "Summary")]
    [InlineData("\"text\":\"The review keeps the digit.\"", "\"text\":\"\"")]
@@ -803,10 +836,10 @@ public sealed class TourFileFormatTests : IDisposable
 
    private sealed record UnregisteredTarget : TourTarget;
 
-   private static TourSynthesis SampleSynthesis() => new(
+   private static TourSynthesis SampleSynthesis(SynthesisPin? pin = null) => new(
       "The review keeps the digit.",
       new DateTimeOffset(2026, 10, 22, 9, 31, 0, TimeSpan.Zero),
-      new TourPin.Pinned(CommitId.Parse(new string('a', 40)), CommitId.Parse(new string('b', 40)), 1, new Uri("https://platform.test/shop.git")),
+      pin ?? new SynthesisPin.PullRequest(new TourPin.Pinned(CommitId.Parse(new string('a', 40)), CommitId.Parse(new string('b', 40)), 1, new Uri("https://platform.test/shop.git"))),
       SummaryFingerprint.TryParse("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", out var fingerprint) ? fingerprint : default);
 
 }

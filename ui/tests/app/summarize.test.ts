@@ -4,7 +4,7 @@ import { actionOf, messagesOf } from '../../src/lib/threadView';
 import type { LotsenApp } from '../../src/lib/app.svelte';
 import type { QuestionThread, ReviewSummary } from '../../src/lib/types';
 import type { ClaudeSession, Transport, World } from '../backend/backend';
-import { attachClaude, backend, cartContent, cartHead, openTour, readTour, seedTour, startApp, updateIteration } from '../harness';
+import { attachClaude, backend, cartContent, cartHead, openTour, readTour, seedRepositoryTour, seedTour, startApp, updateIteration } from '../harness';
 
 beforeEach(() => {
    sessionStorage.clear();
@@ -32,6 +32,15 @@ const withoutPlan = backend().template('summarize-no-plan', async (world): Promi
    return { tourId: seeded.tourId, base: seeded.base, head: seeded.head };
 });
 
+const repositoryTitle = 'How the cart adds up';
+
+const repositoryWithPlan = backend().template('summarize-repository', async (world): Promise<{ tourId: string; head: string }> => {
+   const passages = [{ side: 'head', path: 'src/cart.ts', startLine: 2, endLine: 2, role: 'primary' }];
+   const stops = [{ title: 'The cart', kind: 'overview' as const, content: { headline: 'The cart sums its lines.', passages } }];
+   const seeded = await seedRepositoryTour(world, { title: repositoryTitle, bound: false, chapters: [{ title: 'Cart', stops }] });
+   return { tourId: seeded.tourId, head: seeded.head };
+});
+
 /** A world copied from the template, with a bound session unless `bound` is false. */
 async function summaryWorld(bound = true, template = withPlan): Promise<{ world: World; tourId: string; seed: Seed; claude: ClaudeSession | null }> {
    const world = await backend().world({ template });
@@ -39,10 +48,10 @@ async function summaryWorld(bound = true, template = withPlan): Promise<{ world:
    return { world, tourId: seed.tourId, seed, claude: bound ? await attachClaude(world, seed.tourId) : null };
 }
 
-/** Starts the app on the world and opens the tour's summary page. */
-async function openSummary(world: World, transport?: Transport): Promise<{ app: LotsenApp; transport: Transport }> {
+/** Starts the app on the world and opens the summary page of the tour with the label. */
+async function openSummary(world: World, transport?: Transport, label?: string): Promise<{ app: LotsenApp; transport: Transport }> {
    const started = await startApp(world, transport === undefined ? {} : { transport });
-   await openTour(started.app);
+   await openTour(started.app, label);
    started.app.openSummary();
    await waitFor(() => expect(region(/^Decisions/)).toBeTruthy());
    return started;
@@ -311,5 +320,24 @@ describe("Claude's synthesis on the summary page", () => {
       await late;
 
       expect(synthesis()).not.toBeNull();
+   });
+});
+
+describe("Claude's synthesis of a repository tour on the summary page", () => {
+   it('shows the synthesis, whose ref: link opens the file at the snapshot', async () => {
+      const world = await backend().world({ template: repositoryWithPlan });
+      const seed = world.seed as { tourId: string; head: string };
+      const claude = await attachClaude(world, seed.tourId);
+      await writeSynthesis(claude, seed.tourId, (await claudeSummary(claude, seed.tourId)).summaryFingerprint!);
+      const { app } = await openSummary(world, undefined, repositoryTitle);
+
+      const shown = await shownSynthesis();
+      expect(shown.getByText('The review keeps the rounding.', { exact: false })).toBeTruthy();
+      expect(shown.queryByRole('note')).toBeNull();
+      const link = shown.getByRole('link', { name: 'the line' });
+      expect(link.getAttribute('aria-disabled')).toBeNull();
+      await fireEvent.click(link);
+
+      await waitFor(() => expect(app.selectedText).toMatchObject({ state: 'loaded', side: 'head', path: 'src/cart.ts', text: { commit: seed.head } }));
    });
 });

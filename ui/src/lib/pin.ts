@@ -1,4 +1,4 @@
-import type { ChangedFile, CodeReference, FileSide, PinnedCommits, StopContent, TourPin } from './types';
+import type { ChangedFile, CodeReference, FileSide, StopContent, SynthesisPin, TourPin } from './types';
 
 /** The repository paths of one file at each side, or null for a side where it does not exist. */
 export interface FilePaths {
@@ -45,9 +45,14 @@ export function referenceAtPin(stop: { content: StopContent | null; staleOn?: nu
    return (reference) => kept.has(reference.side);
 }
 
-/** Returns a test of whether a `ref:` link in prose that was checked at `pin`, as Claude's synthesis was, is at the tour's pin: whether the commit of the link's side is the tour's commit of that side. */
-export function pinnedReferenceAtPin(pin: Pick<PinnedCommits, 'mergeBase' | 'head'>, commits: PinCommits | null): (reference: CodeReference) => boolean {
-   return (reference) => commits === null || (reference.side === 'base' ? pin.mergeBase : pin.head) === commits[reference.side];
+/**
+ * Returns a test of whether a `ref:` link in prose that was checked at `pin`, as Claude's synthesis was, is at the tour's pin: whether the commit of the link's side is the tour's commit of that side.
+ *
+ * A snapshot has no base, so a base link checked at one is never at the pin.
+ */
+export function pinnedReferenceAtPin(pin: SynthesisPin, commits: PinCommits | null): (reference: CodeReference) => boolean {
+   const base = 'mergeBase' in pin ? pin.mergeBase : null;
+   return (reference) => commits === null || (reference.side === 'base' ? base : pin.head) === commits[reference.side];
 }
 
 /** Returns a changed file's paths at each side: a renamed file's old path at the base. */

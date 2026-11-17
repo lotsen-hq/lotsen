@@ -238,7 +238,7 @@ internal static class ContractSamples
          Progress: new ReadingProgress(false, "s2"))
       { Revision = 7 };
       var basedOn = AgentView.Summary(tour).Fingerprint(tour.Pin);
-      return tour with { Synthesis = new TourSynthesis("The writer holds, but **the race** needs a test.", Later, Pin, basedOn) };
+      return tour with { Synthesis = new TourSynthesis("The writer holds, but **the race** needs a test.", Later, new SynthesisPin.PullRequest(Pin), basedOn) };
    }
 
    // The summary as read_summary returns it to the reviewer.

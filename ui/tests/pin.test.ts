@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { atPin, changedFilePaths, inFile, pinCommits, pointsInto, referenceAtPin } from '../src/lib/pin';
+import { atPin, changedFilePaths, inFile, pinCommits, pinnedReferenceAtPin, pointsInto, referenceAtPin } from '../src/lib/pin';
 import type { CodeReference, FileSide, StopPassage, WrittenStop } from '../src/lib/types';
 
 function stopPassage(side: FileSide, path: string, startLine: number, endLine: number, role: StopPassage['role'] = 'related', label?: string): StopPassage {
@@ -129,5 +129,27 @@ describe('a ref: link at the pin', () => {
    it('is at the pin in a stale stop or an earlier version while the tour is not pinned', () => {
       expect(sides(referenceAtPin(stop([], 2), true, null))).toEqual([true, true]);
       expect(sides(referenceAtPin(stop([]), false, null))).toEqual([true, true]);
+   });
+});
+
+describe("a ref: link of Claude's synthesis at the pin", () => {
+   const commits = { base: 'a'.repeat(40), head: 'b'.repeat(40) };
+   const head: CodeReference = { side: 'head', path: 'a.ts', startLine: 1, endLine: 1 };
+   const base: CodeReference = { ...head, side: 'base' };
+   const iteration = { mergeBase: 'a'.repeat(40), head: 'b'.repeat(40), iteration: 1, remoteUrl: 'https://code.example/repo.git' };
+   const snapshot = { head: 'b'.repeat(40), remoteUrl: 'https://code.example/repo.git' };
+   const sides = (atPin: (reference: CodeReference) => boolean) => [atPin(base), atPin(head)];
+
+   it.each([
+      ["written at the tour's iteration", iteration, [true, true]],
+      ['written at an iteration with another head', { ...iteration, head: 'c'.repeat(40) }, [true, false]],
+      ["written at the snapshot of the tour's head, which has no base", snapshot, [false, true]],
+      ['written at a snapshot of another commit', { ...snapshot, head: 'c'.repeat(40) }, [false, false]],
+   ])('%s is at the pin at the base and the head as given', (_, pin, expected) => {
+      expect(sides(pinnedReferenceAtPin(pin, commits))).toEqual(expected);
+   });
+
+   it('is at the pin while the tour has no commits at each side, as a snapshot has none at the base', () => {
+      expect(sides(pinnedReferenceAtPin(snapshot, null))).toEqual([true, true]);
    });
 });

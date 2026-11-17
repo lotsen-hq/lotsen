@@ -4239,6 +4239,24 @@
         "remoteUrl"
       ]
     },
+    "SnapshotCommit": {
+      "title": "SnapshotCommit",
+      "type": "object",
+      "properties": {
+        "head": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "remoteUrl": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "head",
+        "remoteUrl"
+      ]
+    },
     "StartedThread": {
       "title": "StartedThread",
       "properties": {
@@ -4891,7 +4909,7 @@
           "format": "date-time"
         },
         "pin": {
-          "$ref": "#/definitions/PinnedCommits"
+          "$ref": "#/definitions/SynthesisPin"
         },
         "predatesSummary": {
           "type": "boolean"
@@ -5032,6 +5050,17 @@
         "decisions",
         "concerns",
         "openQuestions"
+      ]
+    },
+    "SynthesisPin": {
+      "title": "SynthesisPin",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/PinnedCommits"
+        },
+        {
+          "$ref": "#/definitions/SnapshotCommit"
+        }
       ]
     },
     "TextChange": {
@@ -5724,7 +5753,7 @@
           "format": "date-time"
         },
         "pin": {
-          "$ref": "#/definitions/PinnedCommits"
+          "$ref": "#/definitions/SynthesisPin"
         },
         "basedOn": {
           "type": "string",

@@ -25,7 +25,7 @@ namespace Lotsen.Tests;
 internal sealed class ContractDocument
 {
    /// <summary>The definition names of union variants where a property declares the variant's own type.</summary>
-   private static readonly Dictionary<Type, string> DirectNames = new() { [typeof(TourPin.Pinned)] = "PinnedCommits" };
+   private static readonly Dictionary<Type, string> DirectNames = new() { [typeof(TourPin.Pinned)] = "PinnedCommits", [typeof(TourPin.Snapshot)] = "SnapshotCommit" };
 
    /// <summary>The definition names of types whose type info name says too little in TypeScript, where the name of a nested type no longer names its outer type.</summary>
    private static readonly Dictionary<Type, string> Renamed = new()

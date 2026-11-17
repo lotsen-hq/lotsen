@@ -58,6 +58,14 @@ public sealed class TourRulesTests
       ["pull request tour with a title"] = (Tour() with { Title = "Pricing" }, "title", "only a repository tour has a title."),
       ["pull request tour with a dive origin"] = (Tour() with { DiveOrigin = new DiveOrigin(OtherId, OtherId) }, "diveOrigin", "only a repository tour is a dive."),
       ["pull request tour pinned to a snapshot"] = (Tour() with { Pin = Snapshot }, "pin", "a pull request's tour is pinned to an iteration of the pull request, not to a snapshot."),
+      ["pull request tour with a synthesis at a snapshot"] = (
+         Tour() with { Synthesis = Synthesis(new SynthesisPin.Repository(Snapshot)) },
+         "synthesis.pin",
+         "a pull request's tour has a synthesis written at an iteration of the pull request, not at a snapshot."),
+      ["repository tour with a synthesis at an iteration"] = (
+         RepositoryTour() with { Synthesis = Synthesis(new SynthesisPin.PullRequest(Pinned)) },
+         "synthesis.pin",
+         "a repository tour has a synthesis written at a snapshot, not at an iteration of a pull request."),
       ["gotchas in a pull request's tour"] = (
          Tour(Plan(Written("s1", content: Content() with { Gotchas = "Mind the cache." }))),
          "plan.stops[0].content.gotchas",
@@ -99,6 +107,8 @@ public sealed class TourRulesTests
          "plan.stops[0].earlier[0].content.checks",
          "a prepare tour asks no checks. Only an evaluate tour does, so leave checks out."),
    };
+
+   private static TourSynthesis Synthesis(SynthesisPin pin) => new("A synthesis.", Now, pin, SummaryFingerprint.TryParse(new string('a', 64), out var fingerprint) ? fingerprint : default);
 
    private static TourId OtherId => TourId.TryParse("qrstuvwxyzabcdef", out var id) ? id : throw new InvalidOperationException("The ID does not parse.");
 
