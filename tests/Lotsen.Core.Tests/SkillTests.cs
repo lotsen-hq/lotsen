@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
@@ -138,15 +139,64 @@ public sealed partial class SkillTests
       Assert.Contains("Never switch the user's branch, and never touch their uncommitted work", read, StringComparison.Ordinal);
    }
 
-   /// <summary>The purpose's name comes from <see cref="TourPurpose"/>, so a rename must reach the plan's section.</summary>
+   /// <summary>The purposes come from <see cref="TourPurpose"/>, so a purpose that the code adds must reach the plan's section with a cap of its own.</summary>
    [Fact]
-   public void Codebase_skill_caps_the_size_of_an_orient_tour_and_names_the_areas_left_for_later_in_the_overview()
+   public void Codebase_skill_caps_the_size_of_a_tour_of_each_purpose_and_names_the_areas_left_for_later_in_the_overview()
    {
       var plan = Normalized(Section(Codebase, 6));
-      var orient = JsonSerializer.Serialize(TourPurpose.Orient, LotsenJsonContext.Default.TourPurpose).Trim('"');
 
-      Assert.Contains($"under a soft cap of about 20 stops for `{orient}`", plan, StringComparison.Ordinal);
+      Assert.Contains("under a soft cap of about", plan, StringComparison.Ordinal);
+      Assert.All(Enum.GetValues<TourPurpose>(), purpose => Assert.Matches($@"about \d+ (stops )?for `{PurposeName(purpose)}`", plan));
       Assert.Contains("Don't add stops for the rest. The overview names each area left for later", plan, StringComparison.Ordinal);
+   }
+
+   /// <summary>The purposes come from <see cref="TourPurpose"/>, so a purpose that the code adds must reach the question for it, the survey and the plan.</summary>
+   [Fact]
+   public void Codebase_skill_says_what_each_purpose_is_for_and_what_its_survey_and_its_stops_look_for()
+   {
+      var start = Normalized(Section(Codebase, 1));
+      var survey = Normalized(Section(Codebase, 5));
+      var plan = Normalized(Section(Codebase, 6));
+
+      Assert.All(Enum.GetValues<TourPurpose>(), purpose =>
+      {
+         var name = PurposeName(purpose);
+         var (surveys, stops) = purpose switch
+         {
+            TourPurpose.Orient => ("its main paths", "follow a main path"),
+            TourPurpose.Prepare => ("the tests that pin it", "Put a `risk` stop where a change would ripple"),
+            TourPurpose.Evaluate => ("its weak spots", "Ask checks on any stop where the reader's judgment matters"),
+            _ => throw new UnreachableException($"The test names no survey and no stops for the purpose {purpose}."),
+         };
+         Assert.Contains($"- `{name}`: ", start, StringComparison.Ordinal);
+         Assert.Contains(surveys, Bullet(survey, name), StringComparison.Ordinal);
+         Assert.Contains(stops, Bullet(plan, name), StringComparison.Ordinal);
+      });
+      Assert.Contains("for `prepare`: its words name the part to change, so when they name none, ask for the part", start, StringComparison.Ordinal);
+      Assert.Contains($"List each tour with its `title`, its `{PropertyName(LotsenJsonContext.Default.FoundTour, nameof(FoundTour.Purpose))}`", start, StringComparison.Ordinal);
+      Assert.Contains("say of each tour of another purpose that reopening it keeps that purpose", start, StringComparison.Ordinal);
+
+      // The purpose's bullet, from its name to the next bullet, in a section whose line breaks are spaces.
+      static string Bullet(string section, string name)
+      {
+         var at = section.IndexOf($"- `{name}`: ", StringComparison.Ordinal);
+         Assert.True(at >= 0, $"The section has no bullet for the purpose {name}.");
+         var end = section.IndexOf(" - ", at + 1, StringComparison.Ordinal);
+         return section[at..(end < 0 ? section.Length : end)];
+      }
+   }
+
+   /// <summary>The server asks a repository tour's summarize for the synthesis of its purpose and offers it no draftComments, so section 9 declines neither.</summary>
+   [Fact]
+   [Trait("Category", "TourActions")]
+   public void Codebase_skill_follows_howToAct_for_summarize_and_asks_where_work_items_belong()
+   {
+      var keep = Normalized(Section(Codebase, 9));
+
+      Assert.Contains("A `summarize` action works as its `howToAct` says, which names the synthesis of the tour's purpose", keep, StringComparison.Ordinal);
+      Assert.Contains("ask the user where the work items belong", keep, StringComparison.Ordinal);
+      Assert.DoesNotContain("draftComments", keep, StringComparison.Ordinal);
+      Assert.DoesNotMatch("[Dd]ecline a `summarize`", keep);
    }
 
    /// <summary>A repository tour takes no file marks, and an orient tour plans no risk or question stop, so the example holds neither.</summary>
@@ -705,6 +755,8 @@ public sealed partial class SkillTests
       var end = skill.IndexOf("\n## ", start, StringComparison.Ordinal);
       return skill[start..(end < 0 ? skill.Length : end)];
    }
+
+   private static string PurposeName(TourPurpose purpose) => JsonSerializer.Serialize(purpose, LotsenJsonContext.Default.TourPurpose).Trim('"');
 
    private static string Normalized(string text) => string.Join(' ', text.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
 
