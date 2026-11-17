@@ -1,7 +1,8 @@
 import FileSymlink from '@lucide/svelte/icons/file-symlink';
 import FolderGit2 from '@lucide/svelte/icons/folder-git-2';
 import type { Attachment } from 'svelte/attachments';
-import { defaultIcon, fileExtensions, fileNames, icons, languageExtensions, languageFileNames, languageIcons, languagePatterns } from '../seti/setiTheme';
+import { defaultIcon, fileExtensions, fileNames, icons, languageIcons } from '../seti/setiTheme';
+import { languageOf } from './fileLanguage';
 import type { RepositoryEntryType } from './types';
 
 /** An icon of VS Code's Seti file icon theme: its name in the theme, its glyph in the Seti font, and its colors in the dark and the light theme. */
@@ -33,13 +34,12 @@ export function fileIcon(path: string, entry: RepositoryEntryType = 'file'): Fil
  *
  * VS Code compares names and extensions in lowercase, and the theme's rules for names are more specific than those for extensions, which beat those for languages:
  * https://github.com/microsoft/vscode/blob/79749f565febf2216982fce236448995e0c4bde9/src/vs/workbench/services/themes/browser/fileIconThemeData.ts#L335-L382
- * It finds the language by file name, then by the longest glob pattern, then by the longest ending of the name, and last by the first line, which a path does not give:
- * https://github.com/microsoft/vscode/blob/79749f565febf2216982fce236448995e0c4bde9/src/vs/editor/common/services/languagesAssociations.ts#L164-L243
+ * It finds the language as {@link languageOf} does.
  */
 export function setiIcon(path: string): SetiIcon {
    const lowerPath = path.toLowerCase();
    const name = lowerPath.slice(lowerPath.lastIndexOf('/') + 1);
-   const matches = [fileNames.get(name), extensionIcon(name), languageIcon(lowerPath, name), defaultIcon].flatMap((match) => (match === undefined ? [] : [match]));
+   const matches = [fileNames.get(name), extensionIcon(name), languageIcon(lowerPath), defaultIcon].flatMap((match) => (match === undefined ? [] : [match]));
    const definitions = matches.map((match) => icons.get(match)!);
    // VS Code's rule for an icon sets the color only when the theme gives one, so a color comes from the next match that has one. The default icon has both.
    const color = (theme: 1 | 2) => definitions.find((definition) => definition[theme] !== null)![theme]!;
@@ -72,29 +72,7 @@ function extensionIcon(name: string): string | undefined {
    return undefined;
 }
 
-function languageIcon(lowerPath: string, name: string): string | undefined {
-   const language = languageOf(lowerPath, name);
+function languageIcon(lowerPath: string): string | undefined {
+   const language = languageOf(lowerPath);
    return language === undefined ? undefined : languageIcons.get(language);
-}
-
-function languageOf(lowerPath: string, name: string): string | undefined {
-   const byName = languageFileNames.get(name);
-   if (byName !== undefined) {
-      return byName;
-   }
-
-   const byPattern = languagePatterns.find(([pattern]) => pattern.test(lowerPath));
-   if (byPattern !== undefined) {
-      return byPattern[1];
-   }
-
-   // A language's extension is any ending of the name, such as .cs or .gitignore, and the longest one wins.
-   for (let start = 0; start < name.length; start++) {
-      const byExtension = languageExtensions.get(name.slice(start));
-      if (byExtension !== undefined) {
-         return byExtension;
-      }
-   }
-
-   return undefined;
 }

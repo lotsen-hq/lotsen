@@ -15,8 +15,7 @@ export default defineConfig({
       rolldownOptions: {
          output: {
             entryFileNames: 'app.js',
-            // The lazily loaded language chunks are named after the package they mostly hold, such as lang-json.
-            chunkFileNames: (chunk) => `chunks/${packageName(chunk.facadeModuleId ?? chunk.moduleIds[0]) ?? '[name]'}.js`,
+            chunkFileNames: (chunk) => `chunks/${chunkName(chunk) ?? '[name]'}.js`,
             assetFileNames: (asset) => (asset.names.some((name) => name.endsWith('.css')) ? 'app.css' : '[name][extname]'),
          },
       },
@@ -36,7 +35,19 @@ export default defineConfig({
    },
 });
 
-function packageName(moduleId: string | undefined): string | null {
+/**
+ * Returns the name of a lazily loaded chunk: the package of its entry module, such as lang-json, or the legacy mode, such as legacy-modes-shell.
+ *
+ * A chunk without an entry module, such as one that Rolldown makes for the modules that several languages share, takes the name of the language package that it holds, else of its first module.
+ */
+function chunkName(chunk: { readonly facadeModuleId: string | null; readonly moduleIds: readonly string[] }): string | null {
+   const moduleId = chunk.facadeModuleId ?? chunk.moduleIds.find((id) => /node_modules\/@codemirror\/lang-/.test(id)) ?? chunk.moduleIds[0];
+   // Every legacy mode is a module of the one package legacy-modes, so the mode's name keeps the chunks' names apart.
+   const mode = moduleId && /node_modules\/@codemirror\/legacy-modes\/mode\/([^/]+)\.js$/.exec(moduleId);
+   if (mode) {
+      return `legacy-modes-${mode[1]!}`;
+   }
+
    const match = moduleId && /node_modules\/(?:@[^/]+\/)?([^/]+)\//.exec(moduleId);
    return match ? match[1]! : null;
 }

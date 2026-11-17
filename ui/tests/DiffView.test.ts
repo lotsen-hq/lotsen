@@ -958,14 +958,41 @@ describe('languages', () => {
       ['build/Pack.targets', 'xml'],
       ['.github/ci.yml', 'yaml'],
       ['README.md', 'markdown'],
+      ['.claude/skills/review/SKILL.md', 'markdown'],
+      ['.claude/agents/x.md', 'markdown'],
+      ['.github/prompts/review.prompt.md', 'markdown'],
+      ['.github/copilot-instructions.md', 'markdown'],
+      ['.vscode/snippets-ts.json', 'json'],
+      ['src/View.mm', 'objectivecpp'],
       ['src/app.css', 'css'],
       ['index.html', 'html'],
       ['db/001-init.sql', 'sql'],
+      ['src/main.c', 'cpp'],
+      ['include/foo.h', 'cpp'],
+      ['src/a.hpp', 'cpp'],
+      ['app.py', 'python'],
+      ['Main.java', 'java'],
+      ['main.go', 'go'],
+      ['lib.rs', 'rust'],
+      ['index.php', 'php'],
+      ['style.scss', 'scss'],
+      ['install.sh', 'shell'],
+      ['build.ps1', 'powershell'],
+      ['Gemfile.rb', 'ruby'],
+      ['Package.swift', 'swift'],
+      ['build.gradle.kts', 'kotlin'],
+      ['Cargo.toml', 'toml'],
+      ['Dockerfile', 'dockerfile'],
+      ['docker-compose.yml', 'yaml'],
+      ['tsconfig.base.json', 'json'],
+      ['CMakeLists.txt', 'cmake'],
+      ['App.config', 'xml'],
+      ['Strings.resx', 'xml'],
    ])('highlights %s as %s', (path, name) => {
       expect(languageNameFor(path)).toBe(name);
    });
 
-   it.each(['notes.unknownext', 'Dockerfile', '.gitignore', 'src.d/file', 'a.constructor', 'a.__proto__'])('shows %s as plain text', async (path) => {
+   it.each(['notes.unknownext', '.gitignore', 'src.d/file', 'a.constructor', 'a.__proto__', 'Makefile'])('shows %s as plain text', async (path) => {
       expect(languageNameFor(path)).toBeNull();
       await expect(loadLanguageFor(path)).resolves.toBeNull();
    });
@@ -1012,10 +1039,28 @@ describe('languages', () => {
    });
 
    it('loads every language', async () => {
-      const extensions = ['cs', 'ts', 'tsx', 'js', 'jsx', 'json', 'csproj', 'yml', 'md', 'css', 'html', 'sql'];
-      const paths = extensions.map((extension) => `a.${extension}`);
+      // Each path reaches a different language. Add one for each new loader.
+      const extensions = 'cs ts tsx js jsx json csproj yml md css html sql c py java go rs php scss less sh ps1 rb swift lua pl r groovy dart m mm kt scala dockerfile ini diff toml proto cmake';
+      const paths = extensions.split(' ').map((extension) => `a.${extension}`);
       const languages = await Promise.all(paths.map((path) => loadLanguageFor(path)));
 
-      expect(languages.every((loadedLanguage) => loadedLanguage !== null)).toBe(true);
+      expect(new Set(paths.map((path) => languageNameFor(path))).size).toBe(paths.length);
+      expect(paths.filter((_, index) => languages[index] === null)).toEqual([]);
+   });
+
+   it('colors a C file’s keywords, types, strings and comments', async () => {
+      const text = 'int main(void) { return puts("hi"); } // note\n';
+      renderDiff('src/main.c', modified(text, text, []));
+
+      const [, head] = await editors(2);
+      const styleOf = (token: string) => {
+         const span = [...head!.contentDOM.querySelectorAll('span')].find((element) => element.textContent === token);
+         expect(span, token).toBeDefined();
+         return getComputedStyle(span!);
+      };
+
+      expect(head!.state.facet(language)?.name).toBe('cpp');
+      expect(['int', 'return', '"hi"'].map((token) => styleOf(token).color)).toEqual(['var(--syntax-type)', 'var(--syntax-control)', 'var(--syntax-string)']);
+      expect(styleOf('// note').fontStyle).toBe('var(--syntax-comment-style)');
    });
 });
