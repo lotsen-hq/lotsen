@@ -86,6 +86,26 @@ public sealed class CreateTourValidationTests : IAsyncLifetime
       }
    }
 
+   /// <summary>A pull request URL with user information can hold a token too, so its refusal keeps to the same rule.</summary>
+   [Theory]
+   [InlineData("https://user:s3cr3t@platform.test/shop/issues/42")]
+   [InlineData("https://s3cr3t@github.com/octo/hello/pull/1")]
+   [InlineData("ssh://git:s3cr3t@platform.test/shop/pull/42")]
+   public async Task Pull_request_url_with_user_information_is_refused_without_repeating_it(string url)
+   {
+      using var created = await _harness.AgentSendJsonAsync("create_tour", $$"""{ "prUrl": "{{url}}", "familiarity": "some" }""");
+      using var found = await _harness.AgentSendJsonAsync("find_tours", $$"""{ "prUrl": "{{url}}" }""");
+
+      foreach (var response in new[] { created, found })
+      {
+         var error = await ThreadCalls.ErrorAsync(response, HttpStatusCode.BadRequest, "invalidInput");
+         Assert.Equal("prUrl", (string)error["field"]!);
+         Assert.DoesNotContain("s3cr3t", (string)error["reason"]!, StringComparison.Ordinal);
+         Assert.Contains("user information", (string)error["reason"]!, StringComparison.Ordinal);
+         Assert.Contains("is not a pull request URL that lotsen recognizes", (string)error["reason"]!, StringComparison.Ordinal);
+      }
+   }
+
    [Fact]
    public async Task Title_of_the_longest_length_and_a_ref_that_the_url_names_too_are_accepted()
    {

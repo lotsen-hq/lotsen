@@ -484,17 +484,14 @@ internal sealed class TourPins
 
    // Returns the target of an input's prUrl, or the refusal that names the URL forms that the platforms accept.
    private OperationResult<PullRequestTarget> Recognize(string prUrl) =>
-      _platforms.Recognize(prUrl) is { } target ? target : OperationError.Invalid("prUrl", $"'{prUrl}' is not a pull request URL that lotsen recognizes. Expected {_platforms.ExpectedForms}.");
+      _platforms.Recognize(prUrl) is { } target ? target : Unrecognized("prUrl", prUrl, $"is not a pull request URL that lotsen recognizes. Expected {_platforms.ExpectedForms}.");
 
    // Returns the target of an input's repository at the ref that the input's ref or URL names, or the refusal that names the field and, for a URL, the forms that the platforms accept.
    private OperationResult<RepositoryTarget> RecognizeRepository(string url, string? @ref)
    {
       if (_platforms.RecognizeRepository(url) is not { } target)
       {
-         var problem = $"is not a repository URL that lotsen recognizes. Expected {_platforms.ExpectedRepositoryForms}.";
-         return OperationError.Invalid(
-            RepositoryField.Then("url"),
-            HoldsUserInformation(url) ? $"the URL holds user information, such as a user name or a token, which lotsen does not repeat. Give it without user information. The URL {problem}" : $"'{url}' {problem}");
+         return Unrecognized(RepositoryField.Then("url"), url, $"is not a repository URL that lotsen recognizes. Expected {_platforms.ExpectedRepositoryForms}.");
       }
 
       if (@ref is null || @ref == target.Ref)
@@ -512,7 +509,11 @@ internal sealed class TourPins
          : new RepositoryTarget(target.Url, @ref, target.Platform);
    }
 
-   // User information can hold a token, so a refusal repeats no URL whose user information is more than the git user of an SSH remote. An @ after a slash is part of the path.
+   // Returns the refusal of a URL that no platform recognizes, with the problem after the URL. User information can hold a token, so the reason leaves out a URL that HoldsUserInformation flags.
+   private static OperationError Unrecognized(FieldPath field, string url, string problem) =>
+      OperationError.Invalid(field, HoldsUserInformation(url) ? $"the URL holds user information, such as a user name or a token, which lotsen does not repeat. Give it without user information. The URL {problem}" : $"'{url}' {problem}");
+
+   // The git user of an SSH remote holds no secret, so it does not count. An @ after a slash is part of the path.
    private static bool HoldsUserInformation(string url)
    {
       var at = url.IndexOf('@', StringComparison.Ordinal);
