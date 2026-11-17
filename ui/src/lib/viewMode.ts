@@ -1,7 +1,7 @@
 import { preference } from './preference';
-import type { StopPassage } from './types';
+import type { StopPassage, TargetKind } from './types';
 
-/** How the viewer shows a stop: the whole pull request with the rest dimmed, the stop's files stacked and collapsed to its passages, or one of the stop's passages at a time. */
+/** How the viewer shows a stop: the whole pull request or repository with the rest dimmed, the stop's files stacked and collapsed to its passages, or one of the stop's passages at a time. */
 export type ViewMode = 'wholePr' | 'stopFiles' | 'stepThrough';
 
 /** The view modes in the order that the mode switch and the settings offer them, with their labels. */
@@ -10,6 +10,11 @@ export const viewModes: readonly { value: ViewMode; label: string }[] = [
    { value: 'stopFiles', label: 'Stop files' },
    { value: 'stepThrough', label: 'Step through' },
 ];
+
+/** Returns the view modes that the mode switch offers for a kind of tour, the whole repository in place of the whole pull request for a repository tour. */
+export function viewModesFor(target: TargetKind): readonly { value: ViewMode; label: string }[] {
+   return target === 'repository' ? viewModes.map((mode) => (mode.value === 'wholePr' ? { ...mode, label: 'Whole repo' } : mode)) : viewModes;
+}
 
 const viewModeValues = viewModes.map((mode) => mode.value);
 

@@ -7,7 +7,7 @@
    import { isElement } from '../lib/dom';
    import { editorSurfaces, type EditorSurface } from '../lib/editor/surface';
    import type { ExplanationView } from '../lib/explanationView.svelte';
-   import { fileMarkLabels, formatSize, pinFailedLines, pinningLines } from '../lib/labels';
+   import { fileMarkLabels, formatSize, noFileLines, pinFailedLines, pinningLines } from '../lib/labels';
    import { InlineHost } from '../lib/inlineHost.svelte';
    import { paneSplit } from '../lib/paneSplit.svelte';
    import { type FilePaths } from '../lib/pin';
@@ -68,7 +68,7 @@
       fileAnchor?: Extract<PickedAnchor, { kind: 'file' }> | null;
       /** The markers of the threads asked about the file, which its stacked header shows. */
       fileThreads?: readonly ThreadMarker[];
-      /** What the tour reviews, which the notice of a pin in progress or failed names. */
+      /** What the tour reviews, which the notices of a pin in progress or failed and of no open file name. */
       targetKind?: TargetKind;
    } = $props();
 
@@ -205,7 +205,7 @@
 
 <div class={['relative flex flex-col', !stacked && 'h-full min-h-0']}>
    {#if path === null}
-      <p class="p-4 text-muted-foreground">Select a changed file to see its diff.</p>
+      <p class="p-4 text-muted-foreground">{noFileLines[targetKind]}</p>
    {:else}
       {#if stacked}
          <header class="flex items-center gap-4 border-b bg-card px-4 py-1.5">

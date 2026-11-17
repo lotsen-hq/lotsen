@@ -179,6 +179,17 @@ export const repositoryEntryTags: Partial<Record<RepositoryEntryType, string>> =
    submodule: 'submodule',
 };
 
+/** What the center says while no file is open, by the kind of tour. */
+export const noFileLines: Record<TargetKind, string> = {
+   pullRequest: 'Select a changed file to see its diff.',
+   repository: 'Select a file to see its text.',
+};
+
+/** Returns what a tour marker says: how many stops visit its file or folder. */
+export function stopVisitsLabel(count: number): string {
+   return count === 1 ? 'Visited by 1 stop' : `Visited by ${count} stops`;
+}
+
 /** The tag of a changed file whose only change is its line endings. */
 export const lineEndingsOnlyLabel = 'line endings only';
 

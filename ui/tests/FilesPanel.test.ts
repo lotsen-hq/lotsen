@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { stopOf, writtenOf } from './stops';
 import FilesPanel from '../src/components/FilesPanel.svelte';
 import type { KnownFiles } from '../src/lib/tourRecord.svelte';
-import type { ChangedFile, FileMark, Stop, StopPassage, TourSummary } from '../src/lib/types';
+import type { ChangedFile, FileMark, FileSide, RepositoryEntry, Stop, StopPassage, TourSummary } from '../src/lib/types';
+import type { KnownDirectory } from '../src/lib/viewState';
 import { eventFixtures } from './contract/fixtures.generated';
 import { hoverTooltip } from './tooltip';
 
@@ -499,6 +500,72 @@ describe('FilesPanel', () => {
       expect(screen.queryByRole('button', { name: 'Group by stop' })).toBeNull();
       expect(screen.queryByRole('button', { name: 'Dim other files' })).toBeNull();
       expect(screen.queryByRole('button', { name: 'Show reasons' })).toBeNull();
+   });
+
+   describe('of a repository tour', () => {
+      const snapshot = 'cccccccccccccccccccccccccccccccccccccccc';
+      const repositoryTour: TourSummary = {
+         ...tour,
+         target: { kind: 'repository', platform: 'test', url: 'https://platform.test/shop' },
+         pin: { state: 'snapshot', head: snapshot, remoteUrl: 'https://example.test/repo.git' },
+      };
+      const atSnapshot = (path: string): StopPassage => ({ ...passage('head', path), commit: snapshot });
+      const stops = [stop('cart', [atSnapshot('src/cart.ts')]), stop('money', [atSnapshot('src/lib/money.ts'), atSnapshot('src/cart.ts')])];
+      const entries: Record<string, RepositoryEntry[]> = {
+         '': [
+            { path: 'src', type: 'directory' },
+            { path: 'README.md', type: 'file' },
+         ],
+         src: [
+            { path: 'src/lib', type: 'directory' },
+            { path: 'src/cart.ts', type: 'file' },
+         ],
+      };
+
+      function renderRepositoryTour(selectedText: { side: 'head' | 'base'; path: string } | null = null) {
+         const listDirectory = vi.fn((side: FileSide, path: string | null): Promise<KnownDirectory> =>
+            Promise.resolve({ state: 'loaded', listing: { path, side, commit: snapshot, entries: entries[path ?? '']! } }),
+         );
+         const onopen = vi.fn();
+         render(FilesPanel, { props: { tour: repositoryTour, known: undefined, selectedPath: null, selectedText, stops, onselect: vi.fn(), onreview: vi.fn(), onopen, listDirectory } });
+         return { listDirectory, onopen };
+      }
+
+      it('shows only the repository tree at the head, with no view, side or changed-file controls and no review count', async () => {
+         const { listDirectory } = renderRepositoryTour();
+
+         const tree = await screen.findByRole('tree', { name: 'Repository files' });
+         expect(labels(tree)).toEqual(['src, Visited by 2 stops', 'README.md']);
+         expect(screen.queryAllByRole('button')).toEqual([]);
+         expect(screen.queryByText(/reviewed/)).toBeNull();
+         expect(listDirectory.mock.calls).toEqual([['head', null]]);
+      });
+
+      it('marks each visited file and folder with a pin and the number of stops, which the tooltip says too', async () => {
+         renderRepositoryTour();
+         const tree = await screen.findByRole('tree', { name: 'Repository files' });
+
+         await fireEvent.click(within(tree).getByText('src'));
+
+         const cart = await within(tree).findByRole('treeitem', { name: 'cart.ts, Visited by 2 stops' });
+         expect(labels(tree)).toEqual(['src, Visited by 2 stops', 'lib, Visited by 1 stop', 'cart.ts, Visited by 2 stops', 'README.md']);
+         const visits = cart.querySelector('.visits')!;
+         expect(visits.getAttribute('aria-hidden')).toBe('true');
+         expect([visits.querySelector('svg')?.classList.contains('lucide-map-pin'), visits.textContent]).toEqual([true, '2']);
+         expect(await hoverTooltip(cart.firstElementChild!)).toBe('src/cart.ts\nVisited by 2 stops');
+         expect(await hoverTooltip(within(tree).getByRole('treeitem', { name: 'lib, Visited by 1 stop' }).firstElementChild!)).toBe('src/lib\nVisited by 1 stop');
+         expect(within(tree).getByRole('treeitem', { name: 'README.md' }).querySelector('.visits')).toBeNull();
+      });
+
+      it('opens a file at the head, and marks the open file at the head', async () => {
+         const { onopen } = renderRepositoryTour({ side: 'head', path: 'README.md' });
+         const tree = await screen.findByRole('tree', { name: 'Repository files' });
+
+         await fireEvent.click(within(tree).getByText('README.md'));
+
+         expect(onopen).toHaveBeenCalledWith('head', 'README.md');
+         expect(within(tree).getByRole('treeitem', { name: 'README.md' }).getAttribute('aria-current')).toBe('true');
+      });
    });
 
    it('shows the tree when browser storage throws', () => {

@@ -1,5 +1,6 @@
 import type { TreeRow } from './fileTree';
-import type { ChangedFile, FileSide, RepositoryEntry, RepositoryEntryType } from './types';
+import { contentOf } from './stops';
+import type { ChangedFile, FileSide, RepositoryEntry, RepositoryEntryType, Stop } from './types';
 
 /** An entry of the whole-repository tree. A directory is a folder, and every other entry is a file row. */
 export interface RepositoryTreeNode {
@@ -42,6 +43,38 @@ export function changedFilesAt(files: readonly ChangedFile[], side: FileSide): M
    }
 
    return found;
+}
+
+/**
+ * Returns how many stops visit each row of a repository tour's tree that a tour marker marks, by the row's node ID: each file that a passage of a stop points into, and each folder that holds one.
+ *
+ * Only passages at the snapshot's head count, because the tree shows that commit alone. The folders come from the passages' paths, so a folder carries its count before its listing loads.
+ *
+ * @param head The snapshot's head commit.
+ */
+export function stopVisits(stops: readonly Stop[], head: string): Map<string, number> {
+   const visitors = new Map<string, Set<string>>();
+   const visit = (id: string, stopId: string) => {
+      const found = visitors.get(id);
+      if (found === undefined) {
+         visitors.set(id, new Set([stopId]));
+      } else {
+         found.add(stopId);
+      }
+   };
+
+   for (const stop of stops) {
+      for (const passage of contentOf(stop)?.passages ?? []) {
+         if (passage.side === 'head' && passage.commit === head) {
+            visit(passage.path, stop.id);
+            for (let end = passage.path.indexOf('/'); end !== -1; end = passage.path.indexOf('/', end + 1)) {
+               visit(passage.path.slice(0, end + 1), stop.id);
+            }
+         }
+      }
+   }
+
+   return new Map([...visitors].map(([id, stopIds]) => [id, stopIds.size]));
 }
 
 /**

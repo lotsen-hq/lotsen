@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { changedFilesAt, repositoryNodes, repositoryRows, type DirectoryState } from '../src/lib/repositoryTree';
-import type { ChangedFile } from '../src/lib/types';
+import { changedFilesAt, repositoryNodes, repositoryRows, stopVisits, type DirectoryState } from '../src/lib/repositoryTree';
+import type { ChangedFile, FileSide, Stop, StopPassage } from '../src/lib/types';
+import { stopOf } from './stops';
 
 describe('repositoryNodes', () => {
    it('puts folders before files, each in name order without regard to letter case, named by their last segment', () => {
@@ -65,5 +66,23 @@ describe('repositoryRows', () => {
 
    it('has no rows before the root is loaded', () => {
       expect(repositoryRows(new Map([['', { state: 'loading' }]]), new Set())).toEqual([]);
+   });
+});
+
+describe('stopVisits', () => {
+   const head = 'h1';
+   const passage = (path: string, side: FileSide = 'head', commit = head): StopPassage => ({ side, path, startLine: 1, endLine: 2, role: 'related', commit, text: 'x' });
+   const stop = (id: string, ...passages: StopPassage[]): Stop => stopOf({ id, title: id, kind: 'context', chapter: 'c', content: { headline: id, passages, html: { headline: `<p>${id}</p>\n` } } });
+
+   it('counts each stop once for each file its passages visit and for each folder that holds such a file, by the node IDs of the repository tree', () => {
+      const visits = stopVisits([stop('s1', passage('src/cart/total.ts'), passage('src/cart/total.ts'), passage('README.md')), stop('s2', passage('src/cart/line.ts'))], head);
+
+      expect(Object.fromEntries(visits)).toEqual({ 'src/': 2, 'src/cart/': 2, 'src/cart/total.ts': 1, 'src/cart/line.ts': 1, 'README.md': 1 });
+   });
+
+   it('leaves out pending stops and passages at the base or at another commit than the head', () => {
+      const pending = stopOf({ id: 'p', title: 'p', kind: 'context', chapter: 'c', content: null });
+
+      expect(stopVisits([pending, stop('s1', passage('base.ts', 'base'), passage('old.ts', 'head', 'h0'))], head).size).toBe(0);
    });
 });

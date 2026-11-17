@@ -94,6 +94,8 @@
            }),
    );
 
+   /** Whether the selected tour is a repository tour, which has no changed files and no base. */
+   const repositoryTour = $derived(app.selectedTour?.target.kind === 'repository');
    /** Claude's mark on the selected changed file, or null for none. */
    const selectedMark = $derived(app.selectedFile === null ? null : (app.selectedFileMarks.get(app.selectedFile.path) ?? null));
    const writes: AnswerWrites = {
@@ -165,7 +167,7 @@
    <!-- One row for the whole center, so the view modes and the passage navigation keep their place and their focus when the view below changes. -->
    <div class="flex shrink-0 items-center gap-3 border-b bg-card px-4 py-1.5">
       {#if app.selectedTourId !== null}
-         <ViewModeSwitch mode={app.viewMode} onmode={(mode) => app.setViewMode(mode)} />
+         <ViewModeSwitch mode={app.viewMode} target={app.selectedTour?.target.kind ?? 'pullRequest'} onmode={(mode) => app.setViewMode(mode)} />
          <!-- A pending stop has no passages to step through yet, so the navigation waits for its content. -->
          {#if app.viewMode === 'stepThrough' && app.selectedStop?.stage === 'written'}
             <PassageNavigation
@@ -183,10 +185,11 @@
                {app.stopFiles.length === 1 ? '1 file' : `${app.stopFiles.length} files`}
             {/if}
          </p>
+         <!-- A repository tour stacks only texts, so its stack has no diff to lay out or to compare without whitespace. -->
          <DiffOptions
-            layout={settings.diffLayout}
+            layout={repositoryTour ? null : settings.diffLayout}
             onlayout={(diffLayout) => settings.setDiffLayout(diffLayout)}
-            ignoreWhitespace={app.ignoreWhitespace}
+            ignoreWhitespace={repositoryTour ? null : app.ignoreWhitespace}
             onignorewhitespace={(ignore) => app.setIgnoreWhitespace(ignore)}
             highlight={app.decorationSwitches.highlight}
             onhighlight={(highlight) => app.setHighlight(highlight)}
@@ -289,7 +292,12 @@
                {/key}
             {/snippet}
          </IterationNotice>
-         <Workspace {layout} tourId={app.selectedTourId} defaultLeft={app.selectedTour?.pin.state === 'pinned' ? 'files' : 'plan'} diffTitle={app.showsSummary ? 'Summary' : 'Code'}>
+         <Workspace
+            {layout}
+            tourId={app.selectedTourId}
+            defaultLeft={app.selectedTour?.pin.state === 'pinned' || app.selectedTour?.pin.state === 'snapshot' ? 'files' : 'plan'}
+            diffTitle={app.showsSummary ? 'Summary' : 'Code'}
+         >
             {#snippet files()}
                <!-- Each tour gets its own tree, so folders collapsed in one tour do not carry over to the next. -->
                {#key app.selectedTourId}
@@ -304,6 +312,7 @@
                      reviewError={app.reviewError}
                      onreview={(path, reviewed) => app.setFileReviewed(path, reviewed)}
                      currentStop={app.selectedStop}
+                     stops={app.selectedPlan?.plan?.stops ?? []}
                      onselect={(path) => app.selectFile(path)}
                      onopen={(side, path) => app.openRepositoryFile(side, path)}
                      listDirectory={(side, path) => app.listDirectory(tourId, side, path)}

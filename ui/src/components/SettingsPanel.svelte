@@ -75,7 +75,7 @@
    const fontSizeGlyphs: Record<FontSize, string> = { small: 'text-xs', medium: 'text-sm', large: 'text-lg leading-none' };
 
    const viewModeHints: Record<ViewMode, string> = {
-      wholePr: 'The whole pull request, with the rest dimmed around the stop.',
+      wholePr: 'The whole pull request or repository, with the rest dimmed around the stop.',
       stopFiles: "Only the stop's files, collapsed to its passages.",
       stepThrough: "One of the stop's passages at a time.",
    };

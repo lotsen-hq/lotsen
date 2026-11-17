@@ -25,7 +25,7 @@
    import { panelDocument } from '../lib/panelDocument.svelte';
    import { pinFailedLines, pinningLines } from '../lib/labels';
    import { atPin, pinCommits } from '../lib/pin';
-   import { changedFilesAt } from '../lib/repositoryTree';
+   import { changedFilesAt, stopVisits } from '../lib/repositoryTree';
    import type { FileReference } from '../lib/stopFiles';
    import type { ChangedFile, FileMark, FileSide, Stop, TourSummary } from '../lib/types';
    import FileTree from './FileTree.svelte';
@@ -40,6 +40,7 @@
       selectedText = null,
       fileMarks = new Map(),
       currentStop = null,
+      stops = [],
       reviewedPaths = new Set(),
       reviewError = null,
       onselect,
@@ -57,6 +58,8 @@
       fileMarks?: ReadonlyMap<string, FileMark>;
       /** The stop the reviewer has open, whose files at the pin the list can show first, or null when none is open. */
       currentStop?: Stop | null;
+      /** The plan's stops, whose passages give a repository tour's tour markers. */
+      stops?: readonly Stop[];
       /** The paths of the changed files that the reviewer marked reviewed. */
       reviewedPaths?: ReadonlySet<string>;
       /** Why the reviewer's last review mark could not be stored, or null when nothing failed. */
@@ -102,6 +105,9 @@
    const changedAtSide = $derived(changedFilesAt(files, side));
    // The commit that the repository view lists, which an update of the tour to a new iteration changes.
    const sideCommit = $derived(tour?.pin.state === 'pinned' ? (side === 'base' ? tour.pin.mergeBase : tour.pin.head) : '');
+   // A repository tour's one commit, which its tree lists, or an empty string for a tour without a snapshot.
+   const snapshotHead = $derived(tour?.pin.state === 'snapshot' ? tour.pin.head : '');
+   const visits = $derived(snapshotHead === '' ? new Map<string, number>() : stopVisits(stops, snapshotHead));
    const reviewedCount = $derived(files.filter((file) => reviewedPaths.has(file.path)).length);
    // Only the passages at the pin group and un-dim files, as they alone get decorations and a place in the stop-files stack.
    const stopPassages = $derived((contentOf(currentStop)?.passages ?? []).filter((passage) => atPin(passage, pinCommits(tour?.pin))));
@@ -183,6 +189,16 @@
          <p>{pinFailedLines[tour.target.kind]}</p>
          <p>{pin.reason}</p>
       </div>
+   {:else if tour.target.kind === 'repository'}
+      <!-- A repository tour has no changed files and no base, so its one view lists the snapshot's head, with no view or side to choose. -->
+      {#key snapshotHead}
+         <RepositoryTree
+            listDirectory={(path) => listDirectory('head', path)}
+            {visits}
+            selectedPath={selectedText?.side === 'head' ? selectedText.path : null}
+            onopen={(path) => onopen('head', path)}
+         />
+      {/key}
    {:else}
       <div class="flex flex-wrap items-center gap-2 px-4 pt-1 pb-2">
          <div class="flex *:not-first:border-l-0" role="group" aria-label="File view">

@@ -2,12 +2,13 @@
    import ChevronRight from '@lucide/svelte/icons/chevron-right';
    import Folder from '@lucide/svelte/icons/folder';
    import FolderOpen from '@lucide/svelte/icons/folder-open';
+   import MapPin from '@lucide/svelte/icons/map-pin';
    import { onMount } from 'svelte';
    import { SvelteMap, SvelteSet } from 'svelte/reactivity';
    import { Button } from '$lib/components/ui/button';
    import type { KnownDirectory } from '../lib/viewState';
    import { holds } from '../lib/fileTree';
-   import { changeKindLabels, repositoryEntryTags } from '../lib/labels';
+   import { changeKindLabels, repositoryEntryTags, stopVisitsLabel } from '../lib/labels';
    import { repositoryNodes, repositoryRows, type DirectoryState, type RepositoryTreeNode } from '../lib/repositoryTree';
    import { TreeFocus } from '../lib/treeFocus.svelte';
    import type { ChangedFile } from '../lib/types';
@@ -17,14 +18,17 @@
 
    let {
       listDirectory,
-      changed,
+      changed = new Map(),
+      visits = new Map(),
       selectedPath,
       onopen,
    }: {
       /** Lists a directory at the tree's side, or the root directory for null. */
       listDirectory: (path: string | null) => Promise<KnownDirectory>;
       /** The changed files by their path at the tree's side. */
-      changed: ReadonlyMap<string, ChangedFile>;
+      changed?: ReadonlyMap<string, ChangedFile>;
+      /** How many stops visit each row that carries a tour marker, by its node ID, as {@link stopVisits} counts them. */
+      visits?: ReadonlyMap<string, number>;
       selectedPath: string | null;
       onopen: (path: string) => void;
    } = $props();
@@ -71,9 +75,16 @@
 
    onMount(() => void load(''));
 
+   // The tour marker is hidden from assistive technology, so the label and the tooltip say it.
    function label(node: RepositoryTreeNode, change: ChangedFile | undefined): string {
       const tag = repositoryEntryTags[node.entry];
-      return `${node.name}${change ? `, ${changeKindLabels[change.kind]}` : ''}${tag ? `, ${tag}` : ''}`;
+      const count = visits.get(node.id);
+      return `${node.name}${change ? `, ${changeKindLabels[change.kind]}` : ''}${tag ? `, ${tag}` : ''}${count === undefined ? '' : `, ${stopVisitsLabel(count)}`}`;
+   }
+
+   function tooltip(node: RepositoryTreeNode): string {
+      const count = visits.get(node.id);
+      return count === undefined ? node.path : `${node.path}\n${stopVisitsLabel(count)}`;
    }
 </script>
 
@@ -88,6 +99,13 @@
    {/if}
 {/snippet}
 
+{#snippet tourMarker(node: RepositoryTreeNode)}
+   {@const count = visits.get(node.id)}
+   {#if count !== undefined}
+      <span class="visits" aria-hidden="true"><MapPin />{count}</span>
+   {/if}
+{/snippet}
+
 {#snippet branch(path: string)}
    {@const listing = listings.get(path)}
    {#if listing?.state === 'loaded'}
@@ -97,8 +115,8 @@
             {@const current = !isExpanded && holds(node.path, selectedPath)}
             <!-- Folders cannot be selected, so they carry no aria-selected. -->
             <!-- svelte-ignore a11y_role_has_required_aria_props -->
-            <li role="treeitem" data-id={node.id} aria-label={node.name} aria-expanded={isExpanded} aria-current={current ? 'true' : undefined} tabindex={tabStop === node.id ? 0 : -1}>
-               <WithTooltip text={node.path}>
+            <li role="treeitem" data-id={node.id} aria-label={label(node, undefined)} aria-expanded={isExpanded} aria-current={current ? 'true' : undefined} tabindex={tabStop === node.id ? 0 : -1}>
+               <WithTooltip text={tooltip(node)}>
                   {#snippet trigger({ props })}
                      <span {...props} class="row" class:current>
                         <span class="twisty" aria-hidden="true"><ChevronRight class={[isExpanded && 'rotate-90']} /></span>
@@ -106,6 +124,7 @@
                            {#if isExpanded}<FolderOpen />{:else}<Folder />{/if}
                         </span>
                         <span class="label"><span class="name">{node.name}</span></span>
+                        {@render tourMarker(node)}
                      </span>
                   {/snippet}
                </WithTooltip>
@@ -127,7 +146,7 @@
                aria-disabled={node.entry === 'submodule' ? 'true' : undefined}
                tabindex={tabStop === node.id ? 0 : -1}
             >
-               <WithTooltip text={node.path}>
+               <WithTooltip text={tooltip(node)}>
                   {#snippet trigger({ props })}
                      <span {...props} class="row {change ? `kind-${change.kind}` : ''}" class:current={node.path === selectedPath}>
                         <span class="twisty" aria-hidden="true"></span>
@@ -136,6 +155,7 @@
                            <span class="tag" aria-hidden="true">{tag}</span>
                         {/if}
                         <span class="label"><span class="name">{node.name}</span></span>
+                        {@render tourMarker(node)}
                         {#if change}
                            <span class="marker" aria-hidden="true">{changeKindLabels[change.kind].charAt(0)}</span>
                         {/if}

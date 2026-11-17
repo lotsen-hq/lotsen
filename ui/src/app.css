@@ -771,6 +771,15 @@
       line-height: 1lh;
    }
 
+   /* A tour marker: a pin and the number of stops that visit the row, on the row's first line as an icon is. The number keeps the text color, because the primary color falls short of text contrast on the open file's row, as e2e/tourMarkers.spec.ts measures. */
+   .tree .visits {
+      @apply flex h-lh shrink-0 items-center gap-0.5 self-start text-xs font-semibold tabular-nums;
+   }
+
+   .tree .visits svg {
+      @apply size-3.5 text-primary;
+   }
+
    .tree .kind-added .marker {
       @apply text-success;
    }
