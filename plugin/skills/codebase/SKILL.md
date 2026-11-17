@@ -1,6 +1,6 @@
 ---
 name: codebase
-description: Creates a guided tour of a GitHub repository's code at a branch, tag or commit and shows it in the lotsen web UI. Use when the user asks to tour a repository or a codebase, to walk them through how its code is built, to prepare them for a change to one part of it or to evaluate it, such as "tour this repository", "walk me through this codebase", "prepare me to change the request handlers" or "give me a tour of <repository-url> evaluate new".
+description: Creates a guided tour of an Azure DevOps or GitHub repository's code at a branch, tag or commit and shows it in the lotsen web UI. Use when the user asks to tour a repository or a codebase, to walk them through how its code is built, to prepare them for a change to one part of it or to evaluate it, such as "tour this repository", "walk me through this codebase", "prepare me to change the request handlers" or "give me a tour of <repository-url> evaluate new".
 argument-hint: [<repository-url>] [<ref>] [orient|prepare|evaluate] [familiar|some|new] [plan-first]
 ---
 
@@ -26,8 +26,20 @@ what the reviewer sends, for errors and for the tools' inputs, which this skill 
 
 ## Platforms
 
-lotsen tours repositories on GitHub. A repository tour's `target` has the `kind` `repository`, its `url`, its `ref`
-unless it follows the default branch, and the platform's ID in `platform`.
+lotsen tours repositories on Azure DevOps and GitHub. A repository tour's `target` has the `kind` `repository`, its
+`url`, its `ref` unless it follows the default branch, and the platform's ID in `platform`.
+
+### Azure DevOps (`azureDevOps`)
+
+- **Repository URL:** `https://dev.azure.com/{organization}/{project}/_git/{repository}` or
+  `https://{organization}.visualstudio.com/{project}/_git/{repository}`. A `version` query names the ref, as the
+  page of a branch, a tag or a commit shows it: `?version=GB{branch}`, `?version=GT{tag}` or `?version=GC{commit}`,
+  with the commit's full ID. An SSH remote works too, as
+  `git@ssh.dev.azure.com:v3/{organization}/{project}/{repository}`,
+  `ssh://git@ssh.dev.azure.com/v3/{organization}/{project}/{repository}` or the older
+  `{organization}@vs-ssh.visualstudio.com:v3/{organization}/{project}/{repository}`. lotsen still clones the
+  repository over https.
+- **Sign-in:** lotsen reads the repository with the Azure CLI's sign-in, which `az login` sets.
 
 ### GitHub (`github`)
 
@@ -176,9 +188,9 @@ You read the code at the commit that lotsen pins, so the pin comes first. Call `
   alone and starts again a pin that stopped without a result. Then check `read_state` again between other work. You
   may read the project's docs in the user's checkout meanwhile, as section 5 says, but take no line numbers from it
   until you know the commit.
-- `failed`: tell the user `pin.reason` in its own words, such as running `gh auth login`, or checking the URL, the
-  ref or their access to the repository. When the user says the cause is fixed, call `pin_tour` with the `tourId`,
-  and check `read_state` again later.
+- `failed`: tell the user `pin.reason` in its own words, such as running `az login` or `gh auth login`, or checking
+  the URL, the ref or their access to the repository. When the user says the cause is fixed, call `pin_tour` with the
+  `tourId`, and check `read_state` again later.
 
 ## 4. Read the code at the tour's commit
 

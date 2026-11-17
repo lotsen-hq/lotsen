@@ -3,9 +3,9 @@ using Lotsen.Platforms;
 
 namespace Lotsen.AzureDevOps;
 
-/// <summary>Provides Azure DevOps pull requests, through the REST API as the user that the token provider signs in.</summary>
+/// <summary>Provides Azure DevOps repositories and their pull requests, through the REST API as the user that the token provider signs in.</summary>
 /// <remarks>Git receives the same token as the REST API, through <see cref="AzureDevOpsGitCredential"/>.</remarks>
-public sealed class AzureDevOpsPlatform : IPullRequestPlatform, IDisposable
+public sealed class AzureDevOpsPlatform : IRepositoryPlatform, IDisposable
 {
    /// <summary>The platform ID that Azure DevOps targets store.</summary>
    public const string PlatformId = "azureDevOps";
@@ -21,6 +21,8 @@ public sealed class AzureDevOpsPlatform : IPullRequestPlatform, IDisposable
    public string Id => PlatformId;
 
    public string ExpectedForms => AzureDevOpsPullRequest.ExpectedForms;
+
+   public string ExpectedRepositoryForms => AzureDevOpsRepository.ExpectedForms;
 
    public IGitCredential GitCredential { get; }
 
@@ -46,7 +48,7 @@ public sealed class AzureDevOpsPlatform : IPullRequestPlatform, IDisposable
 
    public Uri? MentionUrl(Uri url, MentionKind kind, int id) => !AzureDevOpsPullRequest.TryParse(url.AbsoluteUri, out var pullRequest)
       ? null
-      : kind == MentionKind.WorkItem ? pullRequest.WorkItemUrl(id) : pullRequest.PullRequestUrl(id);
+      : kind == MentionKind.WorkItem ? pullRequest.Repository.WorkItemUrl(id) : pullRequest.Repository.PullRequestUrl(id);
 
    public async Task<ResolvedPullRequest> ResolveAsync(Uri url, CancellationToken cancellationToken)
    {
@@ -74,7 +76,39 @@ public sealed class AzureDevOpsPlatform : IPullRequestPlatform, IDisposable
       }
    }
 
+   public RecognizedRepository? RecognizeRepository(string text) =>
+      AzureDevOpsRepository.TryParse(text, out var repository, out var @ref) ? new RecognizedRepository(repository.Url, @ref) : null;
+
+   public bool IsSameRepository(Uri url, Uri other) => ParseNormalized(url) is { } repository && ParseNormalized(other) is { } otherRepository && repository.IsSame(otherRepository);
+
+   public string? RepositoryLabel(Uri url) => ParseNormalized(url)?.Label;
+
+   /// <remarks>A work item is one of the repository's project.</remarks>
+   public Uri? RepositoryMentionUrl(Uri url, MentionKind kind, int id) => ParseNormalized(url) is not { } repository
+      ? null
+      : kind == MentionKind.WorkItem ? repository.WorkItemUrl(id) : repository.PullRequestUrl(id);
+
+   public async Task<ResolvedRepository> ResolveRepositoryAsync(Uri url, string? @ref, CancellationToken cancellationToken)
+   {
+      // User information can hold a token, so the refusal names the URL without it.
+      var repository = ParseNormalized(url) ?? throw new PlatformException(
+         $"'{url.GetComponents(UriComponents.AbsoluteUri & ~UriComponents.UserInfo, UriFormat.UriEscaped)}' is not an Azure DevOps repository URL without a ref. "
+         + "Expected https://dev.azure.com/{organization}/{project}/_git/{repository}.");
+      try
+      {
+         return await _client.GetRepositoryAsync(repository, @ref, cancellationToken);
+      }
+      catch (AzureDevOpsException exception)
+      {
+         // The client's message names the fix and holds no token, so it passes through unchanged.
+         throw new PlatformException(exception.Message, exception);
+      }
+   }
+
    public void Dispose() => _client.Dispose();
+
+   // A URL with a version parameter is no URL that RecognizeRepository returns, so it names no repository here.
+   private static AzureDevOpsRepository? ParseNormalized(Uri url) => AzureDevOpsRepository.TryParse(url.AbsoluteUri, out var repository, out var @ref) && @ref is null ? repository : null;
 
    // A status that lotsen does not know, such as notSet, leaves the tour unflagged.
    private static PullRequestState StateOf(PullRequestStatus status) => status switch

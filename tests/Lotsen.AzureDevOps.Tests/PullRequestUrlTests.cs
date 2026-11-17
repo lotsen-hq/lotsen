@@ -11,15 +11,14 @@ public sealed class PullRequestUrlTests
    [InlineData("https://DEV.AZURE.COM/contoso/shop/_GIT/web/PullRequest/42/", "contoso", "shop", "web", 42, "https://dev.azure.com/contoso/shop/_git/web/pullrequest/42")]
    [InlineData("https://dev.azure.com/contoso/shop/_git/web/pullrequest/42?_a=files&path=/x#top", "contoso", "shop", "web", 42, "https://dev.azure.com/contoso/shop/_git/web/pullrequest/42")]
    [InlineData("https://dev.azure.com/contoso/My%20Shop/_git/web%2Dapp/pullrequest/0042", "contoso", "My Shop", "web-app", 42, "https://dev.azure.com/contoso/My%20Shop/_git/web-app/pullrequest/42")]
+   [InlineData("https://dev.azure.com/%2541bc/%2541b/_git/%2541c/pullrequest/42", "%41bc", "%41b", "%41c", 42, "https://dev.azure.com/%2541bc/%2541b/_git/%2541c/pullrequest/42")]
    [InlineData("https://contoso.visualstudio.com/shop/_git/web/pullrequest/7", "contoso", "shop", "web", 7, "https://contoso.visualstudio.com/shop/_git/web/pullrequest/7")]
    [InlineData("https://Contoso.VisualStudio.com/DefaultCollection/shop/_git/web/pullrequest/7", "contoso", "shop", "web", 7, "https://contoso.visualstudio.com/shop/_git/web/pullrequest/7")]
    public void Pull_request_url_is_parsed_normalized_and_labeled(string text, string organization, string project, string repository, int id, string normalized)
    {
       Assert.True(AzureDevOpsPullRequest.TryParse(text, out var pullRequest));
 
-      Assert.Equal(organization, pullRequest.Organization);
-      Assert.Equal(project, pullRequest.Project);
-      Assert.Equal(repository, pullRequest.Repository);
+      Assert.Equal((organization, project, repository), (pullRequest.Repository.Organization, pullRequest.Repository.Project, pullRequest.Repository.Name));
       Assert.Equal(id, pullRequest.PullRequestId);
       Assert.Equal(normalized, pullRequest.Url.OriginalString);
       Assert.Equal($"{organization}/{project}/{repository} #{id}", pullRequest.Label);

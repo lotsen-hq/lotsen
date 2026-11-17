@@ -81,10 +81,10 @@ public sealed partial class PlatformSkillTests : IDisposable
       return skill[start..(end < 0 ? skill.Length : end)];
    }
 
-   // A URL form in a platform's ExpectedForms, an https or ssh URL or git's scp-like form, ends at the space, comma or semicolon that follows it.
-   [GeneratedRegex(@"(?:https://|ssh://|git@)[^\s,;]+")]
+   // A URL form in a platform's ExpectedForms, an https or ssh URL or git's scp-like form for the user git or an organization, ends at the space, comma or semicolon that follows it.
+   [GeneratedRegex(@"(?:https://|ssh://|git@|\{organization\}@)[^\s,;]+")]
    private static partial Regex UrlForm();
 
-   [GeneratedRegex(@"`((?:https://|ssh://|git@)[^`]+)`")]
+   [GeneratedRegex(@"`((?:https://|ssh://|git@|\{organization\}@)[^`]+)`")]
    private static partial Regex BacktickedUrl();
 }

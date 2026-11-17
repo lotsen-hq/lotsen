@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lotsen.Tests;
 
-/// <summary>Covers which repository URLs the platforms that the lotsen executable registers recognize, and what a repository of a platform without repositories gets.</summary>
+/// <summary>Covers which repository URLs the platforms that the lotsen executable registers recognize, and what a repository of a platform that lotsen does not know gets.</summary>
 [Trait("Category", "Platform")]
 public sealed class RegisteredPlatformsTests : IAsyncDisposable
 {
@@ -30,8 +30,31 @@ public sealed class RegisteredPlatformsTests : IAsyncDisposable
       Assert.Equal(
          new RepositoryTarget(new Uri("https://github.com/octo-org/hello-world"), null, "github"),
          _platforms.RecognizeRepository("git@github.com:octo-org/hello-world.git"));
+   }
+
+   [Fact]
+   public void Azure_DevOps_repository_url_is_recognized_with_its_ref()
+   {
       Assert.Equal(
-         "https://github.com/{owner}/{repository}, optionally ending in .git or followed by /tree/{ref}, or an SSH remote, git@github.com:{owner}/{repository} or ssh://git@github.com/{owner}/{repository}, optionally ending in .git",
+         new RepositoryTarget(new Uri("https://dev.azure.com/contoso/shop/_git/web"), "main", "azureDevOps"),
+         _platforms.RecognizeRepository("https://dev.azure.com/contoso/shop/_git/web?version=GBmain"));
+      Assert.Equal(
+         new RepositoryTarget(new Uri("https://contoso.visualstudio.com/shop/_git/web"), null, "azureDevOps"),
+         _platforms.RecognizeRepository("https://contoso.visualstudio.com/shop/_git/web"));
+      Assert.Equal(
+         new RepositoryTarget(new Uri("https://dev.azure.com/contoso/shop/_git/web"), null, "azureDevOps"),
+         _platforms.RecognizeRepository("git@ssh.dev.azure.com:v3/contoso/shop/web"));
+   }
+
+   [Fact]
+   public void Expected_repository_forms_name_each_platform_in_registration_order()
+   {
+      Assert.Equal(
+         "https://dev.azure.com/{organization}/{project}/_git/{repository} or https://{organization}.visualstudio.com/{project}/_git/{repository}, optionally followed by "
+         + "?version=GB{branch}, ?version=GT{tag} or ?version=GC{commit}, or an SSH remote, git@ssh.dev.azure.com:v3/{organization}/{project}/{repository}, "
+         + "ssh://git@ssh.dev.azure.com/v3/{organization}/{project}/{repository} or {organization}@vs-ssh.visualstudio.com:v3/{organization}/{project}/{repository}; or "
+         + "https://github.com/{owner}/{repository}, optionally ending in .git or followed by /tree/{ref}, or an SSH remote, git@github.com:{owner}/{repository} or "
+         + "ssh://git@github.com/{owner}/{repository}, optionally ending in .git",
          _platforms.ExpectedRepositoryForms);
    }
 
@@ -44,22 +67,31 @@ public sealed class RegisteredPlatformsTests : IAsyncDisposable
    }
 
    [Theory]
-   [InlineData("https://dev.azure.com/contoso/shop/_git/web")]
-   [InlineData("https://contoso.visualstudio.com/shop/_git/web")]
-   public void Azure_DevOps_repository_url_is_not_recognized(string text)
+   [InlineData("https://dev.azure.com/contoso/shop/_git/web?version=GB%20")]
+   [InlineData("https://dev.azure.com/contoso/shop/_git/web?version=GBx%2F..%2F..%2Fheads%2Fmain")]
+   public void Azure_DevOps_repository_url_at_an_invalid_ref_is_not_recognized(string text)
    {
       Assert.Null(_platforms.RecognizeRepository(text));
    }
 
    [Fact]
-   public void Azure_DevOps_repository_target_reaches_no_platform_but_keeps_a_label()
+   public void Repository_target_of_an_unknown_platform_reaches_no_platform_but_keeps_a_label()
    {
-      var target = new RepositoryTarget(new Uri("https://dev.azure.com/contoso/shop/_git/web"), "main", "azureDevOps");
+      var target = new RepositoryTarget(new Uri("https://gitlab.com/contoso/web"), "main", "gitlab");
 
       var thrown = Assert.Throws<PlatformException>(() => _platforms.RepositoryOf(target));
 
-      Assert.StartsWith("lotsen does not know the platform 'azureDevOps' of the repository https://dev.azure.com/contoso/shop/_git/web", thrown.Reason, StringComparison.Ordinal);
-      Assert.Equal("https://dev.azure.com/contoso/shop/_git/web@main", _platforms.Label(target));
+      Assert.StartsWith("lotsen does not know the platform 'gitlab' of the repository https://gitlab.com/contoso/web", thrown.Reason, StringComparison.Ordinal);
+      Assert.Equal("https://gitlab.com/contoso/web@main", _platforms.Label(target));
+   }
+
+   [Fact]
+   public void Azure_DevOps_repository_target_has_the_platforms_label_and_credential()
+   {
+      var target = new RepositoryTarget(new Uri("https://dev.azure.com/contoso/shop/_git/web"), "main", "azureDevOps");
+
+      Assert.Equal("contoso/shop/web@main", _platforms.Label(target));
+      Assert.Same(_platforms.Of(new PullRequestTarget("azureDevOps", new Uri("https://dev.azure.com/contoso/shop/_git/web/pullrequest/1"))).GitCredential, _platforms.CredentialOf(target));
    }
 
    public async ValueTask DisposeAsync()
