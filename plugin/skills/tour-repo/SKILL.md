@@ -325,7 +325,8 @@ Familiarity shapes the plan:
 The kinds of stop:
 
 - `overview`: the first stop, always. A map of the repository, or of the part for `prepare`: what it is for, its
-  areas, its vocabulary, the route of the tour and the areas that it passes over lightly.
+  areas, the route of the tour and the areas that it passes over lightly. Its vocabulary follows the familiarity
+  level, as "Depth by familiarity" in `lotsen:tour-rules` says.
 - `context`: background that the reviewer needs before the code that follows, such as a convention, a configuration
   or a concept.
 - `inspect`: a walk through code on one of the main paths. Use it when no other kind fits.
@@ -387,9 +388,9 @@ survey or memory. Pass the `tourId` and the stop's `stopId`. Calling `put_stop` 
 content, so send every field again. "Stop content" in `lotsen:tour-rules` holds the fields and their rules.
 
 - Every passage and `ref:` link is at `head`, and may point anywhere in the repository.
-- Write the overview's map, vocabulary and route in `how`, and end it with the areas that got only a light stop. Tell
-  the reviewer there how to get more of one: Re-plan… in the Plan panel's ⋯ menu covers it in depth in this tour, and
-  Dive… in the same menu asks you for a tour of its own.
+- Write the overview's map and route in `how`, with the vocabulary that the familiarity level asks for, and end it
+  with the areas that got only a light stop. Tell the reviewer there how to get more of one: Re-plan… in the Plan
+  panel's ⋯ menu covers it in depth in this tour, and Dive… in the same menu asks you for a tour of its own.
 - Give a `context` or an `inspect` stop `gotchas` and `tryIt` where they help the reader. "Fields" in
   `lotsen:tour-rules` says what each holds.
 - In an `evaluate` tour, give each stop where the reader's judgment matters its `checks`, and a `question` stop at

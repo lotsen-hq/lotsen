@@ -41,6 +41,18 @@ public sealed partial class SkillTests
    // For the checks that some text is in one of the skills, wherever it sits.
    private static readonly string Skills = TourPr + "\n" + Rules + "\n" + TourRepo;
 
+   // The rules of the Writing section in the rules skill, each by words that state it.
+   private static readonly string[] WritingRules =
+   [
+      "One fact per sentence, of at most about 25 words.",
+      "Give every sentence after the first an explicit subject.",
+      "Use the active voice: say who does it.",
+      "Connect sentences with \"so\", \"then\", \"if\" or \"because\".",
+      "Use one word for each concept, and give each word one meaning,",
+      "Write American English,",
+      "Write \"I\" for yourself and \"you\" for the reviewer.",
+   ];
+
    // The reactions of the skill's paragraph on server errors, each with the words of an error that select it.
    private static readonly (string Reaction, string[] Words)[] ServerErrorRules =
    [
@@ -194,15 +206,6 @@ public sealed partial class SkillTests
       Assert.Contains("for `prepare`: its words name the part to change, so when they name none, ask for the part", start, StringComparison.Ordinal);
       Assert.Contains($"List each tour with its `title`, its `{PropertyName(LotsenJsonContext.Default.FoundTour, nameof(FoundTour.Purpose))}`", start, StringComparison.Ordinal);
       Assert.Contains("say of each tour of another purpose that reopening it keeps that purpose", start, StringComparison.Ordinal);
-
-      // The purpose's bullet, from its name to the next bullet, in a section whose line breaks are spaces.
-      static string Bullet(string section, string name)
-      {
-         var at = section.IndexOf($"- `{name}`: ", StringComparison.Ordinal);
-         Assert.True(at >= 0, $"The section has no bullet for the purpose {name}.");
-         var end = section.IndexOf(" - ", at + 1, StringComparison.Ordinal);
-         return section[at..(end < 0 ? section.Length : end)];
-      }
    }
 
    /// <summary>The server asks a repository tour's summarize for the synthesis of its purpose and offers it no draftComments, so section 9 declines neither.</summary>
@@ -289,6 +292,44 @@ public sealed partial class SkillTests
          var list = $"{string.Join(", ", allowed[..^1])} and {allowed[^1]}";
          Assert.Contains($"- `{name}`: {list} stops, {(PurposeRules.AsksChecks(purpose) ? "with checks on a stop of any kind" : "and no checks")}.", kinds, StringComparison.Ordinal);
       });
+   }
+
+   [Fact]
+   public void Rules_skill_states_the_writing_rules_before_the_stop_content_and_the_flow_skills_leave_them_to_it()
+   {
+      var writing = Normalized(Section(Rules, "## Writing"));
+
+      Assert.True(Rules.IndexOf("## Writing\n", StringComparison.Ordinal) < Rules.IndexOf("## Stop content\n", StringComparison.Ordinal), "The Writing section does not come before Stop content.");
+      Assert.All(WritingRules, rule => Assert.Contains(rule, writing, StringComparison.Ordinal));
+      Assert.Contains("Use the code's own names, in backticks in a Markdown field and without them in plain text, such as a title or a check's `suggestions`.", writing, StringComparison.Ordinal);
+      Assert.All(WritingRules, rule => Assert.DoesNotContain(rule, Normalized(TourPr), StringComparison.Ordinal));
+      Assert.All(WritingRules, rule => Assert.DoesNotContain(rule, Normalized(TourRepo), StringComparison.Ordinal));
+   }
+
+   /// <summary>The levels come from <see cref="Familiarity"/>, so a level that the code adds must reach the overview's vocabulary.</summary>
+   [Fact]
+   public void Skills_tie_the_overviews_vocabulary_to_the_familiarity_level()
+   {
+      var depth = Normalized(Subsection("### Depth by familiarity"));
+      var kinds = Normalized(Subsection("### Kinds"));
+      const string FollowsLevel = "Its vocabulary follows the familiarity level, as \"Depth by familiarity\" in `lotsen:tour-rules` says.";
+
+      Assert.Contains("A tour defines a term only when the reviewer is likely to misread it, find it confusing or not know it.", depth, StringComparison.Ordinal);
+      Assert.All(Enum.GetValues<Familiarity>(), level =>
+      {
+         var vocabulary = level switch
+         {
+            Familiarity.Familiar => "The overview has no vocabulary, except a line for a name that misleads",
+            Familiarity.Some => "The overview's vocabulary holds the project's terms that the tour relies on and the reviewer likely does not know.",
+            Familiarity.New => "The overview's vocabulary holds every project term that the tour uses.",
+            _ => throw new UnreachableException($"The test names no vocabulary for the level {level}."),
+         };
+         Assert.Contains(vocabulary, Bullet(depth, JsonSerializer.Serialize(level, LotsenJsonContext.Default.Familiarity).Trim('"')), StringComparison.Ordinal);
+      });
+      Assert.Contains("Put the route of the tour in `how`, with the vocabulary that \"Depth by familiarity\" asks for at the tour's level.", Bullet(kinds, "overview"), StringComparison.Ordinal);
+      Assert.Contains(FollowsLevel, Bullet(Normalized(Section(TourPr, 4)), "overview"), StringComparison.Ordinal);
+      Assert.Contains(FollowsLevel, Bullet(Normalized(Section(TourRepo, 6)), "overview"), StringComparison.Ordinal);
+      Assert.Contains("Write the overview's map and route in `how`, with the vocabulary that the familiarity level asks for,", Normalized(Section(TourRepo, 8)), StringComparison.Ordinal);
    }
 
    /// <summary>The states come from the stored type, as for the tour-pr skill.</summary>
@@ -826,6 +867,15 @@ public sealed partial class SkillTests
    private static string PurposeName(TourPurpose purpose) => JsonSerializer.Serialize(purpose, LotsenJsonContext.Default.TourPurpose).Trim('"');
 
    private static string Normalized(string text) => string.Join(' ', text.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries));
+
+   // The bullet that opens with the name in backticks, up to the next bullet, in a section that Normalized joined into one line.
+   private static string Bullet(string section, string name)
+   {
+      var at = section.IndexOf($"- `{name}`: ", StringComparison.Ordinal);
+      Assert.True(at >= 0, $"The section has no bullet for {name}.");
+      var end = section.IndexOf(" - ", at + 1, StringComparison.Ordinal);
+      return section[at..(end < 0 ? section.Length : end)];
+   }
 
    // A subsection of the rules skill, which holds every subsection that these tests check.
    private static string Subsection(string heading)

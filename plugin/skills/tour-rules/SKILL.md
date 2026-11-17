@@ -6,7 +6,36 @@ user-invocable: false
 
 # Rules for writing a lotsen tour
 
-These rules hold for every lotsen tour: how to write its stops, how to handle what the reviewer sends, how to react to errors, and what the tools take.
+These rules hold for every lotsen tour: how to word its text, how to write its stops, how to handle what the reviewer sends, how to react to errors, and what the tools take.
+
+## Writing
+
+These rules hold for all prose you write for the reviewer: stop fields, titles, replies, your thread messages and the
+synthesis. "Depth by familiarity" decides what to explain, and this section decides how to say it.
+
+- **One fact per sentence, of at most about 25 words.** Split a long sentence where its facts change. One colon may
+  introduce a list of parallel items.
+- **Give every sentence after the first an explicit subject.** "It holds the lock until the batch commits", not "held
+  until the batch commits".
+- **Use the active voice: say who does it.** "`Pricing.Apply` rounds the total", not "the total is rounded".
+- **Keep the small words.** Don't drop articles and verbs to save space.
+- **Use a one-word verb, not a phrasal verb.** "Releases", not "gives back". An established technical term is fine,
+  such as "looks up".
+- **Avoid idioms with two readings.** "Falls through" can mean control flow or a plan that fails.
+- **Avoid an "-ing" word that could be a noun, a verb or an adjective.** "A queue with a flush in progress", not "a
+  queue flushing".
+- **Connect sentences with "so", "then", "if" or "because".** Don't chain clauses with colons and semicolons. "The
+  cache lives for one request, so a retry reads the file again", not "the cache is per request: a retry reads again".
+- **Use one word for each concept, and give each word one meaning,** at every familiarity level. Use the code's own
+  names, in backticks in a Markdown field and without them in plain text, such as a title or a check's `suggestions`.
+  Once the tour says "retry budget", it doesn't also say "allowance". Don't use a term as a verb where the noun could
+  be meant.
+- **Repeat the noun when "it" or "its" could mean more than one thing.**
+- **Use common words, not coined ones.** "The current run", not "the run going".
+- **Write American English,** whatever the repository's own spelling. Code names keep their spelling.
+- **Write "I" for yourself and "you" for the reviewer.** A check's `suggestions` are the exception, because they are
+  the reviewer's own words.
+- **Use a list for parallel items, and paragraphs for reasoning.**
 
 ## Stop content
 
@@ -82,14 +111,18 @@ that need it.
 
 ### Depth by familiarity
 
-The tour's familiarity level, which `read_state` returns, sets how much each stop explains:
+The tour's familiarity level, which `read_state` returns, sets how much each stop explains. A tour defines a term only
+when the reviewer is likely to misread it, find it confusing or not know it.
 
 - `familiar`: the headline, `why` and `designChoices` carry the stop. Keep `how` to what is not obvious from the
-  code. Don't explain the codebase's own conventions.
+  code. Don't explain the codebase's own conventions. The overview has no vocabulary, except a line for a name that
+  misleads, such as one that means something other than it says.
 - `some`: explain in `how` the code that the change relies on but does not show, with a related passage or a `ref:`
-  link to it. Name a convention once, where a stop first relies on it.
+  link to it. Name a convention once, where a stop first relies on it. The overview's vocabulary holds the project's
+  terms that the tour relies on and the reviewer likely does not know.
 - `new`: define each term before a stop relies on it. Walk `how` through the code step by step, and point related
-  passages and `ref:` links at the surrounding code and its conventions.
+  passages and `ref:` links at the surrounding code and its conventions. The overview's vocabulary holds every
+  project term that the tour uses.
 
 The reviewer can change the level in the UI, which sends you a `familiarityChanged` decision. Its `howToAct` says what
 to rewrite.
@@ -166,7 +199,8 @@ label. Keep nesting shallow; the server refuses lists, quotes, emphasis or links
 
 `put_stop` enforces these rules for the stop's kind:
 
-- `overview`: only the first stop. Passages are optional. Put the route of the tour and the vocabulary in `how`.
+- `overview`: only the first stop. Passages are optional. Put the route of the tour in `how`, with the vocabulary that
+  "Depth by familiarity" asks for at the tour's level.
 - `context`: at least one passage, which may point anywhere.
 - `inspect`: at least one passage, and the primary passage touches the diff.
 - `risk`: at least one passage, the primary passage touches the diff, and a `scenario`.
@@ -199,8 +233,8 @@ The stop "The new discount type" from the plan in section 5 of `lotsen:tour-pr`:
   "pinnedBy": "[`DiscountTests`](ref:head/tests/Orders/DiscountTests.cs#L10-34) covers both scopes and both bounds of the rate.",
   "checks": [
     {
-      "question": "Should a rate of exactly 1, a free order, be allowed?",
-      "recommendation": "Yes: [the bounds test](ref:head/tests/Orders/DiscountTests.cs#L28-34) pins it.",
+      "question": "Should `Discount` allow a rate of exactly 1, a free order?",
+      "recommendation": "Yes, because [the bounds test](ref:head/tests/Orders/DiscountTests.cs#L28-34) pins it.",
       "suggestions": [
         { "text": "Allow a rate of 1.", "type": "decision" },
         { "text": "A free order may skip the fraud check.", "type": "concern" }

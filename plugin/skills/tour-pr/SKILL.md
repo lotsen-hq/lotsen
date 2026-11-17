@@ -176,8 +176,9 @@ Familiarity shapes the plan:
 
 Each stop has one kind:
 
-- `overview`: a map of the whole change: what it does, its key idea, the vocabulary it introduces, the route of the
-  tour. Only the first stop can be one. Start with one unless the PR is trivial.
+- `overview`: a map of the whole change: what it does, its key idea and the route of the tour. Its vocabulary follows
+  the familiarity level, as "Depth by familiarity" in `lotsen:tour-rules` says. Only the first stop can be one. Start
+  with one unless the PR is trivial.
 - `context`: background the reviewer needs before the changed code.
 - `inspect`: a walk through changed code. Use it when no other kind fits.
 - `risk`: a concern in the change, something that could go wrong. Place it as early as its dependencies allow. A
@@ -197,11 +198,11 @@ Call `set_plan` with the `tourId`, the `chapters` and the `stops`, both in tour 
   ],
   "stops": [
     { "title": "What this PR changes", "kind": "overview", "chapter": "model" },
-    { "title": "How orders are priced today", "kind": "context", "chapter": "model",
+    { "title": "How checkout prices an order today", "kind": "context", "chapter": "model",
       "anchorHint": { "path": "src/Orders/Pricing.cs" } },
     { "title": "The new discount type", "kind": "inspect", "chapter": "model",
       "anchorHint": { "path": "src/Orders/Discount.cs", "line": 12 } },
-    { "title": "Discounts applied twice on retry", "kind": "risk", "chapter": "api",
+    { "title": "A retry applies the discount twice", "kind": "risk", "chapter": "api",
       "anchorHint": { "path": "src/Api/CheckoutEndpoint.cs", "line": 48 } }
   ],
   "fileMarks": [
