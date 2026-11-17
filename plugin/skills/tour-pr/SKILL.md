@@ -1,5 +1,5 @@
 ---
-name: tour
+name: tour-pr
 description: Plans and writes a guided tour of an Azure DevOps or GitHub pull request and shows it in the lotsen web UI. Use when the user asks to tour a PR, walk them through a PR, or guide their review of a PR, such as "tour this PR <url>" or "walk me through PR <url> familiar".
 argument-hint: <pr-url> [familiar|some|new] [plan-first]
 ---

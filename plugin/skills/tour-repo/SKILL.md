@@ -1,5 +1,5 @@
 ---
-name: codebase
+name: tour-repo
 description: Creates a guided tour of an Azure DevOps, GitHub or other public git repository's code at a branch, tag or commit and shows it in the lotsen web UI. Use when the user asks to tour a repository or a codebase, to walk them through how its code is built, to prepare them for a change to one part of it or to evaluate it, such as "tour this repository", "walk me through this codebase", "prepare me to change the request handlers" or "give me a tour of <repository-url> evaluate new".
 argument-hint: [<repository-url>] [<ref>] [orient|prepare|evaluate] [familiar|some|new] [plan-first]
 ---

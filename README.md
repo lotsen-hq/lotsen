@@ -75,7 +75,7 @@ The channel is how your questions in the UI reach Claude. Without the flag, you 
 Then ask for a tour:
 
 ```text
-/lotsen:tour <pull-request-url> [familiar|some|new] [plan-first]
+/lotsen:tour-pr <pull-request-url> [familiar|some|new] [plan-first]
 ```
 
 On GitHub, any page of the pull request works as its URL, such as its changed files. The second word says how well you know the code, and Claude asks if you leave it out. With `plan-first`, you approve the plan before Claude writes any stop. Claude opens the tour in your browser.
@@ -83,7 +83,7 @@ On GitHub, any page of the pull request works as its URL, such as its changed fi
 To learn a repository's code, ask Claude to "tour this repository" in a checkout, or name the repository:
 
 ```text
-/lotsen:codebase [<repository-url>] [<ref>] [orient|prepare|evaluate] [familiar|some|new] [plan-first]
+/lotsen:tour-repo [<repository-url>] [<ref>] [orient|prepare|evaluate] [familiar|some|new] [plan-first]
 ```
 
 The purpose says what the tour is for: `orient` to find your way around the code, `prepare` to understand one part before you change it, which you name in your own words, and `evaluate` to judge the code's design and quality, with checks that ask for your judgment. Claude asks for the purpose if you leave it out. Without a URL, Claude tours the repository you run it in, at your branch as the remote has it. Codebase tours work for repositories on Azure DevOps and `github.com`, and for any public git repository that git clones over `https`, with no sign-in. A private repository on another host is refused. Claude reads the code at the tour's commit, and offers a worktree or a temporary clone when your checkout is at another commit or has changes, instead of switching your branch.

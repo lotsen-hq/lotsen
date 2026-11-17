@@ -2,8 +2,8 @@
 
 How to check by hand that a live Claude Code session creates a tour, its plan and its stops, and that they appear in the
 browser without a reload. Sections 7 to 11 then follow that tour through answers, revisions, a new update and the
-end-of-tour summary. Section 12 checks on github.com what no test can show for a GitHub PR. The session uses the tour
-skill in [`plugin/`](../plugin) and runs `lotsen mcp` as a development channel.
+end-of-tour summary. Section 12 checks on github.com what no test can show for a GitHub PR. The session uses the
+tour-pr skill in [`plugin/`](../plugin) and runs `lotsen mcp` as a development channel.
 
 The steps below write `<lotsen>` for the absolute path of this repository's checkout.
 
@@ -40,7 +40,7 @@ The steps below write `<lotsen>` for the absolute path of this repository's chec
 `just demo <pr-url> [familiarity] [dir]` runs `demo` from any directory. It publishes lotsen first when the publish is missing or older than its sources. It refuses to start while the sign-in
 that the PR needs is missing: the GitHub CLI's for a github.com PR, and the Azure CLI's for an Azure DevOps PR. The session loads this checkout's publish through `--mcp-config`, which replaces the user-scope `lotsen` from step 3 for that session, so `demo` needs no registration.
 Its server keeps its tours, clones and the UI's preferences in a data directory of its own, `~/.local/share/lotsen-demo` (under `$XDG_DATA_HOME` when that is set), and never touches your other tours. Delete that
-directory to start the next demo with no tours. Claude runs in `dir`, by default a new empty directory, and starts with `/lotsen:tour <pr-url> <familiarity>`, `familiar` when you give none.
+directory to start the next demo with no tours. Claude runs in `dir`, by default a new empty directory, and starts with `/lotsen:tour-pr <pr-url> <familiarity>`, `familiar` when you give none.
 Pass a checkout of the PR's repository as `dir` to let Claude read the code with git. For a new link to the UI, run `just demo-print-link`, which prints one that works once, or
 `LOTSEN_DATA_DIR=~/.local/share/lotsen-demo lotsen open` to open it in the browser.
 
@@ -145,7 +145,7 @@ Check before you go on:
 - `/mcp` lists `lotsen` as connected, with the tools `find_tours`, `create_tour`, `attach_tour`, `set_plan`,
   `put_stop`, `read_state`, `fetch_question`, `reply`, `ack`, `pin_tour`, `open_ui`, `start_thread`,
   `add_thread_message`, `outdate_thread`, `delete_thread`, `fetch_answers`, `read_summary` and `write_synthesis`.
-- `/lotsen:tour` is in the `/` menu.
+- `/lotsen:tour-pr` is in the `/` menu.
 - Without a `lotsen serve`, `lotsen open` in another terminal opens the UI, so Claude Code started a background
   server. `<lotsen>/scripts/live-test.sh check` reports the server as running.
 - Once you end the session with no `lotsen serve` running, `lotsen open` still opens the UI for about 60 seconds, and
@@ -156,7 +156,7 @@ Check before you go on:
 Use a real Azure DevOps PR in this repository. Claude reads it with your Azure DevOps MCP tools, the Azure CLI or git.
 Section 12 sets up GitHub PRs and covers what differs for them.
 
-**With a familiarity level.** Ask `/lotsen:tour <pr-url> familiar`, or in words: "tour this PR <pr-url>, familiar".
+**With a familiarity level.** Ask `/lotsen:tour-pr <pr-url> familiar`, or in words: "tour this PR <pr-url>, familiar".
 
 - Claude calls `create_tour`, then `open_ui` with the new tour's ID. The browser opens with the tour selected, and its
   Plan panel shows the plan once Claude sets it. The tour list shows the PR as "Generating", with
@@ -312,7 +312,7 @@ Keep the server's log open in a second terminal:
 
 - With no demo running, `lotsen open` says that no server is running.
 - Run `claude --version` and `lotsen --version`, and keep both for the record.
-- Run `just demo <pr-url> familiar <checkout of the PR's repository>`. Claude Code starts, and the tour skill runs.
+- Run `just demo <pr-url> familiar <checkout of the PR's repository>`. Claude Code starts, and the tour-pr skill runs.
   Claude creates the tour and opens the UI, so Claude Code started the server on demand. `lotsen open` now opens the
   UI.
 - Let Claude write the plan and every stop, as in step 5. This session is the tour's session.
@@ -431,7 +431,7 @@ While it works, choose "Explain deeper…" from a stop's "Ask Claude" menu.
   the terminal. Record whether it declined at once or finished its task first. This is model behavior, not
   guaranteed.
 
-**A plan-first tour.** In the tour's session, ask `/lotsen:tour <pr-url> some plan-first`, and choose a new tour when
+**A plan-first tour.** In the tour's session, ask `/lotsen:tour-pr <pr-url> some plan-first`, and choose a new tour when
 Claude offers the saved one.
 
 - Claude creates the tour, writes the plan with `set_plan`, and stops. The Plan panel shows "Claude proposes this plan

@@ -83,7 +83,7 @@ pin() {
    fi
    # An empty directory keeps the session out of any project, and the pin needs no checkout.
    cd "$(mktemp -d)"
-   claude -p "/lotsen:tour $url $familiarity. After create_tour, call read_state until pin.state is pinned or failed. Then stop and print the pin section of read_state verbatim." \
+   claude -p "/lotsen:tour-pr $url $familiarity. After create_tour, call read_state until pin.state is pinned or failed. Then stop and print the pin section of read_state verbatim." \
       --plugin-dir "$(plugin_copy)" --allowedTools "mcp__lotsen__*" --output-format text
 }
 
@@ -118,7 +118,7 @@ demo() {
    config=$(printf '{"mcpServers":{"lotsen":{"command":"%s","args":["mcp"],"env":{"LOTSEN_DATA_DIR":"%s"}}}}' "$lotsen" "$demo_data")
    echo "Demo data directory: $demo_data. A new link to the UI: just demo-print-link"
    # The prompt comes first, because --mcp-config and the channel flag each take every word after them.
-   exec claude "/lotsen:tour $url $familiarity" --plugin-dir "$(plugin_copy)" --mcp-config "$config" --dangerously-load-development-channels server:lotsen
+   exec claude "/lotsen:tour-pr $url $familiarity" --plugin-dir "$(plugin_copy)" --mcp-config "$config" --dangerously-load-development-channels server:lotsen
 }
 
 case "${1:-}" in

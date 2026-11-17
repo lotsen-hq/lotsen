@@ -389,9 +389,9 @@ public sealed partial class HowToActTests : IAsyncLifetime
       Assert.Contains("Read pin.head with read_state", howToAct, StringComparison.Ordinal);
    }
 
-   // The headings of the tour skill and its rules skill, without a section's number.
+   // The headings of the tour-pr skill and its rules skill, without a section's number.
    private static IEnumerable<string> SkillHeadings() =>
-      new[] { SkillTests.Tour, SkillTests.Rules }.SelectMany(skill => HeadingLine().Matches(skill)).Select(match => match.Groups[1].Value.TrimEnd());
+      new[] { SkillTests.TourPr, SkillTests.Rules }.SelectMany(skill => HeadingLine().Matches(skill)).Select(match => match.Groups[1].Value.TrimEnd());
 
    private static TourAction Action(string json) => JsonSerializer.Deserialize(json, LotsenJsonContext.Default.TourAction)!;
 

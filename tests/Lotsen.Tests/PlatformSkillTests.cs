@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Lotsen.Tests;
 
 /// <summary>
-/// Checks that the tour skill's "Platforms" section names each platform that the lotsen executable registers, with the pull request URL forms that the platform accepts, and that the codebase
+/// Checks that the tour-pr skill's "Platforms" section names each platform that the lotsen executable registers, with the pull request URL forms that the platform accepts, and that the tour-repo
 /// skill's names each platform with repositories, with the repository URL forms that the platform accepts, and the form of a platform-free repository under "Other hosts".
 /// </summary>
 /// <remarks><c>Lotsen.Core.Tests</c>, which holds the skill's other checks, references no platform library, so this check sits beside the executable that registers the platforms.</remarks>
@@ -25,7 +25,7 @@ public sealed partial class PlatformSkillTests : IDisposable
       var platforms = Program.Platforms.Select(factory => factory(services)).ToList();
       try
       {
-         AssertNamesExactly(PlatformsSection("tour"), platforms.Select(platform => (platform.Id, platform.ExpectedForms)));
+         AssertNamesExactly(PlatformsSection("tour-pr"), platforms.Select(platform => (platform.Id, platform.ExpectedForms)));
       }
       finally
       {
@@ -34,7 +34,7 @@ public sealed partial class PlatformSkillTests : IDisposable
    }
 
    [Fact]
-   public async Task Codebase_platforms_section_has_a_subsection_for_each_platform_with_repositories_and_other_hosts_and_names_exactly_their_repository_url_forms()
+   public async Task Tour_repo_platforms_section_has_a_subsection_for_each_platform_with_repositories_and_other_hosts_and_names_exactly_their_repository_url_forms()
    {
       await using var services = Services();
       var platforms = Program.Platforms.Select(factory => factory(services)).ToList();
@@ -42,7 +42,7 @@ public sealed partial class PlatformSkillTests : IDisposable
       {
          var repositories = platforms.OfType<IRepositoryPlatform>().ToList();
 
-         var section = PlatformsSection("codebase");
+         var section = PlatformsSection("tour-repo");
 
          Assert.NotEmpty(repositories);
          Assert.Matches(new Regex(@"^### Other hosts$", RegexOptions.Multiline), section);

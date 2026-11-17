@@ -48,7 +48,7 @@ public sealed class SynthesisTests : IClassFixture<StopTourFixture>, IAsyncLifet
 
    private static string Body(string text, string basedOn = WellFormedFingerprint) => new JsonObject { ["text"] = text, ["basedOn"] = basedOn }.ToJsonString();
 
-   // Claude reads the summary and writes the synthesis on it, as the tour skill says.
+   // Claude reads the summary and writes the synthesis on it, as the tour-pr skill says.
    private async Task<JsonNode> WriteAsync(AgentSessionConnection session, string tourId, string text) => await WriteAsync(session, tourId, text, await FingerprintAsync(session, tourId));
 
    private async Task<JsonNode> WriteAsync(AgentSessionConnection session, string tourId, string text, string basedOn) =>
