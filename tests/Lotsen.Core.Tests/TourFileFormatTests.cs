@@ -210,6 +210,32 @@ public sealed class TourFileFormatTests : IDisposable
       Assert.Contains(tour.Id.ToString(), exception.Message);
    }
 
+   /// <summary>User information can hold a token, and the server log writes the read's cause.</summary>
+   [Theory]
+   [InlineData(false)]
+   [InlineData(true)]
+   public void Tour_file_whose_target_url_holds_user_information_is_refused_without_repeating_it(bool repository)
+   {
+      var store = NewStore();
+      var tour = store.Create(PullRequest, Familiarity.Some);
+      if (repository)
+      {
+         store.Change(tour.Id, AsRepositoryTour);
+      }
+
+      var url = repository ? "https://platform.test/shop" : PullRequest.Url.AbsoluteUri;
+      var content = File.ReadAllText(PathOf(tour.Id));
+      Assert.Contains($"\"url\":\"{url}\"", content);
+      File.WriteAllText(PathOf(tour.Id), content.Replace($"\"url\":\"{url}\"", $"\"url\":\"{url.Replace("https://", "https://user:s3cr3t@", StringComparison.Ordinal)}\""));
+
+      var exception = Assert.Throws<InvalidDataException>(() => NewStore().Get(tour.Id));
+
+      for (Exception? link = exception; link is not null; link = link.InnerException)
+      {
+         Assert.DoesNotContain("s3cr3t", link.Message, StringComparison.Ordinal);
+      }
+   }
+
    [Theory]
    [InlineData("https://platform.test/shop/pull/42")]
    [InlineData("file:///shop/pull/42")]

@@ -7,8 +7,8 @@ using static Lotsen.Tests.TourValues;
 namespace Lotsen.Tests;
 
 /// <summary>
-/// Covers the leaf values of a tour that check themselves when they are built: an answer, a fingerprint, the reading progress, a pull request target, a synthesis, and the path of a code or file
-/// anchor.
+/// Covers the leaf values of a tour that check themselves when they are built: an answer, a fingerprint, the reading progress, a pull request target, a repository target's URL, a synthesis,
+/// and the path of a code or file anchor.
 /// </summary>
 [Trait("Category", "Rules")]
 public sealed class TourValueTests
@@ -74,6 +74,16 @@ public sealed class TourValueTests
    [InlineData("shop/pull/42")]
    [InlineData("/shop/pull/42")]
    public void Target_with_a_relative_url_is_refused(string url) => Assert.Throws<ArgumentException>(() => new PullRequestTarget("test", new Uri(url, UriKind.Relative)));
+
+   [Fact]
+   public void Targets_with_user_information_in_the_url_are_refused_without_repeating_it()
+   {
+      var pullRequest = Assert.Throws<ArgumentException>(() => new PullRequestTarget("test", new Uri("https://user:s3cr3t@platform.test/shop/pull/42")));
+      var repository = Assert.Throws<ArgumentException>(() => new RepositoryTarget(new Uri("https://user:s3cr3t@platform.test/shop")));
+
+      Assert.DoesNotContain("s3cr3t", pullRequest.Message, StringComparison.Ordinal);
+      Assert.DoesNotContain("s3cr3t", repository.Message, StringComparison.Ordinal);
+   }
 
    [Theory]
    [InlineData(" ", false, true)]

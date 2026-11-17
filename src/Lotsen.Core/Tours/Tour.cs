@@ -110,18 +110,30 @@ internal abstract record TourTarget;
 internal sealed record PullRequestTarget : TourTarget
 {
    /// <param name="platform">The ID of the platform that hosts the pull request, as <see cref="Platforms.IPullRequestPlatform.Id"/> names it.</param>
-   /// <param name="url">The pull request's web URL, normalized by its platform's <see cref="Platforms.IPullRequestPlatform.Recognize"/>.</param>
-   /// <exception cref="ArgumentException">The URL is relative, so no label, pin or platform can use it.</exception>
+   /// <param name="url">The pull request's web URL, absolute and without user information, normalized by its platform's <see cref="Platforms.IPullRequestPlatform.Recognize"/>.</param>
+   /// <exception cref="ArgumentException">
+   /// The URL is relative, so no label, pin or platform can use it, or the URL holds user information. The message omits the URL, because user information can hold a token.
+   /// </exception>
    public PullRequestTarget(string platform, Uri url)
    {
+      if (!url.IsAbsoluteUri)
+      {
+         throw new ArgumentException("The pull request's URL is relative.", nameof(url));
+      }
+
+      if (url.UserInfo.Length > 0)
+      {
+         throw new ArgumentException("The pull request's URL holds user information.", nameof(url));
+      }
+
       Platform = platform;
-      Url = url.IsAbsoluteUri ? url : throw new ArgumentException($"The pull request's URL '{url}' is relative.", nameof(url));
+      Url = url;
    }
 
    /// <summary>The ID of the platform that hosts the pull request, as <see cref="Platforms.IPullRequestPlatform.Id"/> names it.</summary>
    public string Platform { get; }
 
-   /// <summary>The pull request's web URL, absolute and normalized by its platform's <see cref="Platforms.IPullRequestPlatform.Recognize"/>.</summary>
+   /// <summary>The pull request's web URL, absolute, without user information and normalized by its platform's <see cref="Platforms.IPullRequestPlatform.Recognize"/>.</summary>
    public Uri Url { get; }
 }
 
@@ -131,12 +143,17 @@ internal sealed record RepositoryTarget : TourTarget
    /// <param name="url">The repository's URL, absolute and without user information.</param>
    /// <param name="ref">The ref that the tour follows, such as a branch or a tag, or null for the repository's default branch.</param>
    /// <param name="platform">The ID of the platform that hosts the repository, as <see cref="Platforms.IPullRequestPlatform.Id"/> names it, or null for a repository that git alone reaches.</param>
-   /// <exception cref="ArgumentException">The URL is relative or holds user information, or the ref or the platform ID is empty.</exception>
+   /// <exception cref="ArgumentException">The URL is relative or holds user information, or the ref or the platform ID is empty. The message omits the URL, because user information can hold a token.</exception>
    public RepositoryTarget(Uri url, string? @ref = null, string? platform = null)
    {
-      if (!url.IsAbsoluteUri || url.UserInfo.Length > 0)
+      if (!url.IsAbsoluteUri)
       {
-         throw new ArgumentException($"The repository's URL '{url}' is relative or holds user information.", nameof(url));
+         throw new ArgumentException("The repository's URL is relative.", nameof(url));
+      }
+
+      if (url.UserInfo.Length > 0)
+      {
+         throw new ArgumentException("The repository's URL holds user information.", nameof(url));
       }
 
       // Null names the default branch, so an empty ref would be a second way to say it.
