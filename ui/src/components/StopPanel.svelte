@@ -4,7 +4,7 @@
    import { panelDocument } from '../lib/panelDocument.svelte';
    import { primaryPassage } from '../lib/placement';
    import { stopThreads } from '../lib/threadView';
-   import type { StopActionKind } from '../lib/tourActions';
+   import type { DiveChoice, StopActionKind } from '../lib/tourActions';
    import { staleNoticeText, versionNoticeText } from '../lib/stopNotices';
    import type { CodeReference, Stop, TourControls } from '../lib/types';
    import type { DoneState } from '../lib/tourRecord.svelte';
@@ -24,6 +24,7 @@
       view,
       onopenpassage,
       onaction = null,
+      dive = null,
       controls = null,
       versions = [],
       current,
@@ -42,6 +43,8 @@
       onopenpassage: (passage: CodeReference) => void;
       /** Requests a tour action about the stop with the reviewer's words, or null when the page offers no action. */
       onaction?: ((kind: StopActionKind, text: string) => Promise<string | null>) | null;
+      /** The parent tour's purpose and level, which the dive form presets, and the request of a dive from the stop, or null when the page offers no dive. */
+      dive?: { from: DiveChoice; onsend: (choice: DiveChoice, text: string) => Promise<string | null> } | null;
       /** The tour's controls, which say what the reviewer can do now and which threads wait, or null while the page has none. */
       controls?: TourControls | null;
       /** The stop's earlier versions, oldest first. */
@@ -114,6 +117,7 @@
             onchoose={(kind) => actions?.open(kind)}
             onfocusform={() => actions?.focus()}
             offersActions={onaction !== null}
+            offersDive={dive !== null}
             {sending}
             {controls}
             {versions}
@@ -135,7 +139,17 @@
       {#if stop.stage === 'pending'}
          <p class="mt-2 text-muted-foreground">{planWaits ? 'Claude writes this stop once you approve the plan in the Plan panel.' : 'Claude has not written this stop yet.'}</p>
       {:else}
-         <StopActions bind:this={actions} bind:sending stopId={stop.id} threads={view.threads} {controls} {onaction} onopenthread={(threadId) => view.openThread(threadId)} />
+         <StopActions
+            bind:this={actions}
+            bind:sending
+            stopId={stop.id}
+            stopTitle={stop.title}
+            {dive}
+            threads={view.threads}
+            {controls}
+            {onaction}
+            onopenthread={(threadId) => view.openThread(threadId)}
+         />
          {#if inline}
             <p class="mt-2 text-muted-foreground">The explanation shows in the code, below the primary passage.</p>
             {#if primary !== null}

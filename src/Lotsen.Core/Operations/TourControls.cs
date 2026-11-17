@@ -46,7 +46,10 @@ internal sealed record TourControls(TourId TourId, long Revision, TourOffers Off
          UpdateIteration = Bound(offers.UpdateIteration, UpdateAccess),
          Replan = Bound(offers.Replan, ActionAccess),
          Reorder = Bound(offers.Reorder, ActionAccess),
-         Stops = offers.Stops.ToDictionary(entry => entry.Key, entry => new StopOffers(Bound(entry.Value.Explain, ActionAccess), Bound(entry.Value.Revise, ActionAccess)), StringComparer.Ordinal),
+         Stops = offers.Stops.ToDictionary(
+            entry => entry.Key,
+            entry => new StopOffers(Bound(entry.Value.Explain, ActionAccess), Bound(entry.Value.Revise, ActionAccess), entry.Value.Dive is { } dive ? Bound(dive, ActionAccess) : null),
+            StringComparer.Ordinal),
          Summarize = Bound(offers.Summarize, ActionAccess),
          FollowUps = offers.FollowUps.ToDictionary(entry => entry.Key, entry => Bound(entry.Value, ActionAccess), StringComparer.Ordinal),
          Threads = offers.Threads.ToDictionary(
@@ -54,6 +57,7 @@ internal sealed record TourControls(TourId TourId, long Revision, TourOffers Off
             entry => new ThreadOffers(
                Bound(entry.Value.Resend, ResendAccess), Bound(entry.Value.FollowUp, FollowUpAccess), Bound(entry.Value.Cancel, CancelAccess), Bound(entry.Value.SendNote, SendNotesAccess)),
             StringComparer.Ordinal),
+         Dive = offers.Dive is { } dive ? Bound(dive, ActionAccess) : null,
       });
    }
 }

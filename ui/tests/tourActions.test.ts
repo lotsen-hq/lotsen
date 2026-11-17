@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { offeredFollowUps, stopsWithWaitingActions } from '../src/lib/controls';
+import { diveReason, offeredFollowUps, stopActionReasons, stopsWithWaitingActions } from '../src/lib/controls';
 import { defaultThreadFilter, filteredThreads, nowhere, revealing } from '../src/lib/threadFilters';
-import { actionOf } from '../src/lib/threadView';
-import type { QuestionThread, TourAction } from '../src/lib/types';
+import { actionOf, waitingDives } from '../src/lib/threadView';
+import { divePlaceholder } from '../src/lib/tourActions';
+import type { QuestionThread, ThreadAnchor, TourAction, TourControls } from '../src/lib/types';
 import { eventFixtures } from './contract/fixtures.generated';
 
 const time = '2026-10-29T10:00:00+00:00';
@@ -51,5 +52,48 @@ describe('the follow-up actions of the summary page', () => {
       expect(offeredFollowUps(controls)).toEqual(['draftWorkItems', 'walkOpenQuestions', 'draftComments']);
       expect(offeredFollowUps({ ...controls, offers: { ...controls.offers, followUps: withoutComments } })).toEqual(['draftWorkItems', 'walkOpenQuestions']);
       expect(offeredFollowUps(null)).toEqual([]);
+   });
+});
+
+describe('the dives', () => {
+   const controls = eventFixtures.controlsChanged;
+   const closed = { state: 'closed', code: 'noSessionAttached', reason: 'this tour is attached to no Claude Code session' } as const;
+   const withDives = (dive: TourControls['offers']['dive']): TourControls => ({
+      ...controls,
+      offers: { ...controls.offers, ...(dive === undefined ? {} : { dive }), stops: { s1: { ...controls.offers.stops['s1']!, ...(dive === undefined ? {} : { dive }) } } },
+   });
+
+   it('are offered only where the controls hold a dive offer, with the reason of a closed one', () => {
+      expect(diveReason({ state: 'open' })).toBeNull();
+      expect(diveReason(closed)).toBe('This tour is attached to no Claude Code session');
+      expect(diveReason(undefined)).toBeUndefined();
+      expect(stopActionReasons(withDives({ state: 'open' }), 's1').dive).toBeNull();
+      expect(stopActionReasons(withDives(closed), 's1').dive).toBe('This tour is attached to no Claude Code session');
+      expect('dive' in stopActionReasons(withDives(undefined), 's1')).toBe(false);
+      expect('dive' in stopActionReasons(null, 's1')).toBe(false);
+   });
+
+   it('take optional words from a stop only', () => {
+      expect(divePlaceholder('Rounding')).toBe('Leave it empty and the dive covers the whole stop "Rounding".');
+      expect(divePlaceholder(null)).toBeNull();
+   });
+
+   it('wait on the stop or the whole tour that they start from, while Claude has not replied', () => {
+      const dive: TourAction = { kind: 'dive', purpose: 'orient', familiarity: 'some' };
+      const waiting = (id: string, anchor: ThreadAnchor, action: TourAction = dive): QuestionThread => ({
+         ...asked(id, action),
+         anchor,
+         status: { waiting: { questionId: `${id}-q`, requestId: `${id}-r`, sessionId: 'session-1' }, questions: [] },
+      });
+      const threads = [
+         waiting('stop', { kind: 'stop', stopId: 's1' }),
+         waiting('tour', { kind: 'tour' }),
+         asked('answered', dive),
+         waiting('explain', { kind: 'stop', stopId: 's1' }, { kind: 'explain', stopVersion: 1 }),
+      ];
+
+      expect(waitingDives(threads, 's1').map((thread) => thread.id)).toEqual(['stop']);
+      expect(waitingDives(threads, 's2')).toEqual([]);
+      expect(waitingDives(threads, null).map((thread) => thread.id)).toEqual(['tour']);
    });
 });

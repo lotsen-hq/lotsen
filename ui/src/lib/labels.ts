@@ -60,6 +60,9 @@ export const familiarityShortLabels: Record<Familiarity, string> = { familiar: '
 /** The short name of each purpose of a repository tour, as the tour list and the Plan panel show it. */
 export const purposeLabels: Record<TourPurpose, string> = { orient: 'Orient', prepare: 'Prepare', evaluate: 'Evaluate' };
 
+/** The purposes of a repository tour, in the order that the dive form offers them. */
+export const purposes: readonly TourPurpose[] = ['orient', 'prepare', 'evaluate'];
+
 /** Returns the line that names a tour's familiarity level, with a repository tour's purpose before the level's short name, such as "Orient · Familiar". */
 export function familiarityLine(familiarity: Familiarity, purpose: TourPurpose | null | undefined): string {
    return purpose === null || purpose === undefined ? familiarityLabels[familiarity] : `${purposeLabels[purpose]} · ${familiarityShortLabels[familiarity]}`;

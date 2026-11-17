@@ -35,10 +35,22 @@ export function stopOffers(controls: TourControls | null, stopId: string): StopO
    return controls?.offers.stops[stopId];
 }
 
-/** Returns why each tour action of the stop is disabled, as `disabledReason` says, or null for an action that is enabled. */
-export function stopActionReasons(controls: TourControls | null, stopId: string): Record<StopActionKind, string | null> {
+/**
+ * Returns why each tour action of the stop is disabled, as `disabledReason` says, or null for an action that is enabled. The dive is absent while the controls offer the stop none, as `diveReason`
+ * says.
+ */
+export function stopActionReasons(controls: TourControls | null, stopId: string): Record<StopActionKind, string | null> & { dive?: string | null } {
    const offers = stopOffers(controls, stopId);
-   return { explain: disabledReason(offers?.explain), revise: disabledReason(offers?.revise) };
+   const dive = diveReason(offers?.dive);
+   return { explain: disabledReason(offers?.explain), revise: disabledReason(offers?.revise), ...(dive === undefined ? {} : { dive }) };
+}
+
+/**
+ * Returns why a dive is disabled, as `disabledReason` says, or undefined while the page has no dive offer, so the page shows no Dive… item. The controls leave the offer out on a pull request's tour,
+ * which has no dives, and the page has none before the controls arrive.
+ */
+export function diveReason(offer: Offer | undefined): string | null | undefined {
+   return offer === undefined ? undefined : disabledReason(offer);
 }
 
 /** Returns the follow-up actions that the tour's controls offer, in the order of `followUpKinds`, or none while the page has no controls, so the summary page shows no button that the tour lacks. */

@@ -36,7 +36,7 @@
    import { changedFilePaths } from './lib/pin';
    import { changedFileAnchor } from './lib/selectionAsk';
    import { fileThreads } from './lib/threadView';
-   import type { StopActionKind } from './lib/tourActions';
+   import type { DiveChoice, StopActionKind } from './lib/tourActions';
    import { generationStatus } from './lib/generationStatus';
    import type { SummaryAnswer, ThreadAnchor } from './lib/types';
    import { Settings } from './lib/settings.svelte';
@@ -112,6 +112,18 @@
    });
    // The tour actions act on the current stop version, so an earlier version offers none.
    const act = $derived(app.shownVersion === null ? (kind: StopActionKind, text: string) => app.requestAction(kind, 'stop', text) : null);
+   // A pull request's tour has no purpose, and the controls offer it no dive.
+   const diveFromStop = $derived.by(() => {
+      const tour = app.selectedTour;
+      if (tour === null || app.shownVersion !== null) {
+         return null;
+      }
+
+      return {
+         from: { purpose: tour.purpose ?? 'orient', familiarity: tour.familiarity },
+         onsend: (choice: DiveChoice, text: string) => app.requestAction({ kind: 'dive', ...choice, stopId: app.selectedStop!.id }, 'stop', text),
+      };
+   });
    const explanation = new ExplanationView(
       () => app.selectedOpenStop ?? null,
       () => ({
@@ -462,6 +474,7 @@
                         view={explanation}
                         onopenpassage={(passage) => app.openPassage(passage)}
                         onaction={act}
+                        dive={diveFromStop}
                         controls={app.selectedControls}
                         versions={app.selectedStopVersions}
                         current={versionOf(app.currentStop)}

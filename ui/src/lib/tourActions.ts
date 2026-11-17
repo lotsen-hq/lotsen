@@ -1,12 +1,18 @@
 import { familiarityLabels } from './labels';
 import type { QuestionSubject } from './threadView';
-import type { FollowUpKind, RequestedTourAction, ReviewerDecision, ReviewerDecisionKind, SummaryThread, TourActionKind } from './types';
+import type { DiveRequest, FollowUpKind, RequestedTourAction, ReviewerDecision, ReviewerDecisionKind, SummaryThread, TourActionKind } from './types';
 
 /** The kinds of the tour actions on one stop, which the Stop panel offers. */
 export type StopActionKind = Extract<TourActionKind, 'explain' | 'revise'>;
 
-/** The kinds of the tour actions on the plan, which the Plan panel offers. */
-export type PlanActionKind = Extract<TourActionKind, 'replan' | 'reorder'>;
+/** The kinds of the forms that the Stop panel's Ask Claude menu opens: the stop's tour actions and a dive from the stop. */
+export type StopMenuKind = StopActionKind | 'dive';
+
+/** The kinds of the tour actions that the Plan panel's ⋯ menu offers: those on the plan and a dive from the whole tour. */
+export type PlanActionKind = Extract<TourActionKind, 'replan' | 'reorder' | 'dive'>;
+
+/** What the reviewer chooses for a dive: its purpose and its familiarity level. */
+export type DiveChoice = Pick<DiveRequest, 'purpose' | 'familiarity'>;
 
 /**
  * The kinds of the tour actions on the review summary, which the summary page offers. They change no stop, so a waiting one neither holds the stop under view back nor blocks an action on the
@@ -76,18 +82,28 @@ export const tourActionPrompts: Record<RequestedTourAction['kind'], string> = {
    draftComments: 'What tone or focus should the comments have?',
 };
 
-/** What the empty box for the reviewer's words says Claude does without them, for each tour action that the reviewer requests, or null for a revise or a replan, which need the words. */
-export const tourActionPlaceholders: Record<RequestedTourAction['kind'], string | null> = {
+/**
+ * What the empty box for the reviewer's words says Claude does without them, for each tour action that the reviewer requests, or null for a revise or a replan, which need the words. A dive's
+ * placeholder depends on where the dive starts, as `divePlaceholder` says.
+ */
+export const tourActionPlaceholders: Record<Exclude<RequestedTourAction['kind'], 'dive'>, string | null> = {
    explain: 'Leave it empty and Claude explains the whole stop deeper.',
    revise: null,
    replan: null,
    reorder: 'Leave it empty and Claude gets only your order.',
    summarize: 'Leave it empty and Claude summarizes without guidance.',
-   dive: 'Leave it empty and the dive covers the whole stop.',
    draftWorkItems: 'Leave it empty and Claude proposes work items as it sees fit.',
    walkOpenQuestions: 'Leave it empty and Claude weighs each question on its own.',
    draftComments: 'Leave it empty and Claude chooses the tone and focus.',
 };
+
+/** Returns what the empty box for the words of a dive from the stop of the title says the dive covers, or null for a dive from the whole tour, which needs the words. */
+export function divePlaceholder(stopTitle: string | null): string | null {
+   return stopTitle === null ? null : `Leave it empty and the dive covers the whole stop "${stopTitle}".`;
+}
+
+/** Why the dive form cannot send a dive from the whole tour while its box for the reviewer's words is empty. */
+export const diveNeedsWords = 'A dive from the whole tour needs your words on what it should cover.';
 
 /** The label of the box for the reviewer's words of a change of the familiarity level. */
 export const levelChangePrompt = 'Anything else Claude should change?';

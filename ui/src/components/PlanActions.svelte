@@ -1,8 +1,8 @@
 <!--
    The top of the Plan panel: a quiet line with the tour's familiarity level, after a repository tour's purpose, and a ⋯ menu of the plan's actions. Re-plan… opens the form that also
-   changes the level, Reorder… shows the stop order editor in place of the plan list, and before Claude writes a plan the menu holds only Change familiarity…. The plan list shows as it is
-   until Claude's set_plan arrives. Each item is disabled with the server's reason under the line while the tour's controls close it, and each waiting thread that holds the plan or the level
-   back shows there with a link to it.
+   changes the level, Reorder… shows the stop order editor in place of the plan list, and before Claude writes a plan the menu holds only Change familiarity… and Dive…. Dive… opens the form of a
+   dive from the whole tour, and the menu holds it only while the controls offer it, as for a repository tour. The ⋯ button waits while a dive or an order is on its way to the server. The plan list shows as it is until Claude's set_plan arrives. Each item is disabled with the
+   server's reason under the line while the tour's controls close it, and each waiting thread that holds the plan or the level back, or a dive from the whole tour, shows there with a link to it.
 -->
 <script lang="ts">
    import Ellipsis from '@lucide/svelte/icons/ellipsis';
@@ -10,13 +10,14 @@
    import { tick, type Snippet } from 'svelte';
    import { Button, buttonVariants } from '$lib/components/ui/button';
    import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-   import { disabledReason, threadsOf } from '../lib/controls';
+   import { disabledReason, diveReason, threadsOf } from '../lib/controls';
    import { familiarityLine } from '../lib/labels';
    import { isReordered, reconciledOrder } from '../lib/stopOrder';
-   import { subjectOf } from '../lib/threadView';
-   import { decisionLabels, subjectPending, tourActionLabels, tourActionPlaceholders, tourActionPrompts, type PlanActionKind } from '../lib/tourActions';
+   import { subjectOf, waitingDives } from '../lib/threadView';
+   import { decisionLabels, subjectPending, tourActionLabels, tourActionPlaceholders, tourActionPrompts, type DiveChoice, type PlanActionKind } from '../lib/tourActions';
    import type { Familiarity, Plan, QuestionThread, RequestedTourAction, RequestState, TourControls, TourPurpose } from '../lib/types';
    import ActionWords from './ActionWords.svelte';
+   import DiveForm from './DiveForm.svelte';
    import ReplanForm from './ReplanForm.svelte';
    import StopOrderEditor from './StopOrderEditor.svelte';
 
@@ -63,6 +64,7 @@
    let sending = $state(false);
    let refusal = $state<string | null>(null);
    let form = $state<ReplanForm>();
+   let diveForm = $state<DiveForm>();
    /** Whether the next close of the menu moves the focus into the form that it opened. */
    let focusForm = false;
 
@@ -70,23 +72,29 @@
    const levelReason = $derived(disabledReason(offers?.level.change));
    const replanReason = $derived(disabledReason(offers?.replan));
    const reorderReason = $derived(disabledReason(offers?.reorder));
+   const diveUnavailable = $derived(diveReason(offers?.dive));
    const askAgain = $derived(offers?.level.askAgain ?? null);
    const formLabel = $derived(plan === null ? `${decisionLabels.familiarityChanged}…` : `${tourActionLabels.replan}…`);
    const items = $derived.by(() => {
+      const dive = onaction === null || diveUnavailable === undefined ? [] : [{ kind: 'dive' as const, label: `${tourActionLabels.dive}…`, reason: diveUnavailable }];
       if (plan === null) {
-         return onfamiliarity === null ? [] : [{ kind: 'replan' as const, label: formLabel, reason: levelReason }];
+         return [...(onfamiliarity === null ? [] : [{ kind: 'replan' as const, label: formLabel, reason: levelReason }]), ...dive];
       }
 
       // The form also changes the level, so Re-plan… needs only one of the two offers open.
       return [
          ...(onaction === null && onfamiliarity === null ? [] : [{ kind: 'replan' as const, label: formLabel, reason: levelReason === null ? null : replanReason }]),
          ...(onaction === null ? [] : [{ kind: 'reorder' as const, label: `${tourActionLabels.reorder}…`, reason: reorderReason }]),
+         ...dive,
       ];
    });
    // Both actions usually share their reason, so the panel shows each reason once.
    const shownReasons = $derived([...new Set(items.flatMap((item) => item.reason ?? []))]);
    // A waiting plan approval or level change is in both lists of the controls.
-   const waiting = $derived(threadsOf(threads, [...new Set([...(offers?.pending.level === undefined ? [] : [offers.pending.level]), ...(offers?.pending.plan ?? [])])]));
+   const waiting = $derived([
+      ...threadsOf(threads, [...new Set([...(offers?.pending.level === undefined ? [] : [offers.pending.level]), ...(offers?.pending.plan ?? [])])]),
+      ...waitingDives(threads, null),
+   ]);
    const openForm = $derived(chosen === 'reorder' && (onaction === null || reorderReason !== null) ? null : chosen);
    // A plan that adds or drops a stop while the reviewer edits starts the proposal again, because the server refuses an order that is not each stop of the latest plan once.
    const order = $derived(plan === null ? [] : reconciledOrder(draft, plan.stops));
@@ -106,7 +114,8 @@
 
       chosen = kind;
       refusal = null;
-      focusForm = kind === 'replan';
+      diveForm?.clearRefusal();
+      focusForm = kind !== 'reorder';
    }
 
    // The menu returns the focus to its ⋯ button when it closes, so the form takes the focus only after that, once it has mounted.
@@ -114,8 +123,23 @@
       if (focusForm) {
          event.preventDefault();
          focusForm = false;
-         void tick().then(() => form?.focus());
+         void tick().then(() => (chosen === 'dive' ? diveForm : form)?.focus());
       }
+   }
+
+   async function sendDive(choice: DiveChoice, words: string): Promise<string | null> {
+      if (onaction === null) {
+         return null;
+      }
+
+      sending = true;
+      const result = await onaction({ kind: 'dive', ...choice }, words);
+      sending = false;
+      if (result === null && chosen === 'dive') {
+         chosen = null;
+      }
+
+      return result;
    }
 
    async function sendOrder(event: SubmitEvent): Promise<void> {
@@ -139,7 +163,7 @@
       <p class="text-xs text-muted-foreground" data-plan-line>{familiarityLine(familiarity, purpose)}</p>
       {#if items.length > 0}
          <DropdownMenu.Root>
-            <DropdownMenu.Trigger class="{buttonVariants({ variant: 'ghost', size: 'icon-sm' })} shrink-0" aria-label="Plan actions">
+            <DropdownMenu.Trigger class="{buttonVariants({ variant: 'ghost', size: 'icon-sm' })} shrink-0" aria-label="Plan actions" disabled={sending}>
                <Ellipsis aria-hidden="true" />
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="end" class="w-44" onCloseAutoFocus={placeFocus}>
@@ -179,6 +203,16 @@
          shownAbove={shownReasons}
          onreplan={plan === null || onaction === null ? null : (words) => onaction({ kind: 'replan' }, words)}
          onlevel={onfamiliarity}
+         onclose={() => (chosen = null)}
+      />
+   {:else if openForm === 'dive' && onaction !== null}
+      <DiveForm
+         bind:this={diveForm}
+         from={{ purpose: purpose ?? 'orient', familiarity }}
+         stopTitle={null}
+         unavailable={diveUnavailable ?? null}
+         {sending}
+         onsend={sendDive}
          onclose={() => (chosen = null)}
       />
    {:else if openForm === 'reorder' && plan !== null}

@@ -52,6 +52,18 @@ export function actionOf(thread: QuestionThread): TourAction | null {
    return thread.kind === 'asked' ? (thread.action ?? null) : null;
 }
 
+/**
+ * Returns the threads of the dives from the stop, or from the whole tour for null, whose question waits for Claude. The controls' waiting work leaves dives out, because a dive holds nothing back.
+ */
+export function waitingDives(threads: readonly QuestionThread[], stopId: string | null): QuestionThread[] {
+   return threads.filter(
+      (thread) =>
+         actionOf(thread)?.kind === 'dive' &&
+         thread.status.waiting !== undefined &&
+         (stopId === null ? thread.anchor.kind === 'tour' : thread.anchor.kind === 'stop' && thread.anchor.stopId === stopId),
+   );
+}
+
 /** Returns whether the thread is a sent thread that takes an answer type: one that starts with the reviewer's question and requests no tour action. */
 export function takesSentType(thread: QuestionThread): thread is AskedThread {
    return thread.kind === 'asked' && thread.action === undefined;

@@ -16,7 +16,7 @@
    import { doneClick } from '../lib/doneClick';
    import { skipTooltip, stopDoneCheckboxLabel, stopDoneTooltip } from '../lib/labels';
    import { versionOf } from '../lib/stops';
-   import { tourActionLabels, type StopActionKind } from '../lib/tourActions';
+   import { tourActionLabels, type StopMenuKind } from '../lib/tourActions';
    import type { Stop, TourControls } from '../lib/types';
    import type { DoneState } from '../lib/tourRecord.svelte';
    import type { KnownVersion } from '../lib/versions';
@@ -28,6 +28,7 @@
       onchoose,
       onfocusform,
       offersActions,
+      offersDive,
       sending,
       controls,
       versions,
@@ -43,11 +44,13 @@
       /** The ⋯ menu's move of the stop's explanation to the other placement, with its label, or null while the reviewer cannot move it. */
       move: { label: string; run: () => void } | null;
       /** Shows the form of a tour action below the stop toolbar. */
-      onchoose: (kind: StopActionKind) => void;
+      onchoose: (kind: StopMenuKind) => void;
       /** Moves the focus to the form of the chosen tour action, once it has mounted. */
       onfocusform: () => void;
       /** Whether the page offers the stop's tour actions. */
       offersActions: boolean;
+      /** Whether the page offers a dive from the stop, which the Ask Claude menu holds only while the controls offer it too. */
+      offersDive: boolean;
       /** Whether a tour action of the form below the stop toolbar is on its way to the server. The Ask Claude menu waits for it, so the server's answer reaches the form that sent it. */
       sending: boolean;
       /** The tour's controls, which say whether each tour action can go, or null while the page has none. */
@@ -69,13 +72,14 @@
    } = $props();
 
    const id = $props.id();
-   const kinds: readonly StopActionKind[] = ['explain', 'revise'];
 
    const written = $derived(stop.stage === 'written');
    const reasons = $derived(stopActionReasons(controls, stop.id));
-   // Both actions usually share their reason, such as an unattached session, so the stop toolbar shows each reason once.
-   const shownReasons = $derived(offersActions && written ? [...new Set(kinds.map((kind) => reasons[kind]).filter((reason) => reason !== null))] : []);
-   const askDisabled = $derived(reasons.explain !== null && reasons.explain === reasons.revise);
+   const kinds = $derived<StopMenuKind[]>(offersDive && reasons.dive !== undefined ? ['explain', 'revise', 'dive'] : ['explain', 'revise']);
+   const menuReasons = $derived(kinds.map((kind) => reasons[kind] ?? null));
+   // The actions usually share their reason, such as an unattached session, so the stop toolbar shows each reason once.
+   const shownReasons = $derived(offersActions && written ? [...new Set(menuReasons.filter((reason) => reason !== null))] : []);
+   const askDisabled = $derived(menuReasons.every((reason) => reason !== null && reason === menuReasons[0]));
    /** Whether the next close of the Ask Claude menu moves the focus into the form that it opened. */
    let focusForm = false;
 
@@ -88,7 +92,7 @@
    let marking = $state(false);
    let doneRefusal = $state<string | null>(null);
 
-   function choose(kind: StopActionKind): void {
+   function choose(kind: StopMenuKind): void {
       onchoose(kind);
       focusForm = true;
    }
@@ -129,13 +133,13 @@
          <DropdownMenu.Trigger
             class={buttonVariants({ variant: 'outline', size: 'sm' })}
             disabled={askDisabled || sending}
-            aria-describedby={askDisabled ? `${id}-unavailable-${shownReasons.indexOf(reasons.explain!)}` : undefined}
+            aria-describedby={askDisabled ? `${id}-unavailable-${shownReasons.indexOf(menuReasons[0]!)}` : undefined}
          >
             Ask Claude<ChevronDown aria-hidden="true" />
          </DropdownMenu.Trigger>
          <DropdownMenu.Content align="start" class="w-44" onCloseAutoFocus={placeFocus}>
             {#each kinds as kind (kind)}
-               {@const reason = reasons[kind]}
+               {@const reason = reasons[kind] ?? null}
                <DropdownMenu.Item disabled={reason !== null} aria-describedby={reason === null ? undefined : `${id}-unavailable-${shownReasons.indexOf(reason)}`} onSelect={() => choose(kind)}
                   >{tourActionLabels[kind]}…</DropdownMenu.Item
                >

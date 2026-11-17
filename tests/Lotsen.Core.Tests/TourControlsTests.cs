@@ -12,7 +12,8 @@ namespace Lotsen.Tests;
 /// <summary>Covers <see cref="TourControls.Of"/>: the tour's offers with the binding refusal of each control's operation, at the tour's revision.</summary>
 /// <remarks>
 /// The open tour leaves every control open by its state: it has the written stop <c>s1</c>, a sent answer of each type, an available iteration, the note <c>t1</c>, the answered thread <c>t2</c>,
-/// the canceled thread <c>t3</c> and the waiting thread <c>t4</c>. The approving tour is that tour started plan first, with its plan waiting.
+/// the canceled thread <c>t3</c> and the waiting thread <c>t4</c>. The approving tour is that tour started plan first, with its plan waiting. The repository tour has the written stop <c>s1</c>
+/// and leaves its dives open.
 /// </remarks>
 [Trait("Category", "TourActions")]
 public sealed class TourControlsTests
@@ -30,6 +31,8 @@ public sealed class TourControlsTests
       ["reorder"] = (Open, offers => offers.Reorder, "request_tour_action"),
       ["explain"] = (Open, offers => offers.Stops["s1"].Explain, "request_tour_action"),
       ["revise"] = (Open, offers => offers.Stops["s1"].Revise, "request_tour_action"),
+      ["dive from a stop"] = (Repository, offers => offers.Stops["s1"].Dive!, "request_tour_action"),
+      ["dive from the whole tour"] = (Repository, offers => offers.Dive!, "request_tour_action"),
       ["summarize"] = (Open, offers => offers.Summarize, "request_tour_action"),
       ["draftWorkItems"] = (Open, offers => offers.FollowUps[TourAction.DraftWorkItemsKind], "request_tour_action"),
       ["walkOpenQuestions"] = (Open, offers => offers.FollowUps[TourAction.WalkOpenQuestionsKind], "request_tour_action"),
@@ -92,10 +95,13 @@ public sealed class TourControlsTests
       Assert.Equal(OperationErrorCode.NoAnswersToSend, Assert.IsType<Offer.Closed>(TourControls.Of(Tour(Plan(Written("s1"))), holder: null).Offers.SendAnswers).Code);
    }
 
-   [Fact]
-   public void Controls_with_a_holder_are_the_tours_offers_at_its_revision()
+   /// <summary>The repository tour has the dives that a pull request's tour lacks.</summary>
+   [Theory]
+   [InlineData(false)]
+   [InlineData(true)]
+   public void Controls_with_a_holder_are_the_tours_offers_at_its_revision(bool repository)
    {
-      var tour = Open() with { Revision = 7 };
+      var tour = (repository ? Repository() : Open()) with { Revision = 7 };
 
       var controls = TourControls.Of(tour, Holder);
 
@@ -120,6 +126,8 @@ public sealed class TourControlsTests
    };
 
    private static Tour Approving() => Open() with { PlanApproval = PlanApproval.Awaited };
+
+   private static Tour Repository() => RepositoryTour(Plan(Written("s1")));
 
    private static string Json(TourOffers offers) => JsonSerializer.Serialize(offers, LotsenJsonContext.Default.TourOffers);
 }

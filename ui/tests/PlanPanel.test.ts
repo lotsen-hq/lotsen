@@ -247,3 +247,49 @@ describe("a waiting plan's request for the focus", () => {
       expect(document.activeElement).toBe(document.body);
    });
 });
+
+describe('a dive from the whole tour', () => {
+   const inMenu = { hidden: true } as const;
+
+   function renderDive(onaction: (action: { kind: string }, text: string) => Promise<string | null>) {
+      const { tourId, revision, offers } = structuredClone(eventFixtures.controlsChanged);
+      const controls: TourControls = { tourId, revision, offers: { ...offers, dive: { state: 'open' } } };
+      render(PlanPanel, { props: { tourSelected: true, known: { plan }, error: null, attachment: 'confirmed', familiarity: 'some', purpose: 'orient', controls, onaction } });
+      return within(screen.getByRole('region', { name: 'Plan actions' }));
+   }
+
+   async function choose(actions: ReturnType<typeof within>, name: string): Promise<void> {
+      await fireEvent.keyDown(actions.getByRole('button', { name: 'Plan actions' }), { key: 'Enter' });
+      await fireEvent.click(within(await screen.findByRole('menu', inMenu)).getByRole('menuitem', { name, hidden: true }));
+      await waitFor(() => expect(screen.queryByRole('menu', inMenu)).toBeNull());
+   }
+
+   it('holds the ⋯ menu back while the dive is on its way, then closes only its own form', async () => {
+      let release: (refusal: string | null) => void = () => {};
+      const onaction = vi.fn(() => new Promise<string | null>((resolve) => (release = resolve)));
+      const actions = renderDive(onaction);
+      await choose(actions, 'Dive…');
+      await fireEvent.input(actions.getByRole('textbox', { name: 'What should the dive cover?' }), { target: { value: 'The cache.' } });
+
+      await fireEvent.click(actions.getByRole('button', { name: 'Send to Claude' }));
+
+      expect(onaction).toHaveBeenCalledExactlyOnceWith({ kind: 'dive', purpose: 'orient', familiarity: 'some' }, 'The cache.');
+      expect((actions.getByRole('button', { name: 'Plan actions' }) as HTMLButtonElement).disabled).toBe(true);
+      release(null);
+      await waitFor(() => expect(actions.queryByRole('textbox', { name: 'What should the dive cover?' })).toBeNull());
+      expect((actions.getByRole('button', { name: 'Plan actions' }) as HTMLButtonElement).disabled).toBe(false);
+   });
+
+   it('drops the last refusal when the reviewer chooses Dive… again', async () => {
+      const actions = renderDive(async () => 'The tour is not pinned to a commit yet.');
+      await choose(actions, 'Dive…');
+      await fireEvent.input(actions.getByRole('textbox', { name: 'What should the dive cover?' }), { target: { value: 'The cache.' } });
+      await fireEvent.click(actions.getByRole('button', { name: 'Send to Claude' }));
+      expect(await actions.findByRole('alert')).toBeTruthy();
+
+      await choose(actions, 'Dive…');
+
+      expect(actions.queryByRole('alert')).toBeNull();
+      expect((actions.getByRole('textbox', { name: 'What should the dive cover?' }) as HTMLTextAreaElement).value).toBe('The cache.');
+   });
+});
