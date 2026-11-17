@@ -15,7 +15,7 @@ import type { SseEvent } from './sse';
 import { steppedTarget } from './skips';
 import { stackFileKey, stopFileStack, type FileReference, type StackFile } from './stopFiles';
 import { breadcrumb, divesByStop, divesOf } from './tourFamily';
-import { moveOfferOf, type MoveCheckOutcome, type MoveOffer, type MoveRefusal } from './tourMoves';
+import { moveOfferOf, type MoveCheckOutcome, type MoveOffer } from './tourMoves';
 import { hiddenCount, listedTours } from './tourList';
 import { TourRecord, type DoneState, type KnownFiles, type KnownSummary, type ReviewState } from './tourRecord.svelte';
 import { rowOf, touched, withPart, withSummary, type RowPart, type RowParts, type TourRow } from './tourRows';
@@ -1825,9 +1825,9 @@ export class LotsenApp {
     * Moves a repository tour and the ticked dives to the latest commit of its ref that a check showed, which reports the move to each moved tour's bound session as a tourMoved decision when a
     * stop goes stale, and applies the tour's new pin and the decision's thread at once. The dives' pins, the new plans and the threads whose anchors moved come with the move's events.
     *
-    * @returns Null once the server stored the move, or the refusal. A refused UI credential signs the page out.
+    * @returns Null once the server stored the move, or the reason it refused the move. A refused UI credential signs the page out.
     */
-   async moveTour(tourId: string, commit: string, diveIds: readonly string[]): Promise<MoveRefusal | null> {
+   async moveTour(tourId: string, commit: string, diveIds: readonly string[]): Promise<string | null> {
       const reveal = this.revealAfterWrite(tourId);
       try {
          const { output: moved, revision } = await this.requireApi().moveTour(tourId, commit, [...diveIds]);
@@ -1839,9 +1839,12 @@ export class LotsenApp {
 
          return null;
       } catch (error) {
-         // These refusals say that the ref or the tours changed since the check, so a new check shows what a move takes now.
-         const code = error instanceof ApiError ? error.error?.code : undefined;
-         return { reason: this.refusalOf(error, 'The tour could not be moved.'), recheck: code === 'moveNotAvailable' || code === 'tourNotStored' || code === 'tourChanged' };
+         // The page sends only the dives of the check, so the server refuses one only when the dives changed since the check, and its reason names the API's fields.
+         if (error instanceof ApiError && error.error?.code === 'invalidInput') {
+            return 'A dive changed since the check, so nothing moved. The list shows the dives as they are now.';
+         }
+
+         return this.refusalOf(error, 'The tour could not be moved.');
       }
    }
 

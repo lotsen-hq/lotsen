@@ -1,13 +1,13 @@
 <!--
    The top bar's commit of an open repository tour, with Move… while its ref can move, and the dialog that moves the tour and the dives that the reviewer ticks to the latest commit of the ref.
-   The dialog checks for a move each time it opens, and checks again after a refusal that says the ref or the tours changed since the check.
+   The dialog checks for a move each time it opens, and checks again after a refusal of the move, so it shows what a move takes now.
 -->
 <script lang="ts">
    import { tick } from 'svelte';
    import LoaderCircle from '@lucide/svelte/icons/loader-circle';
    import { Button, buttonVariants } from '$lib/components/ui/button';
    import * as Dialog from '$lib/components/ui/dialog';
-   import { moveBranches, tickDive, tickedDives, type MoveBranch, type MoveCheckOutcome, type MoveOffer, type MoveRefusal } from '../lib/tourMoves';
+   import { moveBranches, tickDive, tickedDives, type MoveBranch, type MoveCheckOutcome, type MoveOffer } from '../lib/tourMoves';
    import WithTooltip from './WithTooltip.svelte';
 
    let {
@@ -26,8 +26,8 @@
       refName: string | null;
       /** Checks the tour for a move. */
       oncheck: () => Promise<MoveCheckOutcome>;
-      /** Moves the tour and the dives with the IDs to the commit, and returns null once moved, or the refusal. */
-      onmove: (commit: string, diveIds: readonly string[]) => Promise<MoveRefusal | null>;
+      /** Moves the tour and the dives with the IDs to the commit, and returns null once moved, or the reason the move was refused. */
+      onmove: (commit: string, diveIds: readonly string[]) => Promise<string | null>;
       /** Moves the focus to a stable control of the bar, once the dialog closes after a check that found the ref cannot move, which takes Move… away. */
       onfocuslost: () => void;
    } = $props();
@@ -49,6 +49,8 @@
    const branches = $derived(moveBranches(dives));
    const ticked = $derived(new Set(tickedDives(dives, unticked)));
    const busy = $derived(checking || moving);
+   // A tour at the latest commit moves only through its dives, so with every dive unticked a move would refuse.
+   const nothingTicked = $derived(checked?.move === 'available' && checked.current === checked.latest && ticked.size === 0);
 
    // Counts the checks, so the answer of a check that a later one replaced, as after a close and a reopen, changes nothing.
    let checks = 0;
@@ -87,13 +89,13 @@
    }
 
    async function move(): Promise<void> {
-      if (checked?.move !== 'available' || busy) {
+      if (checked?.move !== 'available' || busy || nothingTicked) {
          return;
       }
 
       moving = true;
       refusal = null;
-      let refused: MoveRefusal | null;
+      let refused: string | null;
       try {
          refused = await onmove(checked.latest, [...ticked]);
       } finally {
@@ -105,10 +107,8 @@
          return;
       }
 
-      refusal = refused.reason;
-      if (refused.recheck) {
-         await check();
-      }
+      refusal = refused;
+      await check();
    }
 
    function setTicked(tourId: string, on: boolean): void {
@@ -212,11 +212,21 @@
       {#if refusal !== null}
          <p class="text-destructive" role="alert" data-move-refusal>{refusal}</p>
       {/if}
+      {#if nothingTicked}
+         <p id="{id}-nothing" class="text-muted-foreground">Tick a dive to move. The tour is at the latest commit already.</p>
+      {/if}
       <Dialog.Footer>
          {#if checked?.move === 'available'}
             <Dialog.Close class={buttonVariants({ variant: 'outline' })} disabled={moving}>Cancel</Dialog.Close>
-            <!-- The button stays focusable while the move or a check runs, so the focus stays on it for a refusal, and move() ignores its click. -->
-            <Button bind:ref={confirmButton} class={busy ? 'opacity-50' : undefined} aria-disabled={busy} aria-busy={moving} onclick={() => void move()}>Move</Button>
+            <!-- The button stays focusable while the move or a check runs, or while nothing would move, so the focus stays on it, and move() ignores its click. -->
+            <Button
+               bind:ref={confirmButton}
+               class={busy || nothingTicked ? 'opacity-50' : undefined}
+               aria-disabled={busy || nothingTicked}
+               aria-busy={moving}
+               aria-describedby={nothingTicked ? `${id}-nothing` : undefined}
+               onclick={() => void move()}>Move</Button
+            >
          {:else}
             {#if outcome !== null && 'failure' in outcome}
                <Button variant="outline" disabled={checking} onclick={() => void check()}>Check again</Button>

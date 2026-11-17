@@ -14,12 +14,6 @@ export function moveOfferOf(checked: CheckedMove): MoveOffer {
 /** The outcome of a check of a move: the check, or the reason that it failed. */
 export type MoveCheckOutcome = { checked: CheckedMove } | { failure: string };
 
-/** The outcome of a move that the server refused: its reason, and whether the move dialog checks again, because the refusal says that the ref or the tours changed since the check. */
-export interface MoveRefusal {
-   reason: string;
-   recheck: boolean;
-}
-
 /** A dive that a move offers, with the offered dives that dive from it. */
 export interface MoveBranch {
    dive: MoveDive;

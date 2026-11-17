@@ -233,6 +233,22 @@ describe('a move', () => {
       expect(commitText()).toBe(`at ${short(seed.head)}`);
    });
 
+   it('says that a dive changed when a ticked dive was deleted since the check, and checks again, keeping the unticks', async () => {
+      const { world, seed } = await openFamily();
+      const wholeTitle = 'Everything about totals';
+      await seedDive(world, await attachClaude(world, seed.rootId), { parentTourId: seed.rootId, title: wholeTitle });
+      await openMoveDialog();
+      await fireEvent.click(await waitFor(() => checkbox(wholeTitle)));
+      await world.reviewer.call('delete_tour', { tourId: seed.deeperId });
+
+      await fireEvent.click(dialog().getByRole('button', { name: 'Move' }));
+
+      await waitFor(() => expect(dialog().getByRole('alert').textContent).toBe('A dive changed since the check, so nothing moved. The list shows the dives as they are now.'));
+      await waitFor(() => expect(dives().queryByRole('checkbox', { name: deeperTitle })).toBeNull());
+      expect(checkbox(diveTitle).checked).toBe(true);
+      expect(checkbox(wholeTitle).checked).toBe(false);
+   });
+
    it('shows the refusal in place while a tour that the move leaves stale has no session', async () => {
       const { seed } = await openFamily();
       await openMoveDialog();

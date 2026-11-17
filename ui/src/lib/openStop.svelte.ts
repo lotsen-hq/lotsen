@@ -256,9 +256,9 @@ export class OpenStop {
     * Every plan change passes here, so a revision that only a load brings, as after the event stream reconnects, holds as one from its event does. The held version joins the record's earlier
     * versions, so the version picker offers it before any load brings it. A version that the reviewer already reads in place of the current one stays.
     *
-    * A revision that the reviewer asked for is not held: one of a stop with its own waiting action, or of any stop while an action on the plan waits. A waiting iteration update is the exception,
-    * because Claude revises the stale stops without the reviewer's words. So a revision of a stop that the update names holds and names the update's iteration, even while another action on the
-    * plan waits.
+    * A revision that the reviewer asked for is not held: one of a stop with its own waiting action, or of any stop while an action on the plan waits. A waiting iteration update or move is the
+    * exception, because Claude revises the stale stops without the reviewer's words. So a revision of a stop that the update or move names holds and names the update's iteration or the move's
+    * number, even while another action on the plan waits.
     *
     * The actions that count are those that waited when Claude stored the revision, from the controls that held then, as {@link TourRecord.waitingWithin} gives them. The controls that the record
     * holds now can be newer than the revision, and then show the reply that ended the wait. An event names the store of the revision, so it counts the controls just before that store. A load
