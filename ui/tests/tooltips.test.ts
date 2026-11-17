@@ -119,7 +119,7 @@ describe('the file tree tooltips', () => {
          ],
          new Map([[mark.path, mark]]),
       );
-      render(FileTree, { props: { nodes, selectedPath: null, onselect: vi.fn(), showReasons: true } });
+      render(FileTree, { props: { files: { kind: 'changed', nodes, showReasons: true }, selectedPath: null, onselect: vi.fn() } });
    }
 
    // The tooltip opens for the row, the treeitem's first child.

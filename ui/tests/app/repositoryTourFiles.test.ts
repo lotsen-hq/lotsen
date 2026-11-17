@@ -39,12 +39,17 @@ const visited: Template<Seed> = backend().template('repositoryTourFiles-visited'
    return { tourId: seeded.tourId, stopIds: seeded.stopIds, head: seeded.head };
 });
 
-async function openVisited(): Promise<{ app: LotsenApp; world: World; transport: Transport; seed: Seed; tree: ReturnType<typeof within> }> {
+async function openTourFiles(): Promise<{ app: LotsenApp; world: World; transport: Transport; seed: Seed; panel: ReturnType<typeof within> }> {
    const { world, seed } = await worldOf(visited);
    const { app, transport } = await startApp(world);
    await openTour(app, title);
-   const tree = within(await (await filesPanel()).findByRole('tree', { name: 'Repository files' }));
-   return { app, world, transport, seed, tree };
+   return { app, world, transport, seed, panel: await filesPanel() };
+}
+
+async function openVisited(): Promise<{ app: LotsenApp; world: World; transport: Transport; seed: Seed; tree: ReturnType<typeof within> }> {
+   const { panel, ...opened } = await openTourFiles();
+   fireEvent.click(panel.getByRole('button', { name: 'Repository' }));
+   return { ...opened, tree: within(await panel.findByRole('tree', { name: 'Repository files' })) };
 }
 
 const operations = (transport: Transport) => transport.requests.map((request) => request.operation);
@@ -58,13 +63,32 @@ async function expand(tree: ReturnType<typeof within>, name: string): Promise<vo
 }
 
 describe("a repository tour's Files panel", () => {
-   it('opens on the Files panel and shows the repository view alone, at the head, with no view, side, review count or changed-file list', async () => {
+   it('opens on the Files panel in the Visited view, which lists the files the stops visit at the head, with no side, review count or repository listing', async () => {
+      const { app, transport, panel } = await openTourFiles();
+
+      const tree = within(await panel.findByRole('tree', { name: 'Visited files' }));
+      expect(labels(tree)).toEqual(['src', 'lib', 'money.ts, Visited by 1 stop', 'cart.ts, Visited by 2 stops']);
+      expect(screen.getByRole('tab', { name: 'Files' }).getAttribute('aria-selected')).toBe('true');
+      expect(panel.getByRole('button', { name: 'Visited' }).getAttribute('aria-pressed')).toBe('true');
+      for (const name of ['Changed', 'Head', 'Base', 'Show reasons']) {
+         expect(panel.queryByRole('button', { name }), name).toBeNull();
+      }
+      expect(panel.queryByText(/reviewed/)).toBeNull();
+      expect(operations(transport)).not.toContain('list_directory');
+      expect(operations(transport)).not.toContain('list_changed_files');
+
+      fireEvent.click(tree.getByText('cart.ts'));
+
+      await waitFor(() => expect(app.selectedText).toMatchObject({ side: 'head', path: 'src/cart.ts' }));
+      await waitFor(() => expect(currentRows(panel.getByRole('tree', { name: 'Visited files' }))).toEqual(['cart.ts, Visited by 2 stops']));
+   });
+
+   it('shows the repository view at the head when the reviewer opens it, with no side or changed-file list', async () => {
       const { transport, seed, tree } = await openVisited();
       const panel = await filesPanel();
 
       await waitFor(() => expect(labels(tree)).toEqual(['docs', 'src, Visited by 2 stops', 'README.md']));
-      expect(screen.getByRole('tab', { name: 'Files' }).getAttribute('aria-selected')).toBe('true');
-      for (const name of ['Changed', 'Repository', 'Head', 'Base', 'Tree', 'Group by stop']) {
+      for (const name of ['Changed', 'Head', 'Base', 'Tree', 'Group by stop']) {
          expect(panel.queryByRole('button', { name }), name).toBeNull();
       }
       expect(panel.queryByText(/reviewed/)).toBeNull();
@@ -105,7 +129,7 @@ describe("a repository tour's Files panel", () => {
       expect(app.selectedText).toMatchObject({ state: 'loaded', side: 'head', path: 'src/cart.ts', text: { commit: seed.head } });
       expect(operations(transport)).not.toContain('diff_file');
       expect(operations(transport)).not.toContain('list_changed_files');
-      expect(currentRows((await filesPanel()).getByRole('tree').closest('[role="tabpanel"]')!)).toEqual(['src, Visited by 2 stops']);
+      expect(currentRows((await filesPanel()).getByRole('tree', { name: 'Repository files' }))).toEqual(['src, Visited by 2 stops']);
       await expand(tree, 'src, Visited by 2 stops');
       await waitFor(() => expect(currentRows(tree.getByRole('treeitem', { name: 'src, Visited by 2 stops' }))).toEqual(['cart.ts, Visited by 2 stops']));
    });

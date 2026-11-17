@@ -1,7 +1,21 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import FileTree from '../src/components/FileTree.svelte';
-import { buildFileList, buildFileTree, compareRepositoryPaths, fileTreeKeyAction, groupByStop, nodesOutside, visibleRows, type FileTreeNode, type TreeNode } from '../src/lib/fileTree';
+import {
+   buildFileList,
+   buildFileTree,
+   compareRepositoryPaths,
+   fileTreeKeyAction,
+   groupByStop,
+   groupVisitedByStop,
+   nodesOutside,
+   treeNodes,
+   visibleRows,
+   visitedFiles,
+   type ChangedFileRow,
+   type FileTreeNode,
+   type TreeNode,
+} from '../src/lib/fileTree';
 import { visitedCode } from '../src/lib/pin';
 import type { ChangedFile, CodeReference, FileMark, Stop, StopPassage } from '../src/lib/types';
 import { stopOf } from './stops';
@@ -11,7 +25,7 @@ const modified = (path: string): ChangedFile => ({ path, kind: 'modified' });
 
 // Each node as "name" for a file with its kind, or [name, children] for a folder.
 type Outline = string | [string, Outline[]];
-function outline(nodes: FileTreeNode[]): Outline[] {
+function outline(nodes: FileTreeNode<ChangedFileRow>[]): Outline[] {
    return nodes.map((node) => (node.type === 'file' ? `${node.name} (${node.kind})` : [node.name, outline(node.children)]));
 }
 
@@ -156,6 +170,52 @@ describe('buildFileList', () => {
          { id: 'crlf.ts', lineEndingsOnly: true, mark: null, oldPath: null },
          { id: 'lib/new.g.ts', lineEndingsOnly: false, mark, oldPath: 'src/old.ts' },
       ]);
+   });
+});
+
+describe('visitedFiles', () => {
+   const visits = new Map([
+      ['src/', 2],
+      ['src/lib/', 1],
+      ['src/lib/money.ts', 1],
+      ['src/cart.ts', 2],
+      ['README.md', 1],
+   ]);
+
+   it('gives each visited file a row with its stop count, named by its whole path in path order, and no row to a folder', () => {
+      expect(visitedFiles(visits).map((row) => [row.name, row.visits])).toEqual([
+         ['README.md', 1],
+         ['src/cart.ts', 2],
+         ['src/lib/money.ts', 1],
+      ]);
+   });
+
+   it('lays the rows out as a tree named by the last segments, with the counts kept', () => {
+      const [src, readme] = treeNodes(visitedFiles(visits));
+
+      expect(src?.type === 'folder' && src.children.map((node) => (node.type === 'file' ? `${node.name} ${node.visits}` : node.name))).toEqual(['lib', 'cart.ts 2']);
+      expect(readme).toMatchObject({ type: 'file', row: 'visited', name: 'README.md', visits: 1 });
+   });
+});
+
+describe('groupVisitedByStop', () => {
+   const rows = visitedFiles(
+      new Map([
+         ['a.ts', 1],
+         ['b.ts', 1],
+      ]),
+   );
+   const at = (side: CodeReference['side'], path: string): CodeReference => ({ side, path, startLine: 1, endLine: 2 });
+
+   it("puts the files of the stop's code at the head in the stop's group and the rest after", () => {
+      const groups = groupVisitedByStop(rows, [at('head', 'b.ts'), at('head', 'other.ts')]);
+
+      expect(groups && [groups.stop.map((row) => row.path), groups.rest.map((row) => row.path)]).toEqual([['b.ts'], ['a.ts']]);
+   });
+
+   it('does not group for code at the base alone, which names no file of a snapshot, or for no code', () => {
+      expect(groupVisitedByStop(rows, [at('base', 'a.ts')])).toBeNull();
+      expect(groupVisitedByStop(rows, [])).toBeNull();
    });
 });
 
@@ -333,7 +393,7 @@ describe('FileTree', () => {
 
    function renderTree(selectedPath: string | null = null) {
       const onselect = vi.fn();
-      render(FileTree, { props: { nodes: nodes, selectedPath, onselect, showReasons: true } });
+      render(FileTree, { props: { files: { kind: 'changed', nodes, showReasons: true }, selectedPath, onselect } });
       return onselect;
    }
 
@@ -441,7 +501,9 @@ describe('FileTree', () => {
 
    it('shows a renamed file at its new path with its old path, and selects it by its new path', async () => {
       const onselect = vi.fn();
-      render(FileTree, { props: { nodes: buildFileTree([{ path: 'lib/new.ts', kind: 'renamed', oldPath: 'src/old.ts' }]), selectedPath: null, onselect, showReasons: true } });
+      render(FileTree, {
+         props: { files: { kind: 'changed', nodes: buildFileTree([{ path: 'lib/new.ts', kind: 'renamed', oldPath: 'src/old.ts' }]), showReasons: true }, selectedPath: null, onselect },
+      });
 
       const row = item('new.ts, Renamed from src/old.ts');
       expect(row.textContent).toMatch(/src\/old\.ts\s*→\s*new\.ts/);
@@ -450,14 +512,18 @@ describe('FileTree', () => {
    });
 
    it('tags a file whose only change is its line endings', () => {
-      render(FileTree, { props: { nodes: buildFileTree([{ path: 'crlf.ts', kind: 'modified', lineEndingsOnly: true }]), selectedPath: null, onselect: vi.fn(), showReasons: true } });
+      render(FileTree, {
+         props: { files: { kind: 'changed', nodes: buildFileTree([{ path: 'crlf.ts', kind: 'modified', lineEndingsOnly: true }]), showReasons: true }, selectedPath: null, onselect: vi.fn() },
+      });
 
       expect(item('crlf.ts, Modified, line endings only').textContent).toContain('line endings only');
    });
 
    it('tags a marked file with its mark and shows its reason', () => {
       const mark: FileMark = { path: 'client.g.ts', mark: 'generated', reason: 'A tool writes it.' };
-      render(FileTree, { props: { nodes: buildFileTree([modified('client.g.ts')], new Map([[mark.path, mark]])), selectedPath: null, onselect: vi.fn(), showReasons: true } });
+      render(FileTree, {
+         props: { files: { kind: 'changed', nodes: buildFileTree([modified('client.g.ts')], new Map([[mark.path, mark]])), showReasons: true }, selectedPath: null, onselect: vi.fn() },
+      });
 
       const row = item('client.g.ts, Modified, generated: A tool writes it.');
       expect(row.textContent).toContain('generated');
@@ -472,7 +538,7 @@ describe('FileTree', () => {
          { path: 'src/client.g.ts', kind: 'modified', lineEndingsOnly: true },
          { path: 'lib/new.ts', kind: 'renamed', oldPath: 'src/old.ts' },
       ];
-      render(FileTree, { props: { nodes: buildFileList(files, new Map([[mark.path, mark]])), selectedPath: null, onselect: vi.fn(), showReasons: true } });
+      render(FileTree, { props: { files: { kind: 'changed', nodes: buildFileList(files, new Map([[mark.path, mark]])), showReasons: true }, selectedPath: null, onselect: vi.fn() } });
 
       expect(parts('src/client.g.ts, Modified, line endings only, generated: A tool writes it.')).toEqual([
          'seti typescript',
@@ -490,14 +556,14 @@ describe('FileTree', () => {
 
    it('splits a flat path into its directory and its file name, each losing its start, and leaves a tree name whole', () => {
       const files: ChangedFile[] = [modified('src/app/main.ts'), modified('README.md'), { path: 'lib/new.ts', kind: 'renamed', oldPath: 'src/old.ts' }];
-      const flat = render(FileTree, { props: { nodes: buildFileList(files), selectedPath: null, onselect: vi.fn(), showReasons: true } });
+      const flat = render(FileTree, { props: { files: { kind: 'changed', nodes: buildFileList(files), showReasons: true }, selectedPath: null, onselect: vi.fn() } });
 
       expect(pathParts('src/app/main.ts, Modified')).toEqual(['src/app/ rtl', 'main.ts rtl']);
       expect(pathParts('README.md, Modified')).toEqual(['README.md ltr']);
       expect(pathParts('lib/new.ts, Renamed from src/old.ts')).toEqual(['src/old.ts rtl', 'lib/ rtl', 'new.ts rtl']);
 
       flat.unmount();
-      render(FileTree, { props: { nodes: buildFileTree(files), selectedPath: null, onselect: vi.fn(), showReasons: true } });
+      render(FileTree, { props: { files: { kind: 'changed', nodes: buildFileTree(files), showReasons: true }, selectedPath: null, onselect: vi.fn() } });
 
       expect(pathParts('main.ts, Modified')).toEqual(['main.ts ltr']);
    });
@@ -506,7 +572,7 @@ describe('FileTree', () => {
       function renderReviewed(reviewed: string[]) {
          const onselect = vi.fn();
          const onreview = vi.fn();
-         render(FileTree, { props: { nodes, selectedPath: null, onselect, reviewedPaths: new Set(reviewed), onreview, showReasons: true } });
+         render(FileTree, { props: { files: { kind: 'changed', nodes, showReasons: true, reviewedPaths: new Set(reviewed), onreview }, selectedPath: null, onselect } });
          return { onselect, onreview };
       }
 
@@ -560,12 +626,12 @@ describe('FileTree', () => {
 
    it('marks the open file’s row as current, and only its row, and moves the mark with the open file', async () => {
       const onselect = vi.fn();
-      const view = render(FileTree, { props: { nodes, selectedPath: 'src/app/main.ts', onselect, showReasons: true } });
+      const view = render(FileTree, { props: { files: { kind: 'changed', nodes, showReasons: true }, selectedPath: 'src/app/main.ts', onselect } });
 
       expect(currentRows(document.body)).toEqual(['main.ts, Modified']);
-      await view.rerender({ nodes, selectedPath: 'README.md', onselect });
+      await view.rerender({ selectedPath: 'README.md' });
       expect(currentRows(document.body)).toEqual(['README.md, Deleted']);
-      await view.rerender({ nodes, selectedPath: null, onselect });
+      await view.rerender({ selectedPath: null });
       expect(currentRows(document.body)).toEqual([]);
    });
 
@@ -584,7 +650,7 @@ describe('FileTree', () => {
    });
 
    it('marks no folder whose name only starts like the open file’s folder', async () => {
-      render(FileTree, { props: { nodes: buildFileTree([modified('src/a.ts'), modified('src2/b.ts')]), selectedPath: 'src2/b.ts', onselect: vi.fn(), showReasons: true } });
+      render(FileTree, { props: { files: { kind: 'changed', nodes: buildFileTree([modified('src/a.ts'), modified('src2/b.ts')]), showReasons: true }, selectedPath: 'src2/b.ts', onselect: vi.fn() } });
 
       await fireEvent.click(screen.getByText('src'));
       await fireEvent.click(screen.getByText('src2'));

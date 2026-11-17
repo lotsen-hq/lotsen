@@ -2,55 +2,63 @@
    import ChevronRight from '@lucide/svelte/icons/chevron-right';
    import Folder from '@lucide/svelte/icons/folder';
    import FolderOpen from '@lucide/svelte/icons/folder-open';
+   import MapPin from '@lucide/svelte/icons/map-pin';
    import Square from '@lucide/svelte/icons/square';
    import SquareCheck from '@lucide/svelte/icons/square-check';
    import { SvelteSet } from 'svelte/reactivity';
-   import { holds, nodesOutside, visibleRows, type FileTreeFile, type FileTreeNode } from '../lib/fileTree';
-   import { changeKindLabels, fileMarkLabels, lineEndingsOnlyLabel } from '../lib/labels';
+   import { holds, nodesOutside, visibleRows, type FileTreeFile, type FileTreeListing, type FileTreeNode } from '../lib/fileTree';
+   import { changeKindLabels, fileMarkLabels, lineEndingsOnlyLabel, stopVisitsLabel } from '../lib/labels';
    import { TreeFocus } from '../lib/treeFocus.svelte';
    import FileIcon from './FileIcon.svelte';
    import TooltipGroup from './TooltipGroup.svelte';
    import WithTooltip from './WithTooltip.svelte';
 
    let {
-      nodes,
+      files,
       selectedPath,
       onselect,
       label = 'Changed files',
       undimmedPaths = null,
-      showReasons,
-      reviewedPaths = new Set(),
-      onreview,
    }: {
-      nodes: FileTreeNode[];
+      files: FileTreeListing;
       selectedPath: string | null;
       onselect: (path: string) => void;
       label?: string;
       /** The paths of the files that stay bright while every other file dims, with the folders that hold only dimmed files, or null to dim none. */
       undimmedPaths?: ReadonlySet<string> | null;
-      /** Whether a marked file's reason shows under its name. The row's tooltip and label hold it either way. */
-      showReasons: boolean;
-      /** The paths of the files whose checkbox is checked. */
-      reviewedPaths?: ReadonlySet<string>;
-      /** Sets or clears a file's review mark. Without it the file rows have no checkbox. */
-      onreview?: (path: string, reviewed: boolean) => void;
    } = $props();
 
    // Every folder starts expanded, so the set holds the folders the user collapsed.
    const collapsed = new SvelteSet<string>();
    const tree = new TreeFocus();
 
+   const nodes: FileTreeNode[] = $derived(files.nodes);
+   const showReasons = $derived(files.kind === 'changed' && files.showReasons);
+   const reviewedPaths = $derived(files.kind === 'changed' ? (files.reviewedPaths ?? new Set<string>()) : new Set<string>());
+   const onreview = $derived(files.kind === 'changed' ? files.onreview : undefined);
    const rows = $derived(visibleRows(nodes, collapsed));
    const dimmed = $derived(undimmedPaths === null ? new Set<string>() : nodesOutside(nodes, undimmedPaths));
    // A file row beside folders leaves the twisty's column empty, so its name lines up with theirs.
    const nested = $derived(nodes.some((node) => node.type === 'folder'));
-   // The tags and the reason are hidden from assistive technology, so the label says them.
-   const fileLabel = (file: FileTreeFile) =>
-      `${file.name}, ${changeKindLabels[file.kind]}${file.oldPath === null ? '' : ` from ${file.oldPath}`}${file.lineEndingsOnly ? `, ${lineEndingsOnlyLabel}` : ''}` +
-      (file.mark === null ? '' : `, ${fileMarkLabels[file.mark.mark]}: ${file.mark.reason}`);
+   // The tags, the reason and the tour marker are hidden from assistive technology, so the label says them.
+   function fileLabel(file: FileTreeFile): string {
+      if (file.row === 'visited') {
+         return `${file.name}, ${stopVisitsLabel(file.visits)}`;
+      }
+
+      return (
+         `${file.name}, ${changeKindLabels[file.kind]}${file.oldPath === null ? '' : ` from ${file.oldPath}`}${file.lineEndingsOnly ? `, ${lineEndingsOnlyLabel}` : ''}` +
+         (file.mark === null ? '' : `, ${fileMarkLabels[file.mark.mark]}: ${file.mark.reason}`)
+      );
+   }
    // A narrow column cuts off the row's paths and its mark's reason, and the reason may be hidden, so the tooltip spells them out.
-   const fileTooltip = (file: FileTreeFile) =>
-      (file.oldPath === null ? file.path : `${file.oldPath} → ${file.path}`) + (file.mark === null ? '' : `\n${fileMarkLabels[file.mark.mark]}: ${file.mark.reason}`);
+   function fileTooltip(file: FileTreeFile): string {
+      if (file.row === 'visited') {
+         return `${file.path}\n${stopVisitsLabel(file.visits)}`;
+      }
+
+      return (file.oldPath === null ? file.path : `${file.oldPath} → ${file.path}`) + (file.mark === null ? '' : `\n${fileMarkLabels[file.mark.mark]}: ${file.mark.reason}`);
+   }
    const tabStop = $derived(tree.tabStop(rows, selectedPath));
    const handlers = $derived({
       activate: (node: FileTreeNode) => {
@@ -118,7 +126,7 @@
          >
             <WithTooltip text={fileTooltip(node)}>
                {#snippet trigger({ props })}
-                  <span {...props} class="row kind-{node.kind}" class:current={node.path === selectedPath} class:dimmed={dimmed.has(node.id)}>
+                  <span {...props} class={['row', node.row === 'changed' && `kind-${node.kind}`]} class:current={node.path === selectedPath} class:dimmed={dimmed.has(node.id)}>
                      {#if onreview !== undefined}
                         <span class={['check', reviewed && 'checked']} aria-hidden="true">
                            {#if reviewed}<SquareCheck />{:else}<Square />{/if}
@@ -127,25 +135,30 @@
                         <span class="twisty" aria-hidden="true"></span>
                      {/if}
                      <FileIcon path={node.path} />
-                     {#if node.lineEndingsOnly}
-                        <span class="tag" aria-hidden="true">{lineEndingsOnlyLabel}</span>
-                     {/if}
-                     {#if node.mark !== null}
-                        <span class="tag" aria-hidden="true">{fileMarkLabels[node.mark.mark]}</span>
-                     {/if}
-                     <span class="content">
-                        <span class="label">
-                           {#if node.oldPath !== null}
-                              <span class="old-path" dir="rtl" aria-hidden="true"><bdi>{node.oldPath}</bdi></span>
-                              <span class="old-path-arrow" aria-hidden="true">→</span>
-                           {/if}
-                           {@render path(node.name)}
-                        </span>
-                        {#if node.mark !== null && showReasons}
-                           <span class="reason" aria-hidden="true">{node.mark.reason}</span>
+                     {#if node.row === 'changed'}
+                        {#if node.lineEndingsOnly}
+                           <span class="tag" aria-hidden="true">{lineEndingsOnlyLabel}</span>
                         {/if}
-                     </span>
-                     <span class="marker" aria-hidden="true">{changeKindLabels[node.kind].charAt(0)}</span>
+                        {#if node.mark !== null}
+                           <span class="tag" aria-hidden="true">{fileMarkLabels[node.mark.mark]}</span>
+                        {/if}
+                        <span class="content">
+                           <span class="label">
+                              {#if node.oldPath !== null}
+                                 <span class="old-path" dir="rtl" aria-hidden="true"><bdi>{node.oldPath}</bdi></span>
+                                 <span class="old-path-arrow" aria-hidden="true">→</span>
+                              {/if}
+                              {@render path(node.name)}
+                           </span>
+                           {#if node.mark !== null && showReasons}
+                              <span class="reason" aria-hidden="true">{node.mark.reason}</span>
+                           {/if}
+                        </span>
+                        <span class="marker" aria-hidden="true">{changeKindLabels[node.kind].charAt(0)}</span>
+                     {:else}
+                        <span class="content"><span class="label">{@render path(node.name)}</span></span>
+                        <span class="visits" aria-hidden="true"><MapPin />{node.visits}</span>
+                     {/if}
                   </span>
                {/snippet}
             </WithTooltip>

@@ -22,7 +22,10 @@ for (const palette of palettes) {
    test(`a tour marker's count and pin stand off their row at rest, hovered and on the open file, in ${paletteName(palette)}`, async ({ page }) => {
       await openDemoTour(page, orientTour, palette);
       await expectPalette(page, palette);
+      // The open demo panel lies over the tree's lower rows.
+      await page.locator('details', { hasText: 'Demo' }).first().locator('summary').click();
       await page.getByRole('tab', { name: 'Files' }).click();
+      await page.getByRole('tabpanel', { name: 'Files' }).getByRole('button', { name: 'Repository' }).click();
       const src = files(page).getByRole('treeitem', { name: 'src, Visited by 3 stops' });
       const marker = src.locator(':scope > .row > .visits');
       await expect(marker).toHaveText('3');
@@ -44,5 +47,11 @@ for (const palette of palettes) {
       await expect(cart).toHaveAttribute('aria-current', 'true');
       await page.mouse.move(0, 0);
       await expectContrasts(cart.locator(':scope > .row > .visits'), 'on the open file');
+
+      await page.getByRole('tabpanel', { name: 'Files' }).getByRole('button', { name: 'Visited' }).click();
+      const visitedCart = page.getByRole('tree', { name: 'Visited files' }).getByRole('treeitem', { name: 'cart.ts, Visited by 1 stop' });
+      await expect(visitedCart).toHaveAttribute('aria-current', 'true');
+      await page.mouse.move(0, 0);
+      await expectContrasts(visitedCart.locator(':scope > .row > .visits'), 'on the open file in the Visited view');
    });
 }

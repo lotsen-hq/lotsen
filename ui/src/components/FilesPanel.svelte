@@ -5,6 +5,7 @@
    import Group from '@lucide/svelte/icons/group';
    import List from '@lucide/svelte/icons/list';
    import ListTree from '@lucide/svelte/icons/list-tree';
+   import MapPin from '@lucide/svelte/icons/map-pin';
    import MessageSquareText from '@lucide/svelte/icons/message-square-text';
    import SunDim from '@lucide/svelte/icons/sun-dim';
    import type { KnownDirectory } from '../lib/viewState';
@@ -15,11 +16,17 @@
       buildFileTree,
       dimOtherFilesPreference,
       fileLayoutPreference,
+      flatNodes,
       groupByStop,
       groupByStopPreference,
+      groupVisitedByStop,
       showMarkReasonsPreference,
+      treeNodes,
+      visitedFiles,
+      type ChangedFileRow,
       type FileLayout,
       type FileTreeNode,
+      type VisitedFileRow,
    } from '../lib/fileTree';
    import { panelDocument } from '../lib/panelDocument.svelte';
    import { pinFailedLines, pinningLines } from '../lib/labels';
@@ -72,11 +79,12 @@
       listDirectory?: (side: FileSide, path: string | null) => Promise<KnownDirectory>;
    } = $props();
 
-   type View = 'changed' | 'repository';
-   const views: { id: View; label: string; icon: LucideIcon }[] = [
-      { id: 'changed', label: 'Changed', icon: FileDiff },
-      { id: 'repository', label: 'Repository', icon: FolderGit2 },
-   ];
+   // The list view is a pull request's changed files, or the files a repository tour's stops visit.
+   type View = 'list' | 'repository';
+   type ViewOption = { id: View; label: string; icon: LucideIcon };
+   const repositoryView: ViewOption = { id: 'repository', label: 'Repository', icon: FolderGit2 };
+   const changedViews: ViewOption[] = [{ id: 'list', label: 'Changed', icon: FileDiff }, repositoryView];
+   const visitedViews: ViewOption[] = [{ id: 'list', label: 'Visited', icon: MapPin }, repositoryView];
    const sides: { id: FileSide; label: string }[] = [
       { id: 'head', label: 'Head' },
       { id: 'base', label: 'Base' },
@@ -87,7 +95,7 @@
       { id: 'flat', label: 'Flat', icon: List },
    ];
 
-   let view = $state<View>('changed');
+   let view = $state<View>('list');
    // The panel's choices read their preferences, so a change in another page shows here too.
    const layout = $derived(fileLayoutPreference.read());
    const grouped = $derived(groupByStopPreference.read() === 'true');
@@ -111,6 +119,11 @@
    const stopGroups = $derived(groupByStop(files, currentStop === null ? [] : visitedCode(currentStop, pinCommits(tour?.pin))));
    const groups = $derived(grouped ? stopGroups : null);
    const undimmedPaths = $derived(dimOthers && stopGroups !== null ? new Set(stopGroups.stop.map((file) => file.path)) : null);
+   const visited = $derived(visitedFiles(visits));
+   const visitedStopGroups = $derived(groupVisitedByStop(visited, currentStop === null ? [] : visitedCode(currentStop, pinCommits(tour?.pin))));
+   const visitedGroups = $derived(grouped ? visitedStopGroups : null);
+   const visitedUndimmedPaths = $derived(dimOthers && visitedStopGroups !== null ? new Set(visitedStopGroups.stop.map((file) => file.path)) : null);
+   const snapshotSelectedPath = $derived(selectedText?.side === 'head' ? selectedText.path : null);
    const repositorySelectedPath = $derived.by(() => {
       if (selectedText !== null) {
          return selectedText.side === side ? selectedText.path : null;
@@ -125,7 +138,11 @@
       return null;
    });
 
-   const nodesOf = (list: readonly ChangedFile[]): FileTreeNode[] => (layout === 'flat' ? buildFileList(list, fileMarks) : buildFileTree(list, fileMarks));
+   const nodesOf = (list: readonly ChangedFile[]): FileTreeNode<ChangedFileRow>[] => (layout === 'flat' ? buildFileList(list, fileMarks) : buildFileTree(list, fileMarks));
+   // Derived apart from the FileTree props, so a review toggle or Show reasons does not rebuild and re-sort the nodes.
+   const stopNodes = $derived(groups ? nodesOf(groups.stop) : []);
+   const restNodes = $derived(nodesOf(groups?.rest ?? files));
+   const visitedNodesOf = (list: readonly VisitedFileRow[]): FileTreeNode<VisitedFileRow>[] => (layout === 'flat' ? flatNodes(list) : treeNodes(list));
 
    function chooseLayout(next: FileLayout) {
       fileLayoutPreference.write(next);
@@ -143,26 +160,27 @@
       showMarkReasonsPreference.write(showReasons ? 'false' : 'true');
    }
 
-   let changedView = $state<HTMLElement | null>(null);
+   // The element of the changed or the visited view, whichever the tour has.
+   let listView = $state<HTMLElement | null>(null);
    const home = panelDocument();
-   // The row that held the focus as an update began, or null when the focus was outside the changed-file view.
+   // The row that held the focus as an update began, or null when the focus was outside the list view.
    let focusedBefore: HTMLElement | null = null;
 
    // A stop update or a layout change can move the focused file to another tree, or rebuild its tree, which drops the focus to the page.
    // The pre effect runs before the DOM update, so it still sees the row that held the focus, and the effect after it focuses that file's new row.
    $effect.pre(() => {
-      void [groups, files, layout, changedView];
+      void [groups, files, visitedGroups, visited, layout, listView];
       const active = home.document.activeElement;
-      focusedBefore = isHTMLElement(active) && changedView?.contains(active) ? active : null;
+      focusedBefore = isHTMLElement(active) && listView?.contains(active) ? active : null;
    });
 
    $effect(() => {
-      void [groups, files, layout, changedView];
+      void [groups, files, visitedGroups, visited, layout, listView];
       const row = focusedBefore;
       focusedBefore = null;
       const active = home.document.activeElement;
-      if (row !== null && !row.isConnected && changedView !== null && (active === null || active === home.document.body)) {
-         [...changedView.querySelectorAll<HTMLElement>('[role="treeitem"]')].find((candidate) => candidate.dataset.id === row.dataset.id)?.focus();
+      if (row !== null && !row.isConnected && listView !== null && (active === null || active === home.document.body)) {
+         [...listView.querySelectorAll<HTMLElement>('[role="treeitem"]')].find((candidate) => candidate.dataset.id === row.dataset.id)?.focus();
       }
    });
 
@@ -176,6 +194,30 @@
    <h3 class="px-4 {space} text-xs font-semibold tracking-wider text-muted-foreground uppercase">{text}</h3>
 {/snippet}
 
+{#snippet viewSwitch(options: ViewOption[])}
+   <div class="flex *:not-first:border-l-0" role="group" aria-label="File view">
+      {#each options as option (option.id)}
+         <IconToggle label={option.label} icon={option.icon} pressed={view === option.id} onclick={() => chooseView(option.id)} />
+      {/each}
+   </div>
+{/snippet}
+
+<!-- The list view's controls, with Show reasons only where the files can carry Claude's marks. -->
+{#snippet listControls(reasons: boolean)}
+   <div class="flex *:not-first:border-l-0" role="group" aria-label="File layout">
+      {#each layouts as option (option.id)}
+         <IconToggle label={option.label} icon={option.icon} pressed={layout === option.id} onclick={() => chooseLayout(option.id)} />
+      {/each}
+   </div>
+   <div class="flex *:not-first:border-l-0" role="group" aria-label="File options">
+      <IconToggle label="Group by stop" icon={Group} pressed={grouped} onclick={toggleGrouped} />
+      <IconToggle label="Dim other files" icon={SunDim} pressed={dimOthers} onclick={toggleDimOthers} />
+      {#if reasons}
+         <IconToggle label="Show reasons" icon={MessageSquareText} pressed={showReasons} onclick={toggleShowReasons} />
+      {/if}
+   </div>
+{/snippet}
+
 <div class="py-1">
    {#if !tour}
       <p class="px-4 py-1 text-muted-foreground">Select a tour to see its changed files.</p>
@@ -187,33 +229,55 @@
          <p>{pin.reason}</p>
       </div>
    {:else if tour.target.kind === 'repository'}
-      <!-- A repository tour has no changed files and no base, so its one view lists the snapshot's head, with no view or side to choose. -->
-      {#key snapshotHead}
-         <RepositoryTree
-            listDirectory={(path) => listDirectory('head', path)}
-            {visits}
-            selectedPath={selectedText?.side === 'head' ? selectedText.path : null}
-            onopen={(path) => onopen('head', path)}
-         />
-      {/key}
+      <!-- A repository tour has no changed files and no base, so both its views show the snapshot's head, with no side to choose. -->
+      <div class="flex flex-wrap items-center gap-2 px-4 pt-1 pb-2">
+         {@render viewSwitch(visitedViews)}
+         {#if view === 'list'}
+            {@render listControls(false)}
+         {/if}
+      </div>
+      <div hidden={view !== 'list'} bind:this={listView}>
+         {#if visited.length === 0}
+            <p class="px-4 py-1 text-muted-foreground">No stop visits a file yet.</p>
+         {:else}
+            {#if visitedGroups}
+               {@render groupHeading('This stop', 'pt-2')}
+               {#key currentStop?.id}
+                  <FileTree
+                     files={{ kind: 'visited', nodes: visitedNodesOf(visitedGroups.stop) }}
+                     label="Visited files in this stop"
+                     selectedPath={snapshotSelectedPath}
+                     undimmedPaths={visitedUndimmedPaths}
+                     onselect={(path) => onopen('head', path)}
+                  />
+               {/key}
+               {#if visitedGroups.rest.length > 0}
+                  {@render groupHeading('Other files', 'pt-6')}
+               {/if}
+            {/if}
+            {#if !visitedGroups || visitedGroups.rest.length > 0}
+               <FileTree
+                  files={{ kind: 'visited', nodes: visitedNodesOf(visitedGroups?.rest ?? visited) }}
+                  label={visitedGroups ? 'Other visited files' : 'Visited files'}
+                  selectedPath={snapshotSelectedPath}
+                  undimmedPaths={visitedUndimmedPaths}
+                  onselect={(path) => onopen('head', path)}
+               />
+            {/if}
+         {/if}
+      </div>
+      {#if repositoryOpened}
+         <div hidden={view !== 'repository'}>
+            {#key snapshotHead}
+               <RepositoryTree listDirectory={(path) => listDirectory('head', path)} {visits} selectedPath={snapshotSelectedPath} onopen={(path) => onopen('head', path)} />
+            {/key}
+         </div>
+      {/if}
    {:else}
       <div class="flex flex-wrap items-center gap-2 px-4 pt-1 pb-2">
-         <div class="flex *:not-first:border-l-0" role="group" aria-label="File view">
-            {#each views as option (option.id)}
-               <IconToggle label={option.label} icon={option.icon} pressed={view === option.id} onclick={() => chooseView(option.id)} />
-            {/each}
-         </div>
-         {#if view === 'changed'}
-            <div class="flex *:not-first:border-l-0" role="group" aria-label="File layout">
-               {#each layouts as option (option.id)}
-                  <IconToggle label={option.label} icon={option.icon} pressed={layout === option.id} onclick={() => chooseLayout(option.id)} />
-               {/each}
-            </div>
-            <div class="flex *:not-first:border-l-0" role="group" aria-label="File options">
-               <IconToggle label="Group by stop" icon={Group} pressed={grouped} onclick={toggleGrouped} />
-               <IconToggle label="Dim other files" icon={SunDim} pressed={dimOthers} onclick={toggleDimOthers} />
-               <IconToggle label="Show reasons" icon={MessageSquareText} pressed={showReasons} onclick={toggleShowReasons} />
-            </div>
+         {@render viewSwitch(changedViews)}
+         {#if view === 'list'}
+            {@render listControls(true)}
          {:else}
             <div class="flex *:not-first:border-l-0" role="group" aria-label="Side">
                {#each sides as option (option.id)}
@@ -222,7 +286,7 @@
             </div>
          {/if}
       </div>
-      <div hidden={view !== 'changed'} bind:this={changedView}>
+      <div hidden={view !== 'list'} bind:this={listView}>
          {#if known?.state === 'failed'}
             <div class="px-4 py-1 text-destructive *:mb-1" role="alert">
                <p>{known.message}</p>
@@ -245,7 +309,7 @@
                {@render groupHeading('This stop', 'pt-2')}
                <!-- Each stop gets its own tree, so a folder collapsed at one stop does not hide the files of the next. -->
                {#key currentStop?.id}
-                  <FileTree nodes={nodesOf(groups.stop)} label="Changed files in this stop" {selectedPath} {undimmedPaths} {showReasons} {reviewedPaths} {onselect} {onreview} />
+                  <FileTree files={{ kind: 'changed', nodes: stopNodes, showReasons, reviewedPaths, onreview }} label="Changed files in this stop" {selectedPath} {undimmedPaths} {onselect} />
                {/key}
                {#if groups.rest.length > 0}
                   {@render groupHeading('Other files', 'pt-6')}
@@ -254,14 +318,11 @@
             <!-- One tree holds the files outside the stop's group whether or not the list is grouped, so a stop update keeps its rows and their focus. -->
             {#if !groups || groups.rest.length > 0}
                <FileTree
-                  nodes={nodesOf(groups?.rest ?? files)}
+                  files={{ kind: 'changed', nodes: restNodes, showReasons, reviewedPaths, onreview }}
                   label={groups ? 'Other changed files' : 'Changed files'}
                   {selectedPath}
                   {undimmedPaths}
-                  {showReasons}
-                  {reviewedPaths}
                   {onselect}
-                  {onreview}
                />
             {/if}
          {/if}

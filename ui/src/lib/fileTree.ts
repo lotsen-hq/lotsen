@@ -2,9 +2,10 @@ import { preference } from './preference';
 import { changedFilesAt } from './repositoryTree';
 import type { ChangedFile, CodeReference, FileChangeKind, FileMark } from './types';
 
-/** A changed file in the tree, named by the last segment of its path, or in the flat list, named by its whole path. */
-export interface FileTreeFile {
+/** A changed file's row in the tree, named by the last segment of its path, or in the flat list, named by its whole path. */
+export interface ChangedFileRow {
    type: 'file';
+   row: 'changed';
    /** The file's path, which is unique among the files. */
    id: string;
    name: string;
@@ -18,18 +19,47 @@ export interface FileTreeFile {
    mark: FileMark | null;
 }
 
+/** A row of a file that the stops of a repository tour visit, named as a changed file's row is, with the tour marker's count. */
+export interface VisitedFileRow {
+   type: 'file';
+   row: 'visited';
+   /** The file's path, which is unique among the files. */
+   id: string;
+   name: string;
+   path: string;
+   /** The number of stops that visit the file. */
+   visits: number;
+}
+
+/** A file's row: a changed file's, with its change and its mark, or a visited file's, with its stop count. */
+export type FileTreeFile = ChangedFileRow | VisitedFileRow;
+
 /** A folder in the tree. A chain of folders that each hold only one folder is one node, named by the chain's segments joined with slashes, with the path of the last folder in the chain. */
-export interface FileTreeFolder {
+export interface FileTreeFolder<F extends FileTreeFile = FileTreeFile> {
    type: 'folder';
    /** The folder's path with a trailing slash, so that it differs from a deleted file at the same path. */
    id: string;
    name: string;
    path: string;
    /** Folders first, then files, each in name order. */
-   children: FileTreeNode[];
+   children: FileTreeNode<F>[];
 }
 
-export type FileTreeNode = FileTreeFile | FileTreeFolder;
+export type FileTreeNode<F extends FileTreeFile = FileTreeFile> = F | FileTreeFolder<F>;
+
+/** What a file tree lists, which decides the kind of its file rows: changed files, whose rows can carry review checkboxes, or visited files. */
+export type FileTreeListing =
+   | {
+        kind: 'changed';
+        nodes: FileTreeNode<ChangedFileRow>[];
+        /** Whether a marked file's reason shows under its name. The row's tooltip and label hold it either way. */
+        showReasons: boolean;
+        /** The paths of the files whose checkbox is checked. */
+        reviewedPaths?: ReadonlySet<string>;
+        /** Sets or clears a file's review mark. Without it the file rows have no checkbox. */
+        onreview?: (path: string, reviewed: boolean) => void;
+     }
+   | { kind: 'visited'; nodes: FileTreeNode<VisitedFileRow>[] };
 
 /** What the keyboard handling of a tree needs of a node. */
 export interface TreeNode {
@@ -64,10 +94,10 @@ export const dimOtherFilesPreference = preference<'true' | 'false'>('lotsen.dimO
 /** Whether the reviewer last chose to show a marked file's reason under its name, off by default. */
 export const showMarkReasonsPreference = preference<'true' | 'false'>('lotsen.showMarkReasons', ['true', 'false'], 'false');
 
-interface DraftFolder {
+interface DraftFolder<F extends FileTreeFile> {
    path: string;
-   folders: Map<string, DraftFolder>;
-   files: FileTreeFile[];
+   folders: Map<string, DraftFolder<F>>;
+   files: F[];
 }
 
 const collator = new Intl.Collator('en');
@@ -92,15 +122,35 @@ export function compareRepositoryPaths(a: string, b: string): number {
 }
 
 /** Returns the changed files as top-level file nodes, each named by its whole path, in the order of {@link compareRepositoryPaths}, with each file's mark from the marks by path. */
-export function buildFileList(files: readonly ChangedFile[], marks: ReadonlyMap<string, FileMark> = new Map()): FileTreeFile[] {
-   return files.map((file) => fileNode(file, file.path, marks)).sort((a, b) => compareRepositoryPaths(a.path, b.path));
+export function buildFileList(files: readonly ChangedFile[], marks: ReadonlyMap<string, FileMark> = new Map()): ChangedFileRow[] {
+   return flatNodes(files.map((file) => changedRow(file, marks)));
 }
 
 /** Returns the top-level nodes of the tree that the changed files make, with each file's mark from the marks by path. */
-export function buildFileTree(files: readonly ChangedFile[], marks: ReadonlyMap<string, FileMark> = new Map()): FileTreeNode[] {
-   const root: DraftFolder = { path: '', folders: new Map(), files: [] };
-   for (const file of files) {
-      const segments = file.path.split('/');
+export function buildFileTree(files: readonly ChangedFile[], marks: ReadonlyMap<string, FileMark> = new Map()): FileTreeNode<ChangedFileRow>[] {
+   return treeNodes(files.map((file) => changedRow(file, marks)));
+}
+
+/**
+ * Returns the rows of the files that the stops visit, each named by its whole path, in the order of {@link compareRepositoryPaths}.
+ *
+ * @param visits The counts that `stopVisits` in `repositoryTree.ts` returns, whose folder IDs end in a slash and give no row.
+ */
+export function visitedFiles(visits: ReadonlyMap<string, number>): VisitedFileRow[] {
+   const rows = [...visits].filter(([id]) => !id.endsWith('/')).map(([path, count]): VisitedFileRow => ({ type: 'file', row: 'visited', id: path, name: path, path, visits: count }));
+   return flatNodes(rows);
+}
+
+/** Returns the file rows as top-level nodes, each named by its whole path, in the order of {@link compareRepositoryPaths}. */
+export function flatNodes<F extends FileTreeFile>(rows: readonly F[]): F[] {
+   return rows.map((row) => ({ ...row, name: row.path })).sort((a, b) => compareRepositoryPaths(a.path, b.path));
+}
+
+/** Returns the top-level nodes of the tree that the file rows make, each file named by the last segment of its path. */
+export function treeNodes<F extends FileTreeFile>(rows: readonly F[]): FileTreeNode<F>[] {
+   const root: DraftFolder<F> = { path: '', folders: new Map(), files: [] };
+   for (const row of rows) {
+      const segments = row.path.split('/');
       const name = segments.pop()!;
       let folder = root;
       for (const segment of segments) {
@@ -113,7 +163,7 @@ export function buildFileTree(files: readonly ChangedFile[], marks: ReadonlyMap<
          folder = child;
       }
 
-      folder.files.push(fileNode(file, name, marks));
+      folder.files.push({ ...row, name });
    }
 
    return childrenOf(root);
@@ -136,10 +186,10 @@ export function nodesOutside(nodes: readonly FileTreeNode[], kept: ReadonlySet<s
    return outside;
 }
 
-/** The changed files split into the ones the current stop points at and the rest, each in the order of the list. */
-export interface StopGroups {
-   stop: ChangedFile[];
-   rest: ChangedFile[];
+/** The files split into the ones the current stop points at and the rest, each in the order of the list. */
+export interface StopGroups<F = ChangedFile> {
+   stop: F[];
+   rest: F[];
 }
 
 /**
@@ -160,17 +210,39 @@ export function groupByStop(files: readonly ChangedFile[], code: readonly CodeRe
    return { stop: files.filter((file) => found.has(file)), rest: files.filter((file) => !found.has(file)) };
 }
 
-function fileNode(file: ChangedFile, name: string, marks: ReadonlyMap<string, FileMark>): FileTreeFile {
-   const oldPath = file.oldPath ?? null;
-   return { type: 'file', id: file.path, name, path: file.path, kind: file.kind, oldPath, lineEndingsOnly: file.lineEndingsOnly === true, mark: marks.get(file.path) ?? null };
+/**
+ * Returns the visited files that the stop's code at the head points at, and the rest.
+ *
+ * @param code The code that the stop visits, as `visitedCode` in `pin.ts` returns it. Its base side names no file of a snapshot.
+ * @returns The groups, or null when the code finds no visited file.
+ */
+export function groupVisitedByStop(files: readonly VisitedFileRow[], code: readonly CodeReference[]): StopGroups<VisitedFileRow> | null {
+   const paths = new Set(code.filter((reference) => reference.side === 'head').map((reference) => reference.path));
+   const stop = files.filter((file) => paths.has(file.path));
+   return stop.length === 0 ? null : { stop, rest: files.filter((file) => !paths.has(file.path)) };
 }
 
-function childrenOf(draft: DraftFolder): FileTreeNode[] {
+function changedRow(file: ChangedFile, marks: ReadonlyMap<string, FileMark>): ChangedFileRow {
+   const oldPath = file.oldPath ?? null;
+   return {
+      type: 'file',
+      row: 'changed',
+      id: file.path,
+      name: file.path,
+      path: file.path,
+      kind: file.kind,
+      oldPath,
+      lineEndingsOnly: file.lineEndingsOnly === true,
+      mark: marks.get(file.path) ?? null,
+   };
+}
+
+function childrenOf<F extends FileTreeFile>(draft: DraftFolder<F>): FileTreeNode<F>[] {
    const folders = [...draft.folders].map(([name, child]) => finishFolder(name, child)).sort(byName);
    return [...folders, ...draft.files.sort(byName)];
 }
 
-function finishFolder(name: string, draft: DraftFolder): FileTreeFolder {
+function finishFolder<F extends FileTreeFile>(name: string, draft: DraftFolder<F>): FileTreeFolder<F> {
    const [only] = draft.folders;
    if (only && draft.folders.size === 1 && draft.files.length === 0) {
       return finishFolder(`${name}/${only[0]}`, only[1]);
