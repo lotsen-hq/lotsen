@@ -169,7 +169,8 @@ internal enum TourAttachment
 internal sealed class TourPins
 {
    public const string RepositoryUrlDescription =
-      "The repository's web URL, or its clone URL over https or SSH, in a form that a platform of lotsen recognizes, without user information. A web URL of the repository at a branch or a tag names that ref too.";
+      "The repository's web URL, or its clone URL over https or SSH, in a form that a platform of lotsen recognizes, without user information. A web URL of the repository at a branch or a tag "
+      + "names that ref too. On any other host, the https clone URL of a public repository.";
 
    private const string UnexpectedPinFailure = "lotsen could not pin the tour because of an unexpected error, which the server's log describes. Pin it again.";
 
@@ -207,8 +208,8 @@ internal sealed class TourPins
 
    /// <summary>Creates a tour and returns it, bound to the calling session unless that session has ended.</summary>
    /// <remarks>
-   /// The input names exactly one of a pull request's URL and a repository, which a registered platform must recognize. A repository's ref, title and words are checked here, so a refusal names
-   /// the input's field and the stored tour follows <see cref="TourRules"/>. The bound session receives <see cref="SessionEvents.Probe"/>, as on <c>attach_tour</c>.
+   /// The input names exactly one of a pull request's URL and a repository, which a registered platform must recognize, or which is platform-free. A repository's ref, title and words are
+   /// checked here, so a refusal names the input's field and the stored tour follows <see cref="TourRules"/>. The bound session receives <see cref="SessionEvents.Probe"/>, as on <c>attach_tour</c>.
    /// </remarks>
    public OperationResult<Tour> CreateTour(Access.AnySession.Pass pass, CreateTourInput input)
    {
@@ -419,9 +420,7 @@ internal sealed class TourPins
    {
       if (_platforms.RecognizeRepository(url) is not { } target)
       {
-         var problem = _platforms.ExpectedRepositoryForms.Length == 0
-            ? "is not a repository URL that lotsen recognizes, because no platform of this lotsen build hosts repositories."
-            : $"is not a repository URL that lotsen recognizes. Expected {_platforms.ExpectedRepositoryForms}.";
+         var problem = $"is not a repository URL that lotsen recognizes. Expected {_platforms.ExpectedRepositoryForms}.";
          return OperationError.Invalid(
             RepositoryField.Then("url"),
             HoldsUserInformation(url) ? $"the URL holds user information, such as a user name or a token, which lotsen does not repeat. Give it without user information. The URL {problem}" : $"'{url}' {problem}");

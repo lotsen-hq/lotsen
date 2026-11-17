@@ -1,4 +1,5 @@
 using Lotsen.Credentials;
+using Lotsen.Git;
 using Lotsen.Platforms;
 using Lotsen.Tours;
 
@@ -83,14 +84,14 @@ public sealed class PullRequestPlatformsTests
       var platforms = new PullRequestPlatforms([new PullRequestOnlyPlatform(new TestPlatform())]);
 
       Assert.Null(platforms.RecognizeRepository(RepositoryUrl));
-      Assert.Equal("", platforms.ExpectedRepositoryForms);
+      Assert.Equal(PlatformFreeRepositories.ExpectedForms, platforms.ExpectedRepositoryForms);
       Assert.NotNull(platforms.Recognize(TestPlatform.PrUrl));
    }
 
    [Fact]
-   public void Repository_url_of_no_platform_and_pull_request_url_are_not_recognized_as_repositories()
+   public void Ssh_url_of_no_platform_and_pull_request_url_are_not_recognized_as_repositories()
    {
-      Assert.Null(_platforms.RecognizeRepository("https://example.invalid/shop"));
+      Assert.Null(_platforms.RecognizeRepository("git@example.invalid:shop.git"));
       Assert.Null(_platforms.RecognizeRepository(TestPlatform.PrUrl));
    }
 
@@ -145,10 +146,9 @@ public sealed class PullRequestPlatformsTests
    [Theory]
    [InlineData(TestPlatform.DefaultId, null, RepositoryUrl)]
    [InlineData("gone", "main", RepositoryUrl + "@main")]
-   [InlineData(null, "main", "https://example.invalid/shop.git@main")]
    public void Repository_target_that_no_registered_platform_labels_is_labeled_by_its_url_with_its_ref(string? platform, string? @ref, string label)
    {
-      var url = platform is null ? new Uri("https://example.invalid/shop.git") : new Uri(RepositoryUrl);
+      var url = new Uri(RepositoryUrl);
       var platforms = platform == TestPlatform.DefaultId ? new PullRequestPlatforms([new PullRequestOnlyPlatform(new TestPlatform())]) : _platforms;
 
       Assert.Equal(label, platforms.Label(new RepositoryTarget(url, @ref, platform)));
@@ -193,6 +193,8 @@ public sealed class PullRequestPlatformsTests
       public IGitCredential GitCredential => _platform.GitCredential;
 
       public Uri? Recognize(string text) => _platform.Recognize(text);
+
+      public bool OwnsHost(Uri url) => _platform.OwnsHost(url);
 
       public bool IsSamePullRequest(Uri url, Uri other) => _platform.IsSamePullRequest(url, other);
 

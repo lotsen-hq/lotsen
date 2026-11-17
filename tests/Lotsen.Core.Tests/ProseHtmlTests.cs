@@ -53,6 +53,23 @@ public sealed class ProseHtmlTests
    }
 
    [Fact]
+   public void Mention_in_a_platform_free_tours_stop_renders_as_its_text_without_a_link()
+   {
+      var tour = TourValues.Tour(TourValues.Plan(Ready(new StopContent("Fixes [#1234](workitem:1234) and [!7](pullrequest:7).", [Passage])))) with
+      {
+         Target = new RepositoryTarget(new Uri("https://git.example.com/team/shop.git"), null, null),
+      };
+      var platforms = new PullRequestPlatforms([new TestPlatform()]);
+
+      var node = ProseHtml.Of(tour, platforms.MentionsOf(tour.Target));
+
+      var headline = (string)node["plan"]!["stops"]![0]!["content"]!["html"]!["headline"]!;
+      Assert.DoesNotContain("<a", headline, StringComparison.Ordinal);
+      Assert.Contains("#1234", headline, StringComparison.Ordinal);
+      Assert.Contains("!7", headline, StringComparison.Ordinal);
+   }
+
+   [Fact]
    public void Stop_without_content_and_absent_fields_get_no_html()
    {
       var pending = new Stop.Pending("s1", "Pending", StopKind.Inspect, "c");

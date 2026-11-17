@@ -1,7 +1,8 @@
 namespace Lotsen.Hosting;
 
 /// <summary>
-/// The user's lotsen data directory, which holds the state file, the lock file, the log file, the preference file, the tours, the clones and a platform library's own files.
+/// The user's lotsen data directory, which holds the state file, the lock file, the log file, the preference file, the tours, the clones, an empty home directory for git and a platform
+/// library's own files.
 /// </summary>
 /// <remarks>
 /// On Unix the directory is user-only (0700) because the state file in it holds the server's token. A platform library keeps its files in a folder of its own under <see cref="Path"/>, which it
@@ -62,6 +63,9 @@ public sealed class DataDirectory
 
    /// <summary>The absolute path of the directory that holds one git clone per repository.</summary>
    internal string ClonesPath => System.IO.Path.Combine(Path, "clones");
+
+   /// <summary>The absolute path of the empty directory that git gets as its home directory for a remote without a credential, as <c>GitOptions.IsolatedHome</c> says.</summary>
+   internal string IsolatedGitHomePath => System.IO.Path.Combine(Path, "git-home");
 
    /// <summary>Creates the directory when it is missing and restricts it to the user.</summary>
    internal void EnsureExists() => UserOnlyStorage.CreateDirectory(Path);

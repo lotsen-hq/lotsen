@@ -49,6 +49,9 @@ public sealed class GitHubPlatform : IRepositoryPlatform, IDisposable
 
    public Uri? Recognize(string text) => GitHubPullRequest.TryParse(text, out var pullRequest) ? pullRequest.Url : null;
 
+   /// <remarks>A dot after the host names the same host in DNS, so the platform owns that form too.</remarks>
+   public bool OwnsHost(Uri url) => GitHubRepository.IsHost(url.IdnHost.TrimEnd('.'));
+
    public bool IsSamePullRequest(Uri url, Uri other) =>
       GitHubPullRequest.TryParse(url.AbsoluteUri, out var pullRequest) && GitHubPullRequest.TryParse(other.AbsoluteUri, out var otherPullRequest) && pullRequest.IsSame(otherPullRequest);
 

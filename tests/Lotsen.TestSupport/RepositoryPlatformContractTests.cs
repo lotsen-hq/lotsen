@@ -106,6 +106,18 @@ public abstract class RepositoryPlatformContractTests
       Assert.Null(Platform.RecognizeRepository(AtRef(encodedRef)));
    }
 
+   /// <summary>The registry reads an https URL on an owned host as no repository without a platform, so the platform's own URLs never become one.</summary>
+   [Fact]
+   public void Platform_owns_the_host_of_every_https_form_and_recognized_repository_url()
+   {
+      Assert.All(RepositoryForms.Concat(OtherRepositories).Append(AtRef("main")).Append(PullRequestOfTheRepository), form =>
+      {
+         Assert.True(!form.StartsWith("https://", StringComparison.Ordinal) || Platform.OwnsHost(new Uri(form)), form);
+         Assert.True(!form.StartsWith("https://", StringComparison.Ordinal) || Platform.OwnsHost(PlatformContractTests.WithTrailingDot(new Uri(form))), form);
+         Assert.True(Platform.RecognizeRepository(form) is not { } recognized || Platform.OwnsHost(recognized.Url), form);
+      });
+   }
+
    [Fact]
    public void Other_repositories_are_recognized_as_other_urls()
    {

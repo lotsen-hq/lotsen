@@ -25,6 +25,13 @@ public interface IPullRequestPlatform
    /// <returns>The URL that a target stores, or null when the text is not one of this platform's pull request URLs.</returns>
    Uri? Recognize(string text);
 
+   /// <summary>Returns whether the URL's host is one of the platform's web or git hosts, as the host of every URL that the platform recognizes is.</summary>
+   /// <remarks>
+   /// lotsen reaches a URL on such a host only through this platform, so a URL there that the platform does not recognize is refused, never toured without a platform. A host with a dot at its
+   /// end names the same host.
+   /// </remarks>
+   bool OwnsHost(Uri url);
+
    /// <summary>Returns whether two URLs that <see cref="Recognize"/> returned name the same pull request.</summary>
    /// <remarks><see cref="Recognize"/> can return different URLs for one pull request, such as one for each host form, so a caller compares targets only with this member.</remarks>
    bool IsSamePullRequest(Uri url, Uri other);

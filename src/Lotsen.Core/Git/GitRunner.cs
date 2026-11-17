@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Lotsen.Credentials;
+using Lotsen.Hosting;
 using Lotsen.Platforms;
 using Lotsen.Processes;
 
@@ -18,6 +19,11 @@ internal sealed record GitOptions
 
    /// <summary>The longest one git run of a query may take, including the download of the file contents it reads, as <see cref="GitCall.Timeout"/> says.</summary>
    public TimeSpan QueryTimeout { get; init; } = TimeSpan.FromMinutes(2);
+
+   /// <summary>
+   /// An empty directory that lotsen owns, which a call with an <see cref="AnswerlessGitCredential"/> gets as its home directory, or null for a runner that makes no such call.
+   /// </summary>
+   public string? IsolatedHome { get; init; }
 
    /// <summary>Runs one git process. <see cref="GitRunner"/> starts every run of git with it, so a test that replaces it sees, holds or fails each run without a process of its own.</summary>
    internal Func<ProcessCommand, CancellationToken, Task<ProcessOutcome>> Run { get; init; } = ProcessRunner.RunAsync;
@@ -42,6 +48,33 @@ internal sealed class GitAuthException : GitException
       : base(message)
    {
    }
+}
+
+/// <summary>A credential with no answer, which fails each request for one with its reason.</summary>
+/// <remarks>
+/// <para>
+/// It holds no secret, so <see cref="GitRunner"/> runs its helper for every address that asks git for a credential, a redirect's target and a proxy included.
+/// </para>
+/// <para>
+/// The runner also runs such a call without the user's and the system's git configuration and without the user's netrc file, with <see cref="GitOptions.IsolatedHome"/> as the home directory.
+/// So no setting of the user's, such as <c>http.emptyAuth</c>, <c>http.proactiveAuth</c> or a netrc entry, makes git or curl send a credential. <c>AnswerlessCredentialTests</c> pins
+/// those three. The environment's proxy variables still apply.
+/// </para>
+/// </remarks>
+internal sealed class AnswerlessGitCredential : IGitCredential
+{
+   private readonly string _reason;
+
+   /// <param name="reason">The reason of a git call whose remote asked for a credential, which names the fix.</param>
+   public AnswerlessGitCredential(string reason)
+   {
+      _reason = reason;
+   }
+
+   public string FixHint => _reason;
+
+   /// <exception cref="AccessTokenUnavailableException">Always, with the reason.</exception>
+   public ValueTask<GitCredentialAnswer> AnswerAsync(TimeSpan minimumValidity, CancellationToken cancellationToken) => throw new AccessTokenUnavailableException(_reason);
 }
 
 /// <summary>
@@ -99,7 +132,8 @@ internal sealed record GitOutput(int ExitCode, byte[] Output)
 /// <para>
 /// The helper is the remote's alone, as <c>credential.&lt;remote URL&gt;.helper</c>. Git runs it only for an address with the remote's scheme, host and port, whose path starts with the remote's
 /// path at a <c>/</c> (https://git-scm.com/docs/gitcredentials, "Credential contexts"). So when the remote redirects git to another address, git has no answer to send there and fails, because it
-/// cannot prompt. <c>GitAuthTests</c> pins each of these boundaries.
+/// cannot prompt. <c>GitAuthTests</c> pins each of these boundaries. An <see cref="AnswerlessGitCredential"/> holds no secret, so its helper applies to every address, and a redirect's target
+/// that asks for a credential fails with its reason too.
 /// </para>
 /// <para>
 /// The helper and its answer travel as configuration in <c>GIT_CONFIG_COUNT</c>, <c>GIT_CONFIG_KEY_n</c> and <c>GIT_CONFIG_VALUE_n</c>, and the helper reads the answer from its own environment, so
@@ -275,7 +309,14 @@ internal sealed class GitRunner
          ("gc.packRefs", "false"),
          .. extraConfig,
       ];
-      if (call.Remote is { Credential: not null } remote)
+      if (call.Remote is { Credential: AnswerlessGitCredential })
+      {
+         Isolate(environment);
+         config.Add(("credential.helper", Helper));
+         config.Add(("http.emptyAuth", "false"));
+         config.Add(("http.proactiveAuth", "none"));
+      }
+      else if (call.Remote is { Credential: not null } remote)
       {
          config.Add(($"credential.{HelperScope(remote.Url)}.helper", Helper));
       }
@@ -293,6 +334,27 @@ internal sealed class GitRunner
          Environment = environment,
          Input = call.Input is null ? null : (ReadOnlyMemory<byte>)Encoding.UTF8.GetBytes(call.Input),
       };
+   }
+
+   // Points git and curl at the empty home directory, so they read no configuration and no netrc file of the user's or the system's.
+   private void Isolate(Dictionary<string, string?> environment)
+   {
+      var home = Options.IsolatedHome ?? throw new InvalidOperationException("A call with an answerless credential needs GitOptions.IsolatedHome.");
+      try
+      {
+         UserOnlyStorage.CreateDirectory(home);
+      }
+      catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+      {
+         throw new GitException($"lotsen could not create its empty git home directory {home}: {exception.Message}");
+      }
+
+      environment["GIT_CONFIG_NOSYSTEM"] = "1";
+      environment["GIT_CONFIG_GLOBAL"] = Path.Combine(home, "gitconfig");
+      environment["HOME"] = home;
+      environment["USERPROFILE"] = home;
+      environment["XDG_CONFIG_HOME"] = home;
+      environment["NETRC"] = Path.Combine(home, "netrc");
    }
 
    /// <summary>The runner's credential helper, as a shell command that git runs with the action, <c>get</c> or <c>erase</c>, as its argument.</summary>

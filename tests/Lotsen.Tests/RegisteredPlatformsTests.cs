@@ -1,3 +1,4 @@
+using Lotsen.Git;
 using Lotsen.Hosting;
 using Lotsen.Platforms;
 using Lotsen.Tours;
@@ -47,14 +48,14 @@ public sealed class RegisteredPlatformsTests : IAsyncDisposable
    }
 
    [Fact]
-   public void Expected_repository_forms_name_each_platform_in_registration_order()
+   public void Expected_repository_forms_name_each_platform_in_registration_order_then_the_platform_free_form()
    {
       Assert.Equal(
          "https://dev.azure.com/{organization}/{project}/_git/{repository} or https://{organization}.visualstudio.com/{project}/_git/{repository}, optionally followed by "
          + "?version=GB{branch}, ?version=GT{tag} or ?version=GC{commit}, or an SSH remote, git@ssh.dev.azure.com:v3/{organization}/{project}/{repository}, "
          + "ssh://git@ssh.dev.azure.com/v3/{organization}/{project}/{repository} or {organization}@vs-ssh.visualstudio.com:v3/{organization}/{project}/{repository}; or "
          + "https://github.com/{owner}/{repository}, optionally ending in .git or followed by /tree/{ref}, or an SSH remote, git@github.com:{owner}/{repository} or "
-         + "ssh://git@github.com/{owner}/{repository}, optionally ending in .git",
+         + "ssh://git@github.com/{owner}/{repository}, optionally ending in .git; or " + PlatformFreeRepositories.ExpectedForms,
          _platforms.ExpectedRepositoryForms);
    }
 
@@ -72,6 +73,25 @@ public sealed class RegisteredPlatformsTests : IAsyncDisposable
    public void Azure_DevOps_repository_url_at_an_invalid_ref_is_not_recognized(string text)
    {
       Assert.Null(_platforms.RecognizeRepository(text));
+   }
+
+   [Theory]
+   [InlineData("https://github.com/octo-org")]
+   [InlineData("https://dev.azure.com/contoso/shop")]
+   [InlineData("https://contoso.visualstudio.com/shop/_wiki")]
+   [InlineData("https://github.com./octo-org/hello-world")]
+   [InlineData("https://GitHub.COM./octo-org/hello-world")]
+   [InlineData("https://dev.azure.com./contoso/shop/_git/web")]
+   [InlineData("https://contoso.visualstudio.com./shop/_git/web")]
+   public void Url_on_a_platforms_host_that_the_platform_does_not_recognize_is_no_platform_free_repository(string text)
+   {
+      Assert.Null(_platforms.RecognizeRepository(text));
+   }
+
+   [Fact]
+   public void Https_url_on_another_host_is_a_platform_free_target()
+   {
+      Assert.Equal(new RepositoryTarget(new Uri("https://gitlab.com/group/project.git"), null, null), _platforms.RecognizeRepository("https://gitlab.com/group/project.git"));
    }
 
    [Fact]

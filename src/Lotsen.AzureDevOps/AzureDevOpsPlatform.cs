@@ -41,6 +41,9 @@ public sealed class AzureDevOpsPlatform : IRepositoryPlatform, IDisposable
 
    public Uri? Recognize(string text) => AzureDevOpsPullRequest.TryParse(text, out var pullRequest) ? pullRequest.Url : null;
 
+   /// <remarks>A dot after the host names the same host in DNS, so the platform owns that form too.</remarks>
+   public bool OwnsHost(Uri url) => AzureDevOpsRepository.IsHost(url.IdnHost.TrimEnd('.'));
+
    public bool IsSamePullRequest(Uri url, Uri other) =>
       AzureDevOpsPullRequest.TryParse(url.AbsoluteUri, out var pullRequest) && AzureDevOpsPullRequest.TryParse(other.AbsoluteUri, out var otherPullRequest) && pullRequest.IsSame(otherPullRequest);
 

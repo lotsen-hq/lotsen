@@ -9,10 +9,11 @@ using Microsoft.Extensions.Logging;
 namespace Lotsen.Tests;
 
 /// <summary>
-/// A loopback git host that serves one repository through <c>git http-backend</c> and answers 401 to every request without the one <c>Authorization</c> header it accepts.
+/// A loopback git host that serves one repository through <c>git http-backend</c> and answers 401 to every request without the one <c>Authorization</c> header it accepts, or serves every request
+/// as a public host does when it accepts none.
 /// </summary>
 /// <remarks>
-/// A 401 carries <c>WWW-Authenticate: Bearer</c>, as Azure DevOps sends. The server counts requests by outcome and keeps no header value. A redirect set with <see cref="Redirect"/> answers
+/// A 401 carries <c>WWW-Authenticate: Bearer</c>, as Azure DevOps sends, unless <see cref="Challenge"/> sets another. The server counts requests by outcome and keeps no header value. A redirect set with <see cref="Redirect"/> answers
 /// before the authentication check.
 /// </remarks>
 internal sealed class AuthenticatingGitServer : IAsyncDisposable
@@ -20,14 +21,15 @@ internal sealed class AuthenticatingGitServer : IAsyncDisposable
    private readonly WebApplication _app;
    private readonly string _repositoryPath;
    private readonly string _servedAt;
-   private volatile string _accepted;
+   private volatile string? _accepted;
    private volatile Redirection? _redirection;
    private volatile RemoteError? _remoteError;
+   private volatile string _challenge = "Bearer";
    private int _authorized;
    private int _refused;
    private int _withoutHeader;
 
-   private AuthenticatingGitServer(WebApplication app, string repositoryPath, string accepted, string servedAt)
+   private AuthenticatingGitServer(WebApplication app, string repositoryPath, string? accepted, string servedAt)
    {
       _app = app;
       _repositoryPath = repositoryPath;
@@ -49,9 +51,9 @@ internal sealed class AuthenticatingGitServer : IAsyncDisposable
 
    /// <summary>Starts a server for the repository, with or without a working tree.</summary>
    /// <param name="repositoryPath">The repository to serve.</param>
-   /// <param name="accepted">The whole <c>Authorization</c> header value that the server accepts, such as <c>Bearer abc</c>.</param>
+   /// <param name="accepted">The whole <c>Authorization</c> header value that the server accepts, such as <c>Bearer abc</c>, or null to serve every request without one.</param>
    /// <param name="servedAt">The URL path of the served repository.</param>
-   public static async Task<AuthenticatingGitServer> StartAsync(string repositoryPath, string accepted, string servedAt = "/repo")
+   public static async Task<AuthenticatingGitServer> StartAsync(string repositoryPath, string? accepted, string servedAt = "/repo")
    {
       var builder = WebApplication.CreateSlimBuilder();
       builder.Configuration.Sources.Clear();
@@ -67,11 +69,14 @@ internal sealed class AuthenticatingGitServer : IAsyncDisposable
    /// <summary>Returns the URL of a path on this server.</summary>
    public Uri UrlOf(string path) => new($"{_app.Urls.Single()}{path}");
 
-   /// <summary>Makes the server accept this header value from now on, and refuse every other.</summary>
-   public void Accept(string accepted) => _accepted = accepted;
+   /// <summary>Makes the server accept this header value from now on, and refuse every other, or serve every request for null.</summary>
+   public void Accept(string? accepted) => _accepted = accepted;
 
    /// <summary>Makes the server answer each request outside the served repository whose host and path start with <paramref name="from"/> with a redirect to the rest of its path under <paramref name="to"/>.</summary>
    public void Redirect(Uri from, Uri to) => _redirection = new Redirection(from, to);
+
+   /// <summary>Makes each 401 carry this <c>WWW-Authenticate</c> value from now on, such as <c>Basic realm="git"</c>, which lets curl send a password that it finds itself.</summary>
+   public void Challenge(string challenge) => _challenge = challenge;
 
    /// <summary>Makes the server answer each request for the served repository with a git <c>ERR</c> packet that holds the message, which git prints as a remote error.</summary>
    /// <param name="message">The packet's text, which may hold line breaks.</param>
@@ -100,6 +105,12 @@ internal sealed class AuthenticatingGitServer : IAsyncDisposable
       if (served && _remoteError is { } remoteError && (remoteError.BeforeAuthentication || header == _accepted))
       {
          await SendErrorPacketAsync(context, remoteError.Message);
+         return;
+      }
+
+      if (_accepted is null && served)
+      {
+         await RunBackendAsync(context, rest.Value ?? "");
          return;
       }
 
@@ -136,10 +147,10 @@ internal sealed class AuthenticatingGitServer : IAsyncDisposable
       await context.Response.WriteAsync(Packet("# service=git-upload-pack\n") + "0000" + Packet($"ERR {message}\n"), context.RequestAborted);
    }
 
-   private static void Refuse(HttpContext context)
+   private void Refuse(HttpContext context)
    {
       context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-      context.Response.Headers.WWWAuthenticate = "Bearer";
+      context.Response.Headers.WWWAuthenticate = _challenge;
    }
 
    // Runs git http-backend as a CGI program (https://git-scm.com/docs/git-http-backend). The body is buffered, because Kestrel removes a chunked transfer encoding and CGI needs a length.

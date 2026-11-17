@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Lotsen.Git;
 using Lotsen.Pinning;
 using Lotsen.Platforms;
 using Lotsen.Sessions;
@@ -67,14 +68,16 @@ internal sealed class IterationLifecycle
 
    private readonly TourWriter _writer;
    private readonly PullRequestPlatforms _platforms;
+   private readonly PlatformFreeRepositories _platformFree;
    private readonly IGitFacts _facts;
    private readonly TimeProvider _time;
    private readonly ILogger<IterationLifecycle> _logger;
 
-   public IterationLifecycle(TourWriter writer, PullRequestPlatforms platforms, IGitFacts facts, TimeProvider time, ILogger<IterationLifecycle> logger)
+   public IterationLifecycle(TourWriter writer, PullRequestPlatforms platforms, PlatformFreeRepositories platformFree, IGitFacts facts, TimeProvider time, ILogger<IterationLifecycle> logger)
    {
       _writer = writer;
       _platforms = platforms;
+      _platformFree = platformFree;
       _facts = facts;
       _time = time;
       _logger = logger;
@@ -94,8 +97,9 @@ internal sealed class IterationLifecycle
    /// and leaves the pin.
    /// </para>
    /// <para>
-   /// For a repository, the target's platform resolves the target's ref to one commit, and the scope syncs the repository into the clone cache with that commit, with the platform's token. The
-   /// pin is a snapshot of the commit, and the target keeps its ref as the tour's creator gave it, null for the default branch included.
+   /// For a repository, the target's platform resolves the target's ref to one commit, and the scope syncs the repository into the clone cache with that commit, with the platform's token. Git
+   /// resolves the ref of a platform-free repository and syncs it with no credential, as <see cref="PlatformFreeRepositories"/> says. The pin is a snapshot of the commit, and the target keeps
+   /// its ref as the tour's creator gave it, null for the default branch included.
    /// </para>
    /// </remarks>
    /// <param name="id">The tour, which the log names.</param>
@@ -132,13 +136,11 @@ internal sealed class IterationLifecycle
                   }
 
                   break;
-               case RepositoryTarget { Platform: null } repository:
-                  pin = new TourPin.Failed($"lotsen pins a repository only through the platform that hosts it, and no platform hosts {repository.Url.AbsoluteUri}. Create a tour of a repository URL that lotsen recognizes.");
-                  break;
                case RepositoryTarget repository:
-                  var host = _platforms.RepositoryOf(repository);
-                  var resolved = await host.ResolveRepositoryAsync(repository.Url, repository.Ref, cancellationToken);
-                  scope = _facts.Open(TourRemote.OfRepository(resolved, host.GitCredential), [resolved.Commit], FetchPolicy.Sync);
+                  var resolved = repository.Platform is null
+                     ? await _platformFree.ResolveAsync(repository.Url, repository.Ref, cancellationToken)
+                     : await _platforms.RepositoryOf(repository).ResolveRepositoryAsync(repository.Url, repository.Ref, cancellationToken);
+                  scope = _facts.Open(TourRemote.OfRepository(resolved, _platforms.CredentialOf(repository)), [resolved.Commit], FetchPolicy.Sync);
 
                   // Every later read of the tour opens this remote's clone, so the pin syncs the clone with the commit.
                   await scope.OpenCloneAsync(cancellationToken);

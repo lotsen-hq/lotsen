@@ -1,6 +1,6 @@
 ---
 name: codebase
-description: Creates a guided tour of an Azure DevOps or GitHub repository's code at a branch, tag or commit and shows it in the lotsen web UI. Use when the user asks to tour a repository or a codebase, to walk them through how its code is built, to prepare them for a change to one part of it or to evaluate it, such as "tour this repository", "walk me through this codebase", "prepare me to change the request handlers" or "give me a tour of <repository-url> evaluate new".
+description: Creates a guided tour of an Azure DevOps, GitHub or other public git repository's code at a branch, tag or commit and shows it in the lotsen web UI. Use when the user asks to tour a repository or a codebase, to walk them through how its code is built, to prepare them for a change to one part of it or to evaluate it, such as "tour this repository", "walk me through this codebase", "prepare me to change the request handlers" or "give me a tour of <repository-url> evaluate new".
 argument-hint: [<repository-url>] [<ref>] [orient|prepare|evaluate] [familiar|some|new] [plan-first]
 ---
 
@@ -26,8 +26,9 @@ what the reviewer sends, for errors and for the tools' inputs, which this skill 
 
 ## Platforms
 
-lotsen tours repositories on Azure DevOps and GitHub. A repository tour's `target` has the `kind` `repository`, its
-`url`, its `ref` unless it follows the default branch, and the platform's ID in `platform`.
+lotsen tours repositories on Azure DevOps and GitHub, and public repositories on any other host. A repository tour's
+`target` has the `kind` `repository`, its `url`, its `ref` unless it follows the default branch, and the platform's ID
+in `platform`, which a tour of another host lacks.
 
 ### Azure DevOps (`azureDevOps`)
 
@@ -48,6 +49,16 @@ lotsen tours repositories on Azure DevOps and GitHub. A repository tour's `targe
   `git@github.com:{owner}/{repository}` or `ssh://git@github.com/{owner}/{repository}`, with or without `.git`.
   lotsen still clones the repository over https.
 - **Sign-in:** lotsen reads the repository with the GitHub CLI's sign-in, which `gh auth login` sets.
+
+### Other hosts
+
+- **Repository URL:** the `https` clone URL of a public git repository on any other host, such as
+  `https://git.example.com/{path}`, as `git clone` takes it, without a query or a fragment. A web page's URL works only
+  when git clones from it too. An SSH remote of another host does not work. Give the ref in `ref`, because such a URL
+  names none.
+- **Sign-in:** none. lotsen reads the repository with git alone and sends no credential, so a private repository
+  there fails to pin with a reason that says so. Tell the user that lotsen tours only public repositories on other
+  hosts, and ask for the URL of a public repository, or of the repository on a platform above.
 
 ## 1. Take the repository, the ref, the purpose and the familiarity level
 
@@ -78,8 +89,8 @@ When the user gives no repository URL, tour the repository that you run in, at i
    git remote get-url <remote> | sed -E -e 's#^([^:/]+://)git(:[^/@]*)?@#\1git@#' -e '/^[^:/]+:\/\/git@/!s#^([^:/]+://)[^/]*@#\1#'
    ```
 
-   Pass the URL as it prints it, an SSH remote included. When the URL is in no form that "Platforms" names, ask the
-   user for the repository URL.
+   Pass the URL as it prints it, an SSH remote included. When the URL is in no form that "Platforms" names, such as an
+   SSH remote of another host, ask the user for the repository URL, which for another host is its `https` clone URL.
 5. When the ref is a branch and `HEAD` is on it, `git rev-list --count <remote>/<ref>..HEAD` counts the local commits
    that the remote does not have. When the count is above 0, tell the user that the tour shows the branch as the
    remote has it, without those commits.
@@ -199,9 +210,9 @@ number against the file at that commit, so read the code from a local checkout a
 user's branch, and never touch their uncommitted work.
 
 You run in a checkout of the repository when one of its remotes names the tour's repository: the same host, owner and
-repository name as the tour's `url`. `git remote` lists the remotes' names. Read each remote's URL with the command of
-section 1, which removes its user information, never with `git remote -v`. This section calls a matching remote the
-checkout's remote.
+repository name as the tour's `url`, or for a tour without a `platform`, the same host and path. `git remote` lists
+the remotes' names. Read each remote's URL with the command of section 1, which removes its user information, never
+with `git remote -v`. This section calls a matching remote the checkout's remote.
 
 - **The user's checkout is clean at the commit:** when `git rev-parse HEAD` prints `pin.head` and
   `git status --porcelain --untracked-files=all` prints nothing, read the code there. Run both checks again before

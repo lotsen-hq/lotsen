@@ -39,6 +39,9 @@ internal sealed record AzureDevOpsRepository(string Organization, string Project
       && string.Equals(Project, other.Project, StringComparison.OrdinalIgnoreCase)
       && string.Equals(Name, other.Name, StringComparison.OrdinalIgnoreCase);
 
+   /// <summary>Returns whether the host, in lowercase, is one that Azure DevOps serves its web URLs or its git remotes at: dev.azure.com, ssh.dev.azure.com or a host under visualstudio.com.</summary>
+   public static bool IsHost(string host) => host is DevAzureHost or SshHost || host.EndsWith(VisualStudioSuffix, StringComparison.Ordinal);
+
    /// <summary>Returns the web URL of a work item in the repository's project: <c>{organization URL}/{project}/_workitems/edit/{id}</c>.</summary>
    public Uri WorkItemUrl(int id) => new($"{OrganizationUrl.AbsoluteUri}{Uri.EscapeDataString(Project)}/_workitems/edit/{id}");
 

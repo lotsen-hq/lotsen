@@ -71,6 +71,22 @@ public abstract class PlatformContractTests
       });
    }
 
+   /// <summary>The registry reads an https URL on an owned host as no repository without a platform, so a pull request URL must never become one.</summary>
+   [Fact]
+   public void Platform_owns_the_host_of_every_https_form_and_recognized_url_and_no_other_host()
+   {
+      Assert.All(PullRequestForms.Concat(OtherPullRequests), form =>
+      {
+         Assert.True(Platform.OwnsHost(Platform.Recognize(form)!), form);
+         Assert.True(!form.StartsWith("https://", StringComparison.Ordinal) || Platform.OwnsHost(new Uri(form)), form);
+         Assert.True(!form.StartsWith("https://", StringComparison.Ordinal) || Platform.OwnsHost(WithTrailingDot(new Uri(form))), form);
+      });
+      Assert.False(Platform.OwnsHost(new Uri("https://git.example.com/shop")));
+   }
+
+   /// <summary>Returns the URL with a dot after its host, which names the same host in DNS.</summary>
+   internal static Uri WithTrailingDot(Uri url) => new UriBuilder(url) { Host = url.Host + "." }.Uri;
+
    [Fact]
    public void Every_recognized_url_has_a_label()
    {

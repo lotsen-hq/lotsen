@@ -28,6 +28,9 @@ internal sealed record GitHubRepository(string Owner, string Name, Uri Url)
    /// <summary>Returns whether the other names the same repository, with the owners and the names compared in any letter case.</summary>
    public bool IsSame(GitHubRepository other) => string.Equals(Owner, other.Owner, StringComparison.OrdinalIgnoreCase) && string.Equals(Name, other.Name, StringComparison.OrdinalIgnoreCase);
 
+   /// <summary>Returns whether the host, in lowercase, is one of github.com's names, which its web URLs and its git remotes use.</summary>
+   public static bool IsHost(string host) => host is Host or WwwHost;
+
    /// <summary>Returns the web URL of an issue in the repository: <c>https://github.com/{owner}/{repository}/issues/{number}</c>.</summary>
    public Uri IssueUrl(int number) => new($"https://{Host}/{Owner}/{Name}/issues/{number}");
 

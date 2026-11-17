@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json.Nodes;
+using Lotsen.Git;
 using Lotsen.Tours;
 
 namespace Lotsen.Tests;
@@ -22,7 +23,8 @@ public sealed class CreateTourValidationTests : IAsyncLifetime
    {
       { $$"""{ "prUrl": "{{TestPlatform.PrUrl}}", {{RepositoryProperty()}}, "familiarity": "some" }""", "repository", "give either prUrl" },
       { """{ "familiarity": "some" }""", null, "give prUrl" },
-      { $$"""{ {{RepositoryProperty(url: "https://third.test/shop")}}, "familiarity": "some" }""", "repository.url", "is not a repository URL that lotsen recognizes" },
+      { $$"""{ {{RepositoryProperty(url: "git@third.test:shop.git")}}, "familiarity": "some" }""", "repository.url", "is not a repository URL that lotsen recognizes" },
+      { $$"""{ {{RepositoryProperty(url: "http://third.test/shop")}}, "familiarity": "some" }""", "repository.url", "is not a repository URL that lotsen recognizes" },
       { $$"""{ {{RepositoryProperty(url: TestPlatform.PrUrl)}}, "familiarity": "some" }""", "repository.url", "is not a repository URL that lotsen recognizes" },
       { $$"""{ {{RepositoryProperty(@ref: "a..b")}}, "familiarity": "some" }""", "repository.ref", "is not a branch, tag or full commit ID" },
       { $$"""{ {{RepositoryProperty(url: Repository + "/tree/main", @ref: "feature")}}, "familiarity": "some" }""", "repository.ref", "Give the ref once" },
@@ -56,11 +58,12 @@ public sealed class CreateTourValidationTests : IAsyncLifetime
       var second = new TestPlatform("second", "second.test");
       await using var harness = await ServerHarness.StartAsync(configure: options => options with { Platforms = [_ => first, _ => second] });
 
-      using var response = await harness.AgentSendJsonAsync("create_tour", $$"""{ {{RepositoryProperty(url: "https://third.test/shop")}}, "familiarity": "some" }""");
+      using var response = await harness.AgentSendJsonAsync("create_tour", $$"""{ {{RepositoryProperty(url: "git@third.test:shop.git")}}, "familiarity": "some" }""");
 
       var error = await ThreadCalls.ErrorAsync(response, HttpStatusCode.BadRequest, "invalidInput");
       Assert.Equal(
-         $"repository.url: 'https://third.test/shop' is not a repository URL that lotsen recognizes. Expected {first.ExpectedRepositoryForms}; or {second.ExpectedRepositoryForms}.",
+         $"repository.url: 'git@third.test:shop.git' is not a repository URL that lotsen recognizes. Expected {first.ExpectedRepositoryForms}; or {second.ExpectedRepositoryForms}; or "
+         + $"{PlatformFreeRepositories.ExpectedForms}.",
          (string)error["reason"]!);
    }
 

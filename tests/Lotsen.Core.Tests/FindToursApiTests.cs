@@ -156,10 +156,10 @@ public sealed class FindToursApiTests : IAsyncLifetime
    [Fact]
    public async Task Repository_url_that_no_platform_recognizes_is_refused_as_create_tour_refuses_it()
    {
-      const string Unrecognized = """{ "repository": { "url": "https://third.test/shop" } }""";
+      const string Unrecognized = """{ "repository": { "url": "git@third.test:shop.git" } }""";
 
       using var found = await _harness.AgentSendJsonAsync("find_tours", Unrecognized);
-      using var created = await _harness.AgentSendJsonAsync("create_tour", """{ "repository": { "url": "https://third.test/shop", "purpose": "orient", "title": "T" }, "familiarity": "some" }""");
+      using var created = await _harness.AgentSendJsonAsync("create_tour", """{ "repository": { "url": "git@third.test:shop.git", "purpose": "orient", "title": "T" }, "familiarity": "some" }""");
 
       var error = await ThreadCalls.ErrorAsync(found, HttpStatusCode.BadRequest, "invalidInput");
       Assert.Equal("repository.url", (string)error["field"]!);

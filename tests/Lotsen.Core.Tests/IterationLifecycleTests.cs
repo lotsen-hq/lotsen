@@ -55,7 +55,7 @@ public sealed class IterationLifecycleTests : IDisposable
 
       _facts = new FakeFacts(truth.Build());
       _platform.PullRequest(Remote, NewHead, Target, iteration: 2);
-      _lifecycle = new IterationLifecycle(_writer, new PullRequestPlatforms([_platform]), _facts, TimeProvider.System, _logs.CreateLogger<IterationLifecycle>());
+      _lifecycle = new IterationLifecycle(_writer, new PullRequestPlatforms([_platform]), PlatformFree(dataDirectory), _facts, TimeProvider.System, _logs.CreateLogger<IterationLifecycle>());
       var created = _store.Create(PullRequest, Familiarity.Some);
       _tour = _store.Change(created.Id, tour => tour with
       {
@@ -66,6 +66,8 @@ public sealed class IterationLifecycleTests : IDisposable
       _session = _sessions.TryOpen()!;
       _writer.Exclusive(locked => locked.BindNew(_tour.Id, _session.Recipient));
    }
+
+   private static PlatformFreeRepositories PlatformFree(DataDirectory dataDirectory) => new(dataDirectory, new GitRunner(new GitOptions()));
 
    private Access.ReviewerToSession.Pass Pass => Passes.Admit<Access.ReviewerToSession.Pass>("update_iteration", Passes.Ui(_credentials, _sessions));
 
@@ -418,7 +420,7 @@ public sealed class IterationLifecycleTests : IDisposable
    [Fact]
    public async Task Check_of_a_tour_whose_platform_is_not_registered_reports_the_platform()
    {
-      var lifecycle = new IterationLifecycle(_writer, new PullRequestPlatforms([new TestPlatform("other")]), _facts, TimeProvider.System, _logs.CreateLogger<IterationLifecycle>());
+      var lifecycle = new IterationLifecycle(_writer, new PullRequestPlatforms([new TestPlatform("other")]), PlatformFree(new DataDirectory(Path.Combine(_root, "data"))), _facts, TimeProvider.System, _logs.CreateLogger<IterationLifecycle>());
 
       var run = await lifecycle.CheckAsync(_tour.Id, null, TestContext.Current.CancellationToken);
 
@@ -507,19 +509,23 @@ public sealed class IterationLifecycleTests : IDisposable
       Assert.Equal((1, 1), (_facts.Opens, _facts.Disposes));
    }
 
-   [Fact]
-   public async Task First_pin_of_a_repository_without_a_platform_stores_the_failure_and_asks_no_platform()
+   /// <summary>Only an edited tour file holds such a target, because create_tour accepts none of these URLs without a platform.</summary>
+   [Theory]
+   [InlineData("file:///srv/git/shop")]
+   [InlineData("ssh://git.example.com/shop.git")]
+   [InlineData("http://git.example.com/shop")]
+   public async Task First_pin_of_a_target_without_a_platform_at_a_url_that_git_must_not_reach_stores_the_failure_and_opens_no_clone(string url)
    {
       TourPin? stored = null;
 
-      await _lifecycle.PinAsync(_tour.Id, new RepositoryTarget(new Uri("https://git.test/shop.git"), null, null), (pin, _) =>
+      await _lifecycle.PinAsync(_tour.Id, new RepositoryTarget(new Uri(url), null, null), (pin, _) =>
       {
          stored = pin;
          return Task.CompletedTask;
       }, TestContext.Current.CancellationToken);
 
-      Assert.StartsWith("lotsen pins a repository only through the platform that hosts it", Assert.IsType<TourPin.Failed>(stored).Reason, StringComparison.Ordinal);
-      Assert.Equal((0, 0), (_platform.Resolves, _facts.Opens));
+      Assert.Equal(new TourPin.Failed(PlatformFreeRepositories.UnreachableRefusal), stored);
+      Assert.Equal(0, _facts.Opens);
    }
 
    [Fact]

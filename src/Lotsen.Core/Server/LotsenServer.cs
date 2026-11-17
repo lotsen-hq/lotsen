@@ -232,7 +232,7 @@ internal sealed class LotsenServer : IAsyncDisposable
       builder.Services.AddSingleton(new ServerSentEvents(options.Liveness, options.LivenessClock));
       builder.Services.AddTourOperations();
       builder.Services.AddSingleton(options.DataDirectory);
-      builder.Services.AddSingleton(new GitRunner(options.Git));
+      builder.Services.AddSingleton(new GitRunner(options.Git with { IsolatedHome = options.DataDirectory.IsolatedGitHomePath }));
       foreach (var platform in options.Platforms)
       {
          builder.Services.AddSingleton<IPullRequestPlatform>(platform);
@@ -241,6 +241,7 @@ internal sealed class LotsenServer : IAsyncDisposable
       builder.Services.AddSingleton<PullRequestPlatforms>();
       builder.Services.AddSingleton<ICloneDirectories, CloneDirectories>();
       builder.Services.AddSingleton<CloneCache>();
+      builder.Services.AddSingleton<PlatformFreeRepositories>();
       builder.Services.AddSingleton<CloneMaintenance>();
       builder.Services.AddSingleton(options.FactCacheSize);
       builder.Services.AddSingleton<IGitFacts, CloneGitFacts>();

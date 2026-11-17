@@ -176,6 +176,8 @@ internal sealed class TestPlatform : IRepositoryPlatform
       ? new Uri(recognized, kind == MentionKind.WorkItem ? $"../workitems/{id}" : id.ToString(CultureInfo.InvariantCulture))
       : null;
 
+   public bool OwnsHost(Uri url) => string.Equals(url.IdnHost.TrimEnd('.'), _host, StringComparison.OrdinalIgnoreCase);
+
    public RecognizedRepository? RecognizeRepository(string text)
    {
       if (!Uri.TryCreate(text, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps || uri.Host != _host)
