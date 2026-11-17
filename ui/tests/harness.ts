@@ -321,7 +321,7 @@ export async function openStop(app: LotsenApp, stopId: string): Promise<void> {
  * on an answer only after the answer leaves the count. One call of the host waits for the jobs and then writes the comment that the event wait reads. No wait outlasts a test's hold: a request
  * held at its answer does not count, the job wait ends once a job waits on the world's pull request (`World.quiet`), and the event wait is skipped while the test stalls the event streams.
  *
- * @throws An `Error` that names the wait that did not end, once the waits take longer than the library's `asyncUtilTimeout`.
+ * @throws An `Error` that names the wait that did not end and the time that each wait took, once the waits take longer than the library's `asyncUtilTimeout`.
  */
 export async function settled(app: LotsenApp): Promise<void> {
    if (started?.app !== app) {
@@ -330,11 +330,31 @@ export async function settled(app: LotsenApp): Promise<void> {
 
    const { world, transport } = started;
    const timeoutMs = getConfig().asyncUtilTimeout;
-   const deadline = Date.now() + timeoutMs;
-   const within = async (wait: Promise<void>, unfinished: () => string): Promise<void> => {
+   let since = Date.now();
+   const deadline = since + timeoutMs;
+   // A stalled machine slows every wait, so the message gives the time of each: the wait that runs at the deadline need not be the slow one.
+   const spent = { requests: 0, jobs: 0, events: 0 };
+   let waiting: keyof typeof spent = 'requests';
+   const enter = (next: keyof typeof spent) => {
+      const now = Date.now();
+      spent[waiting] += now - since;
+      [waiting, since] = [next, now];
+   };
+   const unfinished = {
+      requests: () => `${transport.inFlight()} of its requests are still in flight.`,
+      jobs: () => 'the test host has not reported that the background jobs of the server ended.',
+      events: () => 'it has not read every event that the server published.',
+   };
+   const failure = (why: string) => {
+      enter(waiting);
+      return new Error(
+         `The page did not settle within ${timeoutMs} ms: ${why} It waited ${spent.requests} ms for its requests, ${spent.jobs} ms for the server's background jobs and ${spent.events} ms for its events.`,
+      );
+   };
+   const within = async (wait: Promise<void>): Promise<void> => {
       let timer: ReturnType<typeof setTimeout> | undefined;
       const late = new Promise<never>((_, reject) => {
-         timer = setTimeout(() => reject(new Error(`The page did not settle within ${timeoutMs} ms: ${unfinished()}`)), Math.max(0, deadline - Date.now()));
+         timer = setTimeout(() => reject(failure(unfinished[waiting]())), Math.max(0, deadline - Date.now()));
       });
       try {
          await Promise.race([wait, late]);
@@ -344,23 +364,22 @@ export async function settled(app: LotsenApp): Promise<void> {
    };
 
    for (;;) {
-      await within(transport.requestsDone(), () => `${transport.inFlight()} of its requests are still in flight.`);
+      enter('requests');
+      await within(transport.requestsDone());
       const seen = transport.activity();
-      let quiet = false;
+      enter('jobs');
       const quieted = async (comment?: string) => {
          await world.quiet(comment);
-         quiet = true;
+         enter('events');
       };
-      await within(transport.streamsStalled() ? quieted() : transport.streamsRead(quieted), () =>
-         quiet ? 'it has not read every event that the server published.' : 'a background job of the server still runs.',
-      );
+      await within(transport.streamsStalled() ? quieted() : transport.streamsRead(quieted));
       await new Promise((resolve) => setTimeout(resolve, 0));
       if (transport.activity() === seen && transport.inFlight() === 0) {
          return;
       }
 
       if (Date.now() >= deadline) {
-         throw new Error(`The page did not settle within ${timeoutMs} ms: it kept sending requests or hearing events.`);
+         throw failure('it kept sending requests or hearing events.');
       }
    }
 }
