@@ -80,6 +80,14 @@ Then ask for a tour:
 
 On GitHub, any page of the pull request works as its URL, such as its changed files. The second word says how well you know the code, and Claude asks if you leave it out. With `plan-first`, you approve the plan before Claude writes any stop. Claude opens the tour in your browser.
 
+To find your way around a repository's code, ask Claude to "tour this repository" in a checkout, or name the repository:
+
+```text
+/lotsen:codebase [<repository-url>] [<ref>] [familiar|some|new] [plan-first]
+```
+
+Without a URL, Claude tours the repository you run it in, at your branch as the remote has it. Codebase tours work for repositories on `github.com` for now. Claude reads the code at the tour's commit, and offers a worktree or a temporary clone when your checkout is at another commit or has changes, instead of switching your branch.
+
 ## Commands
 
 Claude Code starts a background server when a session needs one, and it stops by itself once nothing uses it. These commands are for the times you want to step in. They need the global install from [Install](#install). Without it, run a command through npx with the plugin's version, such as `npx -y lotsen@<version> open`, with the version that Lotsen's errors in Claude Code name.
