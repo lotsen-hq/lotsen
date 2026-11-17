@@ -227,7 +227,7 @@ internal closed record QuestionThread
          // The serializer refuses a missing or null list of answers, risks or stop IDs, but not a null element in any list.
          private static bool HasNullElement(TourAction action) => action switch
          {
-            TourAction.Explain or TourAction.Revise or TourAction.Replan or TourAction.Summarize => false,
+            TourAction.Explain or TourAction.Revise or TourAction.Replan or TourAction.Summarize or TourAction.Dive => false,
             TourAction.Reorder reorder => HasNullItem(reorder.StopIds),
             TourAction.FollowUp.DraftWorkItems work => HasNullItem(work.Decisions) || HasNullItem(work.DecisionThreads ?? []),
             TourAction.FollowUp.WalkOpenQuestions walk => HasNullItem(walk.OpenQuestions) || HasNullItem(walk.OpenQuestionThreads ?? []),

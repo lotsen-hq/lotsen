@@ -21,6 +21,9 @@ internal static class ActionRules
    /// <summary>Why a repository tour offers no draftComments, which a request of it gets.</summary>
    public const string NoPullRequestAuthor = "A repository tour has no pull request, so Claude has no author to draft comments for. Ask Claude about a concern in its thread instead.";
 
+   /// <summary>Why a pull request's tour offers no dive, which a request of it gets.</summary>
+   public const string NoDiveOnPullRequest = "A pull request's tour has no dives, because a dive tours part of a repository at one commit. Ask Claude about the code in a thread instead.";
+
    // The sentences that the rules of more than one kind share, served to Claude. DecisionRules uses the public ones.
    public const string ProposedOrderRule = "A proposed order is a request, not an order to copy, because a stop can rely on the stops before it. Keep such a stop after the stops it relies on, give the chapters, and the parts if the plan has any, to the new order, and say in the reply where your order differs from the proposal and why.";
    public const string DepthRule = "The tour's familiarity level sets how deep a stop goes. familiar: go deeper on the why and the design choices, and don't explain the codebase's conventions. some: explain the code that the stop relies on but does not show, with related passages or ref: links. new: define each term the stop relies on and walk through the code step by step.";
@@ -52,10 +55,10 @@ internal static class ActionRules
 
    /// <summary>Returns the anchor and the stored action of a new request, or why the request cannot go to the tour now.</summary>
    /// <remarks>
-   /// Explain and revise resolve their target with <see cref="StopTargets.Resolve"/>, need a stop with content, and stamp a whole stop's current version on the action. Every other kind takes the
-   /// whole tour. Replan, reorder and summarize need a plan, a revise and a replan need words, and a reorder names every stop of the plan once. A follow-up action needs an item in its group of the
-   /// summary that an agent session reads, a sent answer or a sent typed thread, and the stored action carries those items. The refusals that the tour's state alone gives come from
-   /// <see cref="Offer"/>, before the input's own checks. The waiting rule is the thread table's.
+   /// Explain and revise resolve their target with <see cref="StopTargets.Resolve"/>, need a stop with content, and stamp a whole stop's current version on the action. A dive takes the stop of the
+   /// plan that it names, written or pending, or the whole tour. Every other kind takes the whole tour. Replan, reorder and summarize need a plan, a revise, a replan and a dive from the whole tour
+   /// need words, and a reorder names every stop of the plan once. A follow-up action needs an item in its group of the summary that an agent session reads, a sent answer or a sent typed thread, and
+   /// the stored action carries those items. The refusals that the tour's state alone gives come from <see cref="Offer"/>, before the input's own checks. The waiting rule is the thread table's.
    /// </remarks>
    /// <param name="tour">The latest stored tour.</param>
    /// <param name="request">The request.</param>
@@ -64,9 +67,9 @@ internal static class ActionRules
 
    /// <summary>Returns why a request of the kind cannot go to the tour now, from the tour's state alone, or null when it can.</summary>
    /// <remarks>
-   /// It runs the columns of <see cref="Admit"/> that read the tour and not the reviewer's words: <see cref="NotOffered"/>, then the target's stop and its content for explain and revise, the
-   /// plan for replan, reorder and summarize, and the items of the summary for a follow-up action. So the tour controls offer a request exactly when <see cref="Admit"/> takes one with valid
-   /// words, before the waiting rule.
+   /// It runs the columns of <see cref="Admit"/> that read the tour and not the reviewer's words: <see cref="NotOffered"/>, then the target's stop and its content for explain and revise, the tour's
+   /// pin and the named stop for a dive, the plan for replan, reorder and summarize, and the items of the summary for a follow-up action. So the tour controls offer a request exactly when
+   /// <see cref="Admit"/> takes one with valid words, before the waiting rule.
    /// </remarks>
    /// <param name="tour">The latest stored tour.</param>
    /// <param name="request">The request, whose stop target counts and whose reorder order does not.</param>
@@ -79,14 +82,19 @@ internal static class ActionRules
          ActionRequest.Replan => NoPlan(tour, TourAction.ReplanKind),
          ActionRequest.Reorder => NoPlan(tour, TourAction.ReorderKind),
          ActionRequest.Summarize => NoReview(tour),
+         ActionRequest.Dive dive => NoCommit(tour) ?? (dive.StopId is { } stopId ? StopTargets.Resolve(tour, new StopTarget.WholeStop(stopId), ActionField).Error : null),
          ActionRequest.FollowUp followUp => NothingToHand(followUp, AgentView.Summary(tour)) is { } reason ? OperationError.Invalid(ActionField, reason) : null,
       };
 
    /// <summary>Returns why the tour's review target has no tour action of the request's kind, whatever the tour's state, or null when it has one.</summary>
-   /// <remarks>Comments go to a pull request's author, so only a pull request's tour has draftComments. The tour controls leave out a follow-up action that the target does not have.</remarks>
+   /// <remarks>
+   /// Comments go to a pull request's author, so only a pull request's tour has draftComments. A dive tours a repository at its parent's commit, so only a repository tour has dives. The tour
+   /// controls leave out an action that the target does not have.
+   /// </remarks>
    public static string? NotOffered(Tour tour, ActionRequest request) => request switch
    {
       ActionRequest.Explain or ActionRequest.Revise or ActionRequest.Replan or ActionRequest.Reorder or ActionRequest.Summarize => null,
+      ActionRequest.Dive => tour.Target is RepositoryTarget ? null : NoDiveOnPullRequest,
       ActionRequest.FollowUp.DraftWorkItems or ActionRequest.FollowUp.WalkOpenQuestions => null,
       ActionRequest.FollowUp.DraftComments => tour.Target is PullRequestTarget ? null : NoPullRequestAuthor,
    };
@@ -107,6 +115,7 @@ internal static class ActionRules
             ? null
             : OperationError.Invalid(ActionField.Then("stopIds"), "Claude changed the plan's stops since you proposed this order. Propose an order of the current plan's stops from the Plan panel.")),
       TourAction.Summarize => NoReview(tour),
+      TourAction.Dive dive => NotOffered(tour, new ActionRequest.Dive(dive.Purpose, dive.Familiarity)) is { } notOffered ? OperationError.Invalid(ActionField, notOffered) : CheckDiveAgain(tour, anchor),
       TourAction.FollowUp followUp => NotOffered(tour, RequestOf(followUp)) is { } notOffered ? OperationError.Invalid(ActionField, notOffered) : CheckThreadsAgain(tour, followUp),
    };
 
@@ -120,7 +129,7 @@ internal static class ActionRules
    /// <remarks>A thread's last question decides whether it waits, so a follow-up in it counts, because Claude can do the work again for it.</remarks>
    public static WaitGroup? WaitsAlone(TourAction action) => action switch
    {
-      TourAction.Explain or TourAction.Revise => null,
+      TourAction.Explain or TourAction.Revise or TourAction.Dive => null,
       TourAction.Replan or TourAction.Reorder => WaitGroup.Plan,
       TourAction.Summarize => WaitGroup.Summary,
       TourAction.FollowUp.DraftWorkItems => WaitGroup.WorkItems,
@@ -131,7 +140,7 @@ internal static class ActionRules
    /// <summary>Returns whether the action hands the review to Claude and adds nothing to it, so the review summary's fingerprint leaves its thread out.</summary>
    public static bool HandsOverReview(TourAction action) => action switch
    {
-      TourAction.Explain or TourAction.Revise or TourAction.Replan or TourAction.Reorder => false,
+      TourAction.Explain or TourAction.Revise or TourAction.Replan or TourAction.Reorder or TourAction.Dive => false,
       TourAction.Summarize or TourAction.FollowUp => true,
    };
 
@@ -139,7 +148,7 @@ internal static class ActionRules
    /// <remarks>An item applies exactly when <see cref="CheckResend"/> would let the action go again with it, because both read <see cref="LapseOf"/>.</remarks>
    public static IReadOnlyList<ThreadItemNow>? ThreadItemsNow(Tour tour, TourAction action) => action switch
    {
-      TourAction.Explain or TourAction.Revise or TourAction.Replan or TourAction.Reorder or TourAction.Summarize => null,
+      TourAction.Explain or TourAction.Revise or TourAction.Replan or TourAction.Reorder or TourAction.Summarize or TourAction.Dive => null,
       TourAction.FollowUp followUp => ThreadListOf(followUp).Threads is { } threads ? [.. threads.Select(thread => new ThreadItemNow(thread.ThreadId, LapseOf(tour, thread, followUp.Kind)))] : null,
    };
 
@@ -159,6 +168,7 @@ internal static class ActionRules
       TourAction.Summarize => tour.Purpose is { } purpose
          ? $"The action \"summarize\" asks you to write a synthesis of the tour for its purpose, {SummarizeRequest} {SummarizeRead} {PurposeSynthesis(purpose)}, with ref: links to the code each point is about. {(purpose == TourPurpose.Evaluate ? $"{OpenFindingsRule} " : "")}{TypedThreadsRule} {SynthesisWriteRule}"
          : $"The action \"summarize\" asks you to write a synthesis of the review, {SummarizeRequest} {SummarizeRead} a synthesis of what the review decided, what worries the reviewer and what stays open, with ref: links to the code each point is about. {OpenFindingsRule} {TypedThreadsRule} {SynthesisWriteRule}",
+      TourAction.Dive => "The action \"dive\" asks you to create a dive: a new repository tour that goes deeper into what the reviewer's words name, or into the anchor's stop and what the words name about it. Carry out dive with create_tour and its diveOrigin: parentTourId is this tour's tourId, stopId is the anchor's stop when the anchor is a stop, purpose is the action's purpose, title is a title that you write for the dive, and words are the reviewer's words when there are any. Pass the action's familiarity as familiarity. lotsen pins the dive to this tour's commit, so the dive shows the same code as this tour, and attaches the dive to this session. Then resolve the action with a reply of one sentence that names the dive's title, and write the dive after the reply as a tour of its purpose, with set_plan and put_stop on the dive's tourId. Reply needsAnswer instead when the words leave open what the dive should cover.",
       TourAction.FollowUp.DraftWorkItems => $"The action \"draftWorkItems\" asks you to propose work items for the review's decisions, which the reviewer requested from the summary page. Its decisions list the decisions that the reviewer had sent when they asked, {AnswerItemFields}, and its decisionThreads list the threads that the reviewer sent and filed as a decision, {ThreadItemFields}. {FollowUpItemsRule} {ThreadItemsRule} {ThreadItemsNowRule} A resolved item of decisionThreads is a decision that the reviewer settled in its thread, and it can still need a work item. Read each decision with its check's question, and each decision thread at its anchor, and propose to the user in the terminal a work item for each decision or decision thread that needs follow-up work, such as {(tour.Target is PullRequestTarget ? PullRequestWorkItems : RepositoryWorkItems)} {NoLotsenActionRule} Then resolve the action with a reply of one sentence that names each work item you created, or says that the user approved none.",
       TourAction.FollowUp.WalkOpenQuestions => $"The action \"walkOpenQuestions\" asks you to walk the reviewer through the open questions, which the reviewer requested from the summary page. Its openQuestions list the open questions that the reviewer had sent when they asked, {AnswerItemFields}, and its openQuestionThreads list the threads that the reviewer sent and filed as an open question, {ThreadItemFields}. {FollowUpItemsRule} {ThreadItemsRule} {ThreadItemsNowRule} lotsen also leaves out an open question thread that the reviewer resolved, because the reviewer settled it there. Walk the reviewer through them in the UI, not in the terminal: start one thread with start_thread for each item of openQuestions, and leave the decision to the reviewer, who settles each one in its thread. Anchor the thread on the check's question: stopText with the item's stopId, field checks[<checkId>].question and the item's question as text. When the item has no question, because the stop's content no longer holds the check, anchor it on the stop with stop, and when it has no stopTitle, because the plan dropped the stop, on the tour. An item of openQuestionThreads already is a thread: add to that thread with add_thread_message and its threadId instead of starting a new one. add_thread_message refuses a thread whose last question still waits for your reply, so answer that question with reply instead. Write in each thread what would help the decision, such as the code it rests on with ref: links and the trade-offs, then your recommendation and why. {NoLotsenActionRule} Then resolve the action with a reply of one sentence that says how many threads you started and how many you added to. The reviewer's answers come as follow-ups in those threads: reply to each as to any question.",
       TourAction.FollowUp.DraftComments => $"The action \"draftComments\" asks you to draft comments for the pull request's author from the concerns, which the reviewer requested from the summary page. Its concerns list the concerns that the reviewer had sent when they asked, {AnswerItemFields}, its concernThreads list the threads that the reviewer sent and filed as a concern, {ThreadItemFields}, and its risks the risk stops that you wrote and the reviewer did not skip, a stale one included, which the summary counts as concerns, each with its stopId, title and scenario. lotsen omits a pending risk stop, which has no scenario, and a risk stop that the reviewer skipped, because you post a comment in the reviewer's name. {FollowUpItemsRule} {ThreadItemsRule} {ThreadItemsNowRule} lotsen also leaves out a concern thread that the reviewer resolved, because the discussion settled it. A risk stop with staleOn in read_state still points at an earlier iteration, so read its code again at the tour's pin before you draft its comment. Draft a comment for the pull request's author for each concern, concern thread or risk that needs one: what worries the reviewer, where in the code, such as a concern thread's anchor, and what would settle it, written to the author. Say which concerns need none. Return the drafts as text in your reply, one after another, each naming its file and lines: this reply holds the drafts, so it is longer than a short reply. Then ask the user in the terminal which drafts to post. Post a comment only with your own tools, such as the hosting platform's CLI, after the user approves it in the terminal, and post it as the user approved it. {NoLotsenActionRule}",
@@ -201,6 +211,7 @@ internal static class ActionRules
          ActionRequest.Replan => NoWords(text, "a replan needs the reviewer's words: say how the plan should change.") is { } noWords ? noWords : OnTour(new TourAction.Replan()),
          ActionRequest.Reorder reorder => BadOrder(tour, reorder.StopIds) is { } badOrder ? badOrder : OnTour(new TourAction.Reorder(reorder.StopIds)),
          ActionRequest.Summarize => OnTour(new TourAction.Summarize()),
+         ActionRequest.Dive dive => OnDive(dive, text),
          ActionRequest.FollowUp followUp => OnTour(ItemsOf(followUp, AgentView.Summary(tour))),
       };
 
@@ -290,6 +301,39 @@ internal static class ActionRules
 
    private static OperationResult<Accepted> OnTour(TourAction action) => new Accepted(new ThreadAnchor.WholeTour(), action);
 
+   // Builds the dive on the stop that Offer took, or on the whole tour, which needs words to say what the dive covers.
+   private static OperationResult<Accepted> OnDive(ActionRequest.Dive dive, string text)
+   {
+      var action = new TourAction.Dive(dive.Purpose, dive.Familiarity);
+      if (dive.StopId is { } stopId)
+      {
+         return new Accepted(new ThreadAnchor.WholeStop(stopId), action);
+      }
+
+      return NoWords(text, "a dive from the whole tour needs the reviewer's words: say what the dive should cover.") is { } noWords ? noWords : OnTour(action);
+   }
+
+   // A dive shows its parent's commit, so a tour that is not pinned has no commit to dive into.
+   private static OperationError? NoCommit(Tour tour) => tour.Pin switch
+   {
+      TourPin.Snapshot or TourPin.Pinned => null,
+      TourPin.Pinning => OperationError.Invalid(ActionField, "the tour is not pinned to a commit yet, so a dive has no commit to show. Wait until lotsen pins the tour."),
+      TourPin.Failed => OperationError.Invalid(ActionField, "the tour's pin failed, so a dive has no commit to show. Ask Claude in the terminal to pin the tour again, then ask for the dive."),
+   };
+
+   // Admit stores a dive on a whole stop or the whole tour, but a tour file can hold one on another anchor.
+   private static OperationError? CheckDiveAgain(Tour tour, ThreadAnchor anchor) => NoCommit(tour) ?? anchor switch
+   {
+      ThreadAnchor.WholeTour => null,
+      ThreadAnchor.WholeStop stop => tour.FindStop(stop.StopId) is null
+         ? OperationError.Invalid(
+            AnchorField.Then("stopId"),
+            "Claude dropped this stop from the plan since you asked, so there is no stop to dive from. Ask again from the Stop panel of a stop in the current plan, or from the Plan panel.")
+         : null,
+      ThreadAnchor.StopText or ThreadAnchor.CodeRange or ThreadAnchor.WholeFile =>
+         OperationError.Invalid(AnchorField.Then("kind"), "the dive action takes a stop or the whole tour. Request it from the Stop panel or from the Plan panel."),
+   };
+
    // The stop's content is what the session explains or revises, so a pending stop has nothing to act on. A stop text target already refuses a pending stop.
    private static OperationError? OfferOnStop(Tour tour, StopTarget target, string kind)
    {
@@ -357,7 +401,7 @@ internal static class ActionRules
          Action = action;
       }
 
-      /// <summary>Where the action applies: the target's stop or stop text for explain and revise, the whole tour for every other kind.</summary>
+      /// <summary>Where the action applies: the target's stop or stop text for explain and revise, the named stop or the whole tour for a dive, and the whole tour for every other kind.</summary>
       public ThreadAnchor Anchor { get; }
 
       /// <summary>The action as the thread stores it.</summary>

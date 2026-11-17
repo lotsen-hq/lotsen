@@ -2426,7 +2426,12 @@ export const outputFixtures = {
             "label": "https://github.com/contoso/shop",
             "state": "generating",
             "pullRequestState": "active",
-            "revision": 1
+            "revision": 1,
+            "diveOrigin": {
+               "parentId": "abcdefghijklmnop",
+               "rootId": "abcdefghijklmnop",
+               "stopId": "s2"
+            }
          }
       ]
    },

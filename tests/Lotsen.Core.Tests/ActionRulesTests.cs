@@ -16,6 +16,8 @@ public sealed class ActionRulesTests
 {
    private static readonly AnswerBatch Batch = new("b1", "session1", Now);
 
+   private static readonly TourAction.Dive StoredDive = new(TourPurpose.Prepare, Familiarity.New);
+
    private static readonly Dictionary<string, (Tour Tour, ActionRequest Request, string Text, Outcome Expect)> Admissions = new()
    {
       ["explain on a written stop stamps the stop's version"] = (Planned(), Explain(new StopTarget.WholeStop("s1")), "", Admitted("""{"kind":"stop","stopId":"s1"}""", """{"kind":"explain","stopVersion":1}""")),
@@ -169,6 +171,19 @@ public sealed class ActionRulesTests
          new ActionRequest.FollowUp.DraftComments(),
          "",
          Refused("action", ActionRules.NoConcernSent)),
+      ["dive from a written stop takes the stop and stores the purpose and familiarity"] = (
+         RepositoryPlanned(),
+         Dive("s1"),
+         "",
+         Admitted("""{"kind":"stop","stopId":"s1"}""", """{"kind":"dive","purpose":"prepare","familiarity":"new"}""")),
+      ["dive from a pending stop takes the stop"] = (RepositoryPlanned(), Dive("s2"), "The cache.", Admitted("""{"kind":"stop","stopId":"s2"}""", """{"kind":"dive","purpose":"prepare","familiarity":"new"}""")),
+      ["dive from the whole tour with words takes the tour"] = (RepositoryPlanned(), Dive(), "The cache.", Admitted("""{"kind":"tour"}""", """{"kind":"dive","purpose":"prepare","familiarity":"new"}""")),
+      ["dive from the whole tour without a plan"] = (RepositoryTour(), Dive(), "The cache.", Admitted("""{"kind":"tour"}""", """{"kind":"dive","purpose":"prepare","familiarity":"new"}""")),
+      ["dive from the whole tour without words"] = (RepositoryPlanned(), Dive(), "", Refused("text", "a dive from the whole tour needs the reviewer's words")),
+      ["dive from a stop that the plan lacks"] = (RepositoryPlanned(), Dive("gone"), "", Refused("action.stopId", "the plan has no stop 'gone'")),
+      ["dive on a pull request's tour"] = (Planned(), Dive("s1"), "The cache.", Refused("action", ActionRules.NoDiveOnPullRequest)),
+      ["dive on a repository tour that is still pinning"] = (RepositoryPlanned() with { Pin = new TourPin.Pinning() }, Dive(), "The cache.", Refused("action", "the tour is not pinned to a commit yet")),
+      ["dive on a repository tour whose pin failed"] = (RepositoryPlanned() with { Pin = new TourPin.Failed("No sign-in.") }, Dive("s1"), "", Refused("action", "the tour's pin failed")),
    };
 
    private static readonly Dictionary<string, (Tour Tour, ThreadAnchor Anchor, TourAction Action, Outcome? Expect)> Resends = new()
@@ -266,6 +281,19 @@ public sealed class ActionRulesTests
          new ThreadAnchor.WholeTour(),
          new TourAction.FollowUp.DraftComments([], [], [Item(AnswerType.Concern, ReviewerThreadState.Open)]),
          Refused("action.concernThreads[0]", "A thread that this request hands to Claude is outdated since you asked")),
+      ["dive from a stop goes again"] = (RepositoryPlanned(), new ThreadAnchor.WholeStop("s1"), StoredDive, null),
+      ["dive from the whole tour goes again"] = (RepositoryPlanned(), new ThreadAnchor.WholeTour(), StoredDive, null),
+      ["dive from a stop that the plan dropped"] = (
+         RepositoryTour(Plan(Written("s9"))),
+         new ThreadAnchor.WholeStop("s1"),
+         StoredDive,
+         Refused("anchor.stopId", "Claude dropped this stop from the plan since you asked, so there is no stop to dive from")),
+      ["dive that a tour file stores on a pull request's tour"] = (Planned(), new ThreadAnchor.WholeTour(), StoredDive, Refused("action", ActionRules.NoDiveOnPullRequest)),
+      ["dive that a tour file stores on stop text"] = (
+         RepositoryPlanned(),
+         new ThreadAnchor.StopText("s1", "headline", "point", 1),
+         StoredDive,
+         Refused("anchor.kind", "the dive action takes a stop or the whole tour")),
    };
 
    public static TheoryData<string> AdmissionRows => [.. Admissions.Keys];
@@ -377,13 +405,15 @@ public sealed class ActionRulesTests
       Assert.Null(ActionRules.ThreadItemsNow(Planned(), new TourAction.Summarize()));
       Assert.Null(ActionRules.ThreadItemsNow(Planned(), new TourAction.FollowUp.DraftWorkItems([])));
       Assert.Null(ActionRules.ThreadItemsNow(Planned(), new TourAction.FollowUp.DraftComments([], [])));
+      Assert.Null(ActionRules.ThreadItemsNow(RepositoryPlanned(), StoredDive));
    }
 
    [Fact]
-   public void Waits_alone_puts_summarize_each_follow_up_kind_and_the_plan_actions_in_their_own_groups_and_the_stop_actions_in_none()
+   public void Waits_alone_puts_summarize_each_follow_up_kind_and_the_plan_actions_in_their_own_groups_and_the_stop_actions_and_dives_in_none()
    {
       Assert.Null(ActionRules.WaitsAlone(new TourAction.Explain(1)));
       Assert.Null(ActionRules.WaitsAlone(new TourAction.Revise()));
+      Assert.Null(ActionRules.WaitsAlone(StoredDive));
       Assert.Equal(WaitGroup.Plan, ActionRules.WaitsAlone(new TourAction.Replan()));
       Assert.Equal(WaitGroup.Plan, ActionRules.WaitsAlone(new TourAction.Reorder([])));
       Assert.Equal(WaitGroup.Summary, ActionRules.WaitsAlone(new TourAction.Summarize()));
@@ -399,6 +429,7 @@ public sealed class ActionRulesTests
       Assert.False(ActionRules.HandsOverReview(new TourAction.Revise()));
       Assert.False(ActionRules.HandsOverReview(new TourAction.Replan()));
       Assert.False(ActionRules.HandsOverReview(new TourAction.Reorder([])));
+      Assert.False(ActionRules.HandsOverReview(StoredDive));
       Assert.True(ActionRules.HandsOverReview(new TourAction.Summarize()));
       Assert.True(ActionRules.HandsOverReview(new TourAction.FollowUp.DraftWorkItems([])));
       Assert.True(ActionRules.HandsOverReview(new TourAction.FollowUp.WalkOpenQuestions([])));
@@ -434,6 +465,8 @@ public sealed class ActionRulesTests
 
    private static Tour Planned() => Tour(Plan(Written("s1"), Pending("s2")));
 
+   private static Tour RepositoryPlanned() => RepositoryTour(Plan(Written("s1"), Pending("s2")));
+
    // The plan's stop s1 at version 2, whose headline the revision kept.
    private static Tour Revised() => Tour(Plan(Written("s1") with { Version = 2, Earlier = [new StopVersion("Stop s1", StopKind.Inspect, Content(), Now)] }, Pending("s2")));
 
@@ -454,6 +487,8 @@ public sealed class ActionRulesTests
    private static ActionRequest Explain(StopTarget target) => new ActionRequest.Explain(target);
 
    private static ActionRequest Reorder(params string[] stopIds) => new ActionRequest.Reorder(stopIds);
+
+   private static ActionRequest Dive(string? stopId = null) => new ActionRequest.Dive(TourPurpose.Prepare, Familiarity.New, stopId);
 
    private static Outcome Admitted(string anchor, string action) => new(Anchor: anchor, Action: action);
 

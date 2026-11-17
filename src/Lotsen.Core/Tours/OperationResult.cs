@@ -174,7 +174,7 @@ internal sealed record OperationError(
             TourAction.FollowUp.DraftComments => "drafts comments from the concerns",
             TourAction.Replan => "re-plans the tour as you asked",
             TourAction.Reorder => "reorders the plan as you asked",
-            TourAction.Explain or TourAction.Revise => null,
+            TourAction.Explain or TourAction.Revise or TourAction.Dive => null,
          },
          QuestionThread.Sent.Decided decided => decided.Decision switch
          {

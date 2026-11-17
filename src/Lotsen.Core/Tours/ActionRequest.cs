@@ -5,7 +5,7 @@ namespace Lotsen.Tours;
 
 /// <summary>The tour action that <c>request_tour_action</c> asks for. The <c>kind</c> property in JSON names the derived type, by the kind names of <see cref="TourAction"/>.</summary>
 /// <remarks>
-/// It names no reviewer decision and carries no follow-up items, because the server fills those from the tour, and only explain and revise name a stop. JSON refuses any other member, so
+/// It names no reviewer decision and carries no follow-up items, because the server fills those from the tour, and only explain, revise and dive name a stop. JSON refuses any other member, so
 /// a request that gives a follow-up action's items fails to read. <see cref="ActionRules.Admit"/> turns it into the stored <see cref="TourAction"/> with its anchor.
 /// </remarks>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
@@ -14,6 +14,7 @@ namespace Lotsen.Tours;
 [JsonDerivedType(typeof(Replan), TourAction.ReplanKind)]
 [JsonDerivedType(typeof(Reorder), TourAction.ReorderKind)]
 [JsonDerivedType(typeof(Summarize), TourAction.SummarizeKind)]
+[JsonDerivedType(typeof(Dive), TourAction.DiveKind)]
 [JsonDerivedType(typeof(FollowUp.DraftWorkItems), TourAction.DraftWorkItemsKind)]
 [JsonDerivedType(typeof(FollowUp.WalkOpenQuestions), TourAction.WalkOpenQuestionsKind)]
 [JsonDerivedType(typeof(FollowUp.DraftComments), TourAction.DraftCommentsKind)]
@@ -41,6 +42,15 @@ internal closed record ActionRequest
 
    [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
    internal sealed record Summarize : ActionRequest;
+
+   [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+   internal sealed record Dive(
+      [property: Description("What the dive is for: orient, prepare or evaluate.")]
+      TourPurpose Purpose,
+      [property: Description("How well the reviewer knows the code that the dive shows: familiar, some or new.")]
+      Familiarity Familiarity,
+      [property: Description("The ID of the stop of the plan, written or pending, that the dive starts from. Omit it for a dive from the whole tour, which needs the reviewer's words.")]
+      string? StopId = null) : ActionRequest;
 
    /// <summary>A follow-up action, whose items the server collects from the review summary.</summary>
    internal closed record FollowUp : ActionRequest

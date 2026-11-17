@@ -21,6 +21,8 @@ public sealed partial class HowToActTests : IAsyncLifetime
    private static readonly string Fingerprint = SkillTests.PropertyName(LotsenJsonContext.Default.ReviewSummary, nameof(ReviewSummary.SummaryFingerprint));
    private static readonly string TypedThreads = SkillTests.PropertyName(LotsenJsonContext.Default.ReviewSummary, nameof(ReviewSummary.TypedThreads));
    private static readonly string StaleMarker = SkillTests.PropertyName(LotsenJsonContext.Default.WrittenStop, nameof(Stop.Written.StaleOn));
+   private static readonly string DiveOrigin = SkillTests.PropertyName(LotsenJsonContext.Default.CreateTourInput, nameof(CreateTourInput.DiveOrigin));
+   private static readonly string ParentTourId = SkillTests.PropertyName(LotsenJsonContext.Default.CreateTourDive, nameof(CreateTourDive.ParentTourId));
 
    private static readonly IReadOnlyDictionary<string, (string Sample, string Carrier, string[] Says)> Actions = new Dictionary<string, (string, string, string[])>
    {
@@ -44,6 +46,10 @@ public sealed partial class HowToActTests : IAsyncLifetime
          """{ "kind": "summarize" }""",
          "write_synthesis",
          ["say what to focus on", "Carry out summarize with write_synthesis", "with read_summary and the tour with read_state", "what the review decided, what worries the reviewer and what stays open", "Name the open questions and the concerns that no answer settled yet", $"{TypedThreads} are the reviewer's own findings", "as the reviewer's, never in your own voice", "Write the synthesis last, after any other change to the tour.", "read the summary again after such a write", $"Pass as {BasedOn} the {Fingerprint} of the summary that you read", "so write the whole synthesis each time", "never the synthesis itself"]),
+      [TourAction.DiveKind] = (
+         """{ "kind": "dive", "purpose": "prepare", "familiarity": "some" }""",
+         $"create_tour and its {DiveOrigin}",
+         [$"Carry out dive with create_tour and its {DiveOrigin}", $"{ParentTourId} is this tour's tourId", "stopId is the anchor's stop when the anchor is a stop", "purpose is the action's purpose", "Pass the action's familiarity as familiarity", "lotsen pins the dive to this tour's commit", "a reply of one sentence that names the dive's title", "write the dive after the reply as a tour of its purpose"]),
       [TourAction.DraftWorkItemsKind] = (
          """{ "kind": "draftWorkItems", "decisions": [] }""",
          "only after the user approves it in the terminal",
@@ -265,6 +271,7 @@ public sealed partial class HowToActTests : IAsyncLifetime
    [InlineData(TourAction.ReplanKind, false)]
    [InlineData(TourAction.ReorderKind, true)]
    [InlineData(TourAction.SummarizeKind, false)]
+   [InlineData(TourAction.DiveKind, false)]
    [InlineData(TourAction.DraftWorkItemsKind, false)]
    [InlineData(TourAction.WalkOpenQuestionsKind, false)]
    [InlineData(TourAction.DraftCommentsKind, false)]

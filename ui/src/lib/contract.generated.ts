@@ -21,7 +21,7 @@ export type QuestionThread = NoteThread | AskedThread | DecidedThread | StartedT
 export type ThreadAnchor = CodeRange | StopText | WholeFile | WholeStop | WholeTour;
 export type ThreadState = 'open' | 'resolved' | 'outdated';
 export type QuestionOutcome = 'waiting' | 'answered' | 'canceled' | 'unanswered';
-export type TourAction = ExplainAction | ReviseAction | ReplanAction | ReorderAction | SummarizeAction | DraftWorkItemsAction | WalkOpenQuestionsAction | DraftCommentsAction;
+export type TourAction = ExplainAction | ReviseAction | ReplanAction | ReorderAction | SummarizeAction | DiveAction | DraftWorkItemsAction | WalkOpenQuestionsAction | DraftCommentsAction;
 export type ReviewerThreadState = 'open' | 'resolved';
 export type RequestState = 'pending' | 'done' | 'needsAnswer' | 'declined' | 'unanswered' | 'canceled';
 export type ThreadMessage = ThreadQuestion | ThreadReply | ThreadAgentMessage;
@@ -62,7 +62,7 @@ export type OperationErrorCode =
    | 'serverExiting'
    | 'sessionUnknown'
    | 'notPullRequestTour';
-export type ActionRequest = ExplainRequest | ReviseRequest | ReplanRequest | ReorderRequest | SummarizeRequest | DraftWorkItemsRequest | WalkOpenQuestionsRequest | DraftCommentsRequest;
+export type ActionRequest = ExplainRequest | ReviseRequest | ReplanRequest | ReorderRequest | SummarizeRequest | DiveRequest | DraftWorkItemsRequest | WalkOpenQuestionsRequest | DraftCommentsRequest;
 export type StopTarget = WholeStopTarget | StopTextTarget;
 export type AnchorInput = CodeRangeInput | StopTextInput | WholeFileInput | WholeStopInput | WholeTourInput;
 export type FileChangeKind = 'added' | 'modified' | 'deleted' | 'renamed';
@@ -287,6 +287,7 @@ export interface TourSummary {
    planApproval?: PlanApproval;
    purpose?: TourPurpose;
    title?: string;
+   diveOrigin?: DiveOrigin;
 }
 export interface PullRequestTarget {
    kind: 'pullRequest';
@@ -321,6 +322,11 @@ export interface Failed {
 export interface TourBinding {
    sessionId: string;
    level: AttachmentLevel;
+}
+export interface DiveOrigin {
+   parentId: string;
+   rootId: string;
+   stopId?: string;
 }
 export interface PlanSetEvent {
    tourId: string;
@@ -543,6 +549,11 @@ export interface ReorderAction {
 }
 export interface SummarizeAction {
    kind: 'summarize';
+}
+export interface DiveAction {
+   kind: 'dive';
+   purpose: TourPurpose;
+   familiarity: Familiarity;
 }
 export interface DraftWorkItemsAction {
    kind: 'draftWorkItems';
@@ -773,6 +784,7 @@ export interface TourOffers {
       [k: string]: ThreadOffers | undefined;
    };
    pending: PendingWork;
+   dive?: Offer;
 }
 export interface OpenOffer {
    state: 'open';
@@ -789,6 +801,7 @@ export interface LevelOffer {
 export interface StopOffers {
    explain: Offer;
    revise: Offer;
+   dive?: Offer;
 }
 export interface ThreadOffers {
    resend: Offer;
@@ -870,6 +883,21 @@ export interface ReorderRequest {
 }
 export interface SummarizeRequest {
    kind: 'summarize';
+}
+export interface DiveRequest {
+   kind: 'dive';
+   /**
+    * What the dive is for: orient, prepare or evaluate.
+    */
+   purpose: TourPurpose;
+   /**
+    * How well the reviewer knows the code that the dive shows: familiar, some or new.
+    */
+   familiarity: Familiarity;
+   /**
+    * The ID of the stop of the plan, written or pending, that the dive starts from. Omit it for a dive from the whole tour, which needs the reviewer's words.
+    */
+   stopId?: string | null;
 }
 export interface DraftWorkItemsRequest {
    kind: 'draftWorkItems';
@@ -1174,11 +1202,6 @@ export interface DiscardNoteInput {
     */
    threadId: string;
 }
-export interface DiveOrigin {
-   parentId: string;
-   rootId: string;
-   stopId?: string;
-}
 export interface EditNoteInput {
    /**
     * The tour's ID, as create_tour or list_tours returned it, or as the user gave it.
@@ -1453,6 +1476,7 @@ export interface Tour {
    title?: string;
    diveOrigin?: DiveOrigin;
    revision: number;
+   dives?: TourDive[];
 }
 export interface TourSynthesis {
    text: string;
@@ -1467,6 +1491,13 @@ export interface SnapshotCommit {
 export interface ReadingProgress {
    finished: boolean;
    lastStop?: string;
+}
+export interface TourDive {
+   tourId: string;
+   title: string;
+   purpose: TourPurpose;
+   state: TourState;
+   stopId?: string;
 }
 export interface ReadSummaryInput {
    /**
@@ -1566,11 +1597,11 @@ export interface RequestTourActionInput {
     */
    tourId: string;
    /**
-    * What the reviewer asks Claude to do: explain to explain a stop or text selected in it more deeply, or revise to revise the stop, each with its target, replan to change the plan as the words say, reorder to put the plan's stops in the order of stopIds, which names every stop of the plan once, summarize to write a synthesis of the review, or a follow-up action: draftWorkItems to propose work items for the sent decisions, walkOpenQuestions to walk through each sent open question in a thread, or draftComments to draft comments for the author from the sent concerns and the risk stops that Claude wrote and the reviewer did not skip. Each follow-up action also takes the sent threads that the reviewer gave its type. Only explain and revise take a target, and every other kind applies to the whole tour. The server collects a follow-up action's items, so the kind is all that a follow-up action holds. A reviewer decision is no tour action: change_familiarity, approve_plan and update_iteration report each.
+    * What the reviewer asks Claude to do: explain to explain a stop or text selected in it more deeply, or revise to revise the stop, each with its target, replan to change the plan as the words say, reorder to put the plan's stops in the order of stopIds, which names every stop of the plan once, summarize to write a synthesis of the review, dive to create a dive of a repository tour as a tour of its purpose and familiarity, from the stop of stopId or from the whole tour, or a follow-up action: draftWorkItems to propose work items for the sent decisions, walkOpenQuestions to walk through each sent open question in a thread, or draftComments to draft comments for the author from the sent concerns and the risk stops that Claude wrote and the reviewer did not skip. Each follow-up action also takes the sent threads that the reviewer gave its type. Only explain and revise take a target, a dive takes stopId or applies to the whole tour, and every other kind applies to the whole tour. The server collects a follow-up action's items, so the kind is all that a follow-up action holds. A reviewer decision is no tour action: change_familiarity, approve_plan and update_iteration report each.
     */
    action: ActionRequest;
    /**
-    * The reviewer's words as plain text, with no control characters but tabs and line breaks. Omit them, or leave them empty, for an action without words. A revise and a replan need them.
+    * The reviewer's words as plain text, with no control characters but tabs and line breaks. Omit them, or leave them empty, for an action without words. A revise, a replan and a dive from the whole tour need them.
     */
    text?: string | null;
    /**

@@ -458,6 +458,9 @@
           "$ref": "#/definitions/SummarizeRequest"
         },
         {
+          "$ref": "#/definitions/DiveRequest"
+        },
+        {
           "$ref": "#/definitions/DraftWorkItemsRequest"
         },
         {
@@ -1519,6 +1522,26 @@
       ],
       "additionalProperties": false
     },
+    "DiveAction": {
+      "title": "DiveAction",
+      "properties": {
+        "kind": {
+          "const": "dive"
+        },
+        "purpose": {
+          "$ref": "#/definitions/TourPurpose"
+        },
+        "familiarity": {
+          "$ref": "#/definitions/Familiarity"
+        }
+      },
+      "required": [
+        "kind",
+        "purpose",
+        "familiarity"
+      ],
+      "additionalProperties": false
+    },
     "DiveOrigin": {
       "title": "DiveOrigin",
       "type": "object",
@@ -1539,6 +1562,44 @@
         "parentId",
         "rootId"
       ]
+    },
+    "DiveRequest": {
+      "title": "DiveRequest",
+      "properties": {
+        "kind": {
+          "const": "dive"
+        },
+        "purpose": {
+          "description": "What the dive is for: orient, prepare or evaluate.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/TourPurpose"
+            }
+          ]
+        },
+        "familiarity": {
+          "description": "How well the reviewer knows the code that the dive shows: familiar, some or new.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Familiarity"
+            }
+          ]
+        },
+        "stopId": {
+          "description": "The ID of the stop of the plan, written or pending, that the dive starts from. Omit it for a dive from the whole tour, which needs the reviewer's words.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "purpose",
+        "familiarity"
+      ],
+      "additionalProperties": false
     },
     "DraftCommentsAction": {
       "title": "DraftCommentsAction",
@@ -3736,7 +3797,7 @@
           "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
         },
         "action": {
-          "description": "What the reviewer asks Claude to do: explain to explain a stop or text selected in it more deeply, or revise to revise the stop, each with its target, replan to change the plan as the words say, reorder to put the plan's stops in the order of stopIds, which names every stop of the plan once, summarize to write a synthesis of the review, or a follow-up action: draftWorkItems to propose work items for the sent decisions, walkOpenQuestions to walk through each sent open question in a thread, or draftComments to draft comments for the author from the sent concerns and the risk stops that Claude wrote and the reviewer did not skip. Each follow-up action also takes the sent threads that the reviewer gave its type. Only explain and revise take a target, and every other kind applies to the whole tour. The server collects a follow-up action's items, so the kind is all that a follow-up action holds. A reviewer decision is no tour action: change_familiarity, approve_plan and update_iteration report each.",
+          "description": "What the reviewer asks Claude to do: explain to explain a stop or text selected in it more deeply, or revise to revise the stop, each with its target, replan to change the plan as the words say, reorder to put the plan's stops in the order of stopIds, which names every stop of the plan once, summarize to write a synthesis of the review, dive to create a dive of a repository tour as a tour of its purpose and familiarity, from the stop of stopId or from the whole tour, or a follow-up action: draftWorkItems to propose work items for the sent decisions, walkOpenQuestions to walk through each sent open question in a thread, or draftComments to draft comments for the author from the sent concerns and the risk stops that Claude wrote and the reviewer did not skip. Each follow-up action also takes the sent threads that the reviewer gave its type. Only explain and revise take a target, a dive takes stopId or applies to the whole tour, and every other kind applies to the whole tour. The server collects a follow-up action's items, so the kind is all that a follow-up action holds. A reviewer decision is no tour action: change_familiarity, approve_plan and update_iteration report each.",
           "anyOf": [
             {
               "$ref": "#/definitions/ActionRequest"
@@ -3744,7 +3805,7 @@
           ]
         },
         "text": {
-          "description": "The reviewer's words as plain text, with no control characters but tabs and line breaks. Omit them, or leave them empty, for an action without words. A revise and a replan need them.",
+          "description": "The reviewer's words as plain text, with no control characters but tabs and line breaks. Omit them, or leave them empty, for an action without words. A revise, a replan and a dive from the whole tour need them.",
           "type": [
             "string",
             "null"
@@ -4451,6 +4512,9 @@
           "$ref": "#/definitions/Offer"
         },
         "revise": {
+          "$ref": "#/definitions/Offer"
+        },
+        "dive": {
           "$ref": "#/definitions/Offer"
         }
       },
@@ -5430,6 +5494,12 @@
         },
         "revision": {
           "type": "integer"
+        },
+        "dives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TourDive"
+          }
         }
       },
       "required": [
@@ -5462,6 +5532,9 @@
         },
         {
           "$ref": "#/definitions/SummarizeAction"
+        },
+        {
+          "$ref": "#/definitions/DiveAction"
         },
         {
           "$ref": "#/definitions/DraftWorkItemsAction"
@@ -5535,6 +5608,34 @@
         "offers"
       ]
     },
+    "TourDive": {
+      "title": "TourDive",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "purpose": {
+          "$ref": "#/definitions/TourPurpose"
+        },
+        "state": {
+          "$ref": "#/definitions/TourState"
+        },
+        "stopId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tourId",
+        "title",
+        "purpose",
+        "state"
+      ]
+    },
     "TourList": {
       "title": "TourList",
       "type": "object",
@@ -5598,6 +5699,9 @@
         },
         "pending": {
           "$ref": "#/definitions/PendingWork"
+        },
+        "dive": {
+          "$ref": "#/definitions/Offer"
         }
       },
       "required": [
@@ -5725,6 +5829,9 @@
         },
         "title": {
           "type": "string"
+        },
+        "diveOrigin": {
+          "$ref": "#/definitions/DiveOrigin"
         }
       },
       "required": [

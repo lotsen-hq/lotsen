@@ -12,6 +12,7 @@ namespace Lotsen.Tours;
 [JsonDerivedType(typeof(Replan), ReplanKind)]
 [JsonDerivedType(typeof(Reorder), ReorderKind)]
 [JsonDerivedType(typeof(Summarize), SummarizeKind)]
+[JsonDerivedType(typeof(Dive), DiveKind)]
 [JsonDerivedType(typeof(FollowUp.DraftWorkItems), DraftWorkItemsKind)]
 [JsonDerivedType(typeof(FollowUp.WalkOpenQuestions), WalkOpenQuestionsKind)]
 [JsonDerivedType(typeof(FollowUp.DraftComments), DraftCommentsKind)]
@@ -22,6 +23,7 @@ internal closed record TourAction
    public const string ReplanKind = "replan";
    public const string ReorderKind = "reorder";
    public const string SummarizeKind = "summarize";
+   public const string DiveKind = "dive";
    public const string DraftWorkItemsKind = "draftWorkItems";
    public const string WalkOpenQuestionsKind = "walkOpenQuestions";
    public const string DraftCommentsKind = "draftComments";
@@ -80,6 +82,16 @@ internal closed record TourAction
    {
       [JsonIgnore]
       public override string Kind => SummarizeKind;
+   }
+
+   /// <summary>A request to create a dive from the anchor's stop, or from the whole tour, and write it as a tour of its purpose, with the reviewer's words.</summary>
+   /// <param name="Purpose">What the dive is for.</param>
+   /// <param name="Familiarity">The familiarity level of the dive.</param>
+   [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+   internal sealed record Dive(TourPurpose Purpose, Familiarity Familiarity) : TourAction
+   {
+      [JsonIgnore]
+      public override string Kind => DiveKind;
    }
 
    /// <summary>

@@ -404,3 +404,7 @@ actions in the UI. Each reaches you as a question, and `lotsen:tour-rules` and t
 - A `draftWorkItems` action works as its `howToAct` says: ask the user where the work items belong, their own project
   or the tracker of the project that the tour shows, and file none before they approve. A `walkOpenQuestions` action
   works as its `howToAct` says.
+- A `dive` action works as its `howToAct` says: call `create_tour` with `diveOrigin`, which holds the `parentTourId`,
+  the `stopId` of the action's stop when it has one, and the dive's `purpose`, `title` and `words`. Then write the dive
+  as a tour of its purpose. `read_state` lists a tour's `dives`, each with its `tourId`, `title`, `purpose`, `state`
+  and the `stopId` that it started from.

@@ -37,6 +37,13 @@ public sealed class TourOffersTests
       ["explain on a written stop"] = (Planned(), offers => offers.Stops["s1"].Explain, Requested(new ActionRequest.Explain(new StopTarget.WholeStop("s1"))), null),
       ["revise of a pending stop"] = (Planned(), offers => offers.Stops["s2"].Revise, Requested(new ActionRequest.Revise(new StopTarget.WholeStop("s2")), "Shorter."), "stop 's2' has no content yet"),
       ["revise of a written stop"] = (Planned(), offers => offers.Stops["s1"].Revise, Requested(new ActionRequest.Revise(new StopTarget.WholeStop("s1")), "Shorter."), null),
+      ["dive from a pending stop of a repository tour"] = (RepositoryPlanned(), offers => offers.Stops["s2"].Dive!, Requested(new ActionRequest.Dive(TourPurpose.Orient, Familiarity.Some, "s2")), null),
+      ["dive from the whole repository tour"] = (RepositoryPlanned(), offers => offers.Dive!, Requested(new ActionRequest.Dive(TourPurpose.Orient, Familiarity.Some), "The cache."), null),
+      ["dive from a repository tour that is still pinning"] = (
+         RepositoryPlanned() with { Pin = new TourPin.Pinning() },
+         offers => offers.Dive!,
+         Requested(new ActionRequest.Dive(TourPurpose.Orient, Familiarity.Some), "The cache."),
+         "the tour is not pinned to a commit yet"),
 
       ["summarize without a plan"] = (Tour(), offers => offers.Summarize, Requested(new ActionRequest.Summarize()), "no review to summarize"),
       ["summarize with a plan"] = (Planned(), offers => offers.Summarize, Requested(new ActionRequest.Summarize()), null),
@@ -281,6 +288,16 @@ public sealed class TourOffersTests
       Assert.Equal(pending, Short(TourOffers.Of(tour, null).Pending));
    }
 
+   /// <summary>A pull request's tour has no dive, as <see cref="ActionRules.NotOffered"/> says, so its offers leave the dive out and keep the JSON of a tour without dives.</summary>
+   [Fact]
+   public void Offers_of_a_pull_requests_tour_hold_no_dive()
+   {
+      var offers = TourOffers.Of(Planned(), null);
+
+      Assert.Null(offers.Dive);
+      Assert.All(offers.Stops.Values, stop => Assert.Null(stop.Dive));
+   }
+
    [Fact]
    public void Offers_name_each_stop_of_the_plan_and_each_thread_of_the_tour()
    {
@@ -298,6 +315,8 @@ public sealed class TourOffersTests
       Tour(Plan(Written("s1", StopKind.Question, Content(StopKind.Question) with { Checks = [new("c1", "Fine?"), new("c2", "Tested?")] }), Pending("s2"))) with { Answers = answers };
 
    private static CheckAnswer Draft(string stopId = "s1", string checkId = "c1") => new(stopId, checkId, "Yes.", AnswerType.Decision, AnswerState.Draft, Now);
+
+   private static Tour RepositoryPlanned() => RepositoryTour(Plan(Written("s1"), Pending("s2")));
 
    private static Tour Answered(AnswerType type) => Planned() with { Answers = [new CheckAnswer("s1", "c1", "Sent.", type, AnswerState.Sent, Now, Batch)] };
 

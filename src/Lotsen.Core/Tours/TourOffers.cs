@@ -48,6 +48,9 @@ internal closed record Offer
 /// </param>
 /// <param name="Threads">What the reviewer can do in each thread, by thread ID.</param>
 /// <param name="Pending">The waiting threads, by what each holds back.</param>
+/// <param name="Dive">
+/// Whether the reviewer can ask for a dive from the whole tour, or null for a tour whose review target has no dives, as <see cref="ActionRules.NotOffered"/> says. JSON leaves it out when null.
+/// </param>
 internal sealed record TourOffers(
    Offer Ask,
    Offer SendAnswers,
@@ -60,7 +63,8 @@ internal sealed record TourOffers(
    Offer Summarize,
    IReadOnlyDictionary<string, Offer> FollowUps,
    IReadOnlyDictionary<string, ThreadOffers> Threads,
-   PendingWork Pending)
+   PendingWork Pending,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Offer? Dive = null)
 {
    private static readonly ActionRequest.FollowUp[] FollowUpRequests =
       [new ActionRequest.FollowUp.DraftWorkItems(), new ActionRequest.FollowUp.WalkOpenQuestions(), new ActionRequest.FollowUp.DraftComments()];
@@ -78,6 +82,7 @@ internal sealed record TourOffers(
    public static TourOffers Of(Tour tour, string? boundSessionId)
    {
       var stops = tour.Plan?.Stops ?? [];
+      var dives = ActionRules.NotOffered(tour, DiveFrom(tour, null)) is null;
       return new TourOffers(
          Offer.Opened,
          Offer.Of(CheckAnswer.ToSend(tour, boundSessionId).Error),
@@ -88,13 +93,20 @@ internal sealed record TourOffers(
          Action(tour, new ActionRequest.Reorder([.. stops.Select(stop => stop.Id)])),
          stops.ToDictionary(
             stop => stop.Id,
-            stop => new StopOffers(Action(tour, new ActionRequest.Explain(new StopTarget.WholeStop(stop.Id))), Action(tour, new ActionRequest.Revise(new StopTarget.WholeStop(stop.Id)), "?")),
+            stop => new StopOffers(
+               Action(tour, new ActionRequest.Explain(new StopTarget.WholeStop(stop.Id))),
+               Action(tour, new ActionRequest.Revise(new StopTarget.WholeStop(stop.Id)), "?"),
+               dives ? Action(tour, DiveFrom(tour, stop.Id)) : null),
             StringComparer.Ordinal),
          Action(tour, new ActionRequest.Summarize()),
          FollowUpRequests.Where(request => ActionRules.NotOffered(tour, request) is null).ToDictionary(KindOf, request => Action(tour, request), StringComparer.Ordinal),
          tour.Threads.ToDictionary(thread => thread.Id, thread => ThreadOffersOf(tour, thread), StringComparer.Ordinal),
-         PendingWork.Of(tour));
+         PendingWork.Of(tour),
+         dives ? Action(tour, DiveFrom(tour, null), "?") : null);
    }
+
+   // The probe of a dive, with the tour's own purpose and level, which the reviewer may change in the request.
+   private static ActionRequest.Dive DiveFrom(Tour tour, string? stopId) => new(tour.Purpose ?? TourPurpose.Orient, tour.Familiarity, stopId);
 
    private static Offer Action(Tour tour, ActionRequest request, string text = "")
    {
@@ -139,7 +151,8 @@ internal sealed record LevelOffer(Offer Change, [property: JsonIgnore(Condition 
 /// <summary>The tour actions on one stop.</summary>
 /// <param name="Explain">Whether the reviewer can ask Claude to explain the stop, or text in it, more deeply.</param>
 /// <param name="Revise">Whether the reviewer can ask Claude to revise the stop.</param>
-internal sealed record StopOffers(Offer Explain, Offer Revise);
+/// <param name="Dive">Whether the reviewer can ask for a dive from the stop, or null for a tour whose review target has no dives. JSON leaves it out when null.</param>
+internal sealed record StopOffers(Offer Explain, Offer Revise, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Offer? Dive = null);
 
 /// <summary>The threads whose last question waits for Claude, by what each holds back, so the UI shows the work in progress where it applies.</summary>
 /// <param name="Stops">The threads of the explain and revise tour actions on each stop, as a whole or text in it, by stop ID. A stop without one has no entry.</param>

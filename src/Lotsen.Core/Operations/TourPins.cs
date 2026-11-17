@@ -10,30 +10,46 @@ using Lotsen.Tours;
 
 namespace Lotsen.Operations;
 
-/// <summary>The input of <c>create_tour</c>: a pull request's URL or a repository, which <see cref="TourPins.CreateTour"/> requires exactly one of.</summary>
+/// <summary>The input of <c>create_tour</c>: a pull request's URL, a repository or a dive origin, which <see cref="TourPins.CreateTour"/> requires exactly one of.</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record CreateTourInput(
    [property: Description("How well the reviewer knows the code: familiar, some or new. It guides how much each stop explains.")]
    Familiarity Familiarity,
-   [property: Description("The web URL of the pull request to tour, as the browser shows it on the pull request's page. Give it or repository, not both.")]
+   [property: Description("The web URL of the pull request to tour, as the browser shows it on the pull request's page. Give only one of prUrl, repository and diveOrigin.")]
    string? PrUrl = null,
-   [property: Description("The repository to tour, with what the tour is for. Give it or prUrl, not both.")]
+   [property: Description("The repository to tour, with what the tour is for. Give only one of prUrl, repository and diveOrigin.")]
    CreateTourRepository? Repository = null,
    [property: Description("true when the reviewer asks for plan first: the plan then waits for the reviewer's approval, put_stop is refused until the reviewer approves it in the UI, and set_plan still revises it. Omit it otherwise, and the plan does not wait.")]
-   bool PlanFirst = false);
+   bool PlanFirst = false,
+   [property: Description("The repository tour that a dive starts from, with what the dive is for. The dive tours that tour's repository at that tour's commit. Give only one of prUrl, repository and diveOrigin.")]
+   CreateTourDive? DiveOrigin = null);
 
 /// <summary>The repository of a <c>create_tour</c> input, with the fields that only a repository tour has.</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed record CreateTourRepository(
    [property: Description(TourPins.RepositoryUrlDescription)]
    string Url,
-   [property: Description("What the tour is for, which stays for the tour's life: orient to find one's way in the code, prepare for work on the code, or evaluate the code.")]
+   [property: Description(TourPins.PurposeDescription)]
    TourPurpose Purpose,
-   [property: Description("The tour's title, which the tour list and the top bar show: one line of plain text, at most 120 characters.")]
+   [property: Description(TourPins.TitleDescription)]
    string Title,
    [property: Description("The branch, tag or full commit ID to tour. Omit it for the ref that url names, or for the repository's default branch when url names none.")]
    string? Ref = null,
-   [property: Description("The reviewer's words about what the tour should cover, as the reviewer gave them. Omit them when the reviewer gave none.")]
+   [property: Description(TourPins.WordsDescription)]
+   string? Words = null);
+
+/// <summary>The dive origin of a <c>create_tour</c> input: the tour and the stop that a dive starts from, with the fields that only a repository tour has.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+internal sealed record CreateTourDive(
+   [property: Description("The tourId of the repository tour that the dive starts from, its parent, which must be pinned to a snapshot.")]
+   TourId ParentTourId,
+   [property: Description(TourPins.PurposeDescription)]
+   TourPurpose Purpose,
+   [property: Description(TourPins.TitleDescription)]
+   string Title,
+   [property: Description("The ID of the parent's stop that the dive starts from, as the dive action's anchor names it. Omit it for a dive from the whole tour.")]
+   string? StopId = null,
+   [property: Description(TourPins.WordsDescription)]
    string? Words = null);
 
 /// <summary>The input of <c>read_state</c>.</summary>
@@ -64,6 +80,7 @@ internal sealed record PinTourInput(
 /// <param name="PlanApproval">Whether the plan waits for the reviewer's approval, as <see cref="Tour.PlanApproval"/> says. JSON leaves it out when not needed.</param>
 /// <param name="Purpose">What a repository tour is for, or null for a pull request's tour. JSON leaves it out when null.</param>
 /// <param name="Title">A repository tour's title, or null for a pull request's tour. JSON leaves it out when null.</param>
+/// <param name="DiveOrigin">Where a dive started, so the list can group a family, or null for a tour that is no dive. JSON leaves it out when null.</param>
 internal sealed record TourSummary(
    TourId Id,
    TourTarget Target,
@@ -79,12 +96,13 @@ internal sealed record TourSummary(
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TourBinding? Binding = null,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] PlanApproval PlanApproval = PlanApproval.NotNeeded,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TourPurpose? Purpose = null,
-   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Title = null)
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Title = null,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DiveOrigin? DiveOrigin = null)
 {
    /// <summary>Returns the summary of the tour, with the binding that the session ledger holds for it.</summary>
    public static TourSummary Of(Tour tour, PullRequestPlatforms platforms, TourBinding? binding) =>
       new(tour.Id, tour.Target, tour.Familiarity, tour.CreatedAt, tour.UpdatedAt, tour.Pin, tour.Plan?.Stops.Count ?? 0, platforms.Label(tour.Target), TourStates.Of(tour), tour.PullRequestState,
-         tour.Revision, binding, tour.PlanApproval, tour.Purpose, tour.Title);
+         tour.Revision, binding, tour.PlanApproval, tour.Purpose, tour.Title, tour.DiveOrigin);
 }
 
 /// <summary>The output of <c>list_tours</c>.</summary>
@@ -172,9 +190,15 @@ internal sealed class TourPins
       "The repository's web URL, or its clone URL over https or SSH, in a form that a platform of lotsen recognizes, without user information. A web URL of the repository at a branch or a tag "
       + "names that ref too. On any other host, the https clone URL of a public repository.";
 
+   // The descriptions of the fields that a repository and a dive origin share.
+   public const string PurposeDescription = "What the tour is for, which stays for the tour's life: orient to find one's way in the code, prepare for work on the code, or evaluate the code.";
+   public const string TitleDescription = "The tour's title, which the tour list and the top bar show: one line of plain text, at most 120 characters.";
+   public const string WordsDescription = "The reviewer's words about what the tour should cover, as the reviewer gave them. Omit them when the reviewer gave none.";
+
    private const string UnexpectedPinFailure = "lotsen could not pin the tour because of an unexpected error, which the server's log describes. Pin it again.";
 
    private static readonly FieldPath RepositoryField = "repository";
+   private static readonly FieldPath DiveField = "diveOrigin";
 
    // The running pin job of each tour, which only the writer's write and Exclusive bodies read and change, so a pinning tour without a job can be pinned again. A job releases only its own
    // entry, so a job that ends late cannot release a newer job's entry.
@@ -208,30 +232,34 @@ internal sealed class TourPins
 
    /// <summary>Creates a tour and returns it, bound to the calling session unless that session has ended.</summary>
    /// <remarks>
-   /// The input names exactly one of a pull request's URL and a repository, which a registered platform must recognize, or which is platform-free. A repository's ref, title and words are
-   /// checked here, so a refusal names the input's field and the stored tour follows <see cref="TourRules"/>. The bound session receives <see cref="SessionEvents.Probe"/>, as on <c>attach_tour</c>.
+   /// The input names exactly one of a pull request's URL, a repository, which a registered platform must recognize, or which is platform-free, and a dive origin. A repository's ref, and the
+   /// title and words of a repository or a dive, are checked here, so a refusal names the input's field and the stored tour follows <see cref="TourRules"/>. A dive is pinned at once, as
+   /// <see cref="DiveOf"/> says, and every other tour starts its pin job. The bound session receives <see cref="SessionEvents.Probe"/>, as on <c>attach_tour</c>.
    /// </remarks>
    public OperationResult<Tour> CreateTour(Access.AnySession.Pass pass, CreateTourInput input)
    {
-      var opened = NewTourOf(input);
-      if (opened.Value is not { } fields)
+      if (input.DiveOrigin is { } dive)
       {
-         return opened.Error!;
-      }
-
-      return _writer.Exclusive(pass, locked =>
-      {
-         var tour = locked.Create(fields.Target, input.Familiarity, input.PlanFirst ? PlanApproval.Awaited : PlanApproval.NotNeeded, fields.Purpose, fields.Title, fields.Words);
-         var binding = locked.BindNew(tour.Id, pass.Recipient);
-         if (binding is not null)
+         if (input.PrUrl is not null || input.Repository is not null)
          {
-            locked.Send(pass.Recipient.Probe(tour.Id));
+            return OperationError.Invalid(DiveField, "give diveOrigin alone, without prUrl or repository, because a dive tours its parent's repository.");
          }
 
-         locked.Publish(ServerEvents.ForTourCreated(TourSummary.Of(tour, _platforms, binding)).At(tour.Revision));
-         StartPin(tour);
-         return AgentView.Of(tour);
-      });
+         if (RepositoryFieldsFault(DiveField, dive.Title, dive.Words) is { } fault)
+         {
+            return fault;
+         }
+
+         // The parent is read under the lock, so the dive takes the pin that the parent holds when the dive is stored.
+         return _writer.Exclusive(pass, locked =>
+         {
+            var fields = DiveOf(locked.Read(dive.ParentTourId), dive);
+            return fields.Value is { } diveFields ? Create(locked, pass, input, diveFields) : fields.Error!;
+         });
+      }
+
+      var opened = NewTourOf(input);
+      return opened.Value is { } created ? _writer.Exclusive(pass, locked => Create(locked, pass, input, created)) : opened.Error!;
    }
 
    /// <summary>Starts the pin of a tour whose pin failed, or that pins without a job, and returns the tour.</summary>
@@ -296,8 +324,11 @@ internal sealed class TourPins
       });
    }
 
-   /// <summary>Returns the tour as <see cref="AgentView.For"/> shows it to the viewer.</summary>
-   /// <remarks>A read by the reviewer opens the tour for the reviewer, so it nudges an iteration check of a pinned tour, which it does not wait for.</remarks>
+   /// <summary>Returns the tour as <see cref="AgentView.For"/> shows it to the viewer, with a repository tour's dives.</summary>
+   /// <remarks>
+   /// A read by the reviewer opens the tour for the reviewer, so it nudges an iteration check of a pinned tour, which it does not wait for. Only a repository tour has dives, so only its read
+   /// reads them, as <see cref="TourWriter.DivesOf"/> finds them.
+   /// </remarks>
    public OperationResult<Tour> ReadState(Viewer viewer, ReadStateInput input)
    {
       var result = _writer.Read(input.TourId);
@@ -311,7 +342,8 @@ internal sealed class TourPins
          _scheduler.Nudge(tour.Id, Nudge.ReviewerRead);
       }
 
-      return AgentView.For(viewer, tour);
+      var shown = AgentView.For(viewer, tour);
+      return tour.Target is RepositoryTarget ? shown.WithDives(_writer.DivesOf(tour.Id)) : shown;
    }
 
    public OperationResult<TourList> ListTours()
@@ -371,12 +403,61 @@ internal sealed class TourPins
 
    private static OperationError BothTargets() => OperationError.Invalid(RepositoryField, "give either prUrl or repository, not both.");
 
-   // Checks the limits that TourRules puts on a stored title, so that the refusal names the input's field.
-   private static string? TitleFault(string title) =>
-      string.IsNullOrWhiteSpace(title) ? "a repository tour needs a title."
-      : title.Any(PlanRules.IsLineBreakOrControl) ? "a title is one line of plain text, without line breaks, tabs or other control characters."
-      : title.Length > TourRules.MaxTitleLength ? $"a title holds at most {TourRules.MaxTitleLength} characters, and this one holds {title.Length}. Shorten it."
-      : null;
+   // Checks the limits that TourRules puts on a stored title and words, so that the refusal names the input's field.
+   private static OperationError? RepositoryFieldsFault(FieldPath field, string title, string? words)
+   {
+      var titleFault = string.IsNullOrWhiteSpace(title) ? "a repository tour needs a title."
+         : title.Any(PlanRules.IsLineBreakOrControl) ? "a title is one line of plain text, without line breaks, tabs or other control characters."
+         : title.Length > TourRules.MaxTitleLength ? $"a title holds at most {TourRules.MaxTitleLength} characters, and this one holds {title.Length}. Shorten it."
+         : null;
+      if (titleFault is not null)
+      {
+         return OperationError.Invalid(field.Then("title"), titleFault);
+      }
+
+      return words is not null && string.IsNullOrWhiteSpace(words) ? OperationError.Invalid(field.Then("words"), "omit words when the reviewer gave none, instead of empty words.") : null;
+   }
+
+   /// <summary>Returns the fields of a dive from the parent that the input names, or the refusal that names the input's field.</summary>
+   /// <remarks>
+   /// The dive takes the parent's target, and the parent's snapshot as its pin, so the two show the same commit, and no ref is resolved again. The parent's pin already synced the commit into the
+   /// clone cache, and every read of the dive fetches it again when a prune removed it. The dive's root is the parent's root, or the parent when the parent is no dive.
+   /// </remarks>
+   /// <param name="read">The parent as the writer read it under the lock.</param>
+   /// <param name="dive">The input's dive origin.</param>
+   private static OperationResult<NewTour> DiveOf(OperationResult<Tour> read, CreateTourDive dive)
+   {
+      var parentField = DiveField.Then("parentTourId");
+      if (read.Value is not { } parent)
+      {
+         return read.Error!.Code == OperationErrorCode.TourNotFound
+            ? OperationError.Invalid(parentField, $"no tour has the ID {dive.ParentTourId}. Give the tourId of the repository tour that the dive starts from.")
+            : read.Error;
+      }
+
+      if (parent.Target is not RepositoryTarget)
+      {
+         return OperationError.Invalid(parentField, $"tour {parent.Id} tours a pull request, and only a repository tour has dives. Give the tourId of a repository tour.");
+      }
+
+      if (parent.Pin is not TourPin.Snapshot snapshot)
+      {
+         return OperationError.Invalid(
+            parentField,
+            parent.Pin is TourPin.Failed
+               ? $"tour {parent.Id} could not be pinned, so the dive has no commit to show. Pin the tour again with pin_tour, then call create_tour again."
+               : $"tour {parent.Id} is not pinned to a commit yet, so the dive has no commit to show. Wait until read_state shows the tour's pin as snapshot, then call create_tour again.");
+      }
+
+      if (dive.StopId is { } stopId && parent.FindStop(stopId) is null)
+      {
+         return OperationError.Invalid(
+            DiveField.Then("stopId"),
+            $"tour {parent.Id} has no stop '{stopId}' in its plan. Give the stopId of the dive action's anchor, or omit it for a dive from the whole tour.");
+      }
+
+      return new NewTour(parent.Target, dive.Purpose, dive.Title, dive.Words, new DiveOrigin(parent.Id, parent.DiveOrigin?.RootId ?? parent.Id, dive.StopId), snapshot);
+   }
 
    // Returns the new tour's target, with the fields of a repository tour, or the refusal of the input's first fault.
    private OperationResult<NewTour> NewTourOf(CreateTourInput input)
@@ -395,19 +476,9 @@ internal sealed class TourPins
                return found.Error!;
             }
 
-            if (TitleFault(repository.Title) is { } fault)
-            {
-               return OperationError.Invalid(RepositoryField.Then("title"), fault);
-            }
-
-            if (repository.Words is { } words && string.IsNullOrWhiteSpace(words))
-            {
-               return OperationError.Invalid(RepositoryField.Then("words"), "omit words when the reviewer gave none, instead of empty words.");
-            }
-
-            return new NewTour(target, repository.Purpose, repository.Title, repository.Words);
+            return RepositoryFieldsFault(RepositoryField, repository.Title, repository.Words) is { } fault ? fault : new NewTour(target, repository.Purpose, repository.Title, repository.Words);
          default:
-            return OperationError.Invalid(FieldPath.Root, "give prUrl to tour a pull request, or repository to tour a repository.");
+            return OperationError.Invalid(FieldPath.Root, "give prUrl to tour a pull request, repository to tour a repository, or diveOrigin to dive from a repository tour.");
       }
    }
 
@@ -465,6 +536,26 @@ internal sealed class TourPins
       }
 
       return listing.Tours;
+   }
+
+   // Call it in a body of the writer's Exclusive.
+   private OperationResult<Tour> Create(TourWriter.Locked locked, Access.AnySession.Pass pass, CreateTourInput input, NewTour fields)
+   {
+      var tour = locked.Create(
+         fields.Target, input.Familiarity, input.PlanFirst ? PlanApproval.Awaited : PlanApproval.NotNeeded, fields.Purpose, fields.Title, fields.Words, fields.DiveOrigin, fields.Pin);
+      var binding = locked.BindNew(tour.Id, pass.Recipient);
+      if (binding is not null)
+      {
+         locked.Send(pass.Recipient.Probe(tour.Id));
+      }
+
+      locked.Publish(ServerEvents.ForTourCreated(TourSummary.Of(tour, _platforms, binding)).At(tour.Revision));
+      if (tour.Pin is TourPin.Pinning)
+      {
+         StartPin(tour);
+      }
+
+      return AgentView.Of(tour);
    }
 
    // Call it in a body of the writer's write or Exclusive.
@@ -556,4 +647,6 @@ internal sealed class TourPins
 /// <param name="Purpose">What a repository tour is for, or null for a pull request's tour.</param>
 /// <param name="Title">A repository tour's title, or null for a pull request's tour.</param>
 /// <param name="Words">The reviewer's words about what a repository tour should cover, or null for none.</param>
-internal sealed record NewTour(TourTarget Target, TourPurpose? Purpose = null, string? Title = null, string? Words = null);
+/// <param name="DiveOrigin">Where a dive starts, or null for a tour that is no dive.</param>
+/// <param name="Pin">The pin of a dive, its parent's snapshot, or null for a tour whose pin job finds its pin.</param>
+internal sealed record NewTour(TourTarget Target, TourPurpose? Purpose = null, string? Title = null, string? Words = null, DiveOrigin? DiveOrigin = null, TourPin.Snapshot? Pin = null);

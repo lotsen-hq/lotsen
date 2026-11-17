@@ -66,8 +66,27 @@ internal sealed record Tour(
    [JsonIgnore]
    public bool IsAgentView { get; private init; }
 
+   /// <summary>The tour's dives, oldest first, as a read of the tour lists them, or null for a tour without dives and for every tour that a write stores. JSON leaves them out when null.</summary>
+   /// <remarks>Each dive stores its own origin, so only <see cref="WithDives"/> fills them from the other tours, and <see cref="TourDocument.StoredTour.Next"/> refuses a tour that holds them.</remarks>
+   [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+   public IReadOnlyList<TourDive>? Dives { get; private init; }
+
    /// <summary>Returns the stop of the tour's plan, or null when the plan has none with the ID.</summary>
    public Stop? FindStop(string stopId) => Plan?.Stops.FirstOrDefault(stop => stop.Id == stopId);
+
+   /// <summary>Returns the tour with the dives among the tours whose parent it is, in the order of the tours, or without dives when none is.</summary>
+   /// <param name="tours">Stored tours, oldest first, such as the ones that <c>TourWriter.DivesOf</c> returns.</param>
+   public Tour WithDives(IEnumerable<Tour> tours)
+   {
+      IReadOnlyList<TourDive> dives =
+      [
+         .. tours
+            .Where(tour => tour.DiveOrigin?.ParentId == Id)
+            .Select(tour => tour is { DiveOrigin: { } origin, Title: { } title, Purpose: { } purpose } ? new TourDive(tour.Id, title, purpose, TourStates.Of(tour), origin.StopId) : null)
+            .OfType<TourDive>(),
+      ];
+      return this with { Dives = dives.Count > 0 ? dives : null };
+   }
 
    /// <summary>Returns the tour flagged as an agent view.</summary>
    /// <remarks>The flag has a private <c>init</c>, so no <c>with</c> outside the tour clears it.</remarks>
@@ -162,6 +181,14 @@ internal enum TourPurpose
 /// <param name="RootId">The ID of the family's first tour, which is no dive. It is the parent's ID when the parent is no dive.</param>
 /// <param name="StopId">The ID of the parent's stop that the dive started from, or null for a dive from the whole tour. JSON leaves it out when null.</param>
 internal sealed record DiveOrigin(TourId ParentId, TourId RootId, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? StopId = null);
+
+/// <summary>One dive of a tour, as the parent's state lists it.</summary>
+/// <param name="TourId">The dive's ID.</param>
+/// <param name="Title">The dive's title.</param>
+/// <param name="Purpose">What the dive is for.</param>
+/// <param name="State">The dive's state, as <see cref="TourStates.Of"/> derives it from the reviewer's reading progress.</param>
+/// <param name="StopId">The ID of the parent's stop that the dive started from, or null for a dive from the whole tour. JSON leaves it out when null.</param>
+internal sealed record TourDive(TourId TourId, string Title, TourPurpose Purpose, TourState State, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? StopId = null);
 
 /// <summary>The pin state of a tour: whether the tour is pinned to the commits that it shows. The <c>state</c> property in JSON names the derived type.</summary>
 /// <remarks>

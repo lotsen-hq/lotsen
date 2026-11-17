@@ -109,7 +109,7 @@ internal static class ContractSamples
 
    private static readonly TourSummary Summary = new(Id, Tour.Target, Tour.Familiarity, At, Later, Pin, Plan.Stops.Count, "contoso/shop/web #42", TourState.InProgress, PullRequestState.Active, Tour.Revision, Binding, PlanApproval.Given);
 
-   // A repository tour beside the pull request's tour, so the UI's type check reads a repository target and a snapshot pin as the serializer writes them.
+   // A repository tour beside the pull request's tour, so the UI's type check reads a repository target, a snapshot pin and a dive origin as the serializer writes them.
    private static readonly TourSummary RepositorySummary = new(
       TourId.TryParse("repositorytourab", out var repositoryId) ? repositoryId : throw new InvalidOperationException("The ID does not parse."),
       new RepositoryTarget(new Uri("https://github.com/contoso/shop"), "main", "github"),
@@ -123,7 +123,8 @@ internal static class ContractSamples
       PullRequestState.Active,
       1,
       null,
-      PlanApproval.NotNeeded);
+      PlanApproval.NotNeeded,
+      DiveOrigin: new DiveOrigin(Id, Id, "s2"));
 
    /// <summary>Returns one event of each kind, as the server publishes it, by its name.</summary>
    public static IReadOnlyDictionary<string, JsonNode> Events()

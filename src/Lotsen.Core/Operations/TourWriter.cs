@@ -71,6 +71,9 @@ internal sealed class TourWriter
    private List<StoredChange> _stores = [];
    private Action<StoredChange>? _afterStore;
 
+   // The IDs of each parent's dives, oldest first, or null until the first DivesOf lists the stored tours. Locked.Create and Locked.Delete keep it current under the lock.
+   private Dictionary<TourId, List<TourId>>? _dives;
+
    /// <exception cref="InvalidOperationException">Another owner claimed the ledger of <paramref name="sessions"/> before.</exception>
    public TourWriter(DataDirectory dataDirectory, EventBroadcaster events, PullRequestPlatforms platforms, AgentSessions sessions, TimeProvider timeProvider, ILogger<TourWriter> logger)
    {
@@ -126,6 +129,22 @@ internal sealed class TourWriter
          [.. tours.OrderBy(tour => tour.CreatedAt).ThenBy(tour => tour.Id.Value, StringComparer.Ordinal)],
          [.. unreadable.OrderBy(id => id.Value, StringComparer.Ordinal)],
          [.. otherSchema.OrderBy(id => id.Value, StringComparer.Ordinal)]);
+   }
+
+   /// <summary>Returns the stored dives whose parent is the tour, oldest first, without a dive that cannot be read.</summary>
+   /// <remarks>
+   /// Only the first call lists the stored tours, so a later call reads the parent's dives alone. A listing that fails is logged and gives no dives, so the read of the parent still answers, and
+   /// the next call lists again.
+   /// </remarks>
+   public IReadOnlyList<Tour> DivesOf(TourId parent)
+   {
+      TourId[] ids;
+      lock (_lock)
+      {
+         ids = DiveIndex()?.GetValueOrDefault(parent)?.ToArray() ?? [];
+      }
+
+      return [.. ids.Select(id => Read(id).Value).OfType<Tour>()];
    }
 
    /// <summary>Returns the review marks of the tour.</summary>
@@ -552,6 +571,27 @@ internal sealed class TourWriter
       return change;
    }
 
+   // Call it under the lock.
+   private Dictionary<TourId, List<TourId>>? DiveIndex()
+   {
+      if (_dives is null)
+      {
+         try
+         {
+            _dives = List().Tours
+               .Where(tour => tour.DiveOrigin is not null)
+               .GroupBy(tour => tour.DiveOrigin!.ParentId)
+               .ToDictionary(family => family.Key, family => family.Select(tour => tour.Id).ToList());
+         }
+         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+         {
+            _logger.LogWarning("The tours could not be listed, so a read of a tour lists no dives: {Reason}", exception.Message);
+         }
+      }
+
+      return _dives;
+   }
+
    // Returns the stored tour of a document that the store read, or why it cannot be used. A fault is logged with its path, and the tour counts as unreadable.
    private OperationResult<TourDocument.StoredTour> Loaded(TourRead read) => Finished(read.Id, read) is { } error ? error : Decoded(read.Id, ((TourRead.Found)read).Document, rejects: false);
 
@@ -737,17 +777,24 @@ internal sealed class TourWriter
       /// <inheritdoc cref="TourWriter.Read"/>
       public OperationResult<Tour> Read(TourId id) => _writer.Read(ThrowIfClosed(id));
 
-      /// <summary>Stores a new tour with a new ID, no plan and its pin in progress, as <see cref="TourDocument.New"/> builds it from the same values, and returns it.</summary>
-      public Tour Create(TourTarget target, Familiarity familiarity, PlanApproval planApproval, TourPurpose? purpose = null, string? title = null, string? words = null)
+      /// <summary>Stores a new tour with a new ID, no plan and its pin in progress or the given pin, as <see cref="TourDocument.New"/> builds it from the same values, and returns it.</summary>
+      public Tour Create(
+         TourTarget target, Familiarity familiarity, PlanApproval planApproval, TourPurpose? purpose = null, string? title = null, string? words = null, DiveOrigin? diveOrigin = null, TourPin? pin = null)
       {
          ThrowIfClosed(target);
          var now = _writer._timeProvider.GetUtcNow();
          TourDocument.StoredTour? created = null;
          _writer._store.Create(id =>
          {
-            created = _writer.Unbroken(_operation, id, TourDocument.New(id, target, familiarity, planApproval, now, purpose, title, words));
+            created = _writer.Unbroken(_operation, id, TourDocument.New(id, target, familiarity, planApproval, now, purpose, title, words, diveOrigin, pin));
             return created.Document;
          });
+         if (diveOrigin is not null && _writer._dives is { } dives)
+         {
+            dives.TryAdd(diveOrigin.ParentId, []);
+            dives[diveOrigin.ParentId].Add(created!.Tour.Id);
+         }
+
          return created!.Tour;
       }
 
@@ -767,6 +814,15 @@ internal sealed class TourWriter
 
          _writer._ledger.Forget(id);
          _writer._published.Remove(id);
+         if (_writer._dives is { } dives)
+         {
+            dives.Remove(id);
+            if (stored.Tour.DiveOrigin is { } origin)
+            {
+               dives.GetValueOrDefault(origin.ParentId)?.Remove(id);
+            }
+         }
+
          return stored.Tour;
       }
 

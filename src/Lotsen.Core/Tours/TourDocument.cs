@@ -46,7 +46,7 @@ internal sealed class TourDocument
    /// <summary>The review marks as the file holds them, which <see cref="Decode"/> checks.</summary>
    public IReadOnlyList<ReviewMark> ReviewMarks { get; }
 
-   /// <summary>Returns the document of a new tour with this ID, no plan and its pin in progress.</summary>
+   /// <summary>Returns the document of a new tour with this ID, no plan and its pin in progress, or the given pin.</summary>
    /// <param name="id">The new tour's ID.</param>
    /// <param name="target">What the tour reviews.</param>
    /// <param name="familiarity">How well the reviewer knows the code.</param>
@@ -55,11 +55,24 @@ internal sealed class TourDocument
    /// <param name="purpose">What a repository tour is for, or null for a pull request's tour.</param>
    /// <param name="title">A repository tour's title, or null for a pull request's tour.</param>
    /// <param name="words">The reviewer's words about what a repository tour should cover, or null for none.</param>
+   /// <param name="diveOrigin">Where a dive starts, or null for a tour that is no dive.</param>
+   /// <param name="pin">The new tour's pin, or null for a pin in progress.</param>
    /// <returns>The document, or the first rule that the new tour breaks, as for a repository tour without a purpose.</returns>
    public static Checked<StoredTour> New(
-      TourId id, TourTarget target, Familiarity familiarity, PlanApproval planApproval, DateTimeOffset now, TourPurpose? purpose = null, string? title = null, string? words = null)
+      TourId id,
+      TourTarget target,
+      Familiarity familiarity,
+      PlanApproval planApproval,
+      DateTimeOffset now,
+      TourPurpose? purpose = null,
+      string? title = null,
+      string? words = null,
+      DiveOrigin? diveOrigin = null,
+      TourPin? pin = null)
    {
-      var tour = new Tour(id, target, familiarity, now, now, new TourPin.Pinning(), Plan: null, Threads: TourThreads.Empty, Answers: [], planApproval, Purpose: purpose, Words: words, Title: title);
+      var tour = new Tour(
+         id, target, familiarity, now, now, pin ?? new TourPin.Pinning(), Plan: null, Threads: TourThreads.Empty, Answers: [], planApproval, Purpose: purpose, Words: words, Title: title,
+         DiveOrigin: diveOrigin);
       return StoredTour.Checked(tour, []);
    }
 
@@ -118,13 +131,19 @@ internal sealed class TourDocument
       /// <param name="now">The time of the write, which becomes the tour's update time.</param>
       /// <returns>The stored tour with the same review marks, or the first fault, with its path in the tour.</returns>
       /// <exception cref="InvalidOperationException">
-      /// The next tour is an agent view, which <see cref="AgentView.Of(Tour)"/> built. A view lacks the reviewer's draft answers and notes, so storing it would delete them.
+      /// The next tour is an agent view, which <see cref="AgentView.Of(Tour)"/> built. A view lacks the reviewer's draft answers and notes, so storing it would delete them. Or the next tour
+      /// holds the dives of a read, which <see cref="Tour.WithDives"/> filled.
       /// </exception>
       public Checked<StoredTour> Next(Tour next, DateTimeOffset now)
       {
          if (next.IsAgentView)
          {
             throw new InvalidOperationException($"A write of tour {Tour.Id} stores an agent view, which lacks the reviewer's draft answers and notes.");
+         }
+
+         if (next.Dives is not null)
+         {
+            throw new InvalidOperationException($"A write of tour {Tour.Id} stores the dives of a read, which each dive's own origin already holds.");
          }
 
          if (next.Id != Tour.Id)

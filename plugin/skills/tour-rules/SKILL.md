@@ -269,7 +269,7 @@ them again to the session that holds the tour then. Don't take a tour over only 
 ### Tour actions
 
 A tour action's anchor is the stop, or text selected in one of its fields, that the action is about, or the tour for
-an action on the plan.
+an action on the plan or a dive from the whole tour.
 
 `read_state` marks each stop that the reviewer skipped with `skipped` true. A skip is the reviewer's
 reading state: the reviewer skips and unskips stops in the UI, and no event tells you of it. A stop that `set_plan`
@@ -277,8 +277,8 @@ leaves out loses its skip.
 
 Resolve a tour action with one short `reply`:
 
-- `done` once the stop, the plan or the synthesis holds the result: say in a sentence or two what changed, such as
-  "Expanded `how` with the rounding rule."
+- `done` once the stop, the plan, the synthesis or a new dive holds the result: say in a sentence or two what changed,
+  such as "Expanded `how` with the rounding rule."
 - `needsAnswer` when you need the reviewer's answer before you can act, such as which part to revise. When the answer
   comes as a follow-up, carry the action out then, and reply to the follow-up.
 - `declined` when you won't do it. Say why in `text`.
