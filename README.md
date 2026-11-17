@@ -88,6 +88,8 @@ To learn a repository's code, ask Claude to "tour this repository" in a checkout
 
 The purpose says what the tour is for: `orient` to find your way around the code, `prepare` to understand one part before you change it, which you name in your own words, and `evaluate` to judge the code's design and quality, with checks that ask for your judgment. Claude asks for the purpose if you leave it out. Without a URL, Claude tours the repository you run it in, at your branch as the remote has it. Codebase tours work for repositories on Azure DevOps and `github.com`, and for any public git repository that git clones over `https`, with no sign-in. A private repository on another host is refused. Claude reads the code at the tour's commit, and offers a worktree or a temporary clone when your checkout is at another commit or has changes, instead of switching your branch.
 
+To go deeper into part of a codebase tour, choose Dive… in the Stop panel's Ask Claude menu, or in the Plan panel's ⋯ menu for the whole tour, with a purpose, a familiarity level and your words on what to cover, which a dive from the whole tour needs. Claude writes the dive as a new tour at the same commit. Its top bar shows a breadcrumb back to the tour it came from, that tour lists it in a Dives row on its stop, and the tour list groups the dives under their first tour.
+
 ## Commands
 
 Claude Code starts a background server when a session needs one, and it stops by itself once nothing uses it. These commands are for the times you want to step in. They need the global install from [Install](#install). Without it, run a command through npx with the plugin's version, such as `npx -y lotsen@<version> open`, with the version that Lotsen's errors in Claude Code name.

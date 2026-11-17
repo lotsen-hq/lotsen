@@ -199,6 +199,42 @@ public sealed partial class SkillTests
       Assert.DoesNotMatch("[Dd]ecline a `summarize`", keep);
    }
 
+   /// <summary>The names come from the type of <c>create_tour</c>'s <c>diveOrigin</c>, so a field that a dive adds must reach the dive's section.</summary>
+   [Fact]
+   [Trait("Category", "TourActions")]
+   public void Codebase_skill_tells_Claude_to_create_a_dive_with_its_dive_origin_at_the_parents_commit_and_to_ask_when_the_words_leave_it_open()
+   {
+      var dive = Normalized(Section(Codebase, 10));
+      var input = OperationCatalog.Get("create_tour").InputType;
+      var origin = input.Properties.Single(property => property.Name == PropertyName(LotsenJsonContext.Default.CreateTourInput, nameof(CreateTourInput.DiveOrigin)));
+      var names = input.Options.GetTypeInfo(origin.PropertyType).Properties.Select(property => property.Name).ToList();
+
+      Assert.Contains("parentTourId", names);
+      Assert.All(names.Append(origin.Name), name => Assert.Contains($"`{name}`", dive, StringComparison.Ordinal));
+      Assert.Contains("Follow its `howToAct`", dive, StringComparison.Ordinal);
+      Assert.Contains("never with `repository`", dive, StringComparison.Ordinal);
+      Assert.Contains("from the clean checkout, the worktree or the clone that you read the parent from", dive, StringComparison.Ordinal);
+      Assert.Contains("reply `needsAnswer` with your question", dive, StringComparison.Ordinal);
+      Assert.Contains("A dive of a dive works the same way", dive, StringComparison.Ordinal);
+      Assert.Contains("so the reviewer can explore it in a dive", Normalized(Section(Codebase, 6)), StringComparison.Ordinal);
+      Assert.Contains("Tell the reviewer there that Dive…", Normalized(Section(Codebase, 8)), StringComparison.Ordinal);
+   }
+
+   /// <summary>The placeholders stand for the action's tour and stop, which only a live action names.</summary>
+   [Fact]
+   [Trait("Category", "TourActions")]
+   public void Codebase_skill_example_dive_is_a_create_tour_input_of_a_dive_from_a_stop()
+   {
+      var json = Example(Codebase, "diveOrigin", TourId.New().ToString()).Replace("<tourId of the parent>", TourId.New().ToString(), StringComparison.Ordinal);
+      var input = JsonSerializer.Deserialize(json, LotsenJsonContext.Default.CreateTourInput)!;
+
+      Assert.Null(input.PrUrl);
+      Assert.Null(input.Repository);
+      Assert.False(input.PlanFirst);
+      Assert.NotNull(input.DiveOrigin?.StopId);
+      Assert.InRange(input.DiveOrigin.Title.Length, 1, TourRules.MaxTitleLength);
+   }
+
    /// <summary>A repository tour takes no file marks, and an orient tour plans no risk or question stop, so the example holds neither.</summary>
    [Fact]
    public void Codebase_skill_example_plan_is_a_valid_set_plan_input_of_an_orient_tour()
