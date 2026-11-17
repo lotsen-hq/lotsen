@@ -6,7 +6,7 @@
    import { stopThreads } from '../lib/threadView';
    import type { DiveChoice, StopActionKind } from '../lib/tourActions';
    import { staleNoticeText, versionNoticeText } from '../lib/stopNotices';
-   import type { CodeReference, Stop, TourControls } from '../lib/types';
+   import type { CodeReference, Stop, TourControls, TourSummary } from '../lib/types';
    import type { DoneState } from '../lib/tourRecord.svelte';
    import type { KnownVersion } from '../lib/versions';
    import ExplanationBlock from './ExplanationBlock.svelte';
@@ -18,6 +18,7 @@
    import StopToolbar from './StopToolbar.svelte';
    import StopVersionBanner from './StopVersionBanner.svelte';
    import ThreadMarkers from './ThreadMarkers.svelte';
+   import DiveList from './DiveList.svelte';
 
    let {
       stop,
@@ -34,6 +35,8 @@
       done = { state: 'none' },
       onsetdone = null,
       planWaits = false,
+      dives = [],
+      onopendive = () => {},
    }: {
       /** The stop at the version that the panel shows, which is the stop of the explanation. */
       stop: Stop;
@@ -63,7 +66,13 @@
       onsetdone?: ((version: number | null) => Promise<string | null>) | null;
       /** Whether the tour's plan waits for the reviewer's approval, so Claude writes no stop yet. */
       planWaits?: boolean;
+      /** The dives that the stop shows in its Dives row, as `divesByStop` places them. */
+      dives?: readonly TourSummary[];
+      /** Opens a dive by its tour ID. */
+      onopendive?: (tourId: string) => void;
    } = $props();
+
+   const id = $props.id();
 
    let actions = $state<StopActions>();
    let sending = $state(false);
@@ -136,6 +145,12 @@
             <StopStaleNotice stale={view.stale} />
          {/if}
       </div>
+      {#if dives.length > 0}
+         <section class="mt-3" aria-labelledby="{id}-dives" data-dives-row>
+            <h4 id="{id}-dives" class="caps-label">Dives</h4>
+            <DiveList {dives} {onopendive} class="mt-1" />
+         </section>
+      {/if}
       {#if stop.stage === 'pending'}
          <p class="mt-2 text-muted-foreground">{planWaits ? 'Claude writes this stop once you approve the plan in the Plan panel.' : 'Claude has not written this stop yet.'}</p>
       {:else}

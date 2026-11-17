@@ -13,7 +13,8 @@
    import { pinnedReferenceAtPin, type PinCommits } from '../lib/pin';
    import { summaryThreadKindLabel } from '../lib/tourActions';
    import { threadStateLabels, threadWords } from '../lib/threadView';
-   import type { CheckAnswer, CodeReference, Plan, QuestionThread, SummaryAnswer, SummaryThread, SummaryTypedThread, SummaryTypedThreads } from '../lib/types';
+   import type { CheckAnswer, CodeReference, Plan, QuestionThread, SummaryAnswer, SummaryThread, SummaryTypedThread, SummaryTypedThreads, TourSummary } from '../lib/types';
+   import DiveList from './DiveList.svelte';
    import Prose from './Prose.svelte';
    import StopKindPill from './StopKindPill.svelte';
    import WarningNotice from './WarningNotice.svelte';
@@ -31,6 +32,8 @@
       hover = null,
       atPin,
       pinCommits = null,
+      dives = [],
+      onopendive = () => {},
       actions,
    }: {
       /** The selected tour's review summary. */
@@ -55,6 +58,10 @@
       atPin: (stopId: string, version: number | undefined) => (reference: CodeReference) => boolean;
       /** The commits of the tour's pin, against which a `ref:` link of the synthesis is at an earlier commit when the synthesis was written at another pin, or null while the tour is not pinned. */
       pinCommits?: PinCommits | null;
+      /** The dives that start from the tour, which its Dives section lists, or none for a tour without dives, which shows no section. */
+      dives?: readonly TourSummary[];
+      /** Opens a dive by its tour ID. */
+      onopendive?: (tourId: string) => void;
       /** The buttons that act on the summary, or undefined for none. Each one that needs a session shows disabled with its reason while none is bound. */
       actions?: Snippet;
    } = $props();
@@ -295,6 +302,13 @@
          {@render group('outdated-threads', 'Outdated threads', summary.threads.outdated.length, outdatedThreads)}
          {@render group('skipped-stops', 'Skipped stops', summary.skippedStops.length, skippedStops)}
          {@render group('stale-stops', 'Stale stops', summary.staleStops.length, staleStops)}
+      {/if}
+      <!-- The dives come from the tour list, not from the review summary, so they show while the summary loads or after it fails. -->
+      {#if dives.length > 0}
+         {#snippet diveList()}
+            <DiveList {dives} {onopendive} purpose />
+         {/snippet}
+         {@render group('dives', 'Dives', dives.length, diveList)}
       {/if}
    </div>
 </div>

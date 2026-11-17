@@ -1,5 +1,5 @@
 <script lang="ts">
-   import { onMount } from 'svelte';
+   import { onMount, tick } from 'svelte';
    import DiffHeading from './components/DiffHeading.svelte';
    import DiffOptions from './components/DiffOptions.svelte';
    import DiffView from './components/DiffView.svelte';
@@ -74,6 +74,19 @@
       }
 
       app.openAnchor(anchor);
+   }
+
+   let tourPicker = $state<TourPicker>();
+
+   /** Opens a tour in the default view mode, from the tour list or a breadcrumb. */
+   function openTour(tourId: string): void {
+      app.selectTour(tourId, settings.defaultViewMode);
+   }
+
+   // The panel that holds a dive's control shows the new tour without it, so the focus moves to the tour switcher's trigger, as a choice in the tour list leaves it there.
+   function openDive(tourId: string): void {
+      openTour(tourId);
+      void tick().then(() => tourPicker?.focusSwitcher());
    }
 
    /** The markers of the threads about the open file, for the diff toolbar. */
@@ -260,6 +273,7 @@
          >
             {#snippet picker()}
                <TourPicker
+                  bind:this={tourPicker}
                   tours={app.listedTours}
                   hiddenCount={app.hiddenTourCount}
                   showHidden={app.showHiddenTours}
@@ -270,7 +284,8 @@
                   error={app.toursError}
                   selectedTourId={app.selectedTourId}
                   selectedTour={app.selectedTour}
-                  onselect={(tourId) => app.selectTour(tourId, settings.defaultViewMode)}
+                  breadcrumb={app.selectedBreadcrumb}
+                  onselect={openTour}
                />
             {/snippet}
             {#snippet navigation()}
@@ -364,6 +379,8 @@
                      focusRequests={layout.focusRequests.plan}
                      folded={app.selectedFoldedParts}
                      onfold={(partId, folded) => app.setPartFolded(partId, folded)}
+                     dives={app.selectedDivesByStop}
+                     onopendive={openDive}
                   />
                {/key}
             {/snippet}
@@ -385,6 +402,8 @@
                            {hover}
                            atPin={(stopId, version) => app.summaryReferenceAtPin(stopId, version)}
                            pinCommits={app.selectedPinCommits}
+                           dives={app.selectedDives}
+                           onopendive={openDive}
                         >
                            {#snippet actions()}
                               <!-- Each tour gets its own button, so a request in flight or a refusal for one tour never shows on the next. -->
@@ -484,6 +503,8 @@
                         done={app.selectedDoneStates.get(app.selectedStop.id)}
                         onsetdone={(version) => app.setStopDone(app.selectedStop!.id, version)}
                         planWaits={app.selectedPlanWaits}
+                        dives={app.selectedDivesByStop.get(app.selectedStop.id) ?? []}
+                        onopendive={openDive}
                      />
                   {/key}
                {:else if app.showsSummary}

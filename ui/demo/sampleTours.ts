@@ -94,8 +94,17 @@ export interface SampleRepositoryTarget {
    words?: string;
 }
 
-/** What a sample tour tours: pull request `number` of the sample repository, or the sample repository itself. */
-export type SampleTarget = { number: number } | { repository: SampleRepositoryTarget };
+/** What a sample dive starts from: the sample tour of key `parent`, from its stop of key `stop` or from the whole tour, with the dive's fields. The dive takes the parent's snapshot. */
+export interface SampleDiveTarget {
+   parent: string;
+   stop?: string;
+   purpose: TourPurpose;
+   title: string;
+   words?: string;
+}
+
+/** What a sample tour tours: pull request `number` of the sample repository, the sample repository itself, or a dive from an earlier sample tour of the repository. */
+export type SampleTarget = { number: number } | { repository: SampleRepositoryTarget } | { dive: SampleDiveTarget };
 
 /** A sample tour of its target, created `ageMinutes` before the template's build, as {@link SampleTourSpec} describes it. */
 export type SampleTour = SampleTourSpec & SampleTarget;
@@ -615,6 +624,30 @@ export function sampleTours(): SampleTour[] {
                ],
             },
          ],
+      },
+      {
+         key: 'storefront-payment-dive',
+         dive: { parent: 'storefront-orient', stop: 'payment', purpose: 'orient', title: 'How a payment reaches the gateway', words: 'The call to the gateway' },
+         ageMinutes: 60 * 30,
+         familiarity: 'new',
+         pin: 'pinned',
+         chapters: [
+            {
+               title: 'The payment',
+               stops: [
+                  {
+                     key: 'charge',
+                     title: 'Charging the total',
+                     kind: 'inspect',
+                     content: {
+                        headline: '`pay` sends the cart total to the gateway and waits for its answer.',
+                        passages: [['head', 'src/checkout/payment.ts', 11, 23]],
+                     },
+                  },
+               ],
+            },
+         ],
+         steps: [{ progress: 'charge' }],
       },
       {
          key: 'inventory-sync',

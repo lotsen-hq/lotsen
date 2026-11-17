@@ -1,11 +1,14 @@
 <script lang="ts">
+   import { tick } from 'svelte';
    import BookOpen from '@lucide/svelte/icons/book-open';
    import ChevronDown from '@lucide/svelte/icons/chevron-down';
+   import ChevronRight from '@lucide/svelte/icons/chevron-right';
    import ExternalLink from '@lucide/svelte/icons/external-link';
    import GitPullRequest from '@lucide/svelte/icons/git-pull-request';
    import { buttonVariants } from '$lib/components/ui/button';
    import * as AlertDialog from '$lib/components/ui/alert-dialog';
    import * as Popover from '$lib/components/ui/popover';
+   import { tourName } from '../lib/tourFamily';
    import { repositoryHeading, splitLabel, type RepositoryHeading } from '../lib/tourLabel';
    import type { TourSummary } from '../lib/types';
    import TourList from './TourList.svelte';
@@ -19,6 +22,7 @@
       error,
       selectedTourId,
       selectedTour,
+      breadcrumb = [],
       onselect,
       onshowhidden,
       onarchive,
@@ -34,6 +38,8 @@
       selectedTourId: string | null;
       /** The selected tour's summary, or null while no tour is selected or the list does not hold it yet. */
       selectedTour: TourSummary | null;
+      /** The selected dive's breadcrumb, from its root down to its parent, each step a button that opens that tour, or no tours for a tour that is not a dive. */
+      breadcrumb?: readonly TourSummary[];
       onselect: (tourId: string) => void;
       onshowhidden: (show: boolean) => void;
       /** Archives a tour or unarchives it, and returns null once stored, or the reason the write failed. */
@@ -57,6 +63,17 @@
    const targetUrl = $derived(selectedTour && URL.canParse(selectedTour.target.url) && new URL(selectedTour.target.url).protocol === 'https:' ? selectedTour.target.url : null);
    const heading = $derived(selectedTour === null ? null : repositoryHeading(selectedTour));
    const deletedName = $derived(deleting === null ? '' : deleting.title === undefined ? `of ${deleting.label}` : `“${deleting.title}” of ${deleting.label}`);
+
+   /** Moves the focus to the switcher's trigger, which stays in place when another tour opens. */
+   export function focusSwitcher(): void {
+      listTrigger?.focus();
+   }
+
+   // The step's button leaves with the breadcrumb or with the dive's title, so the focus moves to the switcher's trigger, as a choice in the list leaves it there.
+   function openStep(tourId: string): void {
+      onselect(tourId);
+      void tick().then(focusSwitcher);
+   }
 
    function select(tourId: string) {
       open = false;
@@ -166,11 +183,11 @@
    {@const place = ref === null ? repository : `${repository}@${ref}`}
    <span class="flex min-w-0 items-center gap-1.5" data-repository-heading>
       <BookOpen class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-      <WithTooltip text={`${title}\n${place}`}>
-         {#snippet trigger({ props })}
-            <span {...props} class="min-w-0 truncate" data-heading-part="title">{title}</span>
-         {/snippet}
-      </WithTooltip>
+      {#if breadcrumb.length > 0}
+         {@render diveBreadcrumb(title, place)}
+      {:else}
+         {@render headingTitle(title, place)}
+      {/if}
       <span class="flex max-w-1/2 min-w-0 shrink-0 items-center text-sm text-muted-foreground @max-bar-repository:sr-only">
          {#if targetUrl !== null}
             <WithTooltip text={`Open the repository in a new tab\n${targetUrl}`}>
@@ -197,6 +214,42 @@
          {/if}
       </span>
    </span>
+{/snippet}
+
+{#snippet headingTitle(title: string, place: string)}
+   <WithTooltip text={`${title}\n${place}`}>
+      {#snippet trigger({ props })}
+         <span {...props} class="min-w-0 truncate" data-heading-part="title">{title}</span>
+      {/snippet}
+   </WithTooltip>
+{/snippet}
+
+<!-- Each step before the dive's title truncates on its own. A narrow bar keeps only the parent's step, after an ellipsis that stands for the steps it hides. -->
+{#snippet diveBreadcrumb(title: string, place: string)}
+   <nav aria-label="Breadcrumb" class="flex min-w-0 items-center" data-breadcrumb>
+      <ol class="flex min-w-0 items-center gap-1">
+         {#each breadcrumb as step, index (step.id)}
+            {@const parent = index === breadcrumb.length - 1}
+            {#if parent && index > 0}
+               <li class="hidden shrink-0 text-muted-foreground @max-bar-repository:flex" aria-hidden="true">…<ChevronRight class="size-3.5" /></li>
+            {/if}
+            <li class={['flex max-w-28 min-w-0 shrink items-center gap-1 text-sm', !parent && '@max-bar-repository:hidden']} data-breadcrumb-step>
+               <WithTooltip text={`Open the tour ${tourName(step)}`}>
+                  {#snippet trigger({ props })}
+                     <button
+                        {...props}
+                        type="button"
+                        class="h-8 min-w-0 cursor-pointer truncate rounded-sm text-muted-foreground underline decoration-muted-foreground/50 underline-offset-4 hover:text-foreground hover:decoration-current focus-visible:decoration-current focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden"
+                        onclick={() => openStep(step.id)}>{tourName(step)}</button
+                     >
+                  {/snippet}
+               </WithTooltip>
+               <ChevronRight class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+            </li>
+         {/each}
+         <li class="flex min-w-0 items-center" aria-current="page">{@render headingTitle(title, place)}</li>
+      </ol>
+   </nav>
 {/snippet}
 
 <AlertDialog.Root bind:open={confirming}>

@@ -22,7 +22,11 @@ export async function sampleWorld(): Promise<SampleWorld> {
 }
 
 export const specs = sampleTours();
-const labelOfKey = (key: string) => labelOf(specs.find((spec) => spec.key === key) ?? pinningTour);
+// A dive's row names its parent in place of the label, so the list finds a dive by its title.
+function labelOfKey(key: string): string {
+   const spec = specs.find((candidate) => candidate.key === key) ?? pinningTour;
+   return 'dive' in spec ? spec.dive.title : labelOf(spec);
+}
 export const alerts = () => screen.queryAllByRole('alert').map((alert) => alert.textContent);
 export const threadsPanel = () => within(screen.getByRole('region', { name: 'Threads' }));
 

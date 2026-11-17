@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import PlanPanel from '../src/components/PlanPanel.svelte';
 import type { Offer, Plan, Stop, TourControls } from '../src/lib/types';
 import { eventFixtures } from './contract/fixtures.generated';
+import { familySummary } from './family';
 
 function stop(id: string, title: string, kind: Stop['kind'], status: Stop['status'], chapter: string): Stop {
    return status === 'pending'
@@ -291,5 +292,37 @@ describe('a dive from the whole tour', () => {
 
       expect(actions.queryByRole('alert')).toBeNull();
       expect((actions.getByRole('textbox', { name: 'What should the dive cover?' }) as HTMLTextAreaElement).value).toBe('The cache.');
+   });
+});
+
+describe('the dive marker', () => {
+   const inMenu = { hidden: true } as const;
+   const dives = [familySummary('d1', 1, { parent: 'root', root: 'root', stop: 's1' }, { state: 'inProgress' }), familySummary('d2', 2, { parent: 'root', root: 'root', stop: 's1' })];
+
+   function renderMarked() {
+      const onopendive = vi.fn();
+      render(PlanPanel, { props: { tourSelected: true, known: { plan }, error: null, attachment: 'confirmed', dives: new Map([['s1', dives]]), onopendive } });
+      return { onopendive, row: () => screen.getAllByRole('button').find((button) => button.classList.contains('stop-row'))! };
+   }
+
+   it("names the count of the stop's dives, and the row keeps room for it", () => {
+      const { row } = renderMarked();
+
+      expect(screen.getByRole('button', { name: 'Dives from stop 1: 2' }).closest('.stop-item')).toBe(row().closest('.stop-item'));
+      expect(row().getAttribute('aria-label')).toBe('1 Overview: The checkout at a glance, 2 dives');
+      expect(row().classList.contains('keeps-one')).toBe(true);
+      expect(screen.getAllByRole('button', { name: /^Dives from/ })).toHaveLength(1);
+   });
+
+   it('lists each dive with its reading state, and opens the one the reviewer chooses', async () => {
+      const { onopendive } = renderMarked();
+
+      await fireEvent.keyDown(screen.getByRole('button', { name: 'Dives from stop 1: 2' }), { key: 'Enter' });
+      const menu = within(await screen.findByRole('menu', inMenu));
+
+      expect(menu.getAllByRole('menuitem', inMenu).map((item) => item.getAttribute('aria-label'))).toEqual(['Tour d1, In progress', 'Tour d2, Not started']);
+      await fireEvent.click(menu.getByRole('menuitem', { name: 'Tour d2, Not started', hidden: true }));
+
+      expect(onopendive).toHaveBeenCalledExactlyOnceWith('d2');
    });
 });

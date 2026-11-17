@@ -168,29 +168,75 @@ export async function seedRepositoryTour(world: World, spec: RepositoryTourSpec 
    };
    const tour = (await claude.call('create_tour', { repository, familiarity: spec.familiarity ?? 'some', ...(spec.planFirst ? { planFirst: true } : {}) })) as Tour;
    await world.idle();
-   const stopIds: string[] = [];
-   if (spec.chapters !== undefined) {
-      const chapters = spec.chapters.map((chapter, index) => ({ id: `c${index + 1}`, title: chapter.title }));
-      const planned = (await claude.call('set_plan', {
-         tourId: tour.id,
-         chapters,
-         stops: spec.chapters.flatMap((chapter, index) => chapter.stops.map((stop) => ({ title: stop.title, kind: stop.kind, chapter: chapters[index]!.id }))),
-      })) as Tour;
-      stopIds.push(...planned.plan!.stops.map((stop) => stop.id));
-      const stops = spec.chapters.flatMap((chapter) => chapter.stops);
-      for (const [index, stop] of stops.entries()) {
-         if (stop.content !== undefined) {
-            await claude.call('put_stop', { tourId: tour.id, stopId: stopIds[index], ...stop.content });
-         }
-      }
-   }
-
+   const stopIds = spec.chapters === undefined ? [] : await writePlan(claude, tour.id, spec.chapters);
    if (spec.bound === false) {
       await claude.drop();
       return { tourId: tour.id, stopIds, head, claude: null };
    }
 
    return { tourId: tour.id, stopIds, head, claude };
+}
+
+/** What {@link seedDive} builds: the tour and the stop that the dive starts from, the dive's fields, its plan by chapter and how far the reviewer has read it. */
+export interface DiveSpec {
+   /** The tour ID of the repository tour that the dive starts from, its parent. */
+   parentTourId: string;
+   /** The ID of the parent's stop that the dive starts from, or undefined for a dive from the whole tour. */
+   stopId?: string;
+   purpose?: TourPurpose;
+   title?: string;
+   words?: string;
+   familiarity?: Familiarity;
+   /** The chapters of the dive's plan, each with its stops, or undefined for a dive without a plan, which stays generating. */
+   chapters?: { title: string; stops: SeededStop[] }[];
+   /** The place that the reviewer opened last in the dive, the index of a stop in plan order or the summary page, or undefined for a dive that the reviewer has not opened. */
+   read?: number | 'summary';
+}
+
+/** A seeded dive: its ID and the IDs of its stops in plan order. */
+export interface SeededDive {
+   tourId: string;
+   stopIds: string[];
+}
+
+/**
+ * Creates a dive on the world through the real operations: the session's create_tour with a dive origin, its plan and its stops' content, then the reviewer's reading progress. The dive
+ * stays attached to the session.
+ */
+export async function seedDive(world: World, claude: ClaudeSession, spec: DiveSpec): Promise<SeededDive> {
+   const diveOrigin = {
+      parentTourId: spec.parentTourId,
+      purpose: spec.purpose ?? 'orient',
+      title: spec.title ?? 'The rounding in depth',
+      ...(spec.stopId === undefined ? {} : { stopId: spec.stopId }),
+      ...(spec.words === undefined ? {} : { words: spec.words }),
+   };
+   const tour = (await claude.call('create_tour', { diveOrigin, familiarity: spec.familiarity ?? 'some' })) as Tour;
+   await world.idle();
+   const stopIds = spec.chapters === undefined ? [] : await writePlan(claude, tour.id, spec.chapters);
+   if (spec.read !== undefined) {
+      await world.reviewer.call('record_reading_progress', spec.read === 'summary' ? { tourId: tour.id, summary: true } : { tourId: tour.id, stopId: stopIds[spec.read]! });
+   }
+
+   return { tourId: tour.id, stopIds };
+}
+
+// Sets the plan of the chapters as the session, writes the content of each stop that has one, and returns the IDs of the stops in plan order.
+async function writePlan(claude: ClaudeSession, tourId: string, specChapters: { title: string; stops: SeededStop[] }[]): Promise<string[]> {
+   const chapters = specChapters.map((chapter, index) => ({ id: `c${index + 1}`, title: chapter.title }));
+   const planned = (await claude.call('set_plan', {
+      tourId,
+      chapters,
+      stops: specChapters.flatMap((chapter, index) => chapter.stops.map((stop) => ({ title: stop.title, kind: stop.kind, chapter: chapters[index]!.id }))),
+   })) as Tour;
+   const stopIds = planned.plan!.stops.map((stop) => stop.id);
+   for (const [index, stop] of specChapters.flatMap((chapter) => chapter.stops).entries()) {
+      if (stop.content !== undefined) {
+         await claude.call('put_stop', { tourId, stopId: stopIds[index], ...stop.content });
+      }
+   }
+
+   return stopIds;
 }
 
 /** Opens a session that attaches the tour, as Claude does in a world copied from a template, whose sessions did not survive the seal. */

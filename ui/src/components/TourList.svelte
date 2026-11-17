@@ -3,6 +3,8 @@
    import ArchiveRestore from '@lucide/svelte/icons/archive-restore';
    import Trash2 from '@lucide/svelte/icons/trash-2';
    import BookOpen from '@lucide/svelte/icons/book-open';
+   import CornerDownRight from '@lucide/svelte/icons/corner-down-right';
+   import { groupFamilies, tourName } from '../lib/tourFamily';
    import { repositoryHeading } from '../lib/tourLabel';
    import { pullRequestFlag, tourLine, tourStateLabels } from '../lib/tourList';
    import type { TourSummary } from '../lib/types';
@@ -21,7 +23,7 @@
       onarchive,
       ondelete,
    }: {
-      /** The tours that the list shows, as `listedTours` picks them. */
+      /** The tours that the list shows, as `listedTours` picks them, which the list groups by family as {@link groupFamilies} does. */
       tours: TourSummary[];
       /** The number of tours that the list hides while hidden tours do not show. */
       hiddenCount: number;
@@ -38,6 +40,8 @@
    } = $props();
 
    let archiveError = $state<string | null>(null);
+   const rows = $derived(groupFamilies(tours));
+   const byId = $derived(new Map(tours.map((tour) => [tour.id, tour])));
 
    async function archive(tour: TourSummary) {
       archiveError = await onarchive(tour.id, tour.state !== 'archived');
@@ -62,11 +66,12 @@
    {/if}
    {#if tours.length > 0}
       <ul>
-         {#each tours as tour (tour.id)}
+         {#each rows as { tour, depth } (tour.id)}
             {@const archived = tour.state === 'archived'}
             {@const heading = repositoryHeading(tour)}
             {@const flag = pullRequestFlag(tour)}
-            <li class={['flex items-center border-l-3', tour.id === selectedTourId ? 'border-primary bg-accent' : 'border-transparent']}>
+            {@const parent = tour.diveOrigin === undefined ? undefined : byId.get(tour.diveOrigin.parentId)}
+            <li class={['flex items-center border-l-3', tour.id === selectedTourId ? 'border-primary bg-accent' : 'border-transparent']} data-depth={depth}>
                <!-- The left border is the selection bar, so focus leaves its color alone. -->
                <!-- The list sits in the tour switcher's popover, which one Escape closes even while the tooltip of a tour or of one of its buttons shows. -->
                <WithTooltip text={tour.target.url} deferEscape>
@@ -74,7 +79,7 @@
                      <button
                         {...props}
                         type="button"
-                        class="flex min-w-0 flex-1 cursor-pointer scroll-my-1 flex-col gap-0.5 py-2 pr-1 pl-4 text-left hover:bg-accent focus-visible:ring-inset"
+                        class={['flex min-w-0 flex-1 cursor-pointer scroll-my-1 flex-col gap-0.5 py-2 pr-1 text-left hover:bg-accent focus-visible:ring-inset', depth === 1 ? 'pl-9' : 'pl-4']}
                         aria-current={tour.id === selectedTourId ? 'true' : undefined}
                         onclick={() => onselect(tour.id)}
                      >
@@ -87,7 +92,13 @@
                               <span class="tour-state" data-state={tour.state}>{tourStateLabels[tour.state] ?? tour.state}</span>
                            </span>
                         </span>
-                        {#if heading !== null}
+                        <!-- A dive tours its root's repository, so its row names the tour it started from in place of the repository. -->
+                        {#if tour.diveOrigin !== undefined}
+                           <span class="flex items-center gap-1 text-sm text-muted-foreground" data-dive-parent>
+                              <CornerDownRight class="size-3.5 shrink-0" aria-hidden="true" />
+                              <span class="wrap-anywhere">{parent === undefined ? 'Dive' : `Dive from ${tourName(parent)}`}</span>
+                           </span>
+                        {:else if heading !== null}
                            <span class="flex items-center gap-1 text-sm text-muted-foreground" data-tour-repository>
                               <BookOpen class="size-3.5 shrink-0" aria-hidden="true" />
                               <span class="wrap-anywhere">{tour.label}</span>

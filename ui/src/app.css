@@ -440,6 +440,10 @@
          padding-right: 4rem;
       }
 
+      & .stop-row.keeps-three {
+         padding-right: 5.75rem;
+      }
+
       & .stop-actions {
          @apply absolute inset-y-0 right-1 flex items-center gap-1;
       }
@@ -492,6 +496,10 @@
 
    :is(.plan .stop-item, .stop-order-row, .stop-toolbar) .skip-toggle {
       @apply shrink-0 text-muted-foreground;
+   }
+
+   .plan .stop-item .dive-marker {
+      @apply shrink-0 text-muted-foreground hover:text-foreground;
    }
 
    /* In the stop order editor, a skip toggle shows while the pointer or the focus is in the row, or while the stop is skipped. */

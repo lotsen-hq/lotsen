@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/sve
 import { describe, expect, it, vi } from 'vitest';
 import TourPicker from '../src/components/TourPicker.svelte';
 import type { TourSummary } from '../src/lib/types';
+import { familySummary } from './family';
 import { hoverTooltip } from './tooltip';
 
 const pinnedPin = { state: 'pinned', mergeBase: 'a'.repeat(40), head: 'b'.repeat(40), iteration: 1, remoteUrl: 'https://platform.test/shop.git' } as const;
@@ -265,5 +266,76 @@ describe('a repository tour in the tour switcher', () => {
       await fireEvent.click(screen.getByRole('button', { name: 'Choose a tour' }));
 
       expect(await screen.findByText('No tours yet. Ask Claude to start a tour of a pull request or a repository.')).toBeDefined();
+   });
+});
+
+describe('a tour family in the tour switcher', () => {
+   const root = familySummary('root', 0);
+   const dive = familySummary('dive', 2, { parent: 'root', root: 'root', stop: 's1' }, { state: 'inProgress' });
+   const deeper = familySummary('deeper', 3, { parent: 'dive', root: 'root' });
+   const other = familySummary('other', 1);
+
+   function renderFamily(selected: TourSummary, breadcrumb: TourSummary[]) {
+      const onselect = vi.fn();
+      render(TourPicker, {
+         props: {
+            tours: [deeper, dive, other, root],
+            hiddenCount: 0,
+            showHidden: false,
+            loaded: true,
+            error: null,
+            selectedTourId: selected.id,
+            selectedTour: selected,
+            breadcrumb,
+            onselect,
+            onshowhidden: vi.fn(),
+            onarchive: vi.fn(),
+            ondelete: vi.fn(),
+         },
+      });
+      return { onselect, nav: () => within(screen.getByRole('navigation', { name: 'Breadcrumb' })) };
+   }
+
+   it("shows a dive's breadcrumb from the root down to the dive's title, each step a button that opens its tour", async () => {
+      const { onselect, nav } = renderFamily(deeper, [root, dive]);
+
+      expect(
+         nav()
+            .getAllByRole('listitem')
+            .map((item) => item.textContent.trim()),
+      ).toEqual(['Tour root', 'Tour dive', 'Tour deeper']);
+      expect(nav().getByText('Tour deeper').closest('[aria-current="page"]')).not.toBeNull();
+      expect(await hoverTooltip(nav().getByRole('button', { name: 'Tour root' }))).toBe('Open the tour Tour root');
+
+      await fireEvent.click(nav().getByRole('button', { name: 'Tour root' }));
+      expect(onselect).toHaveBeenCalledExactlyOnceWith('root');
+   });
+
+   it('keeps only the parent step, after an ellipsis, in a narrow bar', () => {
+      const { nav } = renderFamily(deeper, [root, dive]);
+      const steps = nav().getAllByRole('listitem');
+
+      expect(steps[0]!.className).toContain('@max-bar-repository:hidden');
+      expect(steps.find((step) => step.textContent.trim() === 'Tour dive')!.className).not.toContain('@max-bar-repository:hidden');
+      expect(nav().getByText('…', { exact: false }).closest('li')!.getAttribute('aria-hidden')).toBe('true');
+   });
+
+   it('shows no breadcrumb for a tour that is not a dive', () => {
+      renderFamily(root, []);
+
+      expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
+      expect(document.querySelector('[data-heading-part="title"]')?.textContent).toBe('Tour root');
+   });
+
+   it("lists the family under its root, one level deep, with each dive's parent in place of the repository", async () => {
+      renderFamily(root, []);
+      await fireEvent.click(screen.getByRole('button', { name: 'Choose another tour' }));
+      const list = within(await screen.findByRole('navigation', { name: 'Tours' }));
+      const items = list.getAllByRole('listitem');
+
+      expect(items.map((item) => `${item.querySelector('[id^="tour-label-"]')!.textContent}:${item.dataset.depth}`)).toEqual(['Tour other:0', 'Tour root:0', 'Tour dive:1', 'Tour deeper:1']);
+      expect(items[2]!.querySelector('[data-dive-parent]')?.textContent.trim()).toBe('Dive from Tour root');
+      expect(items[3]!.querySelector('[data-dive-parent]')?.textContent.trim()).toBe('Dive from Tour dive');
+      expect(items[1]!.querySelector('[data-dive-parent]')).toBeNull();
    });
 });

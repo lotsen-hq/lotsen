@@ -14,6 +14,7 @@ import { endSession, linkCode, startSession, type SessionEnvironment } from './s
 import type { SseEvent } from './sse';
 import { steppedTarget } from './skips';
 import { stackFileKey, stopFileStack, type FileReference, type StackFile } from './stopFiles';
+import { breadcrumb, divesByStop, divesOf } from './tourFamily';
 import { hiddenCount, listedTours } from './tourList';
 import { TourRecord, type DoneState, type KnownFiles, type KnownSummary, type ReviewState } from './tourRecord.svelte';
 import { rowOf, touched, withPart, withSummary, type RowPart, type RowParts, type TourRow } from './tourRows';
@@ -188,6 +189,12 @@ export class LotsenApp {
    /** The commits that the selected tour's pin shows at each side, or null while no pinned tour is selected. */
    selectedPinCommits = $derived<PinCommits | null>(this.pinnedBase === null || this.pinnedHead === null ? null : { base: this.pinnedBase, head: this.pinnedHead });
    selectedPlan = $derived(this.selectedRecord?.knownPlan);
+   /** The selected dive's breadcrumb, root first down to its parent, as {@link breadcrumb} walks it, or no tours for a tour that is not a dive. The tour list's rows keep it live. */
+   selectedBreadcrumb = $derived<readonly TourSummary[]>(this.selectedTour === null ? [] : breadcrumb(this.selectedTour, this.tours));
+   /** The dives that start from the selected tour, oldest first, from the tour list's rows, so a new dive and each dive's state show without a reload. */
+   selectedDives = $derived<readonly TourSummary[]>(this.selectedTourId === null ? [] : divesOf(this.selectedTourId, this.tours));
+   /** The selected tour's dives by the stop that shows each one, as {@link divesByStop} places them. */
+   selectedDivesByStop = $derived<ReadonlyMap<string, readonly TourSummary[]>>(divesByStop(this.selectedDives, this.selectedPlan?.plan));
    /** The selected tour's familiarity level, as the tour list and the level's writes give it, or null when no tour is selected. */
    selectedFamiliarity = $derived<Familiarity | null>(this.selectedTour?.familiarity ?? null);
    /** The session bound to the selected tour, or null when none is or no tour is selected. */

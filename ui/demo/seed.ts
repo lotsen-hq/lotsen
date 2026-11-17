@@ -1,7 +1,18 @@
 // Seeds the sample tours of demo/sampleTours.ts into a world through the server's real operations, for the demo and for the tests of the sample tours. It runs in Node and in the browser.
 import type { AnchorInput, ChangedFileList, QuestionThread, Stop, Tour, UpdatedBatch } from '../src/lib/contract.generated.ts';
 import type { ClaudeSession, World } from '../tests/backend/backend.ts';
-import { pinningTour, sampleRepository, sampleRepositoryUrl, sampleTours, type SampleAnchor, type SampleContent, type SampleStep, type SampleTarget, type SampleTour } from './sampleTours.ts';
+import {
+   pinningTour,
+   sampleRepository,
+   sampleRepositoryUrl,
+   sampleTours,
+   type SampleAnchor,
+   type SampleContent,
+   type SampleDiveTarget,
+   type SampleStep,
+   type SampleTarget,
+   type SampleTour,
+} from './sampleTours.ts';
 
 /** The server's IDs of a seeded tour's stops, checks and threads, by the keys that its spec gives them, and the ID of each thread's last question. */
 export interface SeededTour {
@@ -27,8 +38,9 @@ export const sampleTemplateName = 'demo-sample-tours';
 /** The pull request URL of a sample tour of a pull request. */
 export const prUrlOf = (tour: { number: number }) => `${sampleRepositoryUrl}/pull/${tour.number}`;
 
-/** The label that the tour list gives a sample tour, which a repository tour's row shows under its title. */
-export const labelOf = (tour: SampleTarget) => ('repository' in tour ? `storefront${tour.repository.ref === undefined ? '' : `@${tour.repository.ref}`}` : `storefront #${tour.number}`);
+/** The label that the tour list gives a sample tour of a pull request or of the repository, which a repository tour's row shows under its title. */
+export const labelOf = (tour: Exclude<SampleTarget, { dive: unknown }>) =>
+   'repository' in tour ? `storefront${tour.repository.ref === undefined ? '' : `@${tour.repository.ref}`}` : `storefront #${tour.number}`;
 
 /** The step of the template's clock between two steps of a tour, so the threads and answers of a tour show apart in time. */
 const stepMs = 20_000;
@@ -67,7 +79,7 @@ export async function seedSampleTours(world: World): Promise<SampleSeed> {
       }
 
       const claude = await world.claude();
-      const seeded = await createTour(world, claude, tour);
+      const seeded = await createTour(world, claude, tour, seed);
       seed.tours[tour.key] = seeded;
       let session = claude;
       for (const step of tour.steps ?? []) {
@@ -121,7 +133,7 @@ export async function liven(world: World, template: SampleSeed): Promise<LiveSam
  */
 export async function seedPinningTour(world: World, claude: ClaudeSession): Promise<SeededTour> {
    await world.pullRequest.hold();
-   return createTour(world, claude, pinningTour);
+   return createTour(world, claude, pinningTour, null);
 }
 
 /** Returns the `put_stop` input of sample content on a seeded tour's stop, with the IDs of the checks that the stop keeps. */
@@ -168,8 +180,9 @@ export function laterContentOf(seed: SampleSeed, tourId: string, stopId: string)
    return undefined;
 }
 
-async function createTour(world: World, claude: ClaudeSession, spec: SampleTour): Promise<SeededTour> {
-   const target = 'repository' in spec ? { repository: { url: sampleRepositoryUrl, ...spec.repository } } : { prUrl: prUrlOf(spec) };
+// A dive's parent comes from the seed, which holds every sample tour seeded before it.
+async function createTour(world: World, claude: ClaudeSession, spec: SampleTour, seed: SampleSeed | null): Promise<SeededTour> {
+   const target = 'repository' in spec ? { repository: { url: sampleRepositoryUrl, ...spec.repository } } : 'dive' in spec ? { diveOrigin: diveOriginOf(spec.dive, seed) } : { prUrl: prUrlOf(spec) };
    const tour = (await claude.call('create_tour', { ...target, familiarity: spec.familiarity, ...(spec.planFirst ? { planFirst: true } : {}) })) as Tour;
    const seeded: SeededTour = { tourId: tour.id, stops: {}, checks: {}, threads: {}, questions: {} };
    if (spec.pin === 'pinning') {
@@ -204,6 +217,15 @@ async function createTour(world: World, claude: ClaudeSession, spec: SampleTour)
    }
 
    return seeded;
+}
+
+function diveOriginOf({ parent, stop, ...fields }: SampleDiveTarget, seed: SampleSeed | null): Record<string, unknown> {
+   const seeded = seed?.tours[parent];
+   if (seeded === undefined) {
+      throw new Error(`The dive's parent ${parent} is not seeded before it.`);
+   }
+
+   return { parentTourId: seeded.tourId, ...(stop === undefined ? {} : { stopId: seeded.stops[stop] }), ...fields };
 }
 
 function cloneSeeded(seeded: SeededTour): SeededTour {

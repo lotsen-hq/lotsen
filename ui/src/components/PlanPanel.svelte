@@ -5,14 +5,19 @@
    import ClipboardList from '@lucide/svelte/icons/clipboard-list';
    import ClockAlert from '@lucide/svelte/icons/clock-alert';
    import CopyCheck from '@lucide/svelte/icons/copy-check';
+   import CornerDownRight from '@lucide/svelte/icons/corner-down-right';
    import LoaderCircle from '@lucide/svelte/icons/loader-circle';
    import SkipForward from '@lucide/svelte/icons/skip-forward';
+   import { buttonVariants } from '$lib/components/ui/button';
+   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+   import { DropdownMenu as DropdownMenuPrimitive } from 'bits-ui';
    import { doneClick, type DoneClick } from '../lib/doneClick';
+   import { readingStateLabels, readingStateOf, tourName } from '../lib/tourFamily';
    import type { DoneState, KnownPlan } from '../lib/tourRecord.svelte';
    import { staleOnOf } from '../lib/stops';
    import { doneCheckboxLabel, doneRowLabel, doneTooltip, revisedTooltip, skipTooltip, stopKindLabels, stopStatusLabels, unwrittenStopLabel, type Attachment } from '../lib/labels';
    import type { PlanActionKind } from '../lib/tourActions';
-   import type { Chapter, Familiarity, QuestionThread, RequestedTourAction, Stop, TourControls, TourPurpose } from '../lib/types';
+   import type { Chapter, Familiarity, QuestionThread, RequestedTourAction, Stop, TourControls, TourPurpose, TourSummary } from '../lib/types';
    import PlanActions from './PlanActions.svelte';
    import PlanProposal from './PlanProposal.svelte';
    import StopKindPill from './StopKindPill.svelte';
@@ -48,6 +53,8 @@
       focusRequests = 0,
       folded = new Set(),
       onfold = null,
+      dives = new Map(),
+      onopendive = () => {},
    }: {
       tourSelected: boolean;
       known: KnownPlan | undefined;
@@ -100,6 +107,10 @@
       folded?: ReadonlySet<string>;
       /** Folds a part by its ID, or unfolds it, or null when the page offers no folds, which shows every part unfolded with a plain heading. */
       onfold?: ((partId: string, folded: boolean) => void) | null;
+      /** The tour's dives by the stop that shows each one, as `divesByStop` places them, which the plan marks on each stop. */
+      dives?: ReadonlyMap<string, readonly TourSummary[]>;
+      /** Opens a dive by its tour ID. */
+      onopendive?: (tourId: string) => void;
    } = $props();
 
    // Skips of different stops may save at the same time: the server stores them in turn, and the page keeps the newest skips by the tour's update time.
@@ -178,6 +189,31 @@
    {/if}
 {/snippet}
 
+<!-- The marker of the dives that the stop shows, a menu that lists each dive with its reading state and opens it. A menu's trigger takes no tooltip, which would open over the menu. -->
+{#snippet diveMarker(stopId: string, number: number)}
+   {@const stopDives = dives.get(stopId) ?? []}
+   {#if stopDives.length > 0}
+      <DropdownMenu.Root>
+         <DropdownMenu.Trigger class={`${buttonVariants({ variant: 'ghost', size: 'icon-xs' })} dive-marker text-base`} aria-label={`Dives from stop ${number}: ${stopDives.length}`}>
+            <CornerDownRight class="size-glyph" aria-hidden="true" />
+         </DropdownMenu.Trigger>
+         <DropdownMenu.Content align="end" class="w-64">
+            <DropdownMenuPrimitive.Group>
+               <DropdownMenu.GroupHeading>Dives</DropdownMenu.GroupHeading>
+               {#each stopDives as dive (dive.id)}
+                  {@const reading = readingStateOf(dive.state)}
+                  <!-- The label joins the two parts, because Chromium computes the name with a space before a visually hidden comma. -->
+                  <DropdownMenu.Item class="flex items-baseline justify-between gap-2" aria-label={`${tourName(dive)}, ${readingStateLabels[reading]}`} onSelect={() => onopendive(dive.id)}>
+                     <span class="min-w-0 wrap-anywhere">{tourName(dive)}</span>
+                     <span class="shrink-0 text-xs text-muted-foreground" data-reading-state={reading}>{readingStateLabels[reading]}</span>
+                  </DropdownMenu.Item>
+               {/each}
+            </DropdownMenuPrimitive.Group>
+         </DropdownMenu.Content>
+      </DropdownMenu.Root>
+   {/if}
+{/snippet}
+
 <!-- A pending stop has nothing to read yet, so it gets no checkbox. The checked state follows the current version, so done on an earlier version is unchecked and its label names the version. -->
 {#snippet doneToggle(stop: Stop, number: number)}
    {#if onsetdone !== null && stop.stage === 'written'}
@@ -214,12 +250,13 @@
             {@const number = chapter.first + index}
             {@const isSkipped = skipped.has(stop.id)}
             {@const doneLabel = doneRowLabel(done.get(stop.id) ?? { state: 'none' })}
-            <!-- The row keeps room only for the controls that show without the pointer: a skip, and a done mark on any version. -->
-            {@const kept = (onskip !== null && isSkipped ? 1 : 0) + (onsetdone !== null && doneLabel !== null ? 1 : 0)}
+            {@const diveCount = dives.get(stop.id)?.length ?? 0}
+            <!-- The row keeps room only for the controls that show without the pointer: a skip, a done mark on any version, and the dive marker. -->
+            {@const kept = (onskip !== null && isSkipped ? 1 : 0) + (onsetdone !== null && doneLabel !== null ? 1 : 0) + (diveCount > 0 ? 1 : 0)}
             <li class="stop-item">
                <button
                   type="button"
-                  class={['stop-row', current && 'current', isSkipped && 'skipped-row', kept === 1 && 'keeps-one', kept === 2 && 'keeps-two']}
+                  class={['stop-row', current && 'current', isSkipped && 'skipped-row', kept === 1 && 'keeps-one', kept === 2 && 'keeps-two', kept === 3 && 'keeps-three']}
                   aria-current={current ? 'step' : undefined}
                   aria-label={[
                      `${number} ${kind}: ${stop.title}`,
@@ -227,6 +264,7 @@
                      ...(staleOnOf(stop) === undefined ? [] : [`stale since update ${staleOnOf(stop)}`]),
                      ...(isSkipped ? ['skipped'] : []),
                      ...(doneLabel === null ? [] : [doneLabel]),
+                     ...(diveCount === 0 ? [] : [diveCount === 1 ? '1 dive' : `${diveCount} dives`]),
                   ].join(', ')}
                   onclick={() => onopen(stop.id)}
                >
@@ -257,6 +295,7 @@
                   </span>
                </button>
                <span class="stop-actions">
+                  {@render diveMarker(stop.id, number)}
                   {@render doneToggle(stop, number)}
                   {@render skipToggle(stop.id, number)}
                </span>
