@@ -159,10 +159,10 @@ public sealed class RepositoryPinningTests : IDisposable
 
    public void Dispose() => _git.Dispose();
 
-   /// <summary>Returns the input of <c>create_tour</c> for an orient tour of the test platform's repository at the ref, or at its default branch for null.</summary>
-   internal static string CreateBody(string? @ref, string? words = null)
+   /// <summary>Returns the input of <c>create_tour</c> for a tour of the purpose, orient by default, of the test platform's repository at the ref, or at its default branch for null.</summary>
+   internal static string CreateBody(string? @ref, string? words = null, string purpose = "orient")
    {
-      var repository = new JsonObject { ["url"] = RepositoryUrl, ["purpose"] = "orient", ["title"] = "How the shop is built" };
+      var repository = new JsonObject { ["url"] = RepositoryUrl, ["purpose"] = purpose, ["title"] = "How the shop is built" };
       if (@ref is not null)
       {
          repository["ref"] = @ref;

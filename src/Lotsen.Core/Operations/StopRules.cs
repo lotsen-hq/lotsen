@@ -54,7 +54,7 @@ internal static class StopRules
       return read.Value is { } references ? OperationResult<IReadOnlyList<ProseReference>>.Of(references) : OperationError.Invalid(read.Fault!);
    }
 
-   /// <summary>Applies the input's title, kind and chapter to the stop in the tour's plan, and checks the plan's rules on the result.</summary>
+   /// <summary>Applies the input's title, kind and chapter to the stop in the tour's plan, and checks <see cref="TourRules.CheckPlan"/> on the result.</summary>
    /// <returns>
    /// The changed plan, whose stop keeps its anchor hint, status and content. The error is <see cref="OperationErrorCode.StopNotFound"/> when the plan has no stop with the input's ID, or the broken
    /// plan rule under the input's field.
@@ -70,7 +70,7 @@ internal static class StopRules
       var current = plan.Stops[index];
       var changed = current with { Title = input.Title ?? current.Title, Kind = input.Kind ?? current.Kind, Chapter = input.Chapter ?? current.Chapter };
       var next = plan with { Stops = [.. plan.Stops.Select((stop, i) => i == index ? changed : stop)] };
-      if (PlanRules.Check(next) is not { } fault)
+      if (TourRules.CheckPlan(tour, next) is not { } fault)
       {
          return new PlanChange(next, index);
       }
@@ -81,7 +81,7 @@ internal static class StopRules
          return OperationError.Invalid(own, fault.Problem);
       }
 
-      // Only a change of chapter can break a rule of another stop or of a chapter, because PlanRules checks a stop's title and kind on the stop alone.
+      // Only a change of chapter can break a rule of another stop or of a chapter, because the plan's rules check a stop's title and kind on the stop alone.
       return OperationError.Invalid("chapter", $"moving the stop to chapter '{changed.Chapter}' breaks a rule of the plan. {fault.Path}: {fault.Problem}");
    }
 

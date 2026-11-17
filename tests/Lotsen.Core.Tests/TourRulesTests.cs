@@ -53,6 +53,7 @@ public sealed class TourRulesTests
       ["repository tour pinned to an iteration"] = (RepositoryTour() with { Pin = Pinned }, "pin", "a repository tour is pinned to a snapshot of one commit, not to an iteration of a pull request."),
       ["repository tour with a pull request state"] = (RepositoryTour() with { PullRequestState = PullRequestState.Completed }, "pullRequestState", "only a pull request's tour has a pull request state."),
       ["pull request tour with a purpose"] = (Tour() with { Purpose = TourPurpose.Evaluate }, "purpose", "only a repository tour has a purpose."),
+      ["pull request tour with a purpose and a risk stop"] = (Tour(Plan(Written("s1", StopKind.Risk))) with { Purpose = TourPurpose.Orient }, "purpose", "only a repository tour has a purpose."),
       ["pull request tour with words"] = (Tour() with { Words = "Focus on the cache." }, "words", "only a repository tour has words."),
       ["pull request tour with a title"] = (Tour() with { Title = "Pricing" }, "title", "only a repository tour has a title."),
       ["pull request tour with a dive origin"] = (Tour() with { DiveOrigin = new DiveOrigin(OtherId, OtherId) }, "diveOrigin", "only a repository tour is a dive."),
@@ -77,6 +78,26 @@ public sealed class TourRulesTests
          RepositoryTour(Plan() with { FileMarks = [new FileMark("README.md", FileMarkKind.Generated, "A tool writes it.")] }),
          "plan.fileMarks",
          "a repository tour has no changed files to mark. Leave fileMarks out."),
+      ["risk stop in an orient tour"] = (
+         RepositoryTour(Plan(Pending("s1", StopKind.Risk))),
+         "plan.stops[0].kind",
+         "an orient tour has no risk stops. A risk stop belongs in a prepare or an evaluate tour, so make it a context or an inspect stop."),
+      ["question stop in a prepare tour"] = (
+         RepositoryTour(Plan(Written("s1", StopKind.Question))) with { Purpose = TourPurpose.Prepare },
+         "plan.stops[0].kind",
+         "a prepare tour has no question stops. A question stop belongs in an evaluate tour, so make it a context or an inspect stop."),
+      ["risk version in an orient tour"] = (
+         RepositoryTour(Plan(Written("s1") with { Version = 2, Earlier = [new StopVersion("Old", StopKind.Risk, Content(StopKind.Risk), Now)] })),
+         "plan.stops[0].earlier[0].kind",
+         "an orient tour has no risk stops. A risk stop belongs in a prepare or an evaluate tour, so make it a context or an inspect stop."),
+      ["check in an orient tour"] = (
+         RepositoryTour(Plan(Written("s1", content: Content() with { Checks = [new StopCheck("c1", "Fine?")] }))),
+         "plan.stops[0].content.checks",
+         "an orient tour asks no checks. Only an evaluate tour does, so leave checks out."),
+      ["check in an earlier version of a prepare tour"] = (
+         RepositoryTour(Plan(Written("s1") with { Version = 2, Earlier = [new StopVersion("Old", StopKind.Context, Content(StopKind.Context) with { Checks = [new StopCheck("c1", "Fine?")] }, Now)] })) with { Purpose = TourPurpose.Prepare },
+         "plan.stops[0].earlier[0].content.checks",
+         "a prepare tour asks no checks. Only an evaluate tour does, so leave checks out."),
    };
 
    private static TourId OtherId => TourId.TryParse("qrstuvwxyzabcdef", out var id) ? id : throw new InvalidOperationException("The ID does not parse.");
@@ -123,6 +144,20 @@ public sealed class TourRulesTests
       };
 
       Assert.Null(TourRules.Check(tour));
+   }
+
+   /// <summary>Each row is a kind that its purpose allows beside the overview, context and inspect stops that every purpose allows, with checks only in an evaluate tour.</summary>
+   [Theory]
+   [InlineData("Orient", "Inspect", false)]
+   [InlineData("Prepare", "Risk", false)]
+   [InlineData("Evaluate", "Risk", true)]
+   [InlineData("Evaluate", "Question", true)]
+   public void Repository_tour_holds_the_kinds_and_checks_that_its_purpose_allows(string purpose, string kind, bool checks)
+   {
+      var kinds = new[] { StopKind.Overview, StopKind.Context, StopKind.Inspect, Enum.Parse<StopKind>(kind) };
+      var stops = kinds.Select((of, i) => Written($"s{i}", of, checks ? Content(of) with { Checks = [new StopCheck($"c{i}", "Fine?")] } : Content(of)));
+
+      Assert.Null(TourRules.Check(RepositoryTour(Plan([.. stops])) with { Purpose = Enum.Parse<TourPurpose>(purpose) }));
    }
 
    [Theory]

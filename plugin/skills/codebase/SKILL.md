@@ -273,8 +273,8 @@ An `orient` tour has three kinds of stop:
   or a concept.
 - `inspect`: a walk through code on one of the main paths. Use it when no other kind fits.
 
-Don't plan a `risk` or a `question` stop in an `orient` tour. A trap in the code goes into the `gotchas` of the stop
-that shows it.
+An `orient` tour has no `risk` or `question` stop and asks no checks, and the server refuses them. A trap in the code
+goes into the `gotchas` of the stop that shows it.
 
 ## 7. Set the plan
 

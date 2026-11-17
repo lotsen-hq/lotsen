@@ -43,7 +43,7 @@ internal sealed record PartInput(
 internal sealed record StopInput(
    [property: Description("The stop's title.")]
    string Title,
-   [property: Description("What the stop does for the reviewer: overview (a map of the whole change), context (background), inspect (a walk through changed code), risk (a concern) or question (a question for the reviewer).")]
+   [property: Description("What the stop does for the reviewer: overview (a map of the whole change), context (background), inspect (a walk through changed code), risk (a concern) or question (a question for the reviewer). In a repository tour, risk needs the purpose prepare or evaluate, and question needs evaluate.")]
    StopKind Kind,
    [property: Description("The ID of the chapter the stop belongs to.")]
    string Chapter,
@@ -87,7 +87,7 @@ internal sealed record PutStopInput(
    string? DesignChoices = null,
    [property: Description("The tests that pin the behavior, in Markdown.")]
    string? PinnedBy = null,
-   [property: Description("Checks for the reviewer to answer, one decision each, in the order the reviewer should answer them. A question stop needs at least one. The checks replace the stop's earlier checks, so give every check to keep again with its id.")]
+   [property: Description("Checks for the reviewer to answer, one decision each, in the order the reviewer should answer them. A question stop needs at least one. In a repository tour, only an evaluate tour takes checks. The checks replace the stop's earlier checks, so give every check to keep again with its id.")]
    IReadOnlyList<CheckInput>? Checks = null,
    [property: Description("How the risk could happen, in Markdown. A risk stop needs one.")]
    string? Scenario = null,
@@ -245,7 +245,7 @@ internal sealed class PlanOperations
       }
 
       // The same rules run again on the stored content, which holds the passages that git read.
-      return (TourRules.CheckContent(tour.Target, content) ?? StopContentRules.Check(planned.Stop.Kind, content)) is { } fault ? OperationError.Invalid(fault) : null;
+      return TourRules.CheckContent(tour, planned.Stop.Kind, content) is { } fault ? OperationError.Invalid(fault) : null;
    }
 
    private static OperationError? CheckPlanApproved(Tour tour) => tour.PlanWaits ? OperationError.PlanAwaitsApproval(tour.Id) : null;
@@ -259,8 +259,8 @@ internal static class PlanDrafts
 
    /// <summary>Returns the plan that the input sets: kept stops keep their content, and each new stop gets an ID that the tour does not name.</summary>
    /// <remarks>
-   /// The input's own limits and its kept stops come first, then <see cref="PlanRules"/> and <see cref="TourRules.CheckPlan"/> on the built plan, whose fault paths are the input's, because the
-   /// plan keeps the input's order. A null element of the input stays null in the plan, so the plan rules name it. An empty list of parts builds a plan without parts.
+   /// The input's own limits and its kept stops come first, then <see cref="TourRules.CheckPlan"/> on the built plan, whose fault paths are the input's, because the plan keeps the input's
+   /// order. A null element of the input stays null in the plan, so the plan rules name it. An empty list of parts builds a plan without parts.
    /// </remarks>
    /// <param name="input">The input.</param>
    /// <param name="latest">The latest stored tour, whose plan holds the stops that the input keeps.</param>
@@ -328,6 +328,6 @@ internal static class PlanDrafts
          stops,
          [.. marks.Select(mark => mark is null ? null! : new FileMark(mark.Path, mark.Mark, mark.Reason))],
          input.Parts is { Count: > 0 } parts ? [.. parts.Select(part => part is null ? null! : new Part(part.Id, part.Title))] : null);
-      return (PlanRules.Check(plan) ?? TourRules.CheckPlan(latest.Target, plan)) is { } fault ? OperationError.Invalid(fault) : plan;
+      return TourRules.CheckPlan(latest, plan) is { } fault ? OperationError.Invalid(fault) : plan;
    }
 }

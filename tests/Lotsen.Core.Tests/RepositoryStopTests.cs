@@ -5,7 +5,7 @@ using static Lotsen.Tests.OperationCall;
 
 namespace Lotsen.Tests;
 
-/// <summary>A repository tour that every test of <see cref="RepositoryStopTests"/> shares, pinned to a snapshot of a fixture repository's one commit. Each test sets its own plan first.</summary>
+/// <summary>A repository tour of each purpose that the tests of <see cref="RepositoryStopTests"/> share, each pinned to a snapshot of a fixture repository's one commit. Each test sets its own plan first.</summary>
 /// <remarks>The snapshot's commit holds <c>src/app.txt</c> and <c>README.md</c>, which its parent commit already held unchanged, so no passage at the snapshot touches a diff.</remarks>
 public sealed class RepositoryTourFixture : IAsyncLifetime
 {
@@ -15,7 +15,8 @@ public sealed class RepositoryTourFixture : IAsyncLifetime
 
    internal ServerHarness Harness { get; private set; } = null!;
 
-   internal string TourId { get; private set; } = "";
+   /// <summary>The ID of the tour of each purpose, keyed by the purpose's JSON name.</summary>
+   internal IReadOnlyDictionary<string, string> TourIds { get; private set; } = new Dictionary<string, string>();
 
    internal CommitId Head { get; private set; }
 
@@ -26,10 +27,19 @@ public sealed class RepositoryTourFixture : IAsyncLifetime
       var platform = new TestPlatform();
       platform.Repository(_git.Url, Head);
       Harness = await ServerHarness.StartAsync(platform: platform);
-      TourId = (string)(await Harness.AgentCallAsync("create_tour", RepositoryPinningTests.CreateBody(@ref: null)))["id"]!;
+      var ids = new Dictionary<string, string>();
+      foreach (var purpose in (string[])["orient", "prepare", "evaluate"])
+      {
+         ids[purpose] = (string)(await Harness.AgentCallAsync("create_tour", RepositoryPinningTests.CreateBody(@ref: null, purpose: purpose)))["id"]!;
+      }
+
+      TourIds = ids;
       await Harness.PinsIdleAsync().WaitAsync(Timeout, TestContext.Current.CancellationToken);
-      var pin = (await Harness.CallAsync(On("read_state", TourId)))["pin"]!;
-      Assert.True((string?)pin["state"] == "snapshot", $"The fixture's tour has no snapshot: {pin.ToJsonString()}");
+      foreach (var (purpose, id) in ids)
+      {
+         var pin = (await Harness.CallAsync(On("read_state", id)))["pin"]!;
+         Assert.True((string?)pin["state"] == "snapshot", $"The fixture's {purpose} tour has no snapshot: {pin.ToJsonString()}");
+      }
    }
 
    public async ValueTask DisposeAsync()
@@ -46,12 +56,12 @@ public sealed class RepositoryTourFixture : IAsyncLifetime
 
 /// <summary>
 /// Covers <c>set_plan</c>, <c>put_stop</c> and code anchors on a repository tour: the plan's rules hold without file marks, passages and <c>ref:</c> links read at the snapshot's one commit with
-/// no diff rule, and only context and inspect stops take gotchas and tryIt.
+/// no diff rule, only context and inspect stops take gotchas and tryIt, and the purpose decides the stop kinds and whether stops take checks, as <see cref="Lotsen.Tours.PurposeRules"/> says.
 /// </summary>
 [Trait("Category", "Validation")]
 public sealed class RepositoryStopTests : IClassFixture<RepositoryTourFixture>
 {
-   // The stops by index: 0 overview, 1 context, 2 inspect, 3 risk, 4 question.
+   // A plan of an evaluate tour, whose stops by index are: 0 overview, 1 context, 2 inspect, 3 risk, 4 question.
    private const string Plan = """
       {
         "chapters": [{ "id": "start", "title": "Start" }, { "id": "code", "title": "Code" }],
@@ -172,7 +182,7 @@ public sealed class RepositoryStopTests : IClassFixture<RepositoryTourFixture>
       var second = await CallPutAsync(ids[stop], Body(Passage("head", "src/app.txt", 1, 1), extra: """ "gotchas": "Line one is **never** cached." """));
 
       Assert.Equal((2, "Line one is **never** cached.", null), ((int)second["version"]!, (string?)second["content"]!["gotchas"], (string?)second["content"]!["tryIt"]));
-      var agentView = (await _tour.Harness.AgentCallAsync(On("read_state", _tour.TourId)))["plan"]!["stops"]![stop]!;
+      var agentView = (await _tour.Harness.AgentCallAsync(On("read_state", Evaluate)))["plan"]!["stops"]![stop]!;
       Assert.True(JsonNode.DeepEquals(second, agentView), agentView.ToJsonString());
       var reviewerView = (await ReadStateAsync())["plan"]!["stops"]![stop]!;
       var earlier = reviewerView["earlier"]![0]!["content"]!;
@@ -197,14 +207,86 @@ public sealed class RepositoryStopTests : IClassFixture<RepositoryTourFixture>
       await AssertUnchangedAsync(before);
    }
 
+   [Theory]
+   [InlineData("orient", "risk", "stops[3].kind: an orient tour has no risk stops. A risk stop belongs in a prepare or an evaluate tour, so make it a context or an inspect stop.")]
+   [InlineData("orient", "question", "stops[3].kind: an orient tour has no question stops. A question stop belongs in an evaluate tour, so make it a context or an inspect stop.")]
+   [InlineData("prepare", "question", "stops[3].kind: a prepare tour has no question stops. A question stop belongs in an evaluate tour, so make it a context or an inspect stop.")]
+   public async Task Set_plan_refuses_a_stop_kind_that_the_purpose_does_not_allow_and_stores_nothing(string purpose, string kind, string reason)
+   {
+      await SetPlanAsync(purpose, PlanOf());
+      var before = await ReadStateAsync(purpose);
+
+      using var response = await SendPlanAsync(PlanOf(kind), purpose);
+
+      var error = await ReadErrorAsync(response, HttpStatusCode.BadRequest, "invalidInput");
+      Assert.Equal(("stops[3].kind", reason), ((string)error["field"]!, (string)error["reason"]!));
+      await AssertUnchangedAsync(before, purpose);
+   }
+
+   [Fact]
+   public async Task Risk_stop_of_a_prepare_tour_is_planned_and_stored()
+   {
+      var ids = await SetPlanAsync("prepare", PlanOf("risk"));
+
+      var stored = await CallPutAsync(ids[3], Body(Passage("head", "src/app.txt", 1, 1), extra: """ "scenario": "Two writers race." """), "prepare");
+
+      Assert.Equal(("risk", 1), ((string)stored["kind"]!, (int)stored["version"]!));
+   }
+
+   [Theory]
+   [InlineData("orient", """ "kind": "risk", "scenario": "Two writers race." """, "kind: an orient tour has no risk stops. A risk stop belongs in a prepare or an evaluate tour, so make it a context or an inspect stop.")]
+   [InlineData("prepare", """ "kind": "question", "checks": [{ "question": "Keep it?" }] """, "kind: a prepare tour has no question stops. A question stop belongs in an evaluate tour, so make it a context or an inspect stop.")]
+   public async Task Put_stop_refuses_a_kind_change_that_the_purpose_does_not_allow_and_stores_nothing(string purpose, string extra, string reason)
+   {
+      var ids = await SetPlanAsync(purpose, PlanOf());
+      var before = await ReadStateAsync(purpose);
+
+      using var response = await PutAsync(ids[Inspect], Body(Passage("head", "src/app.txt", 1, 1), extra: extra), purpose);
+
+      var error = await ReadErrorAsync(response, HttpStatusCode.BadRequest, "invalidInput");
+      Assert.Equal(("kind", reason), ((string)error["field"]!, (string)error["reason"]!));
+      await AssertUnchangedAsync(before, purpose);
+   }
+
+   [Theory]
+   [InlineData("orient", Context, "checks: an orient tour asks no checks. Only an evaluate tour does, so leave checks out.")]
+   [InlineData("orient", Inspect, "checks: an orient tour asks no checks. Only an evaluate tour does, so leave checks out.")]
+   [InlineData("prepare", Context, "checks: a prepare tour asks no checks. Only an evaluate tour does, so leave checks out.")]
+   public async Task Put_stop_refuses_checks_outside_an_evaluate_tour_and_stores_nothing(string purpose, int stop, string reason)
+   {
+      var ids = await SetPlanAsync(purpose, PlanOf());
+      var before = await ReadStateAsync(purpose);
+
+      using var response = await PutAsync(ids[stop], Body(Passage("head", "src/app.txt", 1, 1), extra: """ "checks": [{ "question": "Keep it?" }] """), purpose);
+
+      var error = await ReadErrorAsync(response, HttpStatusCode.BadRequest, "invalidInput");
+      Assert.Equal(("checks", reason), ((string)error["field"]!, (string)error["reason"]!));
+      await AssertUnchangedAsync(before, purpose);
+   }
+
+   [Theory]
+   [InlineData(0)]
+   [InlineData(Context)]
+   [InlineData(Inspect)]
+   [InlineData(3)]
+   public async Task Evaluate_tour_stores_checks_on_a_stop_of_any_kind(int stop)
+   {
+      var ids = await SetPlanAsync();
+      var scenario = stop == 3 ? """, "scenario": "Two writers race." """ : "";
+
+      var stored = await CallPutAsync(ids[stop], Body(Passage("head", "src/app.txt", 1, 1), extra: $$""" "checks": [{ "question": "Keep it?" }]{{scenario}} """));
+
+      Assert.Equal("Keep it?", (string)Assert.Single(stored["content"]!["checks"]!.AsArray())!["question"]!);
+   }
+
    [Fact]
    public async Task Code_anchor_at_the_head_reads_the_snapshot_and_one_at_the_base_is_refused()
    {
       var started = await _tour.Harness.AgentCallAsync(
-         On("start_thread", _tour.TourId),
+         On("start_thread", Evaluate),
          """{ "text": "See [this](ref:head/src/app.txt#L1-1).", "anchor": { "kind": "code", "side": "head", "path": "src/app.txt", "startLine": 2, "endLine": 3 } }""");
       using var refused = await _tour.Harness.AgentSendJsonAsync(
-         On("start_thread", _tour.TourId),
+         On("start_thread", Evaluate),
          """{ "text": "Here.", "anchor": { "kind": "code", "side": "base", "path": "src/app.txt", "startLine": 2, "endLine": 3 } }""");
 
       var anchor = started["thread"]!["anchor"]!;
@@ -226,23 +308,39 @@ public sealed class RepositoryStopTests : IClassFixture<RepositoryTourFixture>
 
    private static string Body(string passages, string? extra = null) => $$"""{ "headline": "A headline.", "passages": [{{passages}}]{{(extra is null ? "" : ", " + extra)}} }""";
 
-   private async Task<string[]> SetPlanAsync()
+   // A plan of one chapter whose stops are an overview, a context and an inspect stop, which every purpose allows, then a stop of each further kind.
+   private static string PlanOf(params string[] kinds)
    {
-      var tour = await _tour.Harness.AgentCallAsync(On("set_plan", _tour.TourId), Plan);
+      var stops = new JsonArray();
+      foreach (var kind in ((string[])["overview", "context", "inspect"]).Concat(kinds))
+      {
+         stops.Add(new JsonObject { ["title"] = $"A {kind} stop", ["kind"] = kind, ["chapter"] = "start" });
+      }
+
+      return new JsonObject { ["chapters"] = new JsonArray(new JsonObject { ["id"] = "start", ["title"] = "Start" }), ["stops"] = stops }.ToJsonString();
+   }
+
+   private string Evaluate => _tour.TourIds["evaluate"];
+
+   private async Task<string[]> SetPlanAsync(string? purpose = null, string plan = Plan)
+   {
+      var tour = await _tour.Harness.AgentCallAsync(On("set_plan", TourOf(purpose)), plan);
       return [.. tour["plan"]!["stops"]!.AsArray().Select(stop => (string)stop!["id"]!)];
    }
 
-   private Task<HttpResponseMessage> SendPlanAsync(string plan) => _tour.Harness.AgentSendJsonAsync(On("set_plan", _tour.TourId), plan);
+   private string TourOf(string? purpose) => purpose is null ? Evaluate : _tour.TourIds[purpose];
 
-   private Task<JsonNode> ReadStateAsync() => _tour.Harness.CallAsync(On("read_state", _tour.TourId));
+   private Task<HttpResponseMessage> SendPlanAsync(string plan, string? purpose = null) => _tour.Harness.AgentSendJsonAsync(On("set_plan", TourOf(purpose)), plan);
 
-   private Task<HttpResponseMessage> PutAsync(string stopId, string body) => _tour.Harness.AgentSendJsonAsync(On("put_stop", _tour.TourId, stopId: stopId), body);
+   private Task<JsonNode> ReadStateAsync(string? purpose = null) => _tour.Harness.CallAsync(On("read_state", TourOf(purpose)));
 
-   private Task<JsonNode> CallPutAsync(string stopId, string body) => _tour.Harness.AgentCallAsync(On("put_stop", _tour.TourId, stopId: stopId), body);
+   private Task<HttpResponseMessage> PutAsync(string stopId, string body, string? purpose = null) => _tour.Harness.AgentSendJsonAsync(On("put_stop", TourOf(purpose), stopId: stopId), body);
 
-   private async Task AssertUnchangedAsync(JsonNode before)
+   private Task<JsonNode> CallPutAsync(string stopId, string body, string? purpose = null) => _tour.Harness.AgentCallAsync(On("put_stop", TourOf(purpose), stopId: stopId), body);
+
+   private async Task AssertUnchangedAsync(JsonNode before, string? purpose = null)
    {
-      var after = await ReadStateAsync();
+      var after = await ReadStateAsync(purpose);
       Assert.True(JsonNode.DeepEquals(before, after), $"The tour changed: {after}");
    }
 

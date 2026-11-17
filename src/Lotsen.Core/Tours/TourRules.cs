@@ -8,9 +8,9 @@ namespace Lotsen.Tours;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <see cref="Check"/> runs, in order: no null element in the tour's own lists, <see cref="PlanRules"/> under <c>plan</c>, and for each written stop <see cref="StopContentRules"/> on its content
-/// and on each earlier version under that version's kind, <see cref="CheckContent"/> on each of those contents, a version that counts the earlier versions, check IDs that no other current content
-/// of the tour holds, and a stale marker from 1. Then it checks one answer for each stop and check, the fields, the file marks and the pin that the target's kind allows, and an available
+/// <see cref="Check"/> runs, in order: no null element in the tour's own lists, <see cref="CheckPlan"/> under <c>plan</c>, and for each written stop <see cref="CheckContent"/> on its content,
+/// a version that counts the earlier versions, each earlier version's kind under <see cref="PurposeRules"/> and <see cref="CheckContent"/> on its content under its kind, check IDs that no other
+/// current content of the tour holds, and a stale marker from 1. Then it checks one answer for each stop and check, the fields and the pin that the target's kind allows, and an available
 /// iteration compared with the tour's pin.
 /// </para>
 /// <para>
@@ -32,7 +32,7 @@ internal static class TourRules
    /// <summary>Returns the first rule that the tour breaks, with its path in the tour, or null when it follows them all.</summary>
    public static RuleFault? Check(Tour tour) =>
       CheckNulls(tour)
-      ?? (tour.Plan is { } plan ? PlanRules.Check(plan)?.Under(PlanField) ?? CheckStops(tour.Target, plan) ?? CheckPlan(tour.Target, plan)?.Under(PlanField) : null)
+      ?? (tour.Plan is { } plan ? CheckPlan(tour, plan)?.Under(PlanField) ?? CheckStops(tour, plan) : null)
       ?? CheckAnswers(tour.Answers)
       ?? CheckTargetKind(tour)
       ?? CheckAvailableIteration(tour);
@@ -41,9 +41,45 @@ internal static class TourRules
    private static RuleFault? CheckNulls(Tour tour) =>
       NullElement(tour.Answers, Answers) ?? NullElement(tour.AvailableIteration?.StaleStops, ((FieldPath)"availableIteration").Then("staleStops"));
 
-   /// <summary>Returns the first rule that a stop's content breaks in a tour of the target, with its path in the content, or null when it follows them all.</summary>
-   /// <remarks>Only a repository tour's stops hold gotchas and tryIt, and a repository tour's passages are all at the head.</remarks>
-   public static RuleFault? CheckContent(TourTarget target, StopContent content)
+   /// <summary>Returns the first rule that a stop's content breaks under the kind in the tour, with its path in the content, or null when it follows them all.</summary>
+   /// <remarks>
+   /// Only a repository tour's stops hold gotchas and tryIt, and a repository tour's passages are all at the head. Then <see cref="PurposeRules.CheckChecks"/> runs, and last
+   /// <see cref="StopContentRules.Check"/>.
+   /// </remarks>
+   public static RuleFault? CheckContent(Tour tour, StopKind kind, StopContent content) =>
+      CheckTargetContent(tour.Target, content) ?? PurposeRules.CheckChecks(PurposeOf(tour), content) ?? StopContentRules.Check(kind, content);
+
+   /// <summary>
+   /// Returns the first rule that a plan breaks in the tour, with its path in the plan, or null when it follows them all: <see cref="PlanRules"/>, then no file marks in a repository tour, then
+   /// each stop's kind under <see cref="PurposeRules"/>.
+   /// </summary>
+   public static RuleFault? CheckPlan(Tour tour, Plan plan)
+   {
+      if (PlanRules.Check(plan) is { } fault)
+      {
+         return fault;
+      }
+
+      if (tour.Target is RepositoryTarget && plan.FileMarks.Count > 0)
+      {
+         return new("fileMarks", "a repository tour has no changed files to mark. Leave fileMarks out.");
+      }
+
+      for (var i = 0; i < plan.Stops.Count; i++)
+      {
+         if (PurposeRules.CheckKind(PurposeOf(tour), plan.Stops[i].Kind, FieldPath.Root.Then("stops").At(i).Then("kind")) is { } kindFault)
+         {
+            return kindFault;
+         }
+      }
+
+      return null;
+   }
+
+   // A pull request's tour with a purpose breaks a rule of its own, so the purpose binds only a repository tour's stops.
+   private static TourPurpose? PurposeOf(Tour tour) => tour.Target is RepositoryTarget ? tour.Purpose : null;
+
+   private static RuleFault? CheckTargetContent(TourTarget target, StopContent content)
    {
       if (target is not RepositoryTarget)
       {
@@ -54,12 +90,8 @@ internal static class TourRules
       return index < 0 ? null : new(((FieldPath)"passages").At(index).Then("side"), $"{TourPin.Snapshot.HeadOnly} Point the passage at head.");
    }
 
-   /// <summary>Returns the first rule that a plan breaks in a tour of the target, with its path in the plan, or null when it follows them all: a repository tour has no changed files to mark.</summary>
-   public static RuleFault? CheckPlan(TourTarget target, Plan plan) =>
-      target is RepositoryTarget && plan.FileMarks.Count > 0 ? new("fileMarks", "a repository tour has no changed files to mark. Leave fileMarks out.") : null;
-
-   // Call it after PlanRules, so no stop is null.
-   private static RuleFault? CheckStops(TourTarget target, Plan plan)
+   // Call it after CheckPlan, so no stop is null.
+   private static RuleFault? CheckStops(Tour tour, Plan plan)
    {
       var checkIds = new HashSet<string>(StringComparer.Ordinal);
       for (var i = 0; i < plan.Stops.Count; i++)
@@ -70,7 +102,7 @@ internal static class TourRules
          }
 
          var field = PlanField.Then("stops").At(i);
-         if ((CheckVersion(target, stop.Kind, stop.Content)?.Under(field.Then("content")) ?? CheckEarlier(target, stop, field.Then("earlier"))) is { } fault)
+         if ((CheckContent(tour, stop.Kind, stop.Content)?.Under(field.Then("content")) ?? CheckEarlier(tour, stop, field.Then("earlier"))) is { } fault)
          {
             return fault;
          }
@@ -96,7 +128,7 @@ internal static class TourRules
    }
 
    // The stop holds every version before its own, so a version's number is its index in Earlier plus 1.
-   private static RuleFault? CheckEarlier(TourTarget target, Stop.Written stop, FieldPath field)
+   private static RuleFault? CheckEarlier(Tour tour, Stop.Written stop, FieldPath field)
    {
       if (NullElement(stop.Earlier, field) is { } nullFault)
       {
@@ -110,7 +142,8 @@ internal static class TourRules
 
       for (var j = 0; j < stop.Earlier.Count; j++)
       {
-         if (CheckVersion(target, stop.Earlier[j].Kind, stop.Earlier[j].Content)?.Under(field.At(j).Then("content")) is { } fault)
+         var version = stop.Earlier[j];
+         if ((PurposeRules.CheckKind(PurposeOf(tour), version.Kind, field.At(j).Then("kind")) ?? CheckContent(tour, version.Kind, version.Content)?.Under(field.At(j).Then("content"))) is { } fault)
          {
             return fault;
          }
@@ -118,8 +151,6 @@ internal static class TourRules
 
       return null;
    }
-
-   private static RuleFault? CheckVersion(TourTarget target, StopKind kind, StopContent content) => CheckContent(target, content) ?? StopContentRules.Check(kind, content);
 
    // An operation finds a check's answer by its stop ID and check ID, so a second answer under the same IDs would be one that no operation reaches.
    private static RuleFault? CheckAnswers(IReadOnlyList<CheckAnswer> answers)

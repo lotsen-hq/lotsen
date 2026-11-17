@@ -36,7 +36,9 @@ a read whose result goes unused may still throw, authorize, log or write.
 
 ### Checks
 
-A check asks the reviewer for one decision. Each entry of `checks` is an object:
+A check asks the reviewer for one decision. Only a pull request's tour and an `evaluate` repository tour ask checks,
+on a stop of any kind. In an `orient` or a `prepare` tour, leave `checks` out, as "Kinds" below says. Each entry of
+`checks` is an object:
 
 - `question`: required. The one decision, as a question in Markdown. Split a question that asks two things into two
   checks.
@@ -173,6 +175,15 @@ label. Keep nesting shallow; the server refuses lists, quotes, emphasis or links
 In a repository tour, the primary passage of an `inspect`, `risk` or `question` stop need not touch a diff, because
 a snapshot has none. Only a `context` or an `inspect` stop of a repository tour takes `gotchas` and `tryIt`, and a
 pull request's tour takes neither.
+
+A repository tour's purpose decides which kinds its plan holds and whether its stops ask checks. `set_plan` and
+`put_stop` refuse the rest, a change of kind in `put_stop` included:
+
+- `orient`: `overview`, `context` and `inspect` stops, and no checks.
+- `prepare`: `overview`, `context`, `inspect` and `risk` stops, and no checks.
+- `evaluate`: `overview`, `context`, `inspect`, `risk` and `question` stops, with checks on a stop of any kind.
+
+A pull request's tour takes every kind, with checks on a stop of any kind.
 
 ### Example
 

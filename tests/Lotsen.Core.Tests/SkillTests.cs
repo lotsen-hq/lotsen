@@ -159,6 +159,21 @@ public sealed partial class SkillTests
       Assert.All(input.Stops, stop => Assert.Contains(stop.Kind, (StopKind[])[StopKind.Overview, StopKind.Context, StopKind.Inspect]));
    }
 
+   /// <summary>The table comes from <see cref="PurposeRules"/>, so a change to it must reach the rules skill.</summary>
+   [Fact]
+   public void Rules_skill_states_the_stop_kinds_and_the_checks_that_each_purpose_allows()
+   {
+      var kinds = Normalized(Subsection("### Kinds"));
+
+      Assert.All(Enum.GetValues<TourPurpose>(), purpose =>
+      {
+         var name = JsonSerializer.Serialize(purpose, LotsenJsonContext.Default.TourPurpose).Trim('"');
+         var allowed = Enum.GetValues<StopKind>().Where(kind => PurposeRules.Allows(purpose, kind)).Select(kind => $"`{JsonSerializer.Serialize(kind, LotsenJsonContext.Default.StopKind).Trim('"')}`").ToList();
+         var list = $"{string.Join(", ", allowed[..^1])} and {allowed[^1]}";
+         Assert.Contains($"- `{name}`: {list} stops, {(PurposeRules.AsksChecks(purpose) ? "with checks on a stop of any kind" : "and no checks")}.", kinds, StringComparison.Ordinal);
+      });
+   }
+
    /// <summary>The states come from the stored type, as for the tour skill.</summary>
    [Fact]
    [Trait("Category", "TourActions")]
