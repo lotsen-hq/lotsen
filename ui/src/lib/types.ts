@@ -14,6 +14,7 @@ import type {
    SaveNoteInput,
    StopPassage,
    TourAction,
+   TourTarget,
 } from './contract.generated';
 
 export type * from './contract.generated';
@@ -26,6 +27,9 @@ export type ReadingPlace = { stopId: string; version?: number } | 'summary';
 
 /** A thread that reached Claude. */
 export type SentThread = Exclude<QuestionThread, NoteThread>;
+
+/** What a tour reviews: a pull request or a repository. */
+export type TargetKind = TourTarget['kind'];
 
 /** The kind of a tour action. */
 export type TourActionKind = TourAction['kind'];

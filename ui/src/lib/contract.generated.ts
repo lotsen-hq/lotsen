@@ -7,6 +7,7 @@ export type TourState = 'generating' | 'ready' | 'inProgress' | 'finished' | 'ar
 export type PullRequestState = 'active' | 'completed' | 'abandoned';
 export type AttachmentLevel = 'unconfirmed' | 'confirmed';
 export type PlanApproval = 'notNeeded' | 'awaited' | 'given';
+export type TourPurpose = 'orient' | 'prepare' | 'evaluate';
 export type Stop = PendingStop | WrittenStop;
 export type StopKind = 'overview' | 'context' | 'inspect' | 'risk' | 'question';
 export type StopStatus = 'pending' | 'ready' | 'revised';
@@ -133,7 +134,6 @@ export type OperationName =
    | 'update_iteration'
    | 'read_preferences'
    | 'write_preference';
-export type TourPurpose = 'orient' | 'prepare' | 'evaluate';
 
 export interface EventPayloads {
    hello: HelloEvent;
@@ -284,6 +284,8 @@ export interface TourSummary {
    revision: number;
    binding?: TourBinding;
    planApproval?: PlanApproval;
+   purpose?: TourPurpose;
+   title?: string;
 }
 export interface PullRequestTarget {
    kind: 'pullRequest';

@@ -879,7 +879,9 @@ test.describe('the page height', () => {
       for (const tour of tours) {
          await picker(page).click();
          await tourList(page).getByRole('button', { name: tour, exact: false }).first().click();
-         await expect(page.getByRole('banner').getByRole('link', { name: tour, exact: true })).toBeVisible();
+         // A pull request tour's label is its link, and a repository tour's title is its heading.
+         const zone = page.getByRole('banner').locator('[data-tour-zone]');
+         await expect(zone.getByRole('link', { name: tour, exact: true }).or(zone.locator('[data-heading-part="title"]', { hasText: tour }))).toBeVisible();
          for (const region of ['Stop', 'Threads']) {
             await expect(page.getByRole('region', { name: region, exact: true })).toBeVisible();
          }

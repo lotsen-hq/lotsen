@@ -7,14 +7,14 @@
    import { isElement } from '../lib/dom';
    import { editorSurfaces, type EditorSurface } from '../lib/editor/surface';
    import type { ExplanationView } from '../lib/explanationView.svelte';
-   import { fileMarkLabels, formatSize } from '../lib/labels';
+   import { fileMarkLabels, formatSize, pinFailedLines, pinningLines } from '../lib/labels';
    import { InlineHost } from '../lib/inlineHost.svelte';
    import { paneSplit } from '../lib/paneSplit.svelte';
    import { type FilePaths } from '../lib/pin';
    import { noPassageDecorations, type PassageDecorations } from '../lib/passageMarks';
    import { codeTarget } from '../lib/selectionAsk';
    import type { ThreadMarker } from '../lib/threadView';
-   import type { FileMark } from '../lib/types';
+   import type { FileMark, TargetKind } from '../lib/types';
    import DiffHeading from './DiffHeading.svelte';
    import PaneSplitter from './PaneSplitter.svelte';
    import SelectionAsk from './SelectionAsk.svelte';
@@ -36,6 +36,7 @@
       onopenthread = () => {},
       fileAnchor = null,
       fileThreads = [],
+      targetKind = 'pullRequest',
    }: {
       path: string | null;
       oldPath?: string | null;
@@ -67,6 +68,8 @@
       fileAnchor?: Extract<PickedAnchor, { kind: 'file' }> | null;
       /** The markers of the threads asked about the file, which its stacked header shows. */
       fileThreads?: readonly ThreadMarker[];
+      /** What the tour reviews, which the notice of a pin in progress or failed names. */
+      targetKind?: TargetKind;
    } = $props();
 
    let host = $state<HTMLDivElement>();
@@ -223,10 +226,10 @@
       {:else if shown === null || shown.state === 'loading'}
          <p class="p-4 text-muted-foreground">Loading the diff…</p>
       {:else if shown.state === 'notPinned' && shown.pin.state === 'pinning'}
-         <p class="p-4 text-muted-foreground">Pinning the pull request to its commits…</p>
+         <p class="p-4 text-muted-foreground">{pinningLines[targetKind]}</p>
       {:else if shown.state === 'notPinned'}
          <div class="p-4 text-destructive *:mb-1" role="alert">
-            <p>The pull request could not be pinned.</p>
+            <p>{pinFailedLines[targetKind]}</p>
             {#if shown.pin.state === 'failed'}
                <p>{shown.pin.reason}</p>
             {/if}

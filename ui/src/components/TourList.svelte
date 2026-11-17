@@ -2,8 +2,9 @@
    import Archive from '@lucide/svelte/icons/archive';
    import ArchiveRestore from '@lucide/svelte/icons/archive-restore';
    import Trash2 from '@lucide/svelte/icons/trash-2';
-   import { familiarityLabels } from '../lib/labels';
-   import { pullRequestFlags, tourStateLabels } from '../lib/tourList';
+   import BookOpen from '@lucide/svelte/icons/book-open';
+   import { repositoryHeading } from '../lib/tourLabel';
+   import { pullRequestFlag, tourLine, tourStateLabels } from '../lib/tourList';
    import type { TourSummary } from '../lib/types';
    import TooltipButton from './TooltipButton.svelte';
    import WithTooltip from './WithTooltip.svelte';
@@ -63,6 +64,8 @@
       <ul>
          {#each tours as tour (tour.id)}
             {@const archived = tour.state === 'archived'}
+            {@const heading = repositoryHeading(tour)}
+            {@const flag = pullRequestFlag(tour)}
             <li class={['flex items-center border-l-3', tour.id === selectedTourId ? 'border-primary bg-accent' : 'border-transparent']}>
                <!-- The left border is the selection bar, so focus leaves its color alone. -->
                <!-- The list sits in the tour switcher's popover, which one Escape closes even while the tooltip of a tour or of one of its buttons shows. -->
@@ -76,18 +79,21 @@
                         onclick={() => onselect(tour.id)}
                      >
                         <span class="flex items-baseline justify-between gap-2">
-                           <span id={`tour-label-${tour.id}`} class="wrap-anywhere">{tour.label}</span>
+                           <span id={`tour-label-${tour.id}`} class="wrap-anywhere">{heading?.title ?? tour.label}</span>
                            <span class="flex shrink-0 items-baseline gap-1">
-                              {#if pullRequestFlags[tour.pullRequestState]}
-                                 <span class="tour-flag" data-pull-request={tour.pullRequestState}>{pullRequestFlags[tour.pullRequestState]}</span>
+                              {#if flag !== null}
+                                 <span class="tour-flag" data-pull-request={tour.pullRequestState}>{flag}</span>
                               {/if}
                               <span class="tour-state" data-state={tour.state}>{tourStateLabels[tour.state] ?? tour.state}</span>
                            </span>
                         </span>
-                        <span class="text-sm text-muted-foreground">
-                           {familiarityLabels[tour.familiarity] ?? tour.familiarity} ·
-                           {tour.stopCount === 0 ? 'no plan yet' : tour.stopCount === 1 ? '1 stop' : `${tour.stopCount} stops`}
-                        </span>
+                        {#if heading !== null}
+                           <span class="flex items-center gap-1 text-sm text-muted-foreground" data-tour-repository>
+                              <BookOpen class="size-3.5 shrink-0" aria-hidden="true" />
+                              <span class="wrap-anywhere">{tour.label}</span>
+                           </span>
+                        {/if}
+                        <span class="text-sm text-muted-foreground">{tourLine(tour)}</span>
                      </button>
                   {/snippet}
                </WithTooltip>
@@ -121,7 +127,7 @@
    {:else if hiddenCount > 0}
       <p class="px-4 py-2 text-muted-foreground">Every tour is hidden. Show hidden tours to see them.</p>
    {:else if loaded}
-      <p class="px-4 py-2 text-muted-foreground">No tours yet. Ask Claude to start a tour of a pull request.</p>
+      <p class="px-4 py-2 text-muted-foreground">No tours yet. Ask Claude to start a tour of a pull request or a repository.</p>
    {:else if !error}
       <p class="px-4 py-2 text-muted-foreground">Loading the tours…</p>
    {/if}

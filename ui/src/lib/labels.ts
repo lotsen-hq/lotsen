@@ -10,8 +10,10 @@ import type {
    RepositoryEntryType,
    StopKind,
    StopStatus,
+   TargetKind,
    ThreadAnchor,
    TourBinding,
+   TourPurpose,
 } from './types';
 import type { DoneClick } from './doneClick';
 import type { ConnectionState } from './eventStream';
@@ -54,6 +56,26 @@ export const familiarityLevels: readonly Familiarity[] = ['familiar', 'some', 'n
 
 /** The short name of each familiarity level, as the level picker's buttons show it. */
 export const familiarityShortLabels: Record<Familiarity, string> = { familiar: 'Familiar', some: 'Some', new: 'New' };
+
+/** The short name of each purpose of a repository tour, as the tour list and the Plan panel show it. */
+export const purposeLabels: Record<TourPurpose, string> = { orient: 'Orient', prepare: 'Prepare', evaluate: 'Evaluate' };
+
+/** Returns the line that names a tour's familiarity level, with a repository tour's purpose before the level's short name, such as "Orient · Familiar". */
+export function familiarityLine(familiarity: Familiarity, purpose: TourPurpose | null | undefined): string {
+   return purpose === null || purpose === undefined ? familiarityLabels[familiarity] : `${purposeLabels[purpose]} · ${familiarityShortLabels[familiarity]}`;
+}
+
+/** The line that says a tour's pin is in progress, for each kind of target. */
+export const pinningLines: Record<TargetKind, string> = {
+   pullRequest: 'Pinning the pull request to its commits…',
+   repository: 'Pinning the repository to its commit…',
+};
+
+/** The line that says a tour's pin failed, for each kind of target. The pin's reason follows it. */
+export const pinFailedLines: Record<TargetKind, string> = {
+   pullRequest: 'The pull request could not be pinned.',
+   repository: 'The repository could not be pinned.',
+};
 
 export const stopKindLabels: Record<StopKind, string> = {
    overview: 'Overview',

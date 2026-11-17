@@ -1,7 +1,7 @@
 // Seeds the sample tours of demo/sampleTours.ts into a world through the server's real operations, for the demo and for the tests of the sample tours. It runs in Node and in the browser.
 import type { AnchorInput, ChangedFileList, QuestionThread, Stop, Tour, UpdatedBatch } from '../src/lib/contract.generated.ts';
 import type { ClaudeSession, World } from '../tests/backend/backend.ts';
-import { pinningTour, sampleRepository, sampleRepositoryUrl, sampleTours, type SampleAnchor, type SampleContent, type SampleStep, type SampleTour } from './sampleTours.ts';
+import { pinningTour, sampleRepository, sampleRepositoryUrl, sampleTours, type SampleAnchor, type SampleContent, type SampleStep, type SampleTarget, type SampleTour } from './sampleTours.ts';
 
 /** The server's IDs of a seeded tour's stops, checks and threads, by the keys that its spec gives them, and the ID of each thread's last question. */
 export interface SeededTour {
@@ -24,11 +24,11 @@ export interface SampleSeed {
 /** The name of the template that holds the sample tours, on whichever host builds it. */
 export const sampleTemplateName = 'demo-sample-tours';
 
-/** The pull request URL of a sample tour. */
-export const prUrlOf = (tour: Pick<SampleTour, 'number'>) => `${sampleRepositoryUrl}/pull/${tour.number}`;
+/** The pull request URL of a sample tour of a pull request. */
+export const prUrlOf = (tour: { number: number }) => `${sampleRepositoryUrl}/pull/${tour.number}`;
 
-/** The label that the tour list gives a sample tour. */
-export const labelOf = (tour: Pick<SampleTour, 'number'>) => `storefront #${tour.number}`;
+/** The label that the tour list gives a sample tour, which a repository tour's row shows under its title. */
+export const labelOf = (tour: SampleTarget) => ('repository' in tour ? `storefront${tour.repository.ref === undefined ? '' : `@${tour.repository.ref}`}` : `storefront #${tour.number}`);
 
 /** The step of the template's clock between two steps of a tour, so the threads and answers of a tour show apart in time. */
 const stepMs = 20_000;
@@ -55,7 +55,10 @@ export async function seedSampleTours(world: World): Promise<SampleSeed> {
 
    for (const tour of sampleTours()) {
       await advanceTo(start - tour.ageMinutes * 60_000);
-      if (typeof tour.pin === 'object') {
+      if ('repository' in tour) {
+         const ref = tour.repository.ref;
+         await world.repository.set(pushed, ref === undefined ? {} : { tags: { [ref]: pushed } });
+      } else if (typeof tour.pin === 'object') {
          await world.pullRequest.fail(tour.pin.failed);
       } else if (tour.pin === 'firstHead') {
          await world.pullRequest.set(first, base, { iteration: 1 });
@@ -166,7 +169,8 @@ export function laterContentOf(seed: SampleSeed, tourId: string, stopId: string)
 }
 
 async function createTour(world: World, claude: ClaudeSession, spec: SampleTour): Promise<SeededTour> {
-   const tour = (await claude.call('create_tour', { prUrl: prUrlOf(spec), familiarity: spec.familiarity, ...(spec.planFirst ? { planFirst: true } : {}) })) as Tour;
+   const target = 'repository' in spec ? { repository: { url: sampleRepositoryUrl, ...spec.repository } } : { prUrl: prUrlOf(spec) };
+   const tour = (await claude.call('create_tour', { ...target, familiarity: spec.familiarity, ...(spec.planFirst ? { planFirst: true } : {}) })) as Tour;
    const seeded: SeededTour = { tourId: tour.id, stops: {}, checks: {}, threads: {}, questions: {} };
    if (spec.pin === 'pinning') {
       return seeded;

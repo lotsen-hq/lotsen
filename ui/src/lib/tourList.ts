@@ -1,3 +1,4 @@
+import { familiarityLine } from './labels';
 import type { PullRequestState, TourState, TourSummary } from './types';
 
 /** The name of each tour state, as the tour list shows it. */
@@ -16,7 +17,18 @@ export const pullRequestFlags: Record<PullRequestState, string | null> = {
    abandoned: 'PR abandoned',
 };
 
-/** Why the tour list hides a tour: the reviewer archived it, or its pull request was completed or abandoned. */
+/** Returns the flag that the tour list shows for a tour of a closed pull request, or null for a tour of an active pull request or of a repository. */
+export function pullRequestFlag(tour: Pick<TourSummary, 'target' | 'pullRequestState'>): string | null {
+   return tour.target.kind === 'pullRequest' ? pullRequestFlags[tour.pullRequestState] : null;
+}
+
+/** Returns the line under a tour in the list: its familiarity level, after a repository tour's purpose, and its number of stops. */
+export function tourLine(tour: Pick<TourSummary, 'familiarity' | 'purpose' | 'stopCount'>): string {
+   const stops = tour.stopCount === 0 ? 'no plan yet' : tour.stopCount === 1 ? '1 stop' : `${tour.stopCount} stops`;
+   return `${familiarityLine(tour.familiarity, tour.purpose)} · ${stops}`;
+}
+
+/** Why the tour list hides a tour: the reviewer archived it, or its pull request was completed or abandoned. A repository tour has no pull request, so only an archive hides it. */
 export type HiddenReason = 'archived' | 'pullRequestCompleted' | 'pullRequestAbandoned';
 
 /**
@@ -27,6 +39,10 @@ export type HiddenReason = 'archived' | 'pullRequestCompleted' | 'pullRequestAba
 export function hiddenReason(tour: TourSummary): HiddenReason | null {
    if (tour.state === 'archived') {
       return 'archived';
+   }
+
+   if (tour.target.kind === 'repository') {
+      return null;
    }
 
    switch (tour.pullRequestState) {

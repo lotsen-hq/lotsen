@@ -1,5 +1,5 @@
 // The demo's sample tours, as seed specs that demo/seed.ts takes through the server's real operations. The content is invented.
-import type { AnswerType, Familiarity, FileMarkKind, FileSide, PullRequestState, StopKind, StopPlacement } from '../src/lib/contract.generated.ts';
+import type { AnswerType, Familiarity, FileMarkKind, FileSide, PullRequestState, StopKind, StopPlacement, TourPurpose } from '../src/lib/contract.generated.ts';
 
 /** A passage as `[side, path, startLine, endLine, label]`, with 1-based lines. The first passage of a stop's content is its primary passage. */
 export type SamplePassage = [side: FileSide, path: string, startLine: number, endLine: number, label?: string];
@@ -20,6 +20,8 @@ export interface SampleContent {
    designChoices?: string;
    pinnedBy?: string;
    scenario?: string;
+   gotchas?: string;
+   tryIt?: string;
    tags?: string[];
    placement?: StopPlacement;
    /** A new title for the stop, which a revision may give. */
@@ -84,15 +86,28 @@ export type SampleStep =
    | { archive: true }
    | { markReviewed: string; atFirstHead?: true };
 
+/** What a sample repository tour tours: the sample repository at the pushed head, which `ref` names as a tag, or the default branch without one. */
+export interface SampleRepositoryTarget {
+   purpose: TourPurpose;
+   title: string;
+   ref?: string;
+   words?: string;
+}
+
+/** What a sample tour tours: pull request `number` of the sample repository, or the sample repository itself. */
+export type SampleTarget = { number: number } | { repository: SampleRepositoryTarget };
+
+/** A sample tour of its target, created `ageMinutes` before the template's build, as {@link SampleTourSpec} describes it. */
+export type SampleTour = SampleTourSpec & SampleTarget;
+
 /**
- * A sample tour of pull request `number` of the sample repository, created `ageMinutes` before the template's build.
+ * A sample tour's spec without its target.
  *
- * Its pin is `pinned` on the pushed head, `firstHead` on the first head with the pushed one as its available iteration, `failed` with the platform's reason, or `pinning` while the platform holds
- * its answer, which no template keeps, because the pin finishes once the platform answers.
+ * A pull request tour's pin is `pinned` on the pushed head, `firstHead` on the first head with the pushed one as its available iteration, `failed` with the platform's reason, or `pinning` while
+ * the platform holds its answer, which no template keeps, because the pin finishes once the platform answers. A repository tour's pin is `pinned`, a snapshot of the pushed head.
  */
-export interface SampleTour {
+export interface SampleTourSpec {
    key: string;
-   number: number;
    ageMinutes: number;
    familiarity: Familiarity;
    planFirst?: true;
@@ -555,6 +570,50 @@ export function sampleTours(): SampleTour[] {
          steps: [
             { ask: 'readme', anchor: { kind: 'tour' }, text: 'Is the README still accurate?' },
             { note: 'readme-links', anchor: { kind: 'tour' }, text: "Check the README's links once a session attaches." },
+         ],
+      },
+      {
+         key: 'storefront-orient',
+         repository: { purpose: 'orient', title: 'Find your way around the storefront', ref: 'v2.4.0', words: 'Where the checkout lives' },
+         ageMinutes: 60 * 48,
+         familiarity: 'new',
+         pin: 'pinned',
+         chapters: [
+            {
+               title: 'The shop',
+               stops: [
+                  {
+                     key: 'map',
+                     title: 'The storefront at a glance',
+                     kind: 'overview',
+                     content: {
+                        headline: 'The storefront is one page with a cart, a checkout and a search, beside an order service.',
+                        how: 'The page starts in [the app](ref:head/src/app.ts#L1-3), which holds one cart.',
+                     },
+                  },
+                  {
+                     key: 'cart',
+                     title: 'The cart',
+                     kind: 'context',
+                     content: {
+                        headline: 'The cart holds a line per product and checks each quantity.',
+                        passages: [['head', 'src/checkout/cart.ts', 12, 14]],
+                        gotchas: 'A quantity of zero is refused, so a remove is a call of its own.',
+                        tryIt: 'Add the same product twice, and see whether the cart merges the two lines.',
+                     },
+                  },
+                  {
+                     key: 'payment',
+                     title: 'Paying for the cart',
+                     kind: 'inspect',
+                     content: {
+                        headline: '`pay` charges the cart total through the payment gateway.',
+                        passages: [['head', 'src/checkout/payment.ts', 11, 23]],
+                        gotchas: 'The shop shows the message of a declined card *as the gateway wrote it*.',
+                     },
+                  },
+               ],
+            },
          ],
       },
       {

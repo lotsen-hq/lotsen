@@ -96,7 +96,13 @@ internal sealed class TestPlatform : IRepositoryPlatform
       }
    }
 
-   /// <summary>Makes every repository resolve against these refs, to this remote.</summary>
+   /// <summary>Makes every repository resolve against these refs, to this remote, as <see cref="RepositoryAnswer"/> answers.</summary>
+   public void Repository(
+      Uri remoteUrl, CommitId head, string defaultBranch = "main", IReadOnlyDictionary<string, CommitId>? branches = null, IReadOnlyDictionary<string, CommitId>? tags = null,
+      IReadOnlyList<CommitId>? commits = null) =>
+      AnswerRepository(RepositoryAnswer(remoteUrl, head, defaultBranch, branches, tags, commits));
+
+   /// <summary>Returns an answer to a repository resolve against these refs, to this remote.</summary>
    /// <remarks>A resolve follows the order of <see cref="IRepositoryPlatform.ResolveRepositoryAsync"/>. A commit that a branch or a tag points to is a commit of the repository too.</remarks>
    /// <param name="remoteUrl">The remote, normalized as for <see cref="PullRequest"/>.</param>
    /// <param name="head">The commit that the default branch points to.</param>
@@ -104,7 +110,7 @@ internal sealed class TestPlatform : IRepositoryPlatform
    /// <param name="branches">The other branches by name, with the commit each points to, or null for none.</param>
    /// <param name="tags">The tags by name, with the commit each names, or null for none.</param>
    /// <param name="commits">The commits that no branch or tag points to, or null for none.</param>
-   public void Repository(
+   public static Func<string?, CancellationToken, Task<ResolvedRepository>> RepositoryAnswer(
       Uri remoteUrl, CommitId head, string defaultBranch = "main", IReadOnlyDictionary<string, CommitId>? branches = null, IReadOnlyDictionary<string, CommitId>? tags = null,
       IReadOnlyList<CommitId>? commits = null)
    {
@@ -112,7 +118,7 @@ internal sealed class TestPlatform : IRepositoryPlatform
       var allBranches = new Dictionary<string, CommitId>(branches ?? new Dictionary<string, CommitId>(), StringComparer.Ordinal) { [defaultBranch] = head };
       var allTags = new Dictionary<string, CommitId>(tags ?? new Dictionary<string, CommitId>(), StringComparer.Ordinal);
       var allCommits = (commits ?? []).Concat(allBranches.Values).Concat(allTags.Values).ToHashSet();
-      AnswerRepository((@ref, _) =>
+      return (@ref, _) =>
       {
          ResolvedRepository? resolved = @ref switch
          {
@@ -126,7 +132,7 @@ internal sealed class TestPlatform : IRepositoryPlatform
          return resolved is null
             ? Task.FromException<ResolvedRepository>(new PlatformException($"The test platform has no branch, tag or commit '{@ref}' in the repository."))
             : Task.FromResult(resolved);
-      });
+      };
    }
 
    /// <summary>Makes every repository resolve fail with this exception.</summary>

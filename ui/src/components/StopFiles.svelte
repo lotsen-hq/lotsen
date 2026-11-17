@@ -6,7 +6,7 @@
    import type { ExplanationView } from '../lib/explanationView.svelte';
    import { panelDocument } from '../lib/panelDocument.svelte';
    import { scrolledToEnd, shownStackFile, type StackFile } from '../lib/stopFiles';
-   import type { ChangedFile, CodeReference, FileMark, FileSide, QuestionThread, Stop } from '../lib/types';
+   import type { ChangedFile, CodeReference, FileMark, FileSide, QuestionThread, Stop, TargetKind } from '../lib/types';
    import StackedFile from './StackedFile.svelte';
 
    let {
@@ -25,6 +25,7 @@
       loadDiff,
       loadText,
       pin = null,
+      targetKind,
       ontop = () => {},
    }: {
       /** The files to stack, or null while the changed files load, which decides how each file shows. */
@@ -52,6 +53,8 @@
       loadText: (side: FileSide, path: string, includeLarge: boolean) => Promise<KnownText>;
       /** The pin that the tour's files are read at, as {@link LotsenApp.filesPin} keys it, whose change loads each file's content again. */
       pin?: string | null;
+      /** What the tour reviews, which the notice of a pin in progress or failed names. */
+      targetKind: TargetKind;
       /** Reports the key of the file that the reviewer reads, as {@link shownStackFile} finds it, or null before layout, whenever the stack scrolls, resizes or changes. */
       ontop?: (key: string | null) => void;
    } = $props();
@@ -160,6 +163,7 @@
                   {loadDiff}
                   {loadText}
                   {pin}
+                  {targetKind}
                />
             </li>
          {/each}

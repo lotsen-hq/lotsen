@@ -5690,6 +5690,12 @@
         },
         "planApproval": {
           "$ref": "#/definitions/PlanApproval"
+        },
+        "purpose": {
+          "$ref": "#/definitions/TourPurpose"
+        },
+        "title": {
+          "type": "string"
         }
       },
       "required": [

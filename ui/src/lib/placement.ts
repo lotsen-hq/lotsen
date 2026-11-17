@@ -80,9 +80,9 @@ export function primaryPassage(stop: Stop | null): StopPassage | null {
    return contentOf(stop)?.passages.find((passage) => passage.role === 'primary') ?? null;
 }
 
-const bodyFields = ['how', 'why', 'designChoices', 'pinnedBy', 'scenario'] as const;
+const bodyFields = ['how', 'why', 'designChoices', 'pinnedBy', 'scenario', 'gotchas', 'tryIt'] as const;
 
-/** Returns the length of a stop's body in Unicode code points: its `how`, `why`, `designChoices`, `pinnedBy` and `scenario` Markdown, each {@link withoutReferenceTargets}. */
+/** Returns the length of a stop's body in Unicode code points: its `how`, `why`, `designChoices`, `pinnedBy`, `scenario`, `gotchas` and `tryIt` Markdown, each {@link withoutReferenceTargets}. */
 export function bodyLength(content: StopContent): number {
    return bodyFields.reduce((total, field) => total + [...withoutReferenceTargets(content[field] ?? '')].length, 0);
 }

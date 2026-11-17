@@ -1,7 +1,8 @@
 <!--
-   The top of the Plan panel: a quiet line with the tour's familiarity level, and a ⋯ menu of the plan's actions. Re-plan… opens the form that also changes the level, Reorder… shows the stop
-   order editor in place of the plan list, and before Claude writes a plan the menu holds only Change familiarity…. The plan list shows as it is until Claude's set_plan arrives. Each item is
-   disabled with the server's reason under the line while the tour's controls close it, and each waiting thread that holds the plan or the level back shows there with a link to it.
+   The top of the Plan panel: a quiet line with the tour's familiarity level, after a repository tour's purpose, and a ⋯ menu of the plan's actions. Re-plan… opens the form that also
+   changes the level, Reorder… shows the stop order editor in place of the plan list, and before Claude writes a plan the menu holds only Change familiarity…. The plan list shows as it is
+   until Claude's set_plan arrives. Each item is disabled with the server's reason under the line while the tour's controls close it, and each waiting thread that holds the plan or the level
+   back shows there with a link to it.
 -->
 <script lang="ts">
    import Ellipsis from '@lucide/svelte/icons/ellipsis';
@@ -10,11 +11,11 @@
    import { Button, buttonVariants } from '$lib/components/ui/button';
    import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
    import { disabledReason, threadsOf } from '../lib/controls';
-   import { familiarityLabels } from '../lib/labels';
+   import { familiarityLine } from '../lib/labels';
    import { isReordered, reconciledOrder } from '../lib/stopOrder';
    import { subjectOf } from '../lib/threadView';
    import { decisionLabels, subjectPending, tourActionLabels, tourActionPlaceholders, tourActionPrompts, type PlanActionKind } from '../lib/tourActions';
-   import type { Familiarity, Plan, QuestionThread, RequestedTourAction, RequestState, TourControls } from '../lib/types';
+   import type { Familiarity, Plan, QuestionThread, RequestedTourAction, RequestState, TourControls, TourPurpose } from '../lib/types';
    import ActionWords from './ActionWords.svelte';
    import ReplanForm from './ReplanForm.svelte';
    import StopOrderEditor from './StopOrderEditor.svelte';
@@ -22,6 +23,7 @@
    let {
       plan,
       familiarity,
+      purpose = null,
       threads,
       controls,
       onaction,
@@ -33,6 +35,8 @@
       plan: Plan | null;
       /** The tour's familiarity level. */
       familiarity: Familiarity;
+      /** A repository tour's purpose, or null for a pull request's tour. */
+      purpose?: TourPurpose | null;
       /** The tour's threads, among which the waiting actions on the plan are. */
       threads: readonly QuestionThread[];
       /** The tour's controls, which say whether each action can go and which threads hold the plan or the level back, or null while the page has none. */
@@ -132,7 +136,7 @@
 
 <section class="flex flex-col gap-1 border-b border-border px-4 pb-2" aria-label="Plan actions">
    <div class="flex min-h-7 items-center justify-between gap-2">
-      <p class="text-xs text-muted-foreground">{familiarityLabels[familiarity]}</p>
+      <p class="text-xs text-muted-foreground" data-plan-line>{familiarityLine(familiarity, purpose)}</p>
       {#if items.length > 0}
          <DropdownMenu.Root>
             <DropdownMenu.Trigger class="{buttonVariants({ variant: 'ghost', size: 'icon-sm' })} shrink-0" aria-label="Plan actions">

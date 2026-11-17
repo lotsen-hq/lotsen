@@ -78,7 +78,7 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 function renderStack(stopPassages: StopPassage[] = passages, layout: DiffLayout = 'sideBySide', added: FileReference[] = []) {
-   return render(StopFiles, { props: { files: stopFileStack(stopPassages, files, added, on), stop: stopOf(stopPassages), layout, loadDiff, loadText } });
+   return render(StopFiles, { props: { files: stopFileStack(stopPassages, files, added, on), stop: stopOf(stopPassages), layout, loadDiff, loadText, targetKind: 'pullRequest' } });
 }
 
 const items = () => within(screen.getByRole('list', { name: 'Files in this stop' })).queryAllByRole('listitem');
@@ -112,7 +112,7 @@ describe('the stop-files stack', () => {
 
    it('moves the splitter of every side-by-side file with the splitter of one', async () => {
       localStorage.clear();
-      render(StopFilesHost, { props: { files: stopFileStack(passages.slice(0, 2), files, [], on), stop: stopOf(passages.slice(0, 2)), loadDiff, loadText } });
+      render(StopFilesHost, { props: { files: stopFileStack(passages.slice(0, 2), files, [], on), stop: stopOf(passages.slice(0, 2)), loadDiff, loadText, targetKind: 'pullRequest' } });
       const splitters = () => screen.getAllByRole('separator', { name: 'Resize the base and head panes' });
       await waitFor(() => expect(splitters()).toHaveLength(2));
 
@@ -143,6 +143,7 @@ describe('the stop-files stack', () => {
             fileMarks: new Map<string, FileMark>([['src/pay.ts', { path: 'src/pay.ts', mark: 'generated', reason: 'The SDK writes it.' }]]),
             loadDiff,
             loadText,
+            targetKind: 'pullRequest',
          },
       });
 
@@ -190,7 +191,7 @@ describe('the stop-files stack', () => {
    });
 
    it('loads the diffs again, and not the texts, when the whitespace choice changes', async () => {
-      const view = render(StopFiles, { props: { files: stopFileStack(passages, files, [], on), stop: stopOf(passages), loadDiff, loadText } });
+      const view = render(StopFiles, { props: { files: stopFileStack(passages, files, [], on), stop: stopOf(passages), loadDiff, loadText, targetKind: 'pullRequest' } });
       await waitFor(() => expect(loadDiff).toHaveBeenCalledTimes(2));
 
       await view.rerender({ ignoreWhitespace: true });
@@ -203,7 +204,7 @@ describe('the stop-files stack', () => {
    });
 
    it('loads the diffs and the texts again when the tour moves to another pin', async () => {
-      const view = render(StopFiles, { props: { files: stopFileStack(passages, files, [], on), stop: stopOf(passages), loadDiff, loadText } });
+      const view = render(StopFiles, { props: { files: stopFileStack(passages, files, [], on), stop: stopOf(passages), loadDiff, loadText, targetKind: 'pullRequest' } });
       await waitFor(() => expect(loadDiff).toHaveBeenCalledTimes(2));
 
       await view.rerender({ pin: `${'a'.repeat(40)}..${'c'.repeat(40)}` });
@@ -312,7 +313,7 @@ describe('the stop-files stack', () => {
       function renderHost(viewportHeight: number) {
          const { layout, contentHeight } = layOut(viewportHeight);
          const ontop = vi.fn<(key: string | null) => void>();
-         const view = render(StopFilesHost, { props: { files: stopFileStack(passages, files, [], on), stop: stopOf(passages), loadDiff, loadText, ontop } });
+         const view = render(StopFilesHost, { props: { files: stopFileStack(passages, files, [], on), stop: stopOf(passages), loadDiff, loadText, ontop, targetKind: 'pullRequest' } });
          const scroller = screen.getByRole('list', { name: 'Files in this stop' }).parentElement!;
          Object.defineProperties(scroller, {
             scrollTop: { get: () => layout.scrolled },
@@ -492,7 +493,7 @@ describe('the stop-files stack', () => {
    it('says that the changed files load, that a pending stop has no content and that a stop without passages has none', async () => {
       const { id, title, kind, chapter } = stopOf([]);
       const pending: Stop = { id, title, kind, chapter, stage: 'pending', anchorHint: null, status: 'pending' };
-      const view = render(StopFiles, { props: { files: null, stop: pending, loadDiff, loadText } });
+      const view = render(StopFiles, { props: { files: null, stop: pending, loadDiff, loadText, targetKind: 'pullRequest' } });
       expect(screen.getByText('Loading the changed files…')).toBeTruthy();
 
       await view.rerender({ files: [] });

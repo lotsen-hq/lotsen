@@ -152,6 +152,14 @@ public static class Program
                   (int?)body["iteration"] ?? 1,
                   Enum.Parse<PullRequestState>((string?)body["state"] ?? "active", ignoreCase: true));
                return [];
+            case "repository.set":
+               WorldOf(body).SetRepository(
+                  CommitId.Parse(Text(body, "head")),
+                  (string?)body["defaultBranch"] ?? "main",
+                  Commits(body["branches"]),
+                  Commits(body["tags"]),
+                  body["commits"]?.AsArray().Select(commit => CommitId.Parse((string)commit!)).ToList() ?? []);
+               return [];
             case "pr.fail":
                WorldOf(body).FailPullRequest(Text(body, "reason"));
                return [];
@@ -207,6 +215,10 @@ public static class Program
 
       private static string Text(JsonObject body, string name) => (string?)body[name] ?? throw new InvalidOperationException($"The request needs {name}.");
 
+      // Reads an object of ref names, each with the commit it points to, or none when the request leaves it out.
+      private static Dictionary<string, CommitId> Commits(JsonNode? refs) =>
+         refs?.AsObject().ToDictionary(entry => entry.Key, entry => CommitId.Parse((string)entry.Value!), StringComparer.Ordinal) ?? new Dictionary<string, CommitId>(StringComparer.Ordinal);
+
       // A template's name becomes part of a directory's name under the host's root, so it holds no path separator and no "..".
       private static string TemplateName(JsonObject body)
       {
@@ -236,7 +248,7 @@ public static class Program
             Directory.CreateDirectory(data);
          }
 
-         var world = await World.StartAsync(id, new DataDirectory(data), _origin, clockStart, source?.PullRequest, cancellationToken);
+         var world = await World.StartAsync(id, new DataDirectory(data), _origin, clockStart, source?.Answers, cancellationToken);
          _worlds[id] = world;
          return world;
       }
@@ -256,7 +268,7 @@ public static class Program
             await world.DisposeAsync();
             var template = Path.Combine(Directory.CreateDirectory(Path.Combine(_root, "templates")).FullName, $"{name}-{world.Id}");
             TestDirectories.Move(world.DataDirectory.Path, template, TimeSpan.FromSeconds(5));
-            _templates[name] = new Template(template, data, world.PullRequestAnswer);
+            _templates[name] = new Template(template, data, world.Answers);
          }
          catch (Exception exception) when (built is not null)
          {
@@ -300,8 +312,8 @@ public static class Program
 
       private void Fail(string name, string reason) => _building[name].TrySetException(new InvalidOperationException(reason));
 
-      // A sealed world's data directory, what its build returned, and its pull request answer.
-      private sealed record Template(string Path, JsonNode? Data, Func<CancellationToken, Task<ResolvedPullRequest>>? PullRequest);
+      // A sealed world's data directory, what its build returned, and its platform's answers.
+      private sealed record Template(string Path, JsonNode? Data, PlatformAnswers Answers);
 
       private static void CopyDirectory(string source, string target)
       {

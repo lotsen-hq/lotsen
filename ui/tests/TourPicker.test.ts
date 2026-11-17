@@ -181,3 +181,89 @@ describe('the tour switcher', () => {
       expect(switcher.getAttribute('aria-label')).toBe('Choose another tour');
    });
 });
+
+function repositorySummary(ref?: string, url = 'https://platform.test/shop'): TourSummary {
+   return {
+      ...summary('3', ref === undefined ? 'shop' : `shop@${ref}`),
+      target: { kind: 'repository', platform: 'test', url, ...(ref === undefined ? {} : { ref }) },
+      pin: { state: 'snapshot', head: 'c'.repeat(40), remoteUrl: 'https://platform.test/shop.git' },
+      purpose: 'orient',
+      title: 'How the cart adds up',
+   };
+}
+
+describe('a repository tour in the tour switcher', () => {
+   const part = (name: string) => document.querySelector<HTMLElement>(`[data-heading-part="${name}"]`);
+
+   it('shows the title, with the repository linked to its URL in a new tab and the ref beside it', async () => {
+      renderSwitcher(repositorySummary('v1.2.0'));
+      const link = screen.getByRole('link', { name: 'shop' });
+
+      expect(part('title')?.textContent).toBe('How the cart adds up');
+      expect(link.getAttribute('href')).toBe('https://platform.test/shop');
+      expect(link.getAttribute('target')).toBe('_blank');
+      expect(part('ref')?.textContent).toBe('@v1.2.0');
+      expect(document.querySelector('.lucide-git-pull-request')).toBeNull();
+      expect(await hoverTooltip(part('title')!)).toBe('How the cart adds up\nshop@v1.2.0');
+      expect(await hoverTooltip(link)).toBe('Open the repository in a new tab\nhttps://platform.test/shop');
+   });
+
+   it('leaves the ref out for the default branch', () => {
+      renderSwitcher(repositorySummary());
+
+      expect(part('repository')?.textContent).toBe('shop');
+      expect(part('ref')).toBeNull();
+   });
+
+   it('shows the repository of a URL that is not https as text', () => {
+      renderSwitcher(repositorySummary(undefined, 'http://platform.test/shop'));
+
+      expect(screen.queryByRole('link')).toBeNull();
+      expect(part('repository')?.textContent).toBe('shop');
+   });
+
+   it('lists the tour by its title, repository and ref, with its purpose and level, and no pull request flag', async () => {
+      const tour = { ...repositorySummary('v1.2.0'), pullRequestState: 'completed' as const };
+      render(TourPicker, {
+         props: {
+            tours: [tour],
+            hiddenCount: 0,
+            showHidden: false,
+            loaded: true,
+            error: null,
+            selectedTourId: null,
+            selectedTour: null,
+            onselect: vi.fn(),
+            onshowhidden: vi.fn(),
+            onarchive: vi.fn(),
+            ondelete: vi.fn(),
+         },
+      });
+      await fireEvent.click(screen.getByRole('button', { name: 'Choose a tour' }));
+      const row = await screen.findByRole('button', { name: /How the cart adds up/ });
+
+      expect(row.textContent.replace(/\s+/g, ' ').trim()).toBe('How the cart adds up Ready shop@v1.2.0 Orient · Some · 2 stops');
+      expect(row.querySelector('[data-pull-request]')).toBeNull();
+   });
+
+   it('shows the empty list with both kinds of tour to start', async () => {
+      render(TourPicker, {
+         props: {
+            tours: [],
+            hiddenCount: 0,
+            showHidden: false,
+            loaded: true,
+            error: null,
+            selectedTourId: null,
+            selectedTour: null,
+            onselect: vi.fn(),
+            onshowhidden: vi.fn(),
+            onarchive: vi.fn(),
+            ondelete: vi.fn(),
+         },
+      });
+      await fireEvent.click(screen.getByRole('button', { name: 'Choose a tour' }));
+
+      expect(await screen.findByText('No tours yet. Ask Claude to start a tour of a pull request or a repository.')).toBeDefined();
+   });
+});

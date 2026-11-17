@@ -82,7 +82,16 @@
    const attachment = $derived(attachmentOf(app.selectedBinding));
    /** What Claude is doing on the selected tour, or null when the top bar has nothing to say about it or no tour is selected. */
    const generation = $derived(
-      app.selectedTour === null ? null : generationStatus({ state: app.selectedTour.state, pin: app.selectedTour.pin, plan: app.selectedPlan?.plan, planWaits: app.selectedPlanWaits, attachment }),
+      app.selectedTour === null
+         ? null
+         : generationStatus({
+              target: app.selectedTour.target.kind,
+              state: app.selectedTour.state,
+              pin: app.selectedTour.pin,
+              plan: app.selectedPlan?.plan,
+              planWaits: app.selectedPlanWaits,
+              attachment,
+           }),
    );
 
    /** Claude's mark on the selected changed file, or null for none. */
@@ -327,6 +336,7 @@
                      onsetdone={(stopId, version) => app.setStopDone(stopId, version)}
                      viewed={app.selectedStop?.stage === 'written' ? { stopId: app.selectedStop.id, version: app.selectedStop.version } : null}
                      familiarity={app.selectedFamiliarity}
+                     purpose={app.selectedTour?.purpose ?? null}
                      onfamiliarity={app.selectedTour?.planApproval === 'awaited' ? null : (level, text) => app.changeFamiliarity(level, text)}
                      planWaits={app.selectedPlanWaits}
                      onapprove={(stopIds, level, text) => app.approvePlan(stopIds, level, text)}
@@ -400,6 +410,7 @@
                               loadDiff={(file, options) => app.fetchDiff(tourId, file, options)}
                               loadText={(side, path, includeLarge) => app.fetchText(tourId, side, path, includeLarge)}
                               pin={app.filesPin}
+                              targetKind={app.selectedTour?.target.kind ?? 'pullRequest'}
                            />
                         {/key}
                      {:else if app.selectedText === null}
@@ -416,6 +427,7 @@
                            onask={pick}
                            onopenthread={openThread}
                            onloadlarge={() => app.loadLargeDiff()}
+                           targetKind={app.selectedTour?.target.kind}
                         />
                      {:else}
                         <FileView
@@ -426,6 +438,7 @@
                            onask={pick}
                            onopenthread={openThread}
                            onloadlarge={() => app.loadLargeText()}
+                           targetKind={app.selectedTour?.target.kind}
                         />
                      {/if}
                   </div>

@@ -5,7 +5,7 @@ import App from '../src/App.svelte';
 import { LotsenApp } from '../src/lib/app.svelte';
 import type { Schedule } from '../src/lib/eventStream';
 import { SseParser } from '../src/lib/sse';
-import type { Familiarity, StopKind, Tour, UpdatedIteration } from '../src/lib/types';
+import type { Familiarity, StopKind, Tour, TourPurpose, UpdatedIteration } from '../src/lib/types';
 import { connectBackend, type Backend, type ClaudeSession, type EventName, type Transport, type World } from './backend/backend';
 import { stubRangeLayout } from './rangeLayout';
 import { runWithSignal, testSignal } from './testSignal.mjs';
@@ -123,6 +123,74 @@ export async function seedTour(world: World, spec: TourSpec = {}): Promise<Seede
    }
 
    return { tourId: tour.id, stopIds, base, head, claude };
+}
+
+/** The repository URL that every world's platform recognizes, and its label in the tour list without a ref. */
+export const repositoryUrl = 'https://platform.test/shop';
+export const repositoryLabel = 'shop';
+
+/** What {@link seedRepositoryTour} builds: the files at the snapshot, the tour's fields and the plan by chapter. */
+export interface RepositoryTourSpec {
+   /** The files of the repository at the snapshot's commit, by path. */
+   files?: Record<string, string>;
+   /** The tag that the tour follows, which points to the snapshot's commit, or undefined for the default branch. */
+   ref?: string;
+   purpose?: TourPurpose;
+   title?: string;
+   words?: string;
+   familiarity?: Familiarity;
+   planFirst?: boolean;
+   /** The chapters of the plan, each with its stops, or undefined for a tour without a plan. */
+   chapters?: { title: string; stops: SeededStop[] }[];
+   /** Whether the session that creates the tour stays open and bound, which it does unless this is false. */
+   bound?: boolean;
+}
+
+/** A seeded repository tour: its ID, the IDs of its stops in plan order, the snapshot's commit, and the session that created it, which drops when the spec does not keep it bound. */
+export interface SeededRepositoryTour {
+   tourId: string;
+   stopIds: string[];
+   head: string;
+   claude: ClaudeSession | null;
+}
+
+/** Creates a repository tour on the world through the real operations: a commit, the repository's refs, a real agent session's create_tour, its plan and its stops' content. */
+export async function seedRepositoryTour(world: World, spec: RepositoryTourSpec = {}): Promise<SeededRepositoryTour> {
+   const head = await world.repo.commit('main', 'The snapshot', spec.files ?? cartHead);
+   await world.repository.set(head, spec.ref === undefined ? {} : { tags: { [spec.ref]: head } });
+   const claude = await world.claude();
+   const repository = {
+      url: repositoryUrl,
+      purpose: spec.purpose ?? 'orient',
+      title: spec.title ?? 'How the cart adds up',
+      ...(spec.ref === undefined ? {} : { ref: spec.ref }),
+      ...(spec.words === undefined ? {} : { words: spec.words }),
+   };
+   const tour = (await claude.call('create_tour', { repository, familiarity: spec.familiarity ?? 'some', ...(spec.planFirst ? { planFirst: true } : {}) })) as Tour;
+   await world.idle();
+   const stopIds: string[] = [];
+   if (spec.chapters !== undefined) {
+      const chapters = spec.chapters.map((chapter, index) => ({ id: `c${index + 1}`, title: chapter.title }));
+      const planned = (await claude.call('set_plan', {
+         tourId: tour.id,
+         chapters,
+         stops: spec.chapters.flatMap((chapter, index) => chapter.stops.map((stop) => ({ title: stop.title, kind: stop.kind, chapter: chapters[index]!.id }))),
+      })) as Tour;
+      stopIds.push(...planned.plan!.stops.map((stop) => stop.id));
+      const stops = spec.chapters.flatMap((chapter) => chapter.stops);
+      for (const [index, stop] of stops.entries()) {
+         if (stop.content !== undefined) {
+            await claude.call('put_stop', { tourId: tour.id, stopId: stopIds[index], ...stop.content });
+         }
+      }
+   }
+
+   if (spec.bound === false) {
+      await claude.drop();
+      return { tourId: tour.id, stopIds, head, claude: null };
+   }
+
+   return { tourId: tour.id, stopIds, head, claude };
 }
 
 /** Opens a session that attaches the tour, as Claude does in a world copied from a template, whose sessions did not survive the seal. */

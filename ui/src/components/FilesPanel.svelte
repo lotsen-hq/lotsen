@@ -23,6 +23,7 @@
       type FileTreeNode,
    } from '../lib/fileTree';
    import { panelDocument } from '../lib/panelDocument.svelte';
+   import { pinFailedLines, pinningLines } from '../lib/labels';
    import { atPin, pinCommits } from '../lib/pin';
    import { changedFilesAt } from '../lib/repositoryTree';
    import type { FileReference } from '../lib/stopFiles';
@@ -176,10 +177,10 @@
    {#if !tour}
       <p class="px-4 py-1 text-muted-foreground">Select a tour to see its changed files.</p>
    {:else if pin?.state === 'pinning'}
-      <p class="px-4 py-1 text-muted-foreground">Pinning the pull request to its commits…</p>
+      <p class="px-4 py-1 text-muted-foreground">{pinningLines[tour.target.kind]}</p>
    {:else if pin?.state === 'failed'}
       <div class="px-4 py-1 text-destructive *:mb-1" role="alert">
-         <p>The pull request could not be pinned.</p>
+         <p>{pinFailedLines[tour.target.kind]}</p>
          <p>{pin.reason}</p>
       </div>
    {:else}

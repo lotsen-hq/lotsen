@@ -93,6 +93,19 @@ public sealed class TourApiTests : IAsyncLifetime
    }
 
    [Fact]
+   public async Task List_gives_a_repository_tour_its_purpose_and_title_and_a_pull_request_tour_neither()
+   {
+      var pullRequest = (string)(await CreateTourAsync())["id"]!;
+      var repository = (string)(await _harness.AgentCallAsync(
+         "create_tour", $$"""{ "repository": { "url": "https://{{TestPlatform.DefaultHost}}/shop", "purpose": "prepare", "title": "The shop" }, "familiarity": "some" }"""))["id"]!;
+
+      var tours = (await _harness.CallAsync("list_tours"))["tours"]!.AsArray().ToDictionary(tour => (string)tour!["id"]!, tour => tour!.AsObject());
+
+      Assert.Equal(("prepare", "The shop"), ((string)tours[repository]["purpose"]!, (string)tours[repository]["title"]!));
+      Assert.False(tours[pullRequest].ContainsKey("purpose") || tours[pullRequest].ContainsKey("title"), tours[pullRequest].ToJsonString());
+   }
+
+   [Fact]
    public async Task List_gives_each_tour_the_revision_of_its_last_write_response()
    {
       var once = (string)(await CreateTourAsync())["id"]!;

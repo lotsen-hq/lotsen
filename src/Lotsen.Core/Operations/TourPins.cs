@@ -62,6 +62,8 @@ internal sealed record PinTourInput(
 /// <param name="Revision">The tour's revision that the summary shows.</param>
 /// <param name="Binding">The agent session bound to the tour, or null when none is. JSON leaves it out when null.</param>
 /// <param name="PlanApproval">Whether the plan waits for the reviewer's approval, as <see cref="Tour.PlanApproval"/> says. JSON leaves it out when not needed.</param>
+/// <param name="Purpose">What a repository tour is for, or null for a pull request's tour. JSON leaves it out when null.</param>
+/// <param name="Title">A repository tour's title, or null for a pull request's tour. JSON leaves it out when null.</param>
 internal sealed record TourSummary(
    TourId Id,
    TourTarget Target,
@@ -75,12 +77,14 @@ internal sealed record TourSummary(
    PullRequestState PullRequestState,
    long Revision,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TourBinding? Binding = null,
-   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] PlanApproval PlanApproval = PlanApproval.NotNeeded)
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] PlanApproval PlanApproval = PlanApproval.NotNeeded,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TourPurpose? Purpose = null,
+   [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Title = null)
 {
    /// <summary>Returns the summary of the tour, with the binding that the session ledger holds for it.</summary>
    public static TourSummary Of(Tour tour, PullRequestPlatforms platforms, TourBinding? binding) =>
       new(tour.Id, tour.Target, tour.Familiarity, tour.CreatedAt, tour.UpdatedAt, tour.Pin, tour.Plan?.Stops.Count ?? 0, platforms.Label(tour.Target), TourStates.Of(tour), tour.PullRequestState,
-         tour.Revision, binding, tour.PlanApproval);
+         tour.Revision, binding, tour.PlanApproval, tour.Purpose, tour.Title);
 }
 
 /// <summary>The output of <c>list_tours</c>.</summary>

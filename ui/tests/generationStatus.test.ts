@@ -18,7 +18,7 @@ const pinned: GenerationFacts['pin'] = { state: 'pinned', mergeBase: 'base', hea
 
 // An attached session writing a pinned tour whose first of three stops is written.
 function facts(overrides: Partial<GenerationFacts> = {}): GenerationFacts {
-   return { state: 'generating', pin: pinned, plan: plan('ready', 'pending', 'pending'), planWaits: false, attachment: 'confirmed', ...overrides };
+   return { target: 'pullRequest', state: 'generating', pin: pinned, plan: plan('ready', 'pending', 'pending'), planWaits: false, attachment: 'confirmed', ...overrides };
 }
 
 const writing = (line: string) => ({ phase: 'writing', line });
@@ -61,6 +61,17 @@ describe('the generation status of a tour', () => {
 
    it('says that the tour is pinning while a plan has pending stops', () => {
       expect(generationStatus(facts({ pin: { state: 'pinning' } }))).toEqual({ phase: 'pinning', line: 'Pinning the pull request to its commits…' });
+   });
+
+   it('names the repository for a repository tour while it plans and pins', () => {
+      expect(generationStatus(facts({ target: 'repository', plan: null }))).toEqual({ phase: 'planning', line: 'Claude is reading the repository and planning the tour…' });
+      expect(generationStatus(facts({ target: 'repository', pin: { state: 'pinning' } }))).toEqual({ phase: 'pinning', line: 'Pinning the repository to its commit…' });
+   });
+
+   it('shows the writing line for a repository tour at its snapshot', () => {
+      expect(generationStatus(facts({ target: 'repository', pin: { state: 'snapshot', head: 'head', remoteUrl: 'https://platform.test/shop.git' } }))).toEqual(
+         writing('Claude is writing stop 2 of 3…'),
+      );
    });
 
    it('is absent when the pin failed and a plan has pending stops', () => {

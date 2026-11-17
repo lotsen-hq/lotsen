@@ -22,7 +22,7 @@ const proseOf = (content: StopContent) => {
 };
 
 describe('the seeded sample tours', () => {
-   it('seed through the real operations, with every tour state, pull request state and pin state, and a pinned tour without a plan', async () => {
+   it('seed through the real operations, with every tour state, pull request state and pin state, a repository tour among them, and a pinned tour without a plan', async () => {
       const { world } = await sampleWorld();
       await seedPinningTour(world, await world.claude());
 
@@ -30,7 +30,7 @@ describe('the seeded sample tours', () => {
 
       expect(new Set(tours.map((tour) => tour.state))).toEqual(new Set(['generating', 'ready', 'inProgress', 'finished', 'archived']));
       expect(new Set(tours.map((tour) => tour.pullRequestState))).toEqual(new Set(['active', 'completed', 'abandoned']));
-      expect(new Set(tours.map((tour) => tour.pin.state))).toEqual(new Set(['pinning', 'pinned', 'failed']));
+      expect(new Set(tours.map((tour) => tour.pin.state))).toEqual(new Set(['pinning', 'pinned', 'snapshot', 'failed']));
       expect(tours.some((tour) => tour.pin.state === 'pinned' && tour.stopCount === 0)).toBe(true);
       await world.pullRequest.release();
    });
@@ -42,7 +42,7 @@ describe('the seeded sample tours', () => {
 
       expect(new Set(stops.map((stop) => stop.kind))).toEqual(new Set(['overview', 'context', 'inspect', 'risk', 'question']));
       expect(new Set(stops.map((stop) => stop.status))).toEqual(new Set(['pending', 'ready', 'revised']));
-      for (const field of ['how', 'why', 'designChoices', 'pinnedBy', 'scenario', 'checks'] as const) {
+      for (const field of ['how', 'why', 'designChoices', 'pinnedBy', 'scenario', 'gotchas', 'tryIt', 'checks'] as const) {
          expect(
             contents.some((content) => content[field] !== undefined),
             field,

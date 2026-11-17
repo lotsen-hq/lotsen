@@ -11,7 +11,7 @@ namespace Lotsen.TestHost;
 
 /// <summary>One real server and what it stands on: its own data directory, manual clock and test platform, over the host's shared origin.</summary>
 /// <remarks>
-/// The world provides only what no operation can: commits, the pull request that the platform reports, the clock and restarts. Everything else goes through the server's operations, so the
+/// The world provides only what no operation can: commits, the pull request and the repository that the platform reports, the clock and restarts. Everything else goes through the server's operations, so the
 /// rules that a test meets are the server's own.
 /// </remarks>
 internal sealed class World : IAsyncDisposable
@@ -20,19 +20,22 @@ internal sealed class World : IAsyncDisposable
    private readonly Lock _lock = new();
    private readonly Dictionary<string, ClaudeSession> _sessions = [];
    private Func<CancellationToken, Task<ResolvedPullRequest>>? _answer;
+   private Func<string?, CancellationToken, Task<ResolvedRepository>>? _repositoryAnswer;
    private Hold? _held;
    private int _unanswered;
    private TaskCompletionSource? _resolveWaits;
    private int _nextSession;
 
-   private World(string id, DataDirectory dataDirectory, SharedOrigin origin, Func<CancellationToken, Task<ResolvedPullRequest>>? answer)
+   private World(string id, DataDirectory dataDirectory, SharedOrigin origin, PlatformAnswers? answers)
    {
       Id = id;
       DataDirectory = dataDirectory;
       _origin = origin;
-      _answer = answer;
+      _answer = answers?.PullRequest;
+      _repositoryAnswer = answers?.Repository;
       Platform = new TestPlatform();
-      Platform.Answer(ResolveAsync);
+      Platform.Answer(token => ResolveAsync(() => _answer, token));
+      Platform.AnswerRepository((@ref, token) => ResolveAsync<ResolvedRepository>(() => _repositoryAnswer is { } answer ? cancel => answer(@ref, cancel) : null, token));
    }
 
    public string Id { get; }
@@ -53,25 +56,25 @@ internal sealed class World : IAsyncDisposable
 
    private LotsenServer RunningServer => Server ?? throw new InvalidOperationException($"World {Id} has no running server.");
 
-   /// <summary>What every resolve of a pull request returns now, or null while the test has set no pull request, which a template passes on to its copies.</summary>
-   public Func<CancellationToken, Task<ResolvedPullRequest>>? PullRequestAnswer
+   /// <summary>What every resolve of a pull request and of a repository returns now, which a template passes on to its copies.</summary>
+   public PlatformAnswers Answers
    {
       get
       {
          lock (_lock)
          {
-            return _answer;
+            return new PlatformAnswers(_answer, _repositoryAnswer);
          }
       }
    }
 
    /// <summary>Starts a world on its data directory, which may hold a template's copy.</summary>
    /// <param name="clockStart">The time the world's clock starts at, or null for the clock's own start.</param>
-   /// <param name="answer">The pull request answer of the template that the data directory copies, so a check of the copied tour resolves as the template's did, or null for none.</param>
+   /// <param name="answers">The answers of the template that the data directory copies, so a resolve for a copied tour returns what the template's did, or null for none.</param>
    public static async Task<World> StartAsync(
-      string id, DataDirectory dataDirectory, SharedOrigin origin, DateTimeOffset? clockStart, Func<CancellationToken, Task<ResolvedPullRequest>>? answer, CancellationToken cancellationToken)
+      string id, DataDirectory dataDirectory, SharedOrigin origin, DateTimeOffset? clockStart, PlatformAnswers? answers, CancellationToken cancellationToken)
    {
-      var world = new World(id, dataDirectory, origin, answer);
+      var world = new World(id, dataDirectory, origin, answers);
       if (clockStart is { } start)
       {
          world.Clock.Advance(start - world.Clock.GetUtcNow());
@@ -116,10 +119,20 @@ internal sealed class World : IAsyncDisposable
    public void SetPullRequest(CommitId source, CommitId target, int iteration, PullRequestState state) =>
       SetAnswer(_ => Task.FromResult(new ResolvedPullRequest(new Uri(_origin.Url.AbsoluteUri), source, target, iteration, state)));
 
-   /// <summary>Makes every resolve fail with this reason, as the platform's API would.</summary>
+   /// <summary>Makes every resolve of a repository return the shared origin at these refs, as <see cref="TestPlatform.RepositoryAnswer"/> answers.</summary>
+   public void SetRepository(CommitId head, string defaultBranch, IReadOnlyDictionary<string, CommitId> branches, IReadOnlyDictionary<string, CommitId> tags, IReadOnlyList<CommitId> commits)
+   {
+      var answer = TestPlatform.RepositoryAnswer(new Uri(_origin.Url.AbsoluteUri), head, defaultBranch, branches, tags, commits);
+      lock (_lock)
+      {
+         _repositoryAnswer = answer;
+      }
+   }
+
+   /// <summary>Makes every resolve of a pull request fail with this reason, as the platform's API would.</summary>
    public void FailPullRequest(string reason) => SetAnswer(_ => Task.FromException<ResolvedPullRequest>(new PlatformException(reason)));
 
-   /// <summary>Makes every later resolve wait until <see cref="ReleasePullRequest"/>.</summary>
+   /// <summary>Makes every later resolve, of a pull request or of a repository, wait until <see cref="ReleasePullRequest"/>.</summary>
    public void HoldPullRequest()
    {
       lock (_lock)
@@ -144,7 +157,7 @@ internal sealed class World : IAsyncDisposable
    /// <summary>Completes when no background job of the server runs, such as a pin or an iteration check.</summary>
    public Task IdleAsync() => RunningServer.Services.GetRequiredService<BackgroundJobs>().WhenIdleAsync();
 
-   /// <summary>Completes once no background job of the server runs, or once a resolve of the pull request waits on the test: on a hold, or on a pull request that the test has not set.</summary>
+   /// <summary>Completes once no background job of the server runs, or once a resolve waits on the test: on a hold, or on a pull request or a repository that the test has not set.</summary>
    /// <remarks>
    /// A job that waits on the test runs until the test acts, so the jobs are never idle then. A release ends the hold's wait at once, so a call after the release waits for the jobs that the
    /// held resolves continue.
@@ -242,9 +255,10 @@ internal sealed class World : IAsyncDisposable
       }
    }
 
-   private async Task<ResolvedPullRequest> ResolveAsync(CancellationToken cancellationToken)
+   // Waits out a hold, then returns what the answer that answerOf reads under the lock returns, or waits until canceled while the test has set none.
+   private async Task<T> ResolveAsync<T>(Func<Func<CancellationToken, Task<T>>?> answerOf, CancellationToken cancellationToken)
    {
-      Func<CancellationToken, Task<ResolvedPullRequest>>? answer;
+      Func<CancellationToken, Task<T>>? answer;
       Hold? held;
       TaskCompletionSource? waits = null;
       lock (_lock)
@@ -265,7 +279,7 @@ internal sealed class World : IAsyncDisposable
 
       lock (_lock)
       {
-         answer = _answer;
+         answer = answerOf();
          if (answer is null)
          {
             _unanswered++;
@@ -278,7 +292,7 @@ internal sealed class World : IAsyncDisposable
          waits?.TrySetResult();
          try
          {
-            // A pull request that the test has not set keeps its pin in progress, as a platform that has not answered yet.
+            // A pull request or a repository that the test has not set keeps its pin in progress, as a platform that has not answered yet.
             await Task.Delay(Timeout.Infinite, cancellationToken);
          }
          finally
@@ -301,7 +315,7 @@ internal sealed class World : IAsyncDisposable
       return waits;
    }
 
-   // A hold of the pull request, with the resolves that wait on it. A release drops the hold, so the count needs no decrement.
+   // A hold of the platform's resolves, with the resolves that wait on it. A release drops the hold, so the count needs no decrement.
    private sealed class Hold
    {
       public TaskCompletionSource Released { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -309,3 +323,8 @@ internal sealed class World : IAsyncDisposable
       public int Waiting { get; set; }
    }
 }
+
+/// <summary>What a world's platform returns for each resolve of a pull request and of a repository.</summary>
+/// <param name="PullRequest">The answer to a pull request resolve, or null while the test has set none.</param>
+/// <param name="Repository">The answer to a repository resolve for a ref, or null while the test has set none.</param>
+internal sealed record PlatformAnswers(Func<CancellationToken, Task<ResolvedPullRequest>>? PullRequest, Func<string?, CancellationToken, Task<ResolvedRepository>>? Repository);

@@ -1,5 +1,10 @@
-import type { Attachment } from './labels';
-import type { Plan, TourPin, TourState } from './types';
+import { pinningLines, type Attachment } from './labels';
+import type { Plan, TargetKind, TourPin, TourState } from './types';
+
+const planningLines: Record<TargetKind, string> = {
+   pullRequest: 'Claude is reading the PR and planning the tour…',
+   repository: 'Claude is reading the repository and planning the tour…',
+};
 
 /** What the page can tell of Claude's work on a tour. */
 export type GenerationPhase = 'awaitingApproval' | 'planning' | 'pinning' | 'writing';
@@ -12,6 +17,8 @@ export interface GenerationStatus {
 
 /** What {@link generationStatus} reads of a tour. */
 export interface GenerationFacts {
+   /** What the tour reviews, which the lines name. */
+   target: TargetKind;
    state: TourState;
    pin: TourPin;
    /** The tour's plan, null when Claude has set none, or undefined while the page has not loaded it. */
@@ -29,7 +36,7 @@ export interface GenerationFacts {
  * @returns The status, or null when the page has not loaded the plan, the tour is archived, no stop is pending, the pin failed and the Files panel shows why,
  * or no session writes the tour and the plan waits for no approval. The top bar's status chip then says that the tour has no session.
  */
-export function generationStatus({ state, pin, plan, planWaits, attachment }: GenerationFacts): GenerationStatus | null {
+export function generationStatus({ target, state, pin, plan, planWaits, attachment }: GenerationFacts): GenerationStatus | null {
    if (plan === undefined || state === 'archived' || (plan !== null && plan.stops.every((stop) => stop.status !== 'pending'))) {
       return null;
    }
@@ -43,11 +50,11 @@ export function generationStatus({ state, pin, plan, planWaits, attachment }: Ge
    }
 
    if (plan === null) {
-      return { phase: 'planning', line: 'Claude is reading the PR and planning the tour…' };
+      return { phase: 'planning', line: planningLines[target] };
    }
 
    if (pin.state === 'pinning') {
-      return { phase: 'pinning', line: 'Pinning the pull request to its commits…' };
+      return { phase: 'pinning', line: pinningLines[target] };
    }
 
    if (pin.state === 'failed') {

@@ -120,7 +120,7 @@ export interface Template<T = unknown> {
    readonly build: (world: World) => Promise<T>;
 }
 
-/** One real server and what it stands on. Only what no operation can do goes through here: commits, the pull request, the clock, restarts. */
+/** One real server and what it stands on. Only what no operation can do goes through here: commits, the pull request, the repository, the clock, restarts. */
 export interface World {
    readonly id: string;
    /** What the world's template built, or undefined for a world without one. */
@@ -130,12 +130,16 @@ export interface World {
    /** The UI credential of the server's current run, which a restart changes. */
    readonly uiCredential: string;
    readonly repo: { commit(branch: string, message: string, files: Record<string, string | null>, parent?: string): Promise<string> };
-   /** The pull request that the world's platform reports for every pull request URL. */
+   /** The pull request that the world's platform reports for every pull request URL. Its hold and release also hold and release every repository resolve. */
    readonly pullRequest: {
       set(source: string, target: string, options?: { iteration?: number; state?: 'active' | 'completed' | 'abandoned' }): Promise<void>;
       fail(reason: string): Promise<void>;
       hold(): Promise<void>;
       release(): Promise<void>;
+   };
+   /** The repository that the world's platform reports for every repository URL: the world's commits, with the head of the default branch and the other refs by name. */
+   readonly repository: {
+      set(head: string, options?: { defaultBranch?: string; branches?: Record<string, string>; tags?: Record<string, string>; commits?: string[] }): Promise<void>;
    };
    /** The world's manual clock, whose advance completes once each timer that came due has fired and the server's background jobs are idle again after it. */
    readonly clock: { advance(ms: number): Promise<void> };
@@ -144,7 +148,7 @@ export interface World {
    /** Completes once no background job of the server runs, such as a pin or an iteration check. */
    idle(): Promise<void>;
    /**
-    * Completes as {@link World.idle} does, or once a resolve of the pull request waits on the test: on a hold, or on a pull request that the test has not set. It then writes the comment line of
+    * Completes as {@link World.idle} does, or once a resolve waits on the test: on a hold, or on a pull request or a repository that the test has not set. It then writes the comment line of
     * the text, if any, on every open event stream of the server, after every event that the server published before.
     */
    quiet(comment?: string): Promise<void>;
@@ -313,6 +317,7 @@ function createWorld(info: WorldInfo, seed: unknown, control: Control, fetchFn: 
          hold: async () => void (await control('pr.hold', { world: id })),
          release: async () => void (await control('pr.release', { world: id })),
       },
+      repository: { set: async (head, options = {}) => void (await control('repository.set', { world: id, head, ...options })) },
       clock: { advance: async (ms) => void (await control('clock.advance', { world: id, ms })) },
       reviewer,
       idle: async () => void (await control('jobs.idle', { world: id })),

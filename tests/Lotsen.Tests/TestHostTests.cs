@@ -319,6 +319,24 @@ public sealed class TestHostTests : IClassFixture<TestHostTests.SharedHost>
 
    // Commits a.txt with the text on the world's branch.
    [Fact]
+   public async Task Repository_set_pins_a_repository_tour_to_the_commit_of_its_tag_or_of_the_default_branch()
+   {
+      var world = await _host.ControlAsync("world.start");
+      var name = (string)world["world"]!;
+      var tagged = await CommitAsync(world, "main", null, "one\n");
+      var head = await CommitAsync(world, "main", tagged, "two\n");
+      await _host.ControlAsync("repository.set", new JsonObject { ["world"] = name, ["head"] = head, ["tags"] = new JsonObject { ["v1"] = tagged } });
+      var session = (string)(await _host.ControlAsync("claude.open", new JsonObject { ["world"] = name }))["session"]!;
+
+      var atTag = await CreateRepositoryTourAsync(world, session, "v1");
+      var atDefault = await CreateRepositoryTourAsync(world, session, null);
+      await _host.ControlAsync("jobs.idle", new JsonObject { ["world"] = name });
+
+      Assert.Equal(tagged, await SnapshotHeadAsync(world, atTag));
+      Assert.Equal(head, await SnapshotHeadAsync(world, atDefault));
+   }
+
+   [Fact]
    public async Task Quiet_ends_while_a_pin_waits_on_a_pull_request_that_the_test_has_not_set()
    {
       var world = await _host.ControlAsync("world.start");
@@ -346,6 +364,53 @@ public sealed class TestHostTests : IClassFixture<TestHostTests.SharedHost>
       await _host.ControlAsync("jobs.quiet", new JsonObject { ["world"] = name });
 
       Assert.Equal(head, await PinnedHeadAsync(world, tourId));
+   }
+
+   [Fact]
+   public async Task Quiet_ends_while_a_pin_waits_on_a_repository_that_the_test_has_not_set()
+   {
+      var world = await _host.ControlAsync("world.start");
+      var name = (string)world["world"]!;
+      var session = (string)(await _host.ControlAsync("claude.open", new JsonObject { ["world"] = name }))["session"]!;
+      await CreateRepositoryTourAsync(world, session, null);
+
+      await _host.ControlAsync("jobs.quiet", new JsonObject { ["world"] = name });
+   }
+
+   [Fact]
+   public async Task Hold_keeps_a_repository_tour_pinning_until_the_release()
+   {
+      var world = await _host.ControlAsync("world.start");
+      var name = (string)world["world"]!;
+      var head = await CommitAsync(world, "main", null, "one\n");
+      await _host.ControlAsync("repository.set", new JsonObject { ["world"] = name, ["head"] = head });
+      await _host.ControlAsync("pr.hold", new JsonObject { ["world"] = name });
+      var session = (string)(await _host.ControlAsync("claude.open", new JsonObject { ["world"] = name }))["session"]!;
+      var tourId = await CreateRepositoryTourAsync(world, session, null);
+
+      await _host.ControlAsync("jobs.quiet", new JsonObject { ["world"] = name });
+      var held = (string?)(await OperationAsync(world, "read_state", new JsonObject { ["tourId"] = tourId }.ToJsonString()))["pin"]!["state"];
+      await _host.ControlAsync("pr.release", new JsonObject { ["world"] = name });
+      await _host.ControlAsync("jobs.quiet", new JsonObject { ["world"] = name });
+
+      Assert.Equal("pinning", held);
+      Assert.Equal(head, await SnapshotHeadAsync(world, tourId));
+   }
+
+   [Fact]
+   public async Task Copy_of_a_sealed_world_keeps_its_repository_answer()
+   {
+      var seeded = await _host.ControlAsync("world.start");
+      var head = await CommitAsync(seeded, "main", null, "one\n");
+      await _host.ControlAsync("repository.set", new JsonObject { ["world"] = (string)seeded["world"]!, ["head"] = head });
+      await _host.ControlAsync("world.seal", new JsonObject { ["world"] = (string)seeded["world"]!, ["name"] = "repository-answer" });
+
+      var copy = await _host.ControlAsync("world.start", new JsonObject { ["template"] = "repository-answer" });
+      var session = (string)(await _host.ControlAsync("claude.open", new JsonObject { ["world"] = (string)copy["world"]! }))["session"]!;
+      var tourId = await CreateRepositoryTourAsync(copy, session, null);
+      await _host.ControlAsync("jobs.idle", new JsonObject { ["world"] = (string)copy["world"]! });
+
+      Assert.Equal(head, await SnapshotHeadAsync(copy, tourId));
    }
 
    private async Task<string> CommitAsync(JsonObject world, string branch, string? parent, string text)
@@ -382,6 +447,25 @@ public sealed class TestHostTests : IClassFixture<TestHostTests.SharedHost>
          { "tourId": "{{tourId}}", "stopId": "{{stopId}}", "headline": "The text changes.", "passages": [{ "side": "head", "path": "a.txt", "startLine": 1, "endLine": 1, "role": "primary" }] }
          """)!.AsObject());
       return tourId;
+   }
+
+   // Creates an orient tour of the platform's repository at the ref, or at the default branch for null, and returns its ID.
+   private async Task<string> CreateRepositoryTourAsync(JsonObject world, string session, string? @ref)
+   {
+      var repository = new JsonObject { ["url"] = $"https://{TestPlatform.DefaultHost}/shop", ["purpose"] = "orient", ["title"] = "The shop" };
+      if (@ref is not null)
+      {
+         repository["ref"] = @ref;
+      }
+
+      return (string)(await ClaudeAsync(world, session, "create_tour", new JsonObject { ["repository"] = repository, ["familiarity"] = "some" }))["id"]!;
+   }
+
+   private async Task<string> SnapshotHeadAsync(JsonObject world, string tourId)
+   {
+      var pin = (await OperationAsync(world, "read_state", new JsonObject { ["tourId"] = tourId }.ToJsonString()))["pin"]!;
+      Assert.True((string?)pin["state"] == "snapshot", $"The tour has no snapshot: {pin}");
+      return (string)pin["head"]!;
    }
 
    private async Task<string> PinnedHeadAsync(JsonObject world, string tourId)

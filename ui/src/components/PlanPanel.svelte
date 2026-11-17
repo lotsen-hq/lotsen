@@ -12,7 +12,7 @@
    import { staleOnOf } from '../lib/stops';
    import { doneCheckboxLabel, doneRowLabel, doneTooltip, revisedTooltip, skipTooltip, stopKindLabels, stopStatusLabels, unwrittenStopLabel, type Attachment } from '../lib/labels';
    import type { PlanActionKind } from '../lib/tourActions';
-   import type { Chapter, Familiarity, QuestionThread, RequestedTourAction, Stop, TourControls } from '../lib/types';
+   import type { Chapter, Familiarity, QuestionThread, RequestedTourAction, Stop, TourControls, TourPurpose } from '../lib/types';
    import PlanActions from './PlanActions.svelte';
    import PlanProposal from './PlanProposal.svelte';
    import StopKindPill from './StopKindPill.svelte';
@@ -41,6 +41,7 @@
       onsetdone = null,
       viewed = null,
       familiarity = null,
+      purpose = null,
       onfamiliarity = null,
       planWaits = false,
       onapprove = null,
@@ -85,6 +86,8 @@
       viewed?: { stopId: string; version: number } | null;
       /** The tour's familiarity level, or null when the page does not know it. */
       familiarity?: Familiarity | null;
+      /** A repository tour's purpose, which the line beside the level names, or null for a pull request's tour. */
+      purpose?: TourPurpose | null;
       /** Changes the tour's familiarity level with the reviewer's words, and returns null once the server stored it or its reason for a refusal, or null when the page offers no change. */
       onfamiliarity?: ((level: Familiarity, text: string) => Promise<string | null>) | null;
       /** Whether the plan waits for the reviewer's approval, which shows it as a proposal. */
@@ -329,7 +332,7 @@
       {#if planWaits && known.plan !== null && familiarity !== null && onapprove !== null}
          <PlanProposal plan={known.plan} {familiarity} {controls} {skipsSaving} {skipped} {skipToggle} skipRefusal={refusal} {onapprove} {focusRequests} />
       {:else if familiarity !== null}
-         <PlanActions plan={known.plan} {familiarity} {threads} {controls} {onaction} {onfamiliarity} {onopenthread}>
+         <PlanActions plan={known.plan} {familiarity} {purpose} {threads} {controls} {onaction} {onfamiliarity} {onopenthread}>
             {@render planOrNotice(known.plan !== null)}
          </PlanActions>
       {:else}

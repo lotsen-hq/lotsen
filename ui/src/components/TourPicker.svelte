@@ -1,11 +1,12 @@
 <script lang="ts">
+   import BookOpen from '@lucide/svelte/icons/book-open';
    import ChevronDown from '@lucide/svelte/icons/chevron-down';
    import ExternalLink from '@lucide/svelte/icons/external-link';
    import GitPullRequest from '@lucide/svelte/icons/git-pull-request';
    import { buttonVariants } from '$lib/components/ui/button';
    import * as AlertDialog from '$lib/components/ui/alert-dialog';
    import * as Popover from '$lib/components/ui/popover';
-   import { splitLabel } from '../lib/tourLabel';
+   import { repositoryHeading, splitLabel, type RepositoryHeading } from '../lib/tourLabel';
    import type { TourSummary } from '../lib/types';
    import TourList from './TourList.svelte';
    import WithTooltip from './WithTooltip.svelte';
@@ -53,7 +54,9 @@
    // The list trigger's name and tooltip. A null tooltip would render the trigger as a new element, which drops the focus that the closing list returns to it.
    const triggerName = $derived(selectedTour ? 'Choose another tour' : 'Choose a tour');
    // Only an https: URL becomes a link.
-   const pullRequestUrl = $derived(selectedTour && URL.canParse(selectedTour.target.url) && new URL(selectedTour.target.url).protocol === 'https:' ? selectedTour.target.url : null);
+   const targetUrl = $derived(selectedTour && URL.canParse(selectedTour.target.url) && new URL(selectedTour.target.url).protocol === 'https:' ? selectedTour.target.url : null);
+   const heading = $derived(selectedTour === null ? null : repositoryHeading(selectedTour));
+   const deletedName = $derived(deleting === null ? '' : deleting.title === undefined ? `of ${deleting.label}` : `“${deleting.title}” of ${deleting.label}`);
 
    function select(tourId: string) {
       open = false;
@@ -86,13 +89,15 @@
 </script>
 
 <div bind:this={anchor} class="flex max-w-full min-w-0 items-center gap-2">
-   {#if selectedTour && pullRequestUrl !== null}
-      <WithTooltip text={`${selectedTour.label}\nOpen the pull request in a new tab\n${pullRequestUrl}`}>
+   {#if selectedTour && heading !== null}
+      {@render repositoryTour(selectedTour, heading)}
+   {:else if selectedTour && targetUrl !== null}
+      <WithTooltip text={`${selectedTour.label}\nOpen the pull request in a new tab\n${targetUrl}`}>
          {#snippet trigger({ props })}
             <!-- The underline shows without hover, so the label reads as a link. -->
             <a
                {...props}
-               href={pullRequestUrl}
+               href={targetUrl}
                target="_blank"
                rel="noopener noreferrer"
                class="inline-flex h-8 min-w-0 items-center gap-1.5 rounded-sm underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-current focus-visible:decoration-current focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden"
@@ -156,6 +161,44 @@
    {/if}
 {/snippet}
 
+<!-- The title truncates first, and a narrow bar keeps the title alone, with the repository and the ref left to the screen reader and the title's tooltip. -->
+{#snippet repositoryTour(tour: TourSummary, { title, repository, ref }: RepositoryHeading)}
+   {@const place = ref === null ? repository : `${repository}@${ref}`}
+   <span class="flex min-w-0 items-center gap-1.5" data-repository-heading>
+      <BookOpen class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <WithTooltip text={`${title}\n${place}`}>
+         {#snippet trigger({ props })}
+            <span {...props} class="min-w-0 truncate" data-heading-part="title">{title}</span>
+         {/snippet}
+      </WithTooltip>
+      <span class="flex max-w-1/2 min-w-0 shrink-0 items-center text-sm text-muted-foreground @max-bar-repository:sr-only">
+         {#if targetUrl !== null}
+            <WithTooltip text={`Open the repository in a new tab\n${targetUrl}`}>
+               {#snippet trigger({ props })}
+                  <a
+                     {...props}
+                     href={targetUrl}
+                     target="_blank"
+                     rel="noopener noreferrer"
+                     class="min-w-0 truncate rounded-sm underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-current focus-visible:decoration-current focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden"
+                     data-heading-part="repository">{repository}</a
+                  >
+               {/snippet}
+            </WithTooltip>
+         {:else}
+            <WithTooltip text={tour.target.url}>
+               {#snippet trigger({ props })}
+                  <span {...props} class="min-w-0 truncate" data-heading-part="repository">{repository}</span>
+               {/snippet}
+            </WithTooltip>
+         {/if}
+         {#if ref !== null}
+            <span class="min-w-0 truncate" data-heading-part="ref">@{ref}</span>
+         {/if}
+      </span>
+   </span>
+{/snippet}
+
 <AlertDialog.Root bind:open={confirming}>
    <!-- The delete button left with the list, so the focus returns to the list's trigger. -->
    <AlertDialog.Content
@@ -168,7 +211,7 @@
       <AlertDialog.Header>
          <AlertDialog.Title>Delete this tour?</AlertDialog.Title>
          <AlertDialog.Description>
-            The tour of {deleting?.label} is deleted for good, with its plan, stops, threads, notes and answers. This cannot be undone. Claude's session can no longer work on it.
+            The tour {deletedName} is deleted for good, with its plan, stops, threads, notes and answers. This cannot be undone. Claude's session can no longer work on it.
          </AlertDialog.Description>
       </AlertDialog.Header>
       {#if busy}

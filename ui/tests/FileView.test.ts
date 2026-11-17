@@ -1,6 +1,6 @@
 import { language } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
-import { render, waitFor } from '@testing-library/svelte';
+import { render, screen, waitFor } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import FileView from '../src/components/FileView.svelte';
 import type { KnownText } from '../src/lib/viewState';
@@ -68,5 +68,13 @@ describe('the file view', () => {
 
       await rerender({ known: { state: 'loaded', side: 'base', path: 'logo.png', text: { content: 'binary', path: 'logo.png', side: 'base', commit } } });
       await waitFor(() => expect(document.querySelector('.cm-editor')).toBeNull());
+   });
+
+   it('names what the tour reviews while its pin is in progress or after it failed', async () => {
+      const { rerender } = render(FileView, { props: { known: { state: 'notPinned', side: 'head', path: 'a.ts', pin: { state: 'pinning' } }, targetKind: 'repository' } });
+      expect(screen.getByText('Pinning the repository to its commit…')).toBeTruthy();
+
+      await rerender({ known: { state: 'notPinned', side: 'head', path: 'a.ts', pin: { state: 'failed', reason: 'Pin it again.' } }, targetKind: 'pullRequest' });
+      expect(screen.getByRole('alert').textContent).toContain('The pull request could not be pinned.');
    });
 });

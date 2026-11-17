@@ -8,7 +8,8 @@ import { alerts, contentOf, sampleWorld, select, specs } from './sampleWorld';
 resetPageEachTest();
 
 describe('the sample tours in the UI', () => {
-   const planned = specs.filter((spec) => spec.chapters !== undefined).map((spec) => spec.key);
+   // A repository tour has no changed files, which the sweep waits for before it opens a passage.
+   const planned = specs.filter((spec) => spec.chapters !== undefined && !('repository' in spec)).map((spec) => spec.key);
    // A sweep reads every file of a tour through the server, at several git runs per file, so it may take longer than a test of one flow.
    const sweepTimeout = 60_000;
 

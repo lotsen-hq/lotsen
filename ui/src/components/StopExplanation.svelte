@@ -84,7 +84,7 @@
    });
    const markersOf = (field: string) => threads.filter((thread) => thread.field === field);
 
-   type TextField = 'scenario' | 'how' | 'why' | 'designChoices' | 'pinnedBy';
+   type TextField = 'scenario' | 'how' | 'why' | 'designChoices' | 'pinnedBy' | 'gotchas' | 'tryIt';
 
    const textSections: { field: TextField; title: string }[] = [
       { field: 'scenario', title: 'Scenario' },
@@ -92,6 +92,8 @@
       { field: 'why', title: 'Why' },
       { field: 'designChoices', title: 'Design choices' },
       { field: 'pinnedBy', title: 'Pinned by' },
+      { field: 'gotchas', title: 'Gotchas' },
+      { field: 'tryIt', title: 'Try it' },
    ];
 
    const html = $derived(content.html);

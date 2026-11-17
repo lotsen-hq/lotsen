@@ -7,11 +7,11 @@
    import { editorSurfaces, type EditorSurface } from '../lib/editor/surface';
    import type { ExplanationView } from '../lib/explanationView.svelte';
    import { atSide, noPassageDecorations, type PassageDecorations } from '../lib/passageMarks';
-   import { formatSize } from '../lib/labels';
+   import { formatSize, pinFailedLines, pinningLines } from '../lib/labels';
    import { InlineHost } from '../lib/inlineHost.svelte';
    import { codeTarget } from '../lib/selectionAsk';
    import type { ThreadMarker } from '../lib/threadView';
-   import type { FileSide } from '../lib/types';
+   import type { FileSide, TargetKind } from '../lib/types';
    import FileHeading from './FileHeading.svelte';
    import SelectionAsk from './SelectionAsk.svelte';
 
@@ -26,6 +26,7 @@
       onask = null,
       onopenthread = () => {},
       fileThreads = [],
+      targetKind = 'pullRequest',
    }: {
       known: KnownText;
       /** The line to scroll to once the editor shows the file, or null to leave the scroll at the top. */
@@ -45,6 +46,8 @@
       onopenthread?: (threadId: string) => void;
       /** The markers of the threads asked about the file, which its stacked header shows. */
       fileThreads?: readonly ThreadMarker[];
+      /** What the tour reviews, which the notice of a pin in progress or failed names. */
+      targetKind?: TargetKind;
    } = $props();
 
    let host = $state<HTMLDivElement>();
@@ -153,10 +156,10 @@
    {#if known.state === 'loading'}
       <p class="p-4 text-muted-foreground">Loading the file…</p>
    {:else if known.state === 'notPinned' && known.pin.state === 'pinning'}
-      <p class="p-4 text-muted-foreground">Pinning the pull request to its commits…</p>
+      <p class="p-4 text-muted-foreground">{pinningLines[targetKind]}</p>
    {:else if known.state === 'notPinned'}
       <div class="p-4 text-destructive *:mb-1" role="alert">
-         <p>The pull request could not be pinned.</p>
+         <p>{pinFailedLines[targetKind]}</p>
          {#if known.pin.state === 'failed'}
             <p>{known.pin.reason}</p>
          {/if}

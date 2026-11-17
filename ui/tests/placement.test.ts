@@ -79,6 +79,11 @@ describe('resolvePlacement', () => {
          expect(resolvePlacement(stop('inspect', atThreshold), { ...mixed, threshold: 599 })).toBe('side');
       });
 
+      it('counts the gotchas and tryIt of a repository tour stop in the body', () => {
+         expect(bodyLength(writtenOf(stop('context', { how: 'a'.repeat(100), gotchas: 'b'.repeat(200), tryIt: 'c'.repeat(300) })).content)).toBe(600);
+         expect(resolvePlacement(stop('context', { gotchas: 'b'.repeat(300), tryIt: 'c'.repeat(301) }), mixed)).toBe('side');
+      });
+
       it('leaves the headline and the checks out of the body', () => {
          const content = { headline: 'h'.repeat(1000), how: 'a'.repeat(600) };
 

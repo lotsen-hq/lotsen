@@ -8,7 +8,7 @@
    import { withHoveredReference, withThreads } from '../lib/passageMarks';
    import { changedFileAnchor } from '../lib/selectionAsk';
    import { codeThreads, fileThreads } from '../lib/threadView';
-   import type { ChangedFile, CodeReference, FileMark, FileSide, QuestionThread } from '../lib/types';
+   import type { ChangedFile, CodeReference, FileMark, FileSide, QuestionThread, TargetKind } from '../lib/types';
    import DiffView from './DiffView.svelte';
    import FileView from './FileView.svelte';
 
@@ -26,6 +26,7 @@
       loadDiff,
       loadText,
       pin = null,
+      targetKind,
    }: {
       file: StackFile;
       /** Claude's mark on the file, or null for none. */
@@ -46,6 +47,8 @@
       loadText: (side: FileSide, path: string, includeLarge: boolean) => Promise<KnownText>;
       /** The pin that the file is read at, whose change loads its content again. */
       pin?: string | null;
+      /** What the tour reviews, which the notice of a pin in progress or failed names. */
+      targetKind: TargetKind;
    } = $props();
 
    let includeLarge = $state(false);
@@ -107,6 +110,7 @@
       fileAnchor={changedFileAnchor(file.file)}
       fileThreads={markers}
       onloadlarge={() => (includeLarge = true)}
+      {targetKind}
    />
 {:else}
    <FileView
@@ -120,5 +124,6 @@
       {onopenthread}
       fileThreads={markers}
       onloadlarge={() => (includeLarge = true)}
+      {targetKind}
    />
 {/if}

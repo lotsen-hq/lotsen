@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hiddenCount, hiddenReason, listedTours } from '../src/lib/tourList';
+import { hiddenCount, hiddenReason, listedTours, pullRequestFlag, tourLine } from '../src/lib/tourList';
 import type { TourSummary } from '../src/lib/types';
 
 const summary = (id: string, state: TourSummary['state'], pullRequestState: TourSummary['pullRequestState'] = 'active'): TourSummary => ({
@@ -33,5 +33,29 @@ describe('the hidden tours', () => {
       expect(listedTours(tours, false).map((tour) => tour.id)).toEqual(['a']);
       expect(listedTours(tours, true).map((tour) => tour.id)).toEqual(['a', 'b', 'c', 'd']);
       expect(hiddenCount(tours)).toBe(3);
+   });
+});
+
+// A repository tour with a closed pull request state, which only a pull request tour's flag and hiding may read.
+const repositoryTour = (id: string, state: TourSummary['state']): TourSummary => ({
+   ...summary(id, state, 'completed'),
+   target: { kind: 'repository', platform: 'test', url: 'https://platform.test/shop' },
+   purpose: 'orient',
+   title: 'How the cart adds up',
+});
+
+describe('a repository tour in the tour list', () => {
+   it('is hidden only when archived, and has no pull request flag', () => {
+      const tours = [repositoryTour('a', 'ready'), repositoryTour('b', 'archived')];
+
+      expect(tours.map(hiddenReason)).toEqual([null, 'archived']);
+      expect(tours.map(pullRequestFlag)).toEqual([null, null]);
+      expect(pullRequestFlag(summary('c', 'ready', 'completed'))).toBe('PR completed');
+   });
+
+   it('shows its purpose and the short name of its familiarity level before its stops', () => {
+      expect(tourLine({ ...repositoryTour('a', 'ready'), stopCount: 3 })).toBe('Orient · Some · 3 stops');
+      expect(tourLine({ ...summary('b', 'ready'), stopCount: 1 })).toBe('Knows some of the code · 1 stop');
+      expect(tourLine({ ...repositoryTour('c', 'generating'), purpose: 'evaluate', familiarity: 'new' })).toBe('Evaluate · New · no plan yet');
    });
 });
