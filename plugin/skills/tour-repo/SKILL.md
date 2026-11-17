@@ -300,10 +300,17 @@ For every purpose:
 - Put tests at the stop of the behavior they pin, not in a chapter of their own.
 - Size the tour to the code's distinct areas, under a soft cap of about 20 stops for `orient`, about 15 for `prepare`
   and about 25 for `evaluate`. Never pad: a small repository or a small part needs fewer.
-- When the areas need more stops than the cap, cover first the areas that the reviewer's `words` name, then those on
-  the main paths for `orient`, the part's nearest callers for `prepare` and the weakest spots for `evaluate`. Don't
-  add stops for the rest. The overview names each area left for later, in a line each: what it is for and where it
-  lives, so the reviewer can explore it in a dive, as section 10 says.
+- The cap holds when the reviewer's `words` say nothing about the tour's size. Words such as "a thorough tour" or
+  "every area" raise it, and words such as "a quick tour" lower it.
+- Pick the areas at a grain that lets each have a stop within the cap. In a very large repository, such as
+  dotnet/runtime, an area is a top-level region, such as the runtime, the JIT, the class libraries or the host, and
+  its stop names its sub-areas, such as single libraries, as places to dive into. Minor areas that still don't fit
+  share one stop.
+- Cover breadth first: give every area of the code at least one stop, or of the part for `prepare`. An area beyond
+  what the cap covers in depth gets one light stop: what it is for, where it lives and its entry point. Spend the rest
+  of the cap on depth: first the areas that the reviewer's `words` name, then those on the main paths for `orient`,
+  the part's nearest callers for `prepare` and the weakest spots for `evaluate`. The overview names each area that got
+  only a light stop, so the reviewer can have Re-plan… cover it in depth or explore it in a dive, as section 10 says.
 - Parts are optional. A part is a named group of consecutive chapters, which the reviewer can fold in the browser.
   Group the chapters into a few parts when the plan has more than six chapters that fall into clear areas. A plan of
   six chapters or fewer has no parts.
@@ -318,7 +325,7 @@ Familiarity shapes the plan:
 The kinds of stop:
 
 - `overview`: the first stop, always. A map of the repository, or of the part for `prepare`: what it is for, its
-  areas, its vocabulary, the route of the tour and the areas left for later.
+  areas, its vocabulary, the route of the tour and the areas that it passes over lightly.
 - `context`: background that the reviewer needs before the code that follows, such as a convention, a configuration
   or a concept.
 - `inspect`: a walk through code on one of the main paths. Use it when no other kind fits.
@@ -380,8 +387,9 @@ survey or memory. Pass the `tourId` and the stop's `stopId`. Calling `put_stop` 
 content, so send every field again. "Stop content" in `lotsen:tour-rules` holds the fields and their rules.
 
 - Every passage and `ref:` link is at `head`, and may point anywhere in the repository.
-- Write the overview's map, vocabulary and route in `how`, and end it with the areas left for later. Tell the reviewer
-  there that Dive… in the Plan panel's ⋯ menu asks you for a tour of any of them.
+- Write the overview's map, vocabulary and route in `how`, and end it with the areas that got only a light stop. Tell
+  the reviewer there how to get more of one: Re-plan… in the Plan panel's ⋯ menu covers it in depth in this tour, and
+  Dive… in the same menu asks you for a tour of its own.
 - Give a `context` or an `inspect` stop `gotchas` and `tryIt` where they help the reader. "Fields" in
   `lotsen:tour-rules` says what each holds.
 - In an `evaluate` tour, give each stop where the reader's judgment matters its `checks`, and a `question` stop at
@@ -398,8 +406,9 @@ actions in the UI. Each reaches you as a question, and `lotsen:tour-rules` and t
 - Where `howToAct` speaks of the change or the changed code, read it as the code that the tour shows. Size the
   `context` stops as section 6 says.
 - Leave out `fileMarks` in every `set_plan`, even where `howToAct` names file marks.
-- Keep a revised plan within the purpose's cap of section 6, and update the overview's areas left for later when the
-  plan changes them.
+- A Re-plan adds no stops past the cap of section 6, as the tour's `words` set it, unless the reviewer's words ask
+  for more, such as "cover the UI workspace in depth". Never drop a stop only to get back under the cap. When the plan
+  changes which areas get only a light stop, update the overview's list of them.
 - A `summarize` action works as its `howToAct` says, which names the synthesis of the tour's purpose: a map for
   `orient`, a change plan for `prepare` and a judgment for `evaluate`.
 - A `draftWorkItems` action works as its `howToAct` says: ask the user where the work items belong, their own project

@@ -141,13 +141,32 @@ public sealed partial class SkillTests
 
    /// <summary>The purposes come from <see cref="TourPurpose"/>, so a purpose that the code adds must reach the plan's section with a cap of its own.</summary>
    [Fact]
-   public void Tour_repo_skill_caps_the_size_of_a_tour_of_each_purpose_and_names_the_areas_left_for_later_in_the_overview()
+   public void Tour_repo_skill_caps_a_tour_of_each_purpose_lets_the_words_set_the_size_and_gives_every_area_a_stop()
    {
       var plan = Normalized(Section(TourRepo, 6));
 
       Assert.Contains("under a soft cap of about", plan, StringComparison.Ordinal);
       Assert.All(Enum.GetValues<TourPurpose>(), purpose => Assert.Matches($@"about \d+ (stops )?for `{PurposeName(purpose)}`", plan));
-      Assert.Contains("Don't add stops for the rest. The overview names each area left for later", plan, StringComparison.Ordinal);
+      Assert.Contains("The cap holds when the reviewer's `words` say nothing about the tour's size", plan, StringComparison.Ordinal);
+      Assert.Contains("Words such as \"a thorough tour\" or \"every area\" raise it, and words such as \"a quick tour\" lower it", plan, StringComparison.Ordinal);
+      Assert.Contains("Pick the areas at a grain that lets each have a stop within the cap", plan, StringComparison.Ordinal);
+      Assert.Contains("Cover breadth first: give every area of the code at least one stop", plan, StringComparison.Ordinal);
+      Assert.Contains("gets one light stop: what it is for, where it lives and its entry point", plan, StringComparison.Ordinal);
+      Assert.Contains("The overview names each area that got only a light stop", plan, StringComparison.Ordinal);
+      Assert.DoesNotContain("Don't add stops for the rest", plan, StringComparison.Ordinal);
+   }
+
+   [Fact]
+   public void Tour_repo_skill_lets_a_replan_grow_the_tour_past_the_cap_and_names_re_plan_and_dive_in_the_overview()
+   {
+      var keep = Normalized(Section(TourRepo, 9));
+      var write = Normalized(Section(TourRepo, 8));
+
+      Assert.Contains("A Re-plan adds no stops past the cap of section 6, as the tour's `words` set it, unless the reviewer's words ask for more", keep, StringComparison.Ordinal);
+      Assert.Contains("Never drop a stop only to get back under the cap", keep, StringComparison.Ordinal);
+      Assert.DoesNotContain("Keep a revised plan within the purpose's cap", keep, StringComparison.Ordinal);
+      Assert.Contains("Re-plan… in the Plan panel's ⋯ menu covers it in depth in this tour", write, StringComparison.Ordinal);
+      Assert.Contains("Dive… in the same menu asks you for a tour of its own", write, StringComparison.Ordinal);
    }
 
    /// <summary>The purposes come from <see cref="TourPurpose"/>, so a purpose that the code adds must reach the question for it, the survey and the plan.</summary>
@@ -229,8 +248,7 @@ public sealed partial class SkillTests
       Assert.Contains("from the clean checkout, the worktree or the clone that you read the parent from", dive, StringComparison.Ordinal);
       Assert.Contains("reply `needsAnswer` with your question", dive, StringComparison.Ordinal);
       Assert.Contains("A dive of a dive works the same way", dive, StringComparison.Ordinal);
-      Assert.Contains("so the reviewer can explore it in a dive", Normalized(Section(TourRepo, 6)), StringComparison.Ordinal);
-      Assert.Contains("Tell the reviewer there that Dive…", Normalized(Section(TourRepo, 8)), StringComparison.Ordinal);
+      Assert.Contains("or explore it in a dive, as section 10 says", Normalized(Section(TourRepo, 6)), StringComparison.Ordinal);
    }
 
    /// <summary>The placeholders stand for the action's tour and stop, which only a live action names.</summary>
