@@ -393,6 +393,7 @@ export interface StopContent {
    gotchas?: string;
    tryIt?: string;
    html: StopHtml;
+   references: CodeReference[];
 }
 export interface StopPassage {
    side: FileSide;
@@ -428,6 +429,12 @@ export interface StopHtml {
 export interface CheckHtml {
    question: string;
    recommendation?: string;
+}
+export interface CodeReference {
+   side: FileSide;
+   path: string;
+   startLine: number;
+   endLine: number;
 }
 export interface StopVersion {
    title: string;

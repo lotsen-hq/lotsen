@@ -7,8 +7,8 @@ function stopPassage(path: string, role: StopPassage['role'] = 'related', side: 
    return { side, path, startLine: 1, endLine: 2, role, commit: 'c'.repeat(40), text: 'text' };
 }
 
-function stop(kind: Stop['kind'], fields: Partial<Omit<StopContent, 'html'>> = {}): Stop {
-   const content: StopContent = { headline: 'A headline.', passages: [stopPassage('a.ts', 'primary')], ...fields, html: { headline: '<p>A headline.</p>' } };
+function stop(kind: Stop['kind'], fields: Partial<Omit<StopContent, 'html' | 'references'>> = {}): Stop {
+   const content: StopContent = { headline: 'A headline.', passages: [stopPassage('a.ts', 'primary')], ...fields, html: { headline: '<p>A headline.</p>' }, references: [] };
    return { id: 's1', title: 'A stop', kind, chapter: 'c1', stage: 'written', status: 'ready', version: 1, earlier: [], content };
 }
 

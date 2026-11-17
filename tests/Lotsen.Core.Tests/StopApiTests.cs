@@ -51,9 +51,10 @@ public sealed class StopApiTests
       Assert.Equal((string)read["updatedAt"]!, (string)put.Data["updatedAt"]!);
       var asTheUiReads = (await ReadAsTheUiAsync(fixture.Harness, fixture.TourId))["plan"]!["stops"]![0];
       Assert.True(JsonNode.DeepEquals(asTheUiReads, put.Data["stop"]), $"The event's stop differs from the UI's read: {put.Data}");
-      var withoutHtml = put.Data["stop"]!.DeepClone();
-      withoutHtml["content"]!.AsObject().Remove("html");
-      Assert.True(JsonNode.DeepEquals(stored, withoutHtml), $"The event's stop differs from put_stop's result: {put.Data}");
+      var asStored = put.Data["stop"]!.DeepClone();
+      asStored["content"]!.AsObject().Remove("html");
+      asStored["content"]!.AsObject().Remove("references");
+      Assert.True(JsonNode.DeepEquals(stored, asStored), $"The event's stop differs from put_stop's result: {put.Data}");
       var ready = await stream.NextBesidesControlsAsync(EventTimeout);
       Assert.Equal(("tourStateChanged", "ready"), (ready.Type, (string?)ready.Data["state"]));
       var next = await stream.NextBesidesControlsAsync(EventTimeout);

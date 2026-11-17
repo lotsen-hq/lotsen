@@ -116,7 +116,7 @@ describe('a ref: link at the pin', () => {
       status: 'ready',
       version: 1,
       earlier: [],
-      content: { headline: 'T.', passages, html: { headline: '<p>T.</p>\n' } },
+      content: { headline: 'T.', passages, html: { headline: '<p>T.</p>\n' }, references: [] },
       ...(staleOn === undefined ? {} : { staleOn }),
    });
    const sides = (atPin: (reference: CodeReference) => boolean) => [atPin(base), atPin(head)];

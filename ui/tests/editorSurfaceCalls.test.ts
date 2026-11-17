@@ -28,7 +28,7 @@ function stopOn(primary: StopPassage): Stop {
       status: 'ready',
       version: 1,
       earlier: [],
-      content: { headline: 'It changes.', passages: [primary], html: { headline: '<p>It changes.</p>\n' } },
+      content: { headline: 'It changes.', passages: [primary], html: { headline: '<p>It changes.</p>\n' }, references: [] },
    };
 }
 

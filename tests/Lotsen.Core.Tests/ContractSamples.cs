@@ -57,7 +57,7 @@ internal static class ContractSamples
          [TourValues.Passage()],
          Checks:
          [
-            new StopCheck("c1", "Keep the **lock**?", "Keep it, because two writers race.", [new SuggestedAnswer("Keep it.", AnswerType.Decision), new SuggestedAnswer("Unsure.", AnswerType.OpenQuestion)]),
+            new StopCheck("c1", "Keep the **lock**?", "Keep it, because [two writers](ref:head/src/a.cs#L3-4) race.", [new SuggestedAnswer("Keep it.", AnswerType.Decision), new SuggestedAnswer("Unsure.", AnswerType.OpenQuestion)]),
             new StopCheck("c2", "Is the timeout right?"),
          ]),
       1,

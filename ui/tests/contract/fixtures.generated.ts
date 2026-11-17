@@ -60,7 +60,8 @@ export const eventFixtures = {
                   "html": {
                      "headline": "<p>What the change does.</p>\n",
                      "why": "<p>Tours need a writer.</p>\n"
-                  }
+                  },
+                  "references": []
                },
                "version": 1,
                "earlier": [],
@@ -107,7 +108,8 @@ export const eventFixtures = {
                      "how": "<p>It calls <code>Store</code> once.</p>\n",
                      "designChoices": "<p>One write per edit.</p>\n",
                      "pinnedBy": "<p><code>TourWriterTests</code></p>\n"
-                  }
+                  },
+                  "references": []
                },
                "version": 2,
                "earlier": [
@@ -131,7 +133,8 @@ export const eventFixtures = {
                         "html": {
                            "headline": "<p>The writer <strong>stores</strong> the tour.</p>\n",
                            "how": "<p>It calls <code>Store</code>.</p>\n"
-                        }
+                        },
+                        "references": []
                      },
                      "replacedAt": "2026-10-30T09:00:00+00:00"
                   }
@@ -163,7 +166,7 @@ export const eventFixtures = {
                      {
                         "id": "c1",
                         "question": "Keep the **lock**?",
-                        "recommendation": "Keep it, because two writers race.",
+                        "recommendation": "Keep it, because [two writers](ref:head/src/a.cs#L3-4) race.",
                         "suggestions": [
                            {
                               "text": "Keep it.",
@@ -185,13 +188,21 @@ export const eventFixtures = {
                      "checks": [
                         {
                            "question": "<p>Keep the <strong>lock</strong>?</p>\n",
-                           "recommendation": "<p>Keep it, because two writers race.</p>\n"
+                           "recommendation": "<p>Keep it, because <a data-ref-side=\"head\" data-ref-path=\"src/a.cs\" data-ref-start-line=\"3\" data-ref-end-line=\"4\">two writers</a> race.</p>\n"
                         },
                         {
                            "question": "<p>Is the timeout right?</p>\n"
                         }
                      ]
-                  }
+                  },
+                  "references": [
+                     {
+                        "side": "head",
+                        "path": "src/a.cs",
+                        "startLine": 3,
+                        "endLine": 4
+                     }
+                  ]
                },
                "version": 1,
                "earlier": [],
@@ -220,7 +231,8 @@ export const eventFixtures = {
                   "html": {
                      "headline": "<p>Two writers can race.</p>\n",
                      "scenario": "<p>Two pages <strong>save</strong> at once.</p>\n"
-                  }
+                  },
+                  "references": []
                },
                "version": 1,
                "earlier": [],
@@ -286,7 +298,8 @@ export const eventFixtures = {
             "html": {
                "headline": "<p>What the change does.</p>\n",
                "why": "<p>Tours need a writer.</p>\n"
-            }
+            },
+            "references": []
          },
          "version": 1,
          "earlier": [],
@@ -338,7 +351,8 @@ export const eventFixtures = {
                "how": "<p>It calls <code>Store</code> once.</p>\n",
                "designChoices": "<p>One write per edit.</p>\n",
                "pinnedBy": "<p><code>TourWriterTests</code></p>\n"
-            }
+            },
+            "references": []
          },
          "version": 2,
          "earlier": [
@@ -362,7 +376,8 @@ export const eventFixtures = {
                   "html": {
                      "headline": "<p>The writer <strong>stores</strong> the tour.</p>\n",
                      "how": "<p>It calls <code>Store</code>.</p>\n"
-                  }
+                  },
+                  "references": []
                },
                "replacedAt": "2026-10-30T09:00:00+00:00"
             }
@@ -1032,7 +1047,8 @@ export const outputFixtures = {
                   "html": {
                      "headline": "<p>What the change does.</p>\n",
                      "why": "<p>Tours need a writer.</p>\n"
-                  }
+                  },
+                  "references": []
                },
                "version": 1,
                "earlier": [],
@@ -1079,7 +1095,8 @@ export const outputFixtures = {
                      "how": "<p>It calls <code>Store</code> once.</p>\n",
                      "designChoices": "<p>One write per edit.</p>\n",
                      "pinnedBy": "<p><code>TourWriterTests</code></p>\n"
-                  }
+                  },
+                  "references": []
                },
                "version": 2,
                "earlier": [
@@ -1103,7 +1120,8 @@ export const outputFixtures = {
                         "html": {
                            "headline": "<p>The writer <strong>stores</strong> the tour.</p>\n",
                            "how": "<p>It calls <code>Store</code>.</p>\n"
-                        }
+                        },
+                        "references": []
                      },
                      "replacedAt": "2026-10-30T09:00:00+00:00"
                   }
@@ -1135,7 +1153,7 @@ export const outputFixtures = {
                      {
                         "id": "c1",
                         "question": "Keep the **lock**?",
-                        "recommendation": "Keep it, because two writers race.",
+                        "recommendation": "Keep it, because [two writers](ref:head/src/a.cs#L3-4) race.",
                         "suggestions": [
                            {
                               "text": "Keep it.",
@@ -1157,13 +1175,21 @@ export const outputFixtures = {
                      "checks": [
                         {
                            "question": "<p>Keep the <strong>lock</strong>?</p>\n",
-                           "recommendation": "<p>Keep it, because two writers race.</p>\n"
+                           "recommendation": "<p>Keep it, because <a data-ref-side=\"head\" data-ref-path=\"src/a.cs\" data-ref-start-line=\"3\" data-ref-end-line=\"4\">two writers</a> race.</p>\n"
                         },
                         {
                            "question": "<p>Is the timeout right?</p>\n"
                         }
                      ]
-                  }
+                  },
+                  "references": [
+                     {
+                        "side": "head",
+                        "path": "src/a.cs",
+                        "startLine": 3,
+                        "endLine": 4
+                     }
+                  ]
                },
                "version": 1,
                "earlier": [],
@@ -1192,7 +1218,8 @@ export const outputFixtures = {
                   "html": {
                      "headline": "<p>Two writers can race.</p>\n",
                      "scenario": "<p>Two pages <strong>save</strong> at once.</p>\n"
-                  }
+                  },
+                  "references": []
                },
                "version": 1,
                "earlier": [],

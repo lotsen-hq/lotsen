@@ -10,6 +10,7 @@ function content(headline: string, checks: StopCheck[], how?: string): StopConte
       checks,
       ...(how === undefined ? {} : { how }),
       html: { headline: `<p>${headline}</p>\n`, checks: checks.map((check) => ({ question: `<p>${check.question}</p>\n` })), ...(how === undefined ? {} : { how: `<p>${how}</p>\n` }) },
+      references: [],
    };
 }
 

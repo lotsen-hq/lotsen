@@ -7,7 +7,9 @@ using Lotsen.Tours;
 
 namespace Lotsen.Tests;
 
-/// <summary>Covers the JSON that <see cref="ProseHtml"/> returns for the UI: each stop's content keeps its Markdown and gains the HTML of every prose field.</summary>
+/// <summary>
+/// Covers the JSON that <see cref="ProseHtml"/> returns for the UI: each stop's content keeps its Markdown and gains the HTML of every prose field and the code references of its <c>ref:</c> links.
+/// </summary>
 [Trait("Category", "Markdown")]
 public sealed class ProseHtmlTests
 {
@@ -79,6 +81,49 @@ public sealed class ProseHtmlTests
 
       Assert.Null(node["stops"]![0]!["content"]);
       Assert.Equal(["headline"], node["stops"]![1]!["content"]!["html"]!.AsObject().Select(property => property.Key));
+   }
+
+   [Fact]
+   [Trait("Category", "Contract")]
+   public void Written_stop_serves_the_code_reference_of_each_ref_link_in_its_prose_fields_and_its_earlier_versions()
+   {
+      var content = new StopContent(
+         "See [the start](ref:head/src/a.cs#L1-2).",
+         [Passage],
+         How: "It calls [the writer](ref:base/src/My%20File.cs#L3-5).",
+         Checks: [new StopCheck("c1", "Keep [the lock](ref:head/src/lock.cs#L7-7)?", "Keep it, as [the test](ref:head/tests/lock.cs#L9-12) shows.")]);
+      var earlier = new StopVersion("Ready", StopKind.Inspect, new StopContent("Was [here](ref:head/src/old.cs#L4-4).", [Passage]), TourValues.Now);
+
+      var node = ProseHtml.Of(Ready(content) with { Version = 2, Earlier = [earlier] }, MentionLinks.None);
+
+      Assert.Equal(
+         """
+         [{"side":"head","path":"src/a.cs","startLine":1,"endLine":2},{"side":"base","path":"src/My File.cs","startLine":3,"endLine":5},{"side":"head","path":"src/lock.cs","startLine":7,"endLine":7},{"side":"head","path":"tests/lock.cs","startLine":9,"endLine":12}]
+         """,
+         node["content"]!["references"]!.ToJsonString());
+      Assert.Equal("""[{"side":"head","path":"src/old.cs","startLine":4,"endLine":4}]""", node["earlier"]![0]!["content"]!["references"]!.ToJsonString());
+   }
+
+   [Fact]
+   [Trait("Category", "Contract")]
+   public void Written_stop_without_ref_links_serves_no_references_and_a_pending_stop_no_content()
+   {
+      var pending = new Stop.Pending("s1", "Pending", StopKind.Inspect, "c");
+      var plan = new Plan([new Chapter("c", "C")], [pending, Ready(new StopContent("H with [a site](https://example.com/).", [Passage], How: "No link."))], []);
+
+      var node = ProseHtml.Of(plan, MentionLinks.None);
+
+      Assert.Null(node["stops"]![0]!["content"]);
+      Assert.Equal("[]", node["stops"]![1]!["content"]!["references"]!.ToJsonString());
+   }
+
+   /// <summary>Only a tour file edited by hand holds a malformed link, so the stored prose must not fail a read.</summary>
+   [Fact]
+   public void Stop_whose_prose_holds_a_malformed_ref_link_serves_no_references()
+   {
+      var node = ProseHtml.Of(Ready(new StopContent("See [a](ref:head/src/a.cs#L1-2).", [Passage], How: "And [b](ref:head/src/b.cs).")), MentionLinks.None);
+
+      Assert.Equal("[]", node["content"]!["references"]!.ToJsonString());
    }
 
    /// <summary>IDNA refuses the host, which <see cref="Uri"/> accepts, so the stored prose must not fail a read.</summary>

@@ -8,7 +8,7 @@ import { familySummary } from './family';
 function stop(id: string, title: string, kind: Stop['kind'], status: Stop['status'], chapter: string): Stop {
    return status === 'pending'
       ? { id, title, kind, chapter, stage: 'pending', anchorHint: null, status }
-      : { id, title, kind, chapter, stage: 'written', status, version: status === 'ready' ? 1 : 2, earlier: [], content: { headline: title, passages: [], html: { headline: title } } };
+      : { id, title, kind, chapter, stage: 'written', status, version: status === 'ready' ? 1 : 2, earlier: [], content: { headline: title, passages: [], html: { headline: title }, references: [] } };
 }
 
 const plan: Plan = {

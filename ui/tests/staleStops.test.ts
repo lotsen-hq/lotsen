@@ -28,6 +28,10 @@ const stale: WrittenStop = {
       headline: 'Cart adds.',
       passages: [{ side: 'head', path: 'a.ts', startLine: 1, endLine: 1, role: 'primary', commit: earlierHead, text: 'const a = 2;' }],
       html: { headline: `<p>${reference('head')} and ${reference('base')}</p>\n` },
+      references: [
+         { side: 'head', path: 'a.ts', startLine: 1, endLine: 1 },
+         { side: 'base', path: 'a.ts', startLine: 1, endLine: 1 },
+      ],
    },
 };
 

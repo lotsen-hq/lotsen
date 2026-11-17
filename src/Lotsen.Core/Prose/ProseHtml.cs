@@ -8,18 +8,20 @@ using Lotsen.Tours;
 namespace Lotsen.Prose;
 
 /// <summary>
-/// Returns the JSON that the UI receives for a tour, a plan, a stop, a thread, an output that holds threads or a review summary: the stored form with the HTML of its prose. An <c>html</c> property
-/// goes in each content that holds a <see cref="StopHtml"/>, a written stop's earlier versions included, and in each agent message or reply with text. Each thread also carries its
-/// status. <see cref="Of(ReviewSummary, MentionLinks)"/> names the HTML
-/// properties of a review summary.
+/// Returns the JSON that the UI receives for a tour, a plan, a stop, a thread, an output that holds threads or a review summary: the stored form with the HTML of its prose. Each content of a
+/// written stop, its earlier versions included, gets an <c>html</c> property that holds a <see cref="StopHtml"/> and a <c>references</c> property that holds the code reference of each
+/// <c>ref:</c> link in its prose fields, in field order, as <see cref="ReferenceLines"/>. Each agent message or reply with text gets an <c>html</c> property, and each thread carries its
+/// status. <see cref="Of(ReviewSummary, MentionLinks)"/> names the HTML properties of a review summary.
 /// </summary>
 /// <remarks>
 /// The store keeps only the Markdown that Claude wrote, so the HTML always comes from the current <see cref="ProseRenderer"/>. A field that does not render, as in a tour file edited by hand,
-/// becomes its escaped text, so no read or event fails because of stored prose. Each method takes the <see cref="MentionLinks"/> of the output's tour, which link the mentions in the prose.
+/// becomes its escaped text, and a content whose prose <see cref="ProseReferences"/> refuses gets no code references, so no read or event fails because of stored prose. Each method takes the
+/// <see cref="MentionLinks"/> of the output's tour, which link the mentions in the prose.
 /// </remarks>
 internal static class ProseHtml
 {
    private const string HtmlProperty = "html";
+   private const string ReferencesProperty = "references";
    private const string StatusProperty = "status";
 
    private static readonly string PlanProperty = JsonNamingPolicy.CamelCase.ConvertName(nameof(Tour.Plan));
@@ -41,6 +43,7 @@ internal static class ProseHtml
    public static IReadOnlyList<AddedProperty> Added { get; } =
    [
       new(typeof(StopContent), HtmlProperty, LotsenJsonContext.Default.StopHtml, Always: true),
+      new(typeof(StopContent), ReferencesProperty, LotsenJsonContext.Default.IReadOnlyListReferenceLines, Always: true),
       new(typeof(ThreadMessage.Question.Reply), HtmlProperty, LotsenJsonContext.Default.String, Always: false),
       new(typeof(ThreadMessage.AgentMessage), HtmlProperty, LotsenJsonContext.Default.String, Always: true),
       new(typeof(SummaryAnswer), QuestionHtmlProperty, LotsenJsonContext.Default.String, Always: false),
@@ -260,24 +263,31 @@ internal static class ProseHtml
       return node;
    }
 
-   /// <summary>Returns the JSON of the stop, whose content and earlier versions carry their HTML when it is written.</summary>
+   /// <summary>Returns the JSON of the stop, whose content and earlier versions carry their HTML and their code references when it is written.</summary>
    public static JsonNode Of(Stop stop, MentionLinks mentions)
    {
       var node = JsonSerializer.SerializeToNode(stop, LotsenJsonContext.Default.Stop)!;
       if (stop is Stop.Written written)
       {
-         node[ContentProperty]![HtmlProperty] = Html(written.Content, mentions);
+         AddProse(node[ContentProperty]!, written.Content, mentions);
          var earlier = node[EarlierProperty]!.AsArray();
          for (var i = 0; i < written.Earlier.Count; i++)
          {
-            earlier[i]![ContentProperty]![HtmlProperty] = Html(written.Earlier[i].Content, mentions);
+            AddProse(earlier[i]![ContentProperty]!, written.Earlier[i].Content, mentions);
          }
       }
 
       return node;
    }
 
-   private static JsonNode? Html(StopContent content, MentionLinks mentions) => JsonSerializer.SerializeToNode(Render(content, mentions), LotsenJsonContext.Default.StopHtml);
+   private static void AddProse(JsonNode node, StopContent content, MentionLinks mentions)
+   {
+      node[HtmlProperty] = JsonSerializer.SerializeToNode(Render(content, mentions), LotsenJsonContext.Default.StopHtml);
+      node[ReferencesProperty] = JsonSerializer.SerializeToNode(References(content), LotsenJsonContext.Default.IReadOnlyListReferenceLines);
+   }
+
+   private static IReadOnlyList<ReferenceLines> References(StopContent content) =>
+      ProseReferences.Of(content).Value?.Select(prose => new ReferenceLines(prose.Reference.Side, prose.Reference.Path, prose.Reference.StartLine, prose.Reference.EndLine)).ToList() ?? [];
 
    // StopProseTests checks this HTML for each prose field that its full content sets.
    private static StopHtml Render(StopContent content, MentionLinks mentions)

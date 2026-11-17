@@ -9,7 +9,7 @@ import { steppedTarget } from '../src/lib/skips';
 import type { Stop, StopContent } from '../src/lib/types';
 import { explainedStop, explanationOf } from './explanation';
 
-function content(headline: string, extra: Partial<StopContent> = {}): StopContent {
+function content(headline: string, extra: Partial<Omit<StopContent, 'references'>> = {}): StopContent {
    const checks = extra.checks ?? [];
    return {
       headline,
@@ -20,6 +20,7 @@ function content(headline: string, extra: Partial<StopContent> = {}): StopConten
          ...(extra.scenario === undefined ? {} : { scenario: `<p>${extra.scenario}</p>\n` }),
          ...(checks.length === 0 ? {} : { checks: checks.map((check) => ({ question: `<p>${check.question}</p>\n` })) }),
       },
+      references: [],
    };
 }
 

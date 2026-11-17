@@ -1374,6 +1374,30 @@
       ],
       "additionalProperties": false
     },
+    "CodeReference": {
+      "title": "CodeReference",
+      "type": "object",
+      "properties": {
+        "side": {
+          "$ref": "#/definitions/FileSide"
+        },
+        "path": {
+          "type": "string"
+        },
+        "startLine": {
+          "type": "integer"
+        },
+        "endLine": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "side",
+        "path",
+        "startLine",
+        "endLine"
+      ]
+    },
     "DecidedThread": {
       "title": "DecidedThread",
       "properties": {
@@ -4731,12 +4755,19 @@
         },
         "html": {
           "$ref": "#/definitions/StopHtml"
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CodeReference"
+          }
         }
       },
       "required": [
         "headline",
         "passages",
-        "html"
+        "html",
+        "references"
       ]
     },
     "StopHtml": {

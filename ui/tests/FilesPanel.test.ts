@@ -27,7 +27,7 @@ function passage(side: StopPassage['side'], path: string, role: StopPassage['rol
 }
 
 function stop(id: string, passages: StopPassage[] | null): Stop {
-   return stopOf({ id, title: id, kind: 'inspect', chapter: 'only', content: passages === null ? null : { headline: id, passages, html: { headline: id } } });
+   return stopOf({ id, title: id, kind: 'inspect', chapter: 'only', content: passages === null ? null : { headline: id, passages, html: { headline: id }, references: [] } });
 }
 
 // The pay stop points at a changed file at the head and at a renamed file by its old path at the base.

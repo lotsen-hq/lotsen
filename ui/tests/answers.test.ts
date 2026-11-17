@@ -22,6 +22,7 @@ function content(headline: string, checks: StopCheck[]): StopContent {
       passages: [],
       checks,
       html: { headline: `<p>${headline}</p>\n`, checks: checks.map((check) => ({ question: `<p>${check.question}</p>\n` })) },
+      references: [],
    };
 }
 

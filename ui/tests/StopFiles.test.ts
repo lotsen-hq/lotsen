@@ -58,7 +58,7 @@ function stopOf(passages: StopPassage[]): Stop {
       status: 'ready',
       version: 1,
       earlier: [],
-      content: { headline: 'A stop.', passages, html: { headline: '<p>A stop.</p>\n' } },
+      content: { headline: 'A stop.', passages, html: { headline: '<p>A stop.</p>\n' }, references: [] },
    };
 }
 

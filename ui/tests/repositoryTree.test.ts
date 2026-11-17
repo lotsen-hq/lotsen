@@ -72,7 +72,8 @@ describe('repositoryRows', () => {
 describe('stopVisits', () => {
    const head = 'h1';
    const passage = (path: string, side: FileSide = 'head', commit = head): StopPassage => ({ side, path, startLine: 1, endLine: 2, role: 'related', commit, text: 'x' });
-   const stop = (id: string, ...passages: StopPassage[]): Stop => stopOf({ id, title: id, kind: 'context', chapter: 'c', content: { headline: id, passages, html: { headline: `<p>${id}</p>\n` } } });
+   const stop = (id: string, ...passages: StopPassage[]): Stop =>
+      stopOf({ id, title: id, kind: 'context', chapter: 'c', content: { headline: id, passages, html: { headline: `<p>${id}</p>\n` }, references: [] } });
 
    it('counts each stop once for each file its passages visit and for each folder that holds such a file, by the node IDs of the repository tree', () => {
       const visits = stopVisits([stop('s1', passage('src/cart/total.ts'), passage('src/cart/total.ts'), passage('README.md')), stop('s2', passage('src/cart/line.ts'))], head);

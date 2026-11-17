@@ -552,6 +552,14 @@ internal sealed record StopHtml(
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Gotchas = null,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TryIt = null);
 
+/// <summary>A code reference in a stop's prose, as the UI receives it: the lines of one file at one side that a <c>ref:</c> link points at.</summary>
+/// <remarks>Only <see cref="Prose.ProseHtml"/> builds one, into the JSON of a stop's content as an element of its <c>references</c> property. No stored type holds it.</remarks>
+/// <param name="Side">The side the lines are on.</param>
+/// <param name="Path">The file's repository path at that side, percent-decoded.</param>
+/// <param name="StartLine">The first line, 1-based.</param>
+/// <param name="EndLine">The last line, 1-based and inclusive, never before <see cref="StartLine"/>.</param>
+internal sealed record ReferenceLines(FileSide Side, string Path, int StartLine, int EndLine);
+
 /// <summary>
 /// Lines of one file at one side of a pinned tour that a stop points at, with their text as the server read it at write time.
 /// </summary>

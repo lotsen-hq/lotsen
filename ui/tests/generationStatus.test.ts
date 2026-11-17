@@ -7,7 +7,17 @@ function stop(index: number, status: Stop['status']): Stop {
    const title = `Stop ${index}`;
    return status === 'pending'
       ? { id, title, kind: 'inspect', chapter: 'c', stage: 'pending', anchorHint: null, status }
-      : { id, title, kind: 'inspect', chapter: 'c', stage: 'written', status, version: status === 'ready' ? 1 : 2, earlier: [], content: { headline: title, passages: [], html: { headline: title } } };
+      : {
+           id,
+           title,
+           kind: 'inspect',
+           chapter: 'c',
+           stage: 'written',
+           status,
+           version: status === 'ready' ? 1 : 2,
+           earlier: [],
+           content: { headline: title, passages: [], html: { headline: title }, references: [] },
+        };
 }
 
 function plan(...statuses: Stop['status'][]): Plan {

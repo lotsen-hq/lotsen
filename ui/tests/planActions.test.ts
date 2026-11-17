@@ -6,7 +6,7 @@ import type { Plan, Stop, StopContent } from '../src/lib/types';
 import { dragOverRow, dragRow } from './stopOrderDrag';
 
 function content(headline: string): StopContent {
-   return { headline, passages: [], html: { headline: `<p>${headline}</p>\n` } };
+   return { headline, passages: [], html: { headline: `<p>${headline}</p>\n` }, references: [] };
 }
 
 function stop(id: string, title: string, chapter: string, kind: Stop['kind'] = 'inspect'): Stop {

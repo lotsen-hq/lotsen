@@ -12,15 +12,11 @@ import type {
    RequestTourActionInput,
    ReviewerDecision,
    SaveNoteInput,
-   StopPassage,
    TourAction,
    TourTarget,
 } from './contract.generated';
 
 export type * from './contract.generated';
-
-/** The lines of one file at one side that a `ref:` link in prose points at, as its anchor's `data-ref-*` attributes hold them. A passage has the same fields. */
-export type CodeReference = Pick<StopPassage, 'side' | 'path' | 'startLine' | 'endLine'>;
 
 /** A place in a tour that the reviewer opens: a stop of the plan, with the number of its current version while that version shows, or the summary page. */
 export type ReadingPlace = { stopId: string; version?: number } | 'summary';

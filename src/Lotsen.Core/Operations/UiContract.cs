@@ -15,7 +15,8 @@ namespace Lotsen.Operations;
 /// <remarks>
 /// <para>
 /// A schema of what the UI receives describes the JSON as the server writes it. A property that the serializer omits when it is null or its default is optional and never null, and every
-/// other property is required. A type that <see cref="ProseHtml"/> adds properties to has them, as <see cref="ProseHtml.Added"/> lists them.
+/// other property is required. A type that <see cref="ProseHtml"/> adds properties to has them, as <see cref="ProseHtml.Added"/> lists them: the HTML of the prose, the code references of a
+/// stop's content and a thread's status.
 /// </para>
 /// <para>A union lists its variants alone, and each variant requires its discriminator, so the TypeScript union of the variants narrows on it.</para>
 /// </remarks>
@@ -27,7 +28,7 @@ internal static class UiContract
       /// <summary>An input that the UI sends.</summary>
       Sent,
 
-      /// <summary>An output, an event payload or a refusal that the UI receives, with its prose as HTML.</summary>
+      /// <summary>An output, an event payload or a refusal that the UI receives, with its prose as HTML and the code references of each stop's content.</summary>
       Received,
    }
 

@@ -27,7 +27,10 @@ internal sealed class ContractDocument
    /// <summary>The definition names of union variants where a property declares the variant's own type.</summary>
    private static readonly Dictionary<Type, string> DirectNames = new() { [typeof(TourPin.Pinned)] = "PinnedCommits", [typeof(TourPin.Snapshot)] = "SnapshotCommit" };
 
-   /// <summary>The definition names of types whose type info name says too little in TypeScript, where the name of a nested type no longer names its outer type.</summary>
+   /// <summary>
+   /// The definition names of types whose type info name says too little in TypeScript, where the name of a nested type no longer names its outer type, or differs from the UI's name for the
+   /// type.
+   /// </summary>
    private static readonly Dictionary<Type, string> Renamed = new()
    {
       [typeof(FileDiff.Text)] = "TextDiff",
@@ -39,6 +42,7 @@ internal sealed class ContractDocument
       [typeof(ThreadMessage.Question)] = "ThreadQuestion",
       [typeof(ThreadMessage.Question.Reply)] = "ThreadReply",
       [typeof(ThreadMessage.AgentMessage)] = "ThreadAgentMessage",
+      [typeof(ReferenceLines)] = "CodeReference",
    };
 
    private static readonly Dictionary<Type, string> ContextNames = typeof(LotsenJsonContext).GetProperties()

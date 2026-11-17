@@ -38,6 +38,7 @@ namespace Lotsen.Json;
 [JsonSerializable(typeof(Stop.Pending), TypeInfoPropertyName = "PendingStop")]
 [JsonSerializable(typeof(Stop.Written), TypeInfoPropertyName = "WrittenStop")]
 [JsonSerializable(typeof(StopHtml))]
+[JsonSerializable(typeof(IReadOnlyList<ReferenceLines>))]
 [JsonSerializable(typeof(Plan))]
 [JsonSerializable(typeof(FileMark))]
 [JsonSerializable(typeof(FileMarkInput))]
