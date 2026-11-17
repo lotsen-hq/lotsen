@@ -119,10 +119,10 @@ internal static class TourRules
             }
          }
 
-         // An update marks only content stale, and the marker names the iteration that the update moved to.
+         // An update or a move marks only content stale, and the marker names the iteration or the move that the tour moved to.
          if (stop.StaleOn < 1)
          {
-            return new(field.Then("staleOn"), "an iteration counts from 1.");
+            return new(field.Then("staleOn"), "an iteration or a move counts from 1.");
          }
       }
 
@@ -218,6 +218,11 @@ internal static class TourRules
       if (tour.Pin is TourPin.Pinned)
       {
          return new("pin", "a repository tour is pinned to a snapshot of one commit, not to an iteration of a pull request.");
+      }
+
+      if (tour.Pin is TourPin.Snapshot { Move: < 0 })
+      {
+         return new(((FieldPath)"pin").Then("move"), "a snapshot's move counts from 0, its first pin.");
       }
 
       if (tour.Synthesis?.Pin is SynthesisPin.PullRequest)

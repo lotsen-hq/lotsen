@@ -94,6 +94,15 @@ internal sealed class PullRequestPlatforms
          $"lotsen does not know the platform '{target.Platform}' of the repository {target.Url.AbsoluteUri}, so it cannot reach the repository. Run a lotsen build that supports repositories on that platform, then try again.");
    }
 
+   /// <summary>Returns the commit that a repository target's ref names, through the target's platform, or through git for a platform-free repository.</summary>
+   /// <param name="target">The repository, at its ref, or at its default branch when the ref is null.</param>
+   /// <param name="platformFree">Resolves the ref of a platform-free repository.</param>
+   /// <param name="cancellationToken">Stops the platform's request and git.</param>
+   /// <exception cref="ExternalFailureException">The platform or git could not resolve the ref, as for a missing sign-in or a ref that names nothing. The reason names the fix where there is one.</exception>
+   public Task<ResolvedRepository> ResolveAsync(RepositoryTarget target, PlatformFreeRepositories platformFree, CancellationToken cancellationToken) => target.Platform is null
+      ? platformFree.ResolveAsync(target.Url, target.Ref, cancellationToken)
+      : RepositoryOf(target).ResolveRepositoryAsync(target.Url, target.Ref, cancellationToken);
+
    /// <summary>Returns whether a tour's target names the same pull request as the target.</summary>
    /// <returns>True when both have one platform ID and that platform's <see cref="IPullRequestPlatform.IsSamePullRequest"/> says so, or false when no registered platform has the ID.</returns>
    public bool IsSamePullRequest(TourTarget tourTarget, PullRequestTarget target) =>

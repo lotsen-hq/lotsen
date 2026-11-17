@@ -124,7 +124,7 @@ public sealed class StopDoneTests : IClassFixture<StopTourFixture>
       Assert.DoesNotContain("doneVersion", dropped.ToJsonString(), StringComparison.Ordinal);
    }
 
-   /// <summary>The stop on b.txt goes stale on the new pin, whose head replaces line 9 of b.txt, as <see cref="Repin.Map"/> marks it.</summary>
+   /// <summary>The stop on b.txt goes stale on the new pin, whose head replaces line 9 of b.txt, as <see cref="Repin.Map(Tour, TourPin.Pinned, TourPin.Pinned, FactSet)"/> marks it.</summary>
    [Fact]
    public void The_stale_marker_leaves_the_mark_as_it_is()
    {

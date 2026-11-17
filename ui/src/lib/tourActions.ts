@@ -54,6 +54,7 @@ export const decisionLabels: Record<ReviewerDecisionKind, string> = {
    familiarityChanged: 'Change familiarity',
    planApproved: 'Approve plan',
    iterationUpdated: 'Move to a new update',
+   tourMoved: 'Move to the latest commit',
 };
 
 /** Returns the label of a summary thread's tour action or reviewer decision, which the review summary names by its kind, or null for a thread with neither. */
@@ -67,6 +68,7 @@ export const decisionPending: Record<ReviewerDecisionKind, string> = {
    familiarityChanged: 'Claude is rewriting the stops you have not read for the new familiarity level.',
    planApproved: 'Claude is writing the stops of the plan you approved.',
    iterationUpdated: 'Claude is revising the stops that the new update made stale.',
+   tourMoved: 'Claude is revising the stops that the move made stale.',
 };
 
 /** The label of the box for the reviewer's words of each tour action that the reviewer requests. */
@@ -117,7 +119,10 @@ export const planApprovalPrompt = 'Anything Claude should know about the plan?';
 /** What the empty box for the reviewer's words of a plan approval says Claude does without them. */
 export const planApprovalPlaceholder = 'Leave it empty and Claude writes the stops as planned.';
 
-/** Returns what a thread shows of its reviewer decision: the decision's name, for a change of the familiarity level with the levels it changed between, and for an update with its iteration. */
+/**
+ * Returns what a thread shows of its reviewer decision: the decision's name, for a change of the familiarity level with the levels it changed between, for an update with its iteration, and
+ * for a move with the start of its commit.
+ */
 export function decisionSummary(decision: ReviewerDecision): string {
    switch (decision.kind) {
       case 'familiarityChanged':
@@ -126,6 +131,8 @@ export function decisionSummary(decision: ReviewerDecision): string {
          return `Move to update ${decision.iteration}`;
       case 'planApproved':
          return decisionLabels.planApproved;
+      case 'tourMoved':
+         return `Move to commit ${decision.commit.slice(0, 8)}`;
    }
 }
 

@@ -1132,6 +1132,21 @@
       ],
       "additionalProperties": false
     },
+    "CheckMoveInput": {
+      "title": "CheckMoveInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        }
+      },
+      "required": [
+        "tourId"
+      ],
+      "additionalProperties": false
+    },
     "CheckedIteration": {
       "title": "CheckedIteration",
       "type": "object",
@@ -1162,6 +1177,39 @@
         "tourId",
         "updatedAt",
         "availableIteration"
+      ]
+    },
+    "CheckedMove": {
+      "title": "CheckedMove",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "move": {
+          "$ref": "#/definitions/MoveAvailability"
+        },
+        "current": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "latest": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "dives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MoveDive"
+          }
+        }
+      },
+      "required": [
+        "tourId",
+        "move",
+        "current",
+        "latest"
       ]
     },
     "ClearAnswerInput": {
@@ -2272,6 +2320,145 @@
       ],
       "additionalProperties": false
     },
+    "MoveAvailability": {
+      "title": "MoveAvailability",
+      "type": "string",
+      "enum": [
+        "available",
+        "atLatest",
+        "tag",
+        "commit"
+      ]
+    },
+    "MoveDive": {
+      "title": "MoveDive",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "parentId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/definitions/TourState"
+        },
+        "pin": {
+          "$ref": "#/definitions/TourPin"
+        }
+      },
+      "required": [
+        "tourId",
+        "parentId",
+        "title",
+        "state",
+        "pin"
+      ]
+    },
+    "MoveTourInput": {
+      "title": "MoveTourInput",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$",
+          "description": "The tour's ID, as create_tour or list_tours returned it, or as the user gave it."
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$",
+          "description": "The latest commit of the tour's ref, as check_move returned it. The move is refused when the ref names another commit now."
+        },
+        "diveIds": {
+          "description": "The tourIds of the dives that move with the tour, from check_move's dives, or an empty list for none. A dive moves only with the tour that it dives from.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "tourId",
+        "commit",
+        "diveIds"
+      ],
+      "additionalProperties": false
+    },
+    "MovedSubtree": {
+      "title": "MovedSubtree",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "pin": {
+          "$ref": "#/definitions/TourPin"
+        },
+        "staleStops": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "thread": {
+          "$ref": "#/definitions/QuestionThread"
+        },
+        "dives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MovedTour"
+          }
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "pin",
+        "staleStops"
+      ]
+    },
+    "MovedTour": {
+      "title": "MovedTour",
+      "type": "object",
+      "properties": {
+        "tourId": {
+          "type": "string",
+          "pattern": "^[a-z2-7]{16}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "pin": {
+          "$ref": "#/definitions/TourPin"
+        },
+        "staleStops": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "thread": {
+          "$ref": "#/definitions/QuestionThread"
+        }
+      },
+      "required": [
+        "tourId",
+        "updatedAt",
+        "pin",
+        "staleStops"
+      ]
+    },
     "NoInput": {
       "title": "NoInput",
       "type": "object",
@@ -2410,7 +2597,9 @@
         "buildMismatch",
         "serverExiting",
         "sessionUnknown",
-        "notPullRequestTour"
+        "notPullRequestTour",
+        "moveNotAvailable",
+        "tourNotStored"
       ]
     },
     "OperationName": {
@@ -2452,6 +2641,8 @@
         "approve_plan",
         "check_iteration",
         "update_iteration",
+        "check_move",
+        "move_tour",
         "read_preferences",
         "write_preference"
       ]
@@ -3036,6 +3227,38 @@
           ],
           "additionalProperties": false
         },
+        "check_move": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/CheckMoveInput"
+            },
+            "output": {
+              "$ref": "#/definitions/CheckedMove"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
+        "move_tour": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "$ref": "#/definitions/MoveTourInput"
+            },
+            "output": {
+              "$ref": "#/definitions/MovedSubtree"
+            }
+          },
+          "required": [
+            "input",
+            "output"
+          ],
+          "additionalProperties": false
+        },
         "read_preferences": {
           "type": "object",
           "properties": {
@@ -3105,6 +3328,8 @@
         "approve_plan",
         "check_iteration",
         "update_iteration",
+        "check_move",
+        "move_tour",
         "read_preferences",
         "write_preference"
       ],
@@ -4003,6 +4228,9 @@
         },
         {
           "$ref": "#/definitions/IterationUpdated"
+        },
+        {
+          "$ref": "#/definitions/TourMoved"
         }
       ]
     },
@@ -4343,6 +4571,9 @@
         "remoteUrl": {
           "type": "string",
           "format": "uri"
+        },
+        "move": {
+          "type": "integer"
         }
       },
       "required": [
@@ -4362,6 +4593,9 @@
         "remoteUrl": {
           "type": "string",
           "format": "uri"
+        },
+        "move": {
+          "type": "integer"
         }
       },
       "required": [
@@ -5705,6 +5939,34 @@
       "required": [
         "tours"
       ]
+    },
+    "TourMoved": {
+      "title": "TourMoved",
+      "properties": {
+        "kind": {
+          "const": "tourMoved"
+        },
+        "move": {
+          "type": "integer"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "stopIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "move",
+        "commit",
+        "stopIds"
+      ],
+      "additionalProperties": false
     },
     "TourOffers": {
       "title": "TourOffers",

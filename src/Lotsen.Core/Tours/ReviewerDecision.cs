@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Lotsen.Git;
 
 namespace Lotsen.Tours;
 
@@ -11,11 +12,13 @@ namespace Lotsen.Tours;
 [JsonDerivedType(typeof(FamiliarityChanged), FamiliarityChangedKind)]
 [JsonDerivedType(typeof(PlanApproved), PlanApprovedKind)]
 [JsonDerivedType(typeof(IterationUpdated), IterationUpdatedKind)]
+[JsonDerivedType(typeof(TourMoved), TourMovedKind)]
 internal closed record ReviewerDecision
 {
    public const string FamiliarityChangedKind = "familiarityChanged";
    public const string PlanApprovedKind = "planApproved";
    public const string IterationUpdatedKind = "iterationUpdated";
+   public const string TourMovedKind = "tourMoved";
 
    private ReviewerDecision()
    {
@@ -132,5 +135,38 @@ internal closed record ReviewerDecision
       /// <param name="iteration">The number of the iteration that the update pins the tour to.</param>
       /// <param name="staleStops">The IDs of the stops that the update made stale, in plan order.</param>
       public static IterationUpdated For(int iteration, IReadOnlyList<string> staleStops) => new(iteration, staleStops);
+   }
+
+   /// <summary>The reviewer's move of a repository tour to the latest commit of its ref, which asks Claude to revise the stops that the move made stale.</summary>
+   [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+   internal sealed record TourMoved : ReviewerDecision
+   {
+      /// <param name="move">The move's number.</param>
+      /// <param name="commit">The commit.</param>
+      /// <param name="stopIds">The stale stops.</param>
+      [JsonConstructor]
+      private TourMoved(int move, CommitId commit, IReadOnlyList<string> stopIds)
+      {
+         Move = move;
+         Commit = commit;
+         StopIds = StopIdsOf(stopIds, TourMovedKind);
+      }
+
+      /// <summary>The number of the move, as the tour's snapshot holds it after the move.</summary>
+      public int Move { get; }
+
+      /// <summary>The commit that the move pinned the tour to.</summary>
+      public CommitId Commit { get; }
+
+      /// <summary>The IDs of the stops with a stale marker after the move, in plan order.</summary>
+      public IReadOnlyList<string> StopIds { get; }
+
+      [JsonIgnore]
+      public override string Kind => TourMovedKind;
+
+      /// <summary>Returns the decision that a move to the snapshot reports.</summary>
+      /// <param name="to">The snapshot that the move pins the tour to.</param>
+      /// <param name="staleStops">The IDs of the stops that the move made stale, in plan order.</param>
+      public static TourMoved For(TourPin.Snapshot to, IReadOnlyList<string> staleStops) => new(to.Move, to.Head, staleStops);
    }
 }

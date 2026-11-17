@@ -6,6 +6,7 @@ import type {
    ChangedFamiliarity,
    ChangedFileList,
    CheckedIteration,
+   CheckedMove,
    ClearedAnswer,
    DeletedSubtree,
    DeletedThread,
@@ -15,6 +16,7 @@ import type {
    FileSide,
    FileText,
    FollowUpInput,
+   MovedSubtree,
    OperationError,
    NoteInput,
    OperationName,
@@ -199,6 +201,23 @@ export interface Api {
     * `questionWaiting` while the thread of an earlier update waits, and `tourChanged` when the tour kept changing while the update ran, so the same update can succeed when sent again.
     */
    updateIteration(tourId: string, pin: PinInput): Promise<Revised<UpdatedIteration>>;
+   /**
+    * Resolves the repository tour's ref and returns whether the tour has a move to the ref's latest commit, with both commits, and the dives below the tour while it has one.
+    *
+    * @throws ApiError with status 409 and code `moveNotAvailable` for a pull request's tour, `tourNotPinned` while the tour is not pinned to a commit, and with status 502 and code `repositoryUnavailable` when the ref cannot be resolved.
+    */
+   checkMove(tourId: string): Promise<CheckedMove>;
+   /**
+    * Moves the repository tour and the ticked dives to the latest commit of its ref, which reports the move to each moved tour's bound session as a tourMoved decision when a stop goes stale,
+    * and returns each moved tour's new pin and stale stops.
+    *
+    * @param commit The latest commit that `checkMove` returned.
+    * @param diveIds The IDs of the ticked dives, each with its parent ticked too or the tour as its parent.
+    * @throws ApiError with status 409 and code `moveNotAvailable` when the ref names another commit than `commit` or has no move, `noSessionAttached` when a moved tour with a stale stop has no
+    * bound session, `questionWaiting` while the thread of an earlier move waits, and `tourChanged` when the tours kept changing, with status 400 for a dive that cannot move, and with status 500 and code
+    * `tourNotStored` when a store failed on the disk after the tours that its reason names moved.
+    */
+   moveTour(tourId: string, commit: string, diveIds: string[]): Promise<Revised<MovedSubtree>>;
    /**
     * Asks the tour's bound session a question and returns the new thread.
     *
@@ -408,6 +427,8 @@ export function createApi(fetchFn: typeof fetch, credential: string, onControls:
       approvePlan: (tourId, input) => revised('approve_plan', { tourId, ...input }),
       checkIteration: (tourId) => call('check_iteration', { tourId }),
       updateIteration: (tourId, pin) => revised('update_iteration', { tourId, pin }),
+      checkMove: (tourId) => call('check_move', { tourId }),
+      moveTour: (tourId, commit, diveIds) => revised('move_tour', { tourId, commit, diveIds }),
       askQuestion: (tourId, input) => revised('ask_question', { tourId, ...input }),
       requestTourAction: (tourId, input) => revised('request_tour_action', { tourId, ...input }),
       askFollowUp: (tourId, threadId, input) => revised('ask_follow_up', { tourId, threadId, ...input }),

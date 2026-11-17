@@ -30,7 +30,7 @@ public sealed class TourRulesTests
          Tour() with { Answers = [Answer("s1", "c1"), Answer("s1", "c1")] },
          "answers[1]",
          "another answer already answers check 'c1' of stop 's1'."),
-      ["stale marker before iteration 1"] = (Tour(Plan(Written("s1") with { StaleOn = 0 })), "plan.stops[0].staleOn", "an iteration counts from 1."),
+      ["stale marker before iteration 1"] = (Tour(Plan(Written("s1") with { StaleOn = 0 })), "plan.stops[0].staleOn", "an iteration or a move counts from 1."),
       ["available iteration on a tour that is pinning"] = (
          Tour() with { Pin = new TourPin.Pinning(), AvailableIteration = new AvailableIteration(Pinned with { Iteration = 2 }, [], Now) },
          "availableIteration",
@@ -56,6 +56,7 @@ public sealed class TourRulesTests
          "only an archived dive names the tour whose archive took it."),
       ["archive's tour on a tour that is no dive"] = (RepositoryTour() with { Archived = true, ArchivedWith = OtherId }, "archivedWith", "only an archived dive names the tour whose archive took it."),
       ["repository tour pinned to an iteration"] = (RepositoryTour() with { Pin = Pinned }, "pin", "a repository tour is pinned to a snapshot of one commit, not to an iteration of a pull request."),
+      ["snapshot before its first pin"] = (RepositoryTour() with { Pin = Snapshot with { Move = -1 } }, "pin.move", "a snapshot's move counts from 0, its first pin."),
       ["repository tour with a pull request state"] = (RepositoryTour() with { PullRequestState = PullRequestState.Completed }, "pullRequestState", "only a pull request's tour has a pull request state."),
       ["pull request tour with a purpose"] = (Tour() with { Purpose = TourPurpose.Evaluate }, "purpose", "only a repository tour has a purpose."),
       ["pull request tour with a purpose and a risk stop"] = (Tour(Plan(Written("s1", StopKind.Risk))) with { Purpose = TourPurpose.Orient }, "purpose", "only a repository tour has a purpose."),

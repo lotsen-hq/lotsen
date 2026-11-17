@@ -35,6 +35,7 @@ internal static class ProseHtml
    private static readonly string QuestionHtmlProperty = JsonNamingPolicy.CamelCase.ConvertName(nameof(SummaryAnswer.Question)) + "Html";
    private static readonly string ScenarioHtmlProperty = JsonNamingPolicy.CamelCase.ConvertName(nameof(SummaryRisk.Scenario)) + "Html";
    private static readonly string SynthesisProperty = JsonNamingPolicy.CamelCase.ConvertName(nameof(ReviewSummary.Synthesis));
+   private static readonly string DivesProperty = JsonNamingPolicy.CamelCase.ConvertName(nameof(MovedSubtree.Dives));
 
    /// <summary>The properties that the methods here add to the JSON of each type, which <see cref="UiContract"/> adds to the schemas of what the UI receives.</summary>
    public static IReadOnlyList<AddedProperty> Added { get; } =
@@ -172,6 +173,27 @@ internal static class ProseHtml
       if (updated.Thread is { } thread)
       {
          node[ThreadProperty] = Of(thread, mentions);
+      }
+
+      return node;
+   }
+
+   /// <summary>Returns the JSON of the move, whose threads, for the tour and each moved dive that the move sent one to, carry their HTML.</summary>
+   /// <remarks>A dive tours its parent's repository, so the tour's mention links serve the dives' threads too.</remarks>
+   public static JsonNode Of(MovedSubtree moved, MentionLinks mentions)
+   {
+      var node = JsonSerializer.SerializeToNode(moved, LotsenJsonContext.Default.MovedSubtree)!;
+      if (moved.Thread is { } thread)
+      {
+         node[ThreadProperty] = Of(thread, mentions);
+      }
+
+      for (var i = 0; i < (moved.Dives?.Count ?? 0); i++)
+      {
+         if (moved.Dives![i].Thread is { } diveThread)
+         {
+            node[DivesProperty]![i]![ThreadProperty] = Of(diveThread, mentions);
+         }
       }
 
       return node;

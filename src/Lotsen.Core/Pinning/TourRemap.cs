@@ -6,18 +6,19 @@ using Lotsen.Tours;
 namespace Lotsen.Pinning;
 
 /// <summary>
-/// Computes what moving a pinned tour to a new iteration does to its stops' passages and code references, to its threads' anchors and to its plan's file marks, from git facts alone. It reads no git
-/// and stores nothing.
+/// Computes what moving a tour to a new pin does to its stops' passages and code references, to its threads' anchors and to its plan's file marks, from git facts alone: a pull request's tour to
+/// a new iteration, or a repository tour to a snapshot of a later commit, as the <see cref="PinChange"/> says. It reads no git and stores nothing.
 /// </summary>
 /// <remarks>
 /// <para>
 /// Each line range maps through git's diff of its file from the commit it was read at to the new pin's commit of its side. A passage and a code anchor carry that commit. A code reference carries
-/// none, so it maps from the tour's pin. When the two commits are equal, the range stays as it is.
+/// none, so it maps from the tour's pin. When the two commits are equal, the range stays as it is. A side that the new pin lacks, as a snapshot lacks the base, makes the range stale.
 /// </para>
 /// <para>
-/// A range moves when no hunk of its file's diff touches its lines. A hunk touches it when the hunk changes or removes one of its lines, or inserts lines between two of them. The range's lines
-/// shift by the lines that the hunks above it add or remove, its path follows a rename, and its text is read again at the new commit when its file changed. Anything else makes the range stale:
-/// it keeps its old place, and nothing guesses a new one. The primary passage of a change stop is stale too when, once moved, it no longer touches the new pin's diff.
+/// A range moves when no hunk of its file's diff touches its lines. A hunk touches it when the hunk changes or removes one of its lines, or inserts lines between two of them. The range's lines shift
+/// by the lines that the hunks above it add or remove, its path follows a rename, and its text is read again at the new commit when its file changed. Anything else makes the range stale: it keeps its
+/// old place, and nothing guesses a new one. The primary passage of a change stop is stale too when, once moved, it no longer touches the new pin's diff. A snapshot has no diff, so this holds only
+/// between iterations.
 /// </para>
 /// <para>
 /// A stop's content, a plan's file marks and a code or file anchor hold only the paths that <see cref="RepositoryPath.IsValid"/> accepts, and git can rename a file to a path that it refuses.
@@ -30,31 +31,34 @@ namespace Lotsen.Pinning;
 internal sealed class TourRemap
 {
    private readonly FactReader _facts;
-   private readonly TourPin.Pinned _from;
-   private readonly TourPin.Pinned _to;
+   private readonly PinChange _change;
 
-   private TourRemap(FactReader facts, TourPin.Pinned from, TourPin.Pinned to)
+   private TourRemap(FactReader facts, PinChange change)
    {
       _facts = facts;
-      _from = from;
-      _to = to;
+      _change = change;
    }
 
-   /// <summary>Returns how each passage, code reference, anchor and file mark of a pinned tour maps from its pin onto a new pin, or the facts that the mapping needs first.</summary>
+   /// <summary>Returns how each passage, code reference, anchor and file mark of a pinned tour maps from its pin onto another iteration's pin, or the facts that the mapping needs first.</summary>
    /// <param name="tour">The tour, pinned to <paramref name="from"/>.</param>
    /// <param name="from">The tour's pin.</param>
    /// <param name="to">The new pin.</param>
    /// <param name="facts">The git facts known so far.</param>
-   public static Decision<RemapResult> Map(Tour tour, TourPin.Pinned from, TourPin.Pinned to, FactSet facts)
+   public static Decision<RemapResult> Map(Tour tour, TourPin.Pinned from, TourPin.Pinned to, FactSet facts) => Map(tour, new PinChange.Iterations(from, to), facts);
+
+   /// <summary>Returns how each passage, code reference, anchor and file mark of a tour maps from its pin onto a new pin, or the facts that the mapping needs first.</summary>
+   /// <param name="tour">The tour, pinned to the change's first pin.</param>
+   /// <param name="change">The tour's pin and the new pin.</param>
+   /// <param name="facts">The git facts known so far.</param>
+   public static Decision<RemapResult> Map(Tour tour, PinChange change, FactSet facts)
    {
       var reader = new FactReader(facts);
-      var remap = new TourRemap(reader, from, to);
+      var remap = new TourRemap(reader, change);
       var stops = (tour.Plan?.Stops ?? []).OfType<Stop.Written>().Select(remap.MapStop).ToList();
       var anchors = tour.Threads.Where(thread => thread.Anchor is ThreadAnchor.CodeRange or ThreadAnchor.WholeFile).Select(thread => (thread, Outcome: remap.MapAnchor(thread.Anchor))).ToList();
       var marks = remap.MapFileMarks(tour.Plan?.FileMarks ?? []);
       return Decision<RemapResult>.Of(reader, () => new RemapResult(
-         from,
-         to,
+         change,
          [.. stops.Select(stop => stop!)],
          [.. anchors.Select(entry => new AnchorRemap(entry.thread.Id, entry.thread.Anchor, entry.Outcome!))],
          [.. marks.Select(mark => mark!)]));
@@ -67,7 +71,7 @@ internal sealed class TourRemap
       return [.. marks.Select(mark =>
       {
          ChangedPath? change = null;
-         if (_from.Head != _to.Head && !TryFindChange(_from.Head, mark.Path, _to.Head, out change))
+         if (_change.FromHead != _change.ToHead && !TryFindChange(_change.FromHead, mark.Path, _change.ToHead, out change))
          {
             return null;
          }
@@ -87,9 +91,9 @@ internal sealed class TourRemap
       {
          var mapped = MapStoredLines(passage.Side, passage.Path, passage.StartLine, passage.EndLine, passage.Commit, passage.Text)?
             .Select(place => passage with { Path = place.Path, StartLine = place.StartLine, EndLine = place.EndLine, Commit = place.Commit, Text = place.Text! });
-         if (mapped is Remapped<StopPassage>.Moved { To: var moved } && moved.Role == PassageRole.Primary && StopContentRules.PrimaryTouchesDiff(stop.Kind))
+         if (mapped is Remapped<StopPassage>.Moved { To: var moved } && moved.Role == PassageRole.Primary && StopContentRules.PrimaryTouchesDiff(stop.Kind) && _change.DiffOf(moved.Side, moved.Path) is { } key)
          {
-            mapped = !_facts.TryGet(new FactKey.PinDiff(_to.MergeBase, _to.Head, moved.Side, moved.Path), out var diff) ? null
+            mapped = !_facts.TryGet(key, out var diff) ? null
                : diff.Touches(moved.StartLine, moved.EndLine) ? mapped
                : new Remapped<StopPassage>.Stale(StaleReason.OffDiff);
          }
@@ -104,7 +108,8 @@ internal sealed class TourRemap
       foreach (var reference in references)
       {
          var (side, path, startLine, endLine) = (reference.Reference.Side, reference.Reference.Path, reference.Reference.StartLine, reference.Reference.EndLine);
-         var mapped = MapStoredLines(side, path, startLine, endLine, _from.CommitOf(side), null)?.Select(place => new ReferencePlace(place.Path, place.StartLine, place.EndLine));
+         var mapped = (_change.FromCommitOf(side) is { } from ? MapStoredLines(side, path, startLine, endLine, from, null) : new Remapped<MovedLines>.Stale(StaleReason.NoSide))?
+            .Select(place => new ReferencePlace(place.Path, place.StartLine, place.EndLine));
          known &= mapped is not null;
          mappedReferences.Add(new ReferenceRemap(reference, mapped!));
       }
@@ -121,7 +126,11 @@ internal sealed class TourRemap
             return MapStoredLines(range.Side, range.Path, range.StartLine, range.EndLine, range.Commit, range.Text)?
                .Select<ThreadAnchor>(place => range with { Path = place.Path, StartLine = place.StartLine, EndLine = place.EndLine, Commit = place.Commit, Text = place.Text! });
          case ThreadAnchor.WholeFile file:
-            var target = _to.CommitOf(file.Side);
+            if (_change.ToCommitOf(file.Side) is not { } target)
+            {
+               return new Remapped<ThreadAnchor>.Stale(StaleReason.NoSide);
+            }
+
             if (file.Commit == target)
             {
                return new Remapped<ThreadAnchor>.Moved(file);
@@ -174,7 +183,11 @@ internal sealed class TourRemap
    // Maps lines read at a commit to the new pin's commit of their side, or returns null when a fact is missing. The text is the lines' text at the commit, or null to read it there.
    private Remapped<MovedLines>? MapLines(FileSide side, string path, int startLine, int endLine, CommitId commit, string? text)
    {
-      var target = _to.CommitOf(side);
+      if (_change.ToCommitOf(side) is not { } target)
+      {
+         return new Remapped<MovedLines>.Stale(StaleReason.NoSide);
+      }
+
       if (commit == target)
       {
          return new Remapped<MovedLines>.Moved(new MovedLines(path, startLine, endLine, commit, text));
@@ -285,19 +298,18 @@ internal sealed class TourRemap
    private sealed record MovedLines(string Path, int StartLine, int EndLine, CommitId Commit, string? Text);
 }
 
-/// <summary>How a tour's passages, code references, anchors and file marks map from its pin onto a new pin, as <see cref="TourRemap.Map"/> returns it.</summary>
+/// <summary>How a tour's passages, code references, anchors and file marks map from its pin onto a new pin, as <see cref="TourRemap.Map(Tour, PinChange, FactSet)"/> returns it.</summary>
 /// <remarks>
 /// The tour may change between the mapping and its use, so each item names what it was computed from: a stop its ID and version, a passage its index and the stored passage, a code reference its
 /// field and link, an anchor its thread's ID and the stored anchor, and a file mark the stored mark. Apply an item only while the tour still holds what it names.
 /// </remarks>
-/// <param name="From">The pin that the mapping started from: the tour's pin when it was read.</param>
-/// <param name="To">The new pin.</param>
+/// <param name="Change">The pin that the mapping started from, the tour's pin when it was read, and the new pin.</param>
 /// <param name="Stops">Each stop of the plan with content, in plan order. The list omits a pending stop, which has nothing to map.</param>
 /// <param name="Anchors">
 /// Each thread whose anchor names code, a code anchor or a file anchor, in the tour's thread order, notes included. The list omits every other anchor, which stays as it is.
 /// </param>
 /// <param name="FileMarks">Each file mark of the plan, in the plan's order.</param>
-internal sealed record RemapResult(TourPin.Pinned From, TourPin.Pinned To, IReadOnlyList<StopRemap> Stops, IReadOnlyList<AnchorRemap> Anchors, IReadOnlyList<FileMarkRemap> FileMarks)
+internal sealed record RemapResult(PinChange Change, IReadOnlyList<StopRemap> Stops, IReadOnlyList<AnchorRemap> Anchors, IReadOnlyList<FileMarkRemap> FileMarks)
 {
    /// <summary>The stale stops, in plan order.</summary>
    public IReadOnlyList<StopRemap> StaleStops => [.. Stops.Where(stop => stop.Stale)];
@@ -393,4 +405,7 @@ internal enum StaleReason
    /// accepts.
    /// </summary>
    PathRefused,
+
+   /// <summary>The new pin has no such side, as a snapshot has no base.</summary>
+   NoSide,
 }

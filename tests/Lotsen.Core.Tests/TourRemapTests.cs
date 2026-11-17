@@ -7,7 +7,10 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Lotsen.Tests;
 
-/// <summary>Covers how <see cref="TourRemap"/> maps a tour's passages, code references and thread anchors onto a new iteration, with the git facts that a scope reads from fixture commits.</summary>
+/// <summary>
+/// Covers how <see cref="TourRemap"/> maps a tour's passages, code references and thread anchors onto a new iteration or a snapshot of a later commit, with the git facts that a scope reads from
+/// fixture commits.
+/// </summary>
 [Trait("Category", "Remap")]
 public sealed class TourRemapTests : IDisposable
 {
@@ -517,6 +520,54 @@ public sealed class TourRemapTests : IDisposable
       Assert.Empty(result.StaleStops);
    }
 
+   /// <summary>
+   /// The later commit inserts a line at the top of a.txt and changes its line 7, and leaves b.txt as it was. The inspect stop's primary passage touches no diff, because a snapshot has none, and
+   /// moves all the same.
+   /// </summary>
+   [Fact]
+   public async Task Remap_between_two_snapshot_commits_marks_exactly_the_stops_whose_passages_or_links_changed()
+   {
+      var first = _fixture.Commit("First", ("a.txt", Lines(1, 10)), ("b.txt", Lines(1, 4)));
+      var later = _fixture.Commit("Later", ("a.txt", "top\n" + Lines(1, 10, ("line 7", "seven"))));
+      var shifted = Passage(FileSide.Head, "a.txt", 2, 3, PassageRole.Primary, first, "line 2\nline 3");
+      var changed = Passage(FileSide.Head, "a.txt", 6, 8, PassageRole.Primary, first, "line 6\nline 7\nline 8");
+      var same = Passage(FileSide.Head, "b.txt", 1, 2, PassageRole.Primary, first, "line 1\nline 2");
+      var linked = new Stop.Written("s4", "Linked", StopKind.Overview, "c1", new StopContent("See [this](ref:head/a.txt#L7-7).", []), 1, []);
+      Stop[] stops = [ReadyStop("s0", StopKind.Overview), ReadyStop("s1", StopKind.Inspect, shifted), ReadyStop("s2", StopKind.Context, changed), ReadyStop("s3", StopKind.Context, same), linked];
+      var tour = RepositoryTourOf(Snapshot(first), stops);
+
+      var result = await MapAsync(tour, new PinChange.Snapshots(Snapshot(first), Snapshot(later, 1)));
+
+      Assert.Equal(["s2", "s4"], result.StaleStops.Select(stop => stop.StopId));
+      Assert.Equal(StaleReason.LinesChanged, StaleOf(Assert.Single(result.Stops[2].StalePassages).Outcome));
+      Assert.Equal(shifted with { StartLine = 3, EndLine = 4, Commit = later }, Moved(result.Stops[1].Passages[0]));
+      Assert.Equal(same with { Commit = later }, Moved(result.Stops[3].Passages[0]));
+      Assert.Equal(StaleReason.LinesChanged, StaleOf(Assert.Single(result.Stops[4].StaleReferences).Outcome));
+   }
+
+   /// <summary>The later commit inserts a line at the top of a.txt and changes its line 7, and deletes b.txt.</summary>
+   [Fact]
+   public async Task Remap_between_two_snapshot_commits_moves_or_outdates_each_code_and_file_anchor_as_between_two_iterations()
+   {
+      var first = _fixture.Commit("First", ("a.txt", Lines(1, 10)), ("b.txt", Lines(1, 4)));
+      var later = _fixture.Commit("Later", ("a.txt", "top\n" + Lines(1, 10, ("line 7", "seven"))), ("b.txt", null));
+      ThreadAnchor[] anchors =
+      [
+         new ThreadAnchor.CodeRange(FileSide.Head, "a.txt", 2, 3, first, "line 2\nline 3"),
+         new ThreadAnchor.CodeRange(FileSide.Head, "a.txt", 7, 7, first, "line 7"),
+         new ThreadAnchor.WholeFile(FileSide.Head, "a.txt", first),
+         new ThreadAnchor.WholeFile(FileSide.Head, "b.txt", first),
+      ];
+      var tour = RepositoryTourOf(Snapshot(first), [], [.. anchors.Select((anchor, i) => SentThread($"t{i}", anchor))]);
+
+      var result = await MapAsync(tour, new PinChange.Snapshots(Snapshot(first), Snapshot(later, 1)));
+
+      Assert.Equal(new ThreadAnchor.CodeRange(FileSide.Head, "a.txt", 3, 4, later, "line 2\nline 3"), MovedAnchor(result.Anchors[0]));
+      Assert.Equal(StaleReason.LinesChanged, StaleOf(result.Anchors[1].Outcome));
+      Assert.Equal(new ThreadAnchor.WholeFile(FileSide.Head, "a.txt", later), MovedAnchor(result.Anchors[2]));
+      Assert.Equal(StaleReason.FileGone, StaleOf(result.Anchors[3].Outcome));
+   }
+
    public void Dispose() => _fixture.Dispose();
 
    private static StopPassage Moved(PassageRemap passage) => Assert.IsType<Remapped<StopPassage>.Moved>(passage.Outcome).To;
@@ -545,6 +596,22 @@ public sealed class TourRemapTests : IDisposable
    private static Tour TourOf(TourPin.Pinned pin, IReadOnlyList<Stop> stops, IReadOnlyList<QuestionThread>? threads = null) =>
       new(TourId.New(), PullRequest, Familiarity.Some, Now, Now, pin, new Plan([new Chapter("c1", "Chapter")], stops, []), ThreadFixtures.Threads([.. threads ?? []]), []);
 
+   private TourPin.Snapshot Snapshot(CommitId head, int move = 0) => new(head, _fixture.Url, move);
+
+   private Tour RepositoryTourOf(TourPin.Snapshot pin, IReadOnlyList<Stop> stops, IReadOnlyList<QuestionThread>? threads = null) =>
+      new(
+         TourId.New(),
+         new RepositoryTarget(_fixture.Url),
+         Familiarity.Some,
+         Now,
+         Now,
+         pin,
+         new Plan([new Chapter("c1", "Chapter")], stops, []),
+         ThreadFixtures.Threads([.. threads ?? []]),
+         [],
+         Purpose: TourPurpose.Orient,
+         Title: "The shop");
+
    private CommitId Merge(string branch)
    {
       _fixture.Git(_fixture.OriginPath, "merge", "--quiet", "--no-edit", branch);
@@ -554,13 +621,15 @@ public sealed class TourRemapTests : IDisposable
    private string BlobOf(CommitId commit, string path) => _fixture.Git(_fixture.OriginPath, "rev-parse", $"{commit}:{path}").Trim();
 
    // Maps the tour through the fact reader of a scope over the fixture's clone, which SyncAsync brought up to date.
-   private async Task<RemapResult> MapAsync(Tour tour, TourPin.Pinned to)
+   private Task<RemapResult> MapAsync(Tour tour, TourPin.Pinned to) => MapAsync(tour, new PinChange.Iterations((TourPin.Pinned)tour.Pin, to));
+
+   private async Task<RemapResult> MapAsync(Tour tour, PinChange change)
    {
       var cache = _fixture.NewCache();
       using var repository = await SyncAsync(cache);
       var facts = new CloneGitFacts(cache, NullLogger<CloneGitFacts>.Instance, FactCacheSize.Default);
       await using var scope = facts.Open(_fixture.Remote(), [], FetchPolicy.WhenMissing);
-      return await FactRounds.SettleAsync(scope, known => TourRemap.Map(tour, (TourPin.Pinned)tour.Pin, to, known), TestContext.Current.CancellationToken);
+      return await FactRounds.SettleAsync(scope, known => TourRemap.Map(tour, change, known), TestContext.Current.CancellationToken);
    }
 
    private Task<GitRepository> SyncAsync(CloneCache? cache = null) =>

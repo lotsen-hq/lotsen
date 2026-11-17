@@ -22,7 +22,7 @@ internal enum WaitGroup
    /// <summary>The familiarity changes and the plan approval, because Claude writes stops at the level that each of them sets.</summary>
    Level,
 
-   /// <summary>The iteration updates, because Claude revises each stale stop against the pin that its update set.</summary>
+   /// <summary>The iteration updates and the moves, because Claude revises each stale stop against the pin that its update or move set.</summary>
    Iteration,
 
    /// <summary>The replans and the reorders, because each asks Claude to change the plan that the other changes.</summary>

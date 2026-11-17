@@ -100,6 +100,11 @@ internal static class ContractSamples
 
    private static readonly QuestionThread IterationThread = ThreadFixtures.Decided("t7", ThreadFixtures.Decision("""{"kind":"iterationUpdated","iteration":2,"stopIds":["s4"]}"""));
 
+   // A repository tour's snapshot after its first move, and the decided thread that reports that move.
+   private static readonly TourPin.Snapshot MovedPin = new(NextPin.Head, new Uri("https://github.com/contoso/shop.git"), 1);
+
+   private static readonly QuestionThread MoveThread = ThreadFixtures.Decided("t9", ThreadFixtures.Decision($$"""{"kind":"tourMoved","move":1,"commit":"{{NextPin.Head}}","stopIds":["s2"]}"""));
+
    private static readonly QuestionThread OutdatedThread = ThreadFixtures.Started("t8", new ThreadAnchor.WholeTour(), "Is the plan **complete**?", state: QuestionThreadState.Outdated);
 
    private static readonly TourBinding Binding = new("session1", AttachmentLevel.Confirmed);
@@ -212,6 +217,8 @@ internal static class ContractSamples
          new ApprovedPlan(Id, Later, PlanApproval.Given, Familiarity.Some, ["s6"], ApprovalThread),
          new CheckedIteration(Id, Later, Tour.AvailableIteration, "The platform could not be reached. Check again."),
          new UpdatedIteration(Id, Later, NextPin, ["s4"], IterationThread),
+         new CheckedMove(Id, MoveAvailability.Available, Head, NextPin.Head, [new MoveDive(DiveId, Id, "The parser", TourState.Ready, new TourPin.Snapshot(Head, MovedPin.RemoteUrl))]),
+         new MovedSubtree(Id, Later, MovedPin, ["s2"], MoveThread, [new MovedTour(DiveId, Later, MovedPin, [])]),
          new PreferenceList(new Dictionary<string, string> { ["lotsen.theme"] = "dark", [Preference.Key] = Preference.Value! }),
          Preference,
       ];

@@ -6,7 +6,7 @@ using static Lotsen.Tests.IterationRows;
 
 namespace Lotsen.Tests;
 
-/// <summary>Covers how <see cref="TourRemap.Map"/> decides each item's place on a new pin from hand-built git facts, and which facts it asks for when the set lacks them.</summary>
+/// <summary>Covers how <see cref="TourRemap.Map(Tour, PinChange, FactSet)"/> decides each item's place on a new pin from hand-built git facts, and which facts it asks for when the set lacks them.</summary>
 [Trait("Category", "Remap")]
 public sealed class RemapCoreTests
 {

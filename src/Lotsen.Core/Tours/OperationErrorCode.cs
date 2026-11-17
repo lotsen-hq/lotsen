@@ -165,6 +165,14 @@ internal sealed class OperationErrorCode
    /// <summary>The tour is a repository tour, and the operation acts only on a pull request's tour, as an iteration check or an iteration update does.</summary>
    public static readonly OperationErrorCode NotPullRequestTour = new("notPullRequestTour", new RefusalKind.Conflict());
 
+   /// <summary>
+   /// The tour has no move to the latest commit of its ref: it tours a pull request, shows a tag or a commit ID, is at that commit already, or the ref moved to another commit since the check.
+   /// </summary>
+   public static readonly OperationErrorCode MoveNotAvailable = new("moveNotAvailable", new RefusalKind.Conflict());
+
+   /// <summary>A tour could not be written to its file, as on a full disk, so its change was not stored. Tours that the same operation stored before it stay stored, as the reason names them.</summary>
+   public static readonly OperationErrorCode TourNotStored = new("tourNotStored", new RefusalKind.Broken());
+
    /// <summary>Every code, in declaration order.</summary>
    public static IReadOnlyList<OperationErrorCode> All { get; }
 

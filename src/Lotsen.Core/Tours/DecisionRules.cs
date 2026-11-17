@@ -13,7 +13,7 @@ internal static class DecisionRules
    /// A re-send stores nothing, so it fits only while the tour still holds what the decision reports. A familiarity change never goes again, because the reviewer asks again with
    /// <c>change_familiarity</c> at the same level, which picks the stops to rewrite from the stop under view then. A plan approval goes again until Claude writes a stop, because a re-send after
    /// that could undo a later change of the plan, and only while the tour holds the approval's level, skips and stops. An iteration update goes again while the tour stays on its iteration and one
-   /// of its stops still has its stale marker, because Claude revises each stale stop against that pin.
+   /// of its stops still has its stale marker, because Claude revises each stale stop against that pin, and a move goes again in the same way while the tour stays at its move.
    /// </remarks>
    public static OperationError? CheckResend(Tour tour, QuestionThread.Sent.Decided thread) => thread.Decision switch
    {
@@ -22,6 +22,7 @@ internal static class DecisionRules
          "a familiarity change does not go again. To ask Claude again, open Re-plan… in the Plan panel's ⋯ menu, or Change familiarity… while the tour has no plan, and send it at this level. Claude then rewrites the stops after the one you view."),
       ReviewerDecision.PlanApproved approval => CheckApprovalAgain(tour, approval),
       ReviewerDecision.IterationUpdated update => CheckUpdateAgain(tour, update),
+      ReviewerDecision.TourMoved move => CheckMoveAgain(tour, move),
    };
 
    /// <summary>Returns why Claude cannot redo the familiarity change for a follow-up in its thread, with what the reviewer can do instead, or null while the tour holds the change's new level.</summary>
@@ -44,6 +45,12 @@ internal static class DecisionRules
       ? null
       : $"The tour moved to another update since this move to update {update.Iteration}, so its stops point at other code now. To have Claude revise stops against the update the tour is on, use Move to update when a newer update is offered, or ask for a revise in a stop's Stop panel.";
 
+   /// <summary>Returns why Claude cannot redo the move for a follow-up in its thread, with what the reviewer can do instead, or null while the tour stays at the move's snapshot.</summary>
+   /// <remarks>Claude revises the stale stops for the move, so a stop without its stale marker does not make a redo unfit.</remarks>
+   public static string? CheckRedo(Tour tour, ReviewerDecision.TourMoved move) => IsAt(tour, move)
+      ? null
+      : "The tour moved to a later commit since this move, so its stops point at other code now. To have Claude revise stops against the commit the tour is at, follow up in the thread of the latest move, or ask for a revise in a stop's Stop panel.";
+
    /// <summary>Returns the group of which at most one thread waits at a time. Every decision waits alone.</summary>
    /// <remarks>
    /// A familiarity change and a plan approval share a group, because each has Claude write stops at the tour's level. A thread's last question decides whether it waits, so a follow-up in it
@@ -54,6 +61,7 @@ internal static class DecisionRules
       ReviewerDecision.FamiliarityChanged => WaitGroup.Level,
       ReviewerDecision.PlanApproved => WaitGroup.Level,
       ReviewerDecision.IterationUpdated => WaitGroup.Iteration,
+      ReviewerDecision.TourMoved => WaitGroup.Iteration,
    };
 
    /// <summary>Returns what the decision asks of Claude and how to carry it out, as <c>fetch_question</c> serves it for each question of the thread.</summary>
@@ -63,6 +71,7 @@ internal static class DecisionRules
       ReviewerDecision.FamiliarityChanged => $"The decision \"familiarityChanged\" says that the reviewer changed the tour's familiarity level: rewrite the stops that the reviewer has not read yet at the new level. Its from and to name the earlier and the new level, and its stopIds name the stops to rewrite: those after the stop the reviewer views, or every stop, that have content and no skip. The reviewer can decide again at the tour's current level after you declined the last change or the last follow-up in its thread, or after it was canceled or unanswered. That decision keeps the earlier from, and its stopIds start after the stop the reviewer views now. Act on it the same way. The reviewer's words, when there are any, say what else to change. Act on familiarityChanged in this order. Read the new level with read_state, and write at it. {ActionRules.DepthRule} A context stop is background that the reviewer needs before the changed code: few or no context stops at familiar, only for code that the change depends on but does not show at some, and before the changed code, on the surrounding code, its conventions and its vocabulary, at new. Where the new level asks for more or fewer context stops, add or drop them with set_plan on the whole plan, its parts and file marks included, give every other stop the id it has, and keep each skipped stop. Then revise with put_stop each stop of stopIds that the plan still has, so each gets a new version, and reply. Apply the reviewer's words too, with set_plan on the whole plan, its parts and file marks included, where they differ from the plan, and say in the reply where you did not follow them and why. Write the stops that have no content yet at the new level after the reply. Leave the stops before the one the reviewer views as they are: the reviewer has read them, and can ask for a revision of one. {ActionRules.RedoRule} {ResolveRule}",
       ReviewerDecision.PlanApproved => $"The decision \"planApproved\" says that the reviewer approved the plan of a plan-first tour: write its stops. Its stopIds hold the reviewer's proposed order of the plan's stops, its skippedStops the stops that the reviewer had skipped when they approved, and its familiarity the tour's level then. The reviewer's words, when there are any, say what to change or keep in mind. Act on planApproved in this order. Where the reviewer's order or words differ from the plan, apply them with set_plan on the whole plan, its parts and file marks included: give every stop the id it has, and keep each skipped stop. Then write the stops with put_stop at the tour's familiarity level as read_state shows it now, in plan order, and reply once they are written. {ActionRules.DepthRule} {ActionRules.ProposedOrderRule} Say in the reply where your plan differs from the reviewer's order or words and why. read_state marks each stop that the reviewer skipped with skipped true: a skip is the reviewer's reading state, and no event tells you of it. {ActionRules.RedoRule} {ResolveRule}",
       ReviewerDecision.IterationUpdated => $"The decision \"iterationUpdated\" says that the reviewer updated the tour to a new iteration of the pull request, which its iteration names: revise the stops that the update made stale. Its stopIds name the stale stops: those with a passage or link that lotsen could not move. In read_state, each of them has staleOn, and all of its content, every passage and link included, still points at the iteration before the one its staleOn names. Act on iterationUpdated with put_stop on each stop of stopIds against the tour's new pin. Read the pin with read_state, and read the code again at its commits, the head side at pin.head and the base side at pin.mergeBase, because the code that the stop points at changed or moved. Revise each stale stop so that its passages and links point at the new pin, which clears its staleOn, and reply once each is written. A file can move to a path that put_stop refuses, such as one with a backslash, so point such a passage at the file's base side, or leave it out. Leave the other stops as they are: their passages and links moved with the update. {ActionRules.DepthRule} {ActionRules.RedoRule} {ResolveRule}",
+      ReviewerDecision.TourMoved => $"The decision \"tourMoved\" says that the reviewer moved the tour to the latest commit of its ref, which its commit names: revise the stops that the move made stale. Its move numbers the move, and its stopIds name the stale stops: those with a passage or link that lotsen could not move. In read_state, each of them has staleOn, the number of the move that made it stale, and all of its content, every passage and link included, still points at the commit before that move. Act on tourMoved with put_stop on each stop of stopIds against the tour's new pin. Read pin.head with read_state, and read the code again at that commit, in a checkout of it that holds no other changes, because the code that the stop points at changed or moved. Revise each stale stop so that its passages and links point at pin.head, which clears its staleOn, and reply once each is written. A file can move to a path that put_stop refuses, such as one with a backslash, so leave such a passage out. Leave the other stops as they are: their passages and links moved with the move. {ActionRules.DepthRule} {ActionRules.RedoRule} {ResolveRule}",
    };
 
    /// <summary>Returns why the tour's plan takes no approval now, from the tour's state alone, or null when the plan waits for one.</summary>
@@ -93,6 +102,24 @@ internal static class DecisionRules
       }
 
       return TourThreads.CheckWaits(tour, WaitGroup.Iteration, null, "tourId");
+   }
+
+   // Whether the tour is still at the move's snapshot. A later move raises the snapshot's move, so a move back to an earlier commit counts as another move.
+   private static bool IsAt(Tour tour, ReviewerDecision.TourMoved move) => tour.Pin is TourPin.Snapshot { Move: var current } && current == move.Move;
+
+   private static OperationError? CheckMoveAgain(Tour tour, ReviewerDecision.TourMoved move)
+   {
+      if (!IsAt(tour, move))
+      {
+         return OperationError.Invalid(
+            DecisionField.Then("move"), $"the move to commit {move.Commit} does not go again, because the tour moved again since. Follow up in the thread of the latest move instead.");
+      }
+
+      return move.StopIds.Any(id => tour.FindStop(id) is Stop.Written { StaleOn: not null })
+         ? null
+         : OperationError.Invalid(
+            DecisionField.Then("stopIds"),
+            "the move does not go again, because its stops are no longer stale: Claude revised each of them, or the plan dropped them. Follow up in the move's thread instead.");
    }
 
    private static OperationError? CheckApprovalAgain(Tour tour, ReviewerDecision.PlanApproved approval)

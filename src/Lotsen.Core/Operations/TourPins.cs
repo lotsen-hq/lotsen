@@ -420,7 +420,7 @@ internal sealed class TourPins
 
    /// <summary>Returns the fields of a dive from the parent that the input names, or the refusal that names the input's field.</summary>
    /// <remarks>
-   /// The dive takes the parent's target, and the parent's snapshot as its pin, so the two show the same commit, and no ref is resolved again. The parent's pin already synced the commit into the
+   /// The dive takes the parent's target, and the parent's snapshot as its pin with the move at 0, as a first pin has it, so the two show the same commit, and no ref is resolved again. The parent's pin already synced the commit into the
    /// clone cache, and every read of the dive fetches it again when a prune removed it. The dive's root is the parent's root, or the parent when the parent is no dive.
    /// </remarks>
    /// <param name="read">The parent as the writer read it under the lock.</param>
@@ -456,7 +456,7 @@ internal sealed class TourPins
             $"tour {parent.Id} has no stop '{stopId}' in its plan. Give the stopId of the dive action's anchor, or omit it for a dive from the whole tour.");
       }
 
-      return new NewTour(parent.Target, dive.Purpose, dive.Title, dive.Words, new DiveOrigin(parent.Id, parent.DiveOrigin?.RootId ?? parent.Id, dive.StopId), snapshot);
+      return new NewTour(parent.Target, dive.Purpose, dive.Title, dive.Words, new DiveOrigin(parent.Id, parent.DiveOrigin?.RootId ?? parent.Id, dive.StopId), snapshot with { Move = 0 });
    }
 
    // Returns the new tour's target, with the fields of a repository tour, or the refusal of the input's first fault.

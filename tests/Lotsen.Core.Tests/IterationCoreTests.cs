@@ -149,8 +149,9 @@ public sealed class IterationCoreTests
       Assert.Equal(NewPin, repin.Tour.Pin);
       Assert.Null(repin.Tour.AvailableIteration);
       Assert.Equal(["s1"], repin.StaleStops);
-      Assert.Equal(2, repin.Decision!.Iteration);
-      Assert.Equal(["s1"], repin.Decision.StopIds);
+      var decision = Assert.IsType<ReviewerDecision.IterationUpdated>(repin.Decision);
+      Assert.Equal(2, decision.Iteration);
+      Assert.Equal(["s1"], decision.StopIds);
    }
 
    [Fact]

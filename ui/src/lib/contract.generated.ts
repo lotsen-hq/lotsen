@@ -25,7 +25,7 @@ export type TourAction = ExplainAction | ReviseAction | ReplanAction | ReorderAc
 export type ReviewerThreadState = 'open' | 'resolved';
 export type RequestState = 'pending' | 'done' | 'needsAnswer' | 'declined' | 'unanswered' | 'canceled';
 export type ThreadMessage = ThreadQuestion | ThreadReply | ThreadAgentMessage;
-export type ReviewerDecision = FamiliarityChanged | PlanApproved | IterationUpdated;
+export type ReviewerDecision = FamiliarityChanged | PlanApproved | IterationUpdated | TourMoved;
 export type Offer = OpenOffer | ClosedOffer;
 export type OperationErrorCode =
    | 'invalidInput'
@@ -61,11 +61,14 @@ export type OperationErrorCode =
    | 'buildMismatch'
    | 'serverExiting'
    | 'sessionUnknown'
-   | 'notPullRequestTour';
+   | 'notPullRequestTour'
+   | 'moveNotAvailable'
+   | 'tourNotStored';
 export type ActionRequest = ExplainRequest | ReviseRequest | ReplanRequest | ReorderRequest | SummarizeRequest | DiveRequest | DraftWorkItemsRequest | WalkOpenQuestionsRequest | DraftCommentsRequest;
 export type StopTarget = WholeStopTarget | StopTextTarget;
 export type AnchorInput = CodeRangeInput | StopTextInput | WholeFileInput | WholeStopInput | WholeTourInput;
 export type FileChangeKind = 'added' | 'modified' | 'deleted' | 'renamed';
+export type MoveAvailability = 'available' | 'atLatest' | 'tag' | 'commit';
 export type LargeFileContent = 'withhold' | 'include';
 export type DiffWhitespace = 'compare' | 'ignore';
 export type RepositoryEntryType = 'file' | 'directory' | 'symlink' | 'submodule';
@@ -132,6 +135,8 @@ export type OperationName =
    | 'approve_plan'
    | 'check_iteration'
    | 'update_iteration'
+   | 'check_move'
+   | 'move_tour'
    | 'read_preferences'
    | 'write_preference';
 export type SynthesisPin = PinnedCommits | SnapshotCommit;
@@ -314,6 +319,7 @@ export interface Snapshot {
    state: 'snapshot';
    head: string;
    remoteUrl: string;
+   move?: number;
 }
 export interface Failed {
    state: 'failed';
@@ -652,6 +658,12 @@ export interface PlanApproved {
 export interface IterationUpdated {
    kind: 'iterationUpdated';
    iteration: number;
+   stopIds: string[];
+}
+export interface TourMoved {
+   kind: 'tourMoved';
+   move: number;
+   commit: string;
    stopIds: string[];
 }
 export interface StartedThread {
@@ -1124,11 +1136,31 @@ export interface CheckIterationInput {
     */
    tourId: string;
 }
+export interface CheckMoveInput {
+   /**
+    * The tour's ID, as create_tour or list_tours returned it, or as the user gave it.
+    */
+   tourId: string;
+}
 export interface CheckedIteration {
    tourId: string;
    updatedAt: string;
    availableIteration: AvailableIteration | null;
    failure?: string;
+}
+export interface CheckedMove {
+   tourId: string;
+   move: MoveAvailability;
+   current: string;
+   latest: string;
+   dives?: MoveDive[];
+}
+export interface MoveDive {
+   tourId: string;
+   parentId: string;
+   title: string;
+   state: TourState;
+   pin: TourPin;
 }
 export interface ClearAnswerInput {
    /**
@@ -1297,6 +1329,35 @@ export interface MarkFileReviewedInput {
     */
    headObjectId: string | null;
 }
+export interface MoveTourInput {
+   /**
+    * The tour's ID, as create_tour or list_tours returned it, or as the user gave it.
+    */
+   tourId: string;
+   /**
+    * The latest commit of the tour's ref, as check_move returned it. The move is refused when the ref names another commit now.
+    */
+   commit: string;
+   /**
+    * The tourIds of the dives that move with the tour, from check_move's dives, or an empty list for none. A dive moves only with the tour that it dives from.
+    */
+   diveIds: string[];
+}
+export interface MovedSubtree {
+   tourId: string;
+   updatedAt: string;
+   pin: TourPin;
+   staleStops: string[];
+   thread?: QuestionThread;
+   dives?: MovedTour[];
+}
+export interface MovedTour {
+   tourId: string;
+   updatedAt: string;
+   pin: TourPin;
+   staleStops: string[];
+   thread?: QuestionThread;
+}
 export interface NoInput {}
 export interface OperationError {
    code: OperationErrorCode;
@@ -1451,6 +1512,14 @@ export interface Operations {
       input: UpdateIterationInput;
       output: UpdatedIteration;
    };
+   check_move: {
+      input: CheckMoveInput;
+      output: CheckedMove;
+   };
+   move_tour: {
+      input: MoveTourInput;
+      output: MovedSubtree;
+   };
    read_preferences: {
       input: NoInput;
       output: PreferenceList;
@@ -1499,6 +1568,7 @@ export interface TourSynthesis {
 export interface SnapshotCommit {
    head: string;
    remoteUrl: string;
+   move?: number;
 }
 export interface ReadingProgress {
    finished: boolean;

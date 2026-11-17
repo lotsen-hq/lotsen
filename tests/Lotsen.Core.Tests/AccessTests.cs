@@ -82,6 +82,8 @@ public sealed class AccessTests : IClassFixture<AccessTests.Server>
             ("approve_plan", "ReviewerToSession", "Ui"),
             ("check_iteration", "Reviewer", "Ui"),
             ("update_iteration", "ReviewerToSession", "Ui"),
+            ("check_move", "Reviewer", "Ui"),
+            ("move_tour", "Reviewer", "Ui"),
             ("read_preferences", "Open", "Ui"),
             ("write_preference", "Reviewer", "Ui"),
             ("open_ui", "Open", "Agent, Cli"),

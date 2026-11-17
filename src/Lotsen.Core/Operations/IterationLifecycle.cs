@@ -137,9 +137,7 @@ internal sealed class IterationLifecycle
 
                   break;
                case RepositoryTarget repository:
-                  var resolved = repository.Platform is null
-                     ? await _platformFree.ResolveAsync(repository.Url, repository.Ref, cancellationToken)
-                     : await _platforms.RepositoryOf(repository).ResolveRepositoryAsync(repository.Url, repository.Ref, cancellationToken);
+                  var resolved = await _platforms.ResolveAsync(repository, _platformFree, cancellationToken);
                   scope = _facts.Open(TourRemote.OfRepository(resolved, _platforms.CredentialOf(repository)), [resolved.Commit], FetchPolicy.Sync);
 
                   // Every later read of the tour opens this remote's clone, so the pin syncs the clone with the commit.

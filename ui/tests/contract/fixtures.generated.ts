@@ -2770,6 +2770,96 @@ export const outputFixtures = {
          }
       }
    },
+   "check_move": {
+      "tourId": "abcdefghijklmnop",
+      "move": "available",
+      "current": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "latest": "cccccccccccccccccccccccccccccccccccccccc",
+      "dives": [
+         {
+            "tourId": "qrstuvwxyzabcdef",
+            "parentId": "abcdefghijklmnop",
+            "title": "The parser",
+            "state": "ready",
+            "pin": {
+               "state": "snapshot",
+               "head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+               "remoteUrl": "https://github.com/contoso/shop.git"
+            }
+         }
+      ]
+   },
+   "move_tour": {
+      "tourId": "abcdefghijklmnop",
+      "updatedAt": "2026-10-30T09:05:00+00:00",
+      "pin": {
+         "state": "snapshot",
+         "head": "cccccccccccccccccccccccccccccccccccccccc",
+         "remoteUrl": "https://github.com/contoso/shop.git",
+         "move": 1
+      },
+      "staleStops": [
+         "s2"
+      ],
+      "thread": {
+         "kind": "decided",
+         "decision": {
+            "kind": "tourMoved",
+            "move": 1,
+            "commit": "cccccccccccccccccccccccccccccccccccccccc",
+            "stopIds": [
+               "s2"
+            ]
+         },
+         "messages": [
+            {
+               "kind": "question",
+               "text": "",
+               "requests": [
+                  {
+                     "id": "r-t9",
+                     "state": "pending",
+                     "sessionId": "session1",
+                     "sentAt": "2026-10-30T09:00:00+00:00"
+                  }
+               ],
+               "id": "q-t9",
+               "createdAt": "2026-10-30T09:00:00+00:00"
+            }
+         ],
+         "id": "t9",
+         "anchor": {
+            "kind": "tour"
+         },
+         "state": "open",
+         "status": {
+            "waiting": {
+               "questionId": "q-t9",
+               "requestId": "r-t9",
+               "sessionId": "session1"
+            },
+            "questions": [
+               {
+                  "questionId": "q-t9",
+                  "outcome": "waiting"
+               }
+            ]
+         }
+      },
+      "dives": [
+         {
+            "tourId": "qrstuvwxyzabcdef",
+            "updatedAt": "2026-10-30T09:05:00+00:00",
+            "pin": {
+               "state": "snapshot",
+               "head": "cccccccccccccccccccccccccccccccccccccccc",
+               "remoteUrl": "https://github.com/contoso/shop.git",
+               "move": 1
+            },
+            "staleStops": []
+         }
+      ]
+   },
    "read_preferences": {
       "preferences": {
          "lotsen.theme": "dark",

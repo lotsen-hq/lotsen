@@ -314,6 +314,8 @@ describe('the output fixtures', () => {
       approve_plan: (api) => api.approvePlan(tourId, { stopIds: ['s1'], skippedStops: [], familiarity: 'some' }),
       check_iteration: (api) => api.checkIteration(tourId),
       update_iteration: (api) => api.updateIteration(tourId, { mergeBase: 'a'.repeat(40), head: 'b'.repeat(40), iteration: 2, remoteUrl: 'https://example.test/repo.git' }),
+      check_move: (api) => api.checkMove(tourId),
+      move_tour: (api) => api.moveTour(tourId, 'c'.repeat(40), ['qrstuvwxyzabcdef']),
       read_preferences: (api) => api.readPreferences(),
       write_preference: (api) => api.writePreference('lotsen.diffLayout', 'inline'),
    } satisfies { [N in OperationName]: (api: Api) => Promise<unknown> };
@@ -344,6 +346,7 @@ describe('the output fixtures', () => {
       'change_familiarity',
       'approve_plan',
       'update_iteration',
+      'move_tour',
    ]);
 
    it.each(Object.keys(calls) as OperationName[])('%s reaches its caller as the server wrote it', async (name) => {

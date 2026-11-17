@@ -408,6 +408,14 @@ actions in the UI. Each reaches you as a question, and `lotsen:tour-rules` and t
 - A `dive` action asks for a new tour, as section 10 says. `read_state` lists a tour's `dives`, each with its
   `tourId`, `title`, `purpose`, `state` and the `stopId` that it started from.
 
+### After a move
+
+The reviewer can move a tour, and the dives they tick, to the latest commit of its ref with Move… in the top bar. Each
+moved tour with stale stops sends you a `tourMoved` decision with its own `tourId`. Revise its stale stops as its
+`howToAct` says, and resolve it as "Reviewer decisions" in `lotsen:tour-rules` says. Read the code at the tour's new
+`pin.head` first: move the worktree or the clone that you read the tour from to that commit, as section 4 says, or
+ask the user before you touch their checkout. A dive that stayed keeps its own `pin.head`.
+
 ## 10. Write a dive
 
 A dive is a repository tour that starts from another tour, its parent, or from one of the parent's stops, to go

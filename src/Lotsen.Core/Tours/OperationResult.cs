@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Lotsen.Git;
 using Lotsen.Json;
+using Lotsen.Platforms;
 
 namespace Lotsen.Tours;
 
@@ -141,6 +143,63 @@ internal sealed record OperationError(
    /// <param name="what">What a repository tour has none of, such as <c>pull request to check for a new update</c>.</param>
    public static OperationError NotPullRequestTour(Tour tour, string what) => new(OperationErrorCode.NotPullRequestTour, $"tour {tour.Id} is a repository tour, so it has no {what}.", "tourId");
 
+   /// <summary>Returns the refusal of a move of a pull request's tour, which moves to a new update of its pull request instead.</summary>
+   public static OperationError NoMoveForPullRequest(Tour tour) => new(
+      OperationErrorCode.MoveNotAvailable,
+      $"tour {tour.Id} tours a pull request, so it has no ref to move along. Move it to a new update of the pull request from the notice in the top bar.",
+      "tourId");
+
+   /// <summary>Returns the refusal of a move of a repository tour that is not pinned to a snapshot, while it pins or after its pin failed.</summary>
+   public static OperationError NoSnapshotToMove(Tour tour) => tour.Pin is TourPin.Failed failed
+      ? new(OperationErrorCode.TourNotPinned, $"tour {tour.Id} has no commit to move from, because its pin failed. Pin the tour again first. {failed.Reason}", "tourId", tour.Pin)
+      : new(OperationErrorCode.TourNotPinned, $"tour {tour.Id} is still pinning, so it has no commit to move from yet. Check for a move once the tour is pinned.", "tourId", tour.Pin);
+
+   /// <summary>Returns the refusal of a move of a tour whose ref is a tag or a commit ID, which names one commit for good.</summary>
+   /// <param name="kind">What the ref is: a tag or a commit ID.</param>
+   /// <param name="ref">The ref, as the platform or git resolved it.</param>
+   public static OperationError NoMoveOfRef(RepositoryRefKind kind, string @ref) => new(
+      OperationErrorCode.MoveNotAvailable,
+      $"the tour shows the {(kind == RepositoryRefKind.Tag ? "tag" : "commit")} {@ref}, which names one commit for good, so the tour has no move.",
+      "tourId");
+
+   /// <summary>Returns the refusal of a move whose tour, and each dive that it ticks, is at the latest commit of the ref already.</summary>
+   /// <param name="commit">The latest commit.</param>
+   /// <param name="behind">The dives below the tour at another commit, which the move did not tick, or none.</param>
+   public static OperationError NothingToMove(CommitId commit, IReadOnlyList<TourId> behind) => new(
+      OperationErrorCode.MoveNotAvailable,
+      $"the tour and each dive that diveIds names are at commit {commit}, the latest commit of its ref, so nothing moves. "
+         + (behind.Count == 0 ? "Check for a move again once the ref moves on." : $"Tick the dives that are at another commit to move them: {string.Join(", ", behind)}."),
+      "tourId");
+
+   /// <summary>Returns the failure of a move whose store of a tour failed on the disk or was refused, after the move stored the tours before it.</summary>
+   /// <param name="moved">The tours that the move stored, each dive after its parent, or none.</param>
+   /// <param name="notMoved">The tours that the move did not store, the failed one first.</param>
+   /// <param name="commit">The commit that the stored tours moved to.</param>
+   /// <param name="reason">Why the store failed.</param>
+   /// <param name="onDisk">Whether the disk failed, which the fix names, or false for a store that a refusal stopped.</param>
+   public static OperationError MoveStoredInPart(IReadOnlyList<TourId> moved, IReadOnlyList<TourId> notMoved, CommitId commit, string reason, bool onDisk) => new(
+      OperationErrorCode.TourNotStored,
+      $"lotsen could not store the move of tour {notMoved[0]}: {reason} "
+         + (moved.Count == 0 ? "No tour moved." : $"{Tours(moved)} moved to commit {commit}.")
+         + $" {Tours(notMoved)} {(notMoved.Count == 1 ? "stays" : "stay")} at {(notMoved.Count == 1 ? "its commit" : "their commits")}. {(onDisk ? "Check that lotsen can write its data directory, then check for a move again." : "Check for a move again.")}",
+      "tourId");
+
+   // Names the tours as a sentence's subject, such as "Tour a" or "Tours a, b".
+   private static string Tours(IReadOnlyList<TourId> tours) => $"{(tours.Count == 1 ? "Tour" : "Tours")} {string.Join(", ", tours)}";
+
+   /// <summary>Returns the refusal of a move whose ref names another commit than the check showed, because the ref moved since.</summary>
+   /// <param name="shown">The commit that the check showed, which the move names.</param>
+   /// <param name="latest">The commit that the ref names now.</param>
+   public static OperationError RefMovedSinceCheck(CommitId shown, CommitId latest) => new(
+      OperationErrorCode.MoveNotAvailable,
+      $"the ref moved on to commit {latest} since the check showed commit {shown}, so the move stored nothing. Check for a move again, then move.",
+      "commit");
+
+   public static OperationError TourChangedDuringMove() => new(
+      OperationErrorCode.TourChanged,
+      "the tour or one of its dives changed during every attempt to move it to the latest commit, as when Claude wrote stops, so the move stored nothing. Move again.",
+      "tourId");
+
    public static OperationError FileNotFound(string problem, FieldPath? field = null) => new(OperationErrorCode.FileNotFound, problem, field ?? "path");
 
    public static OperationError RepositoryUnavailable(TourId tourId, string reason) => new(OperationErrorCode.RepositoryUnavailable, $"The repository of tour {tourId} could not be read. {reason}");
@@ -215,6 +274,7 @@ internal sealed record OperationError(
             ReviewerDecision.FamiliarityChanged => "writes stops at the familiarity level that you picked",
             ReviewerDecision.PlanApproved => "writes the stops of the plan that you approved",
             ReviewerDecision.IterationUpdated => "revises the stops that the last update made stale",
+            ReviewerDecision.TourMoved => "revises the stops that the last move made stale",
          },
          QuestionThread.Sent.Asked or QuestionThread.Sent.Started => null,
       } ?? throw new ArgumentException($"Thread {waiting.Id} is outside every wait group, so it holds back no thread.", nameof(waiting));

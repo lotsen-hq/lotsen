@@ -276,6 +276,7 @@ internal sealed partial class TourThreads
          ReviewerDecision.FamiliarityChanged change => DecisionRules.CheckRedo(tour, change),
          ReviewerDecision.PlanApproved approval => DecisionRules.CheckRedo(tour, approval),
          ReviewerDecision.IterationUpdated update => DecisionRules.CheckRedo(tour, update),
+         ReviewerDecision.TourMoved move => DecisionRules.CheckRedo(tour, move),
       },
       QuestionThread.Sent.Started => null,
    };

@@ -94,6 +94,10 @@ public sealed partial class HowToActTests : IAsyncLifetime
          """{ "kind": "iterationUpdated", "iteration": 2, "stopIds": [] }""",
          "put_stop",
          [StaleMarker, "Act on iterationUpdated with put_stop on each stop of stopIds against the tour's new pin", "still points at the iteration before the one", "read the code again at its commits", "point such a passage at the file's base side, or leave it out", "Leave the other stops as they are", "A declined reply leaves the decision made"]),
+      [ReviewerDecision.TourMovedKind] = (
+         $$"""{ "kind": "tourMoved", "move": 1, "commit": "{{new string('c', 40)}}", "stopIds": [] }""",
+         "put_stop",
+         [StaleMarker, "Act on tourMoved with put_stop on each stop of stopIds against the tour's new pin", "still points at the commit before that move", "read the code again at that commit", "so leave such a passage out", "Leave the other stops as they are", "A declined reply leaves the decision made"]),
    };
 
    private ServerHarness _harness = null!;
@@ -218,6 +222,7 @@ public sealed partial class HowToActTests : IAsyncLifetime
    [InlineData(ReviewerDecision.FamiliarityChangedKind)]
    [InlineData(ReviewerDecision.PlanApprovedKind)]
    [InlineData(ReviewerDecision.IterationUpdatedKind)]
+   [InlineData(ReviewerDecision.TourMovedKind)]
    public async Task Rule_of_a_kind_that_writes_stops_says_what_each_familiarity_level_asks(string kind)
    {
       var howToAct = await RuleAsync(kind);
@@ -278,6 +283,7 @@ public sealed partial class HowToActTests : IAsyncLifetime
    [InlineData(ReviewerDecision.FamiliarityChangedKind, true)]
    [InlineData(ReviewerDecision.PlanApprovedKind, true)]
    [InlineData(ReviewerDecision.IterationUpdatedKind, true)]
+   [InlineData(ReviewerDecision.TourMovedKind, true)]
    public async Task Rule_names_redo_and_how_to_decline_a_redo_that_no_longer_fits_only_for_a_checked_kind(string kind, bool checks)
    {
       var howToAct = await RuleAsync(kind);
@@ -371,6 +377,16 @@ public sealed partial class HowToActTests : IAsyncLifetime
       var fetched = await FetchAsync(ThreadFixtures.Parse(thread), FollowUpId);
 
       Assert.Equal(await RuleAsync(ReviewerDecision.IterationUpdatedKind), HowToActOf(fetched));
+   }
+
+   /// <summary>A move is only for a repository tour, which has no pull request, no iteration and no base side.</summary>
+   [Fact]
+   public async Task Move_rule_speaks_of_the_commit_and_never_of_a_pull_request()
+   {
+      var howToAct = await RuleAsync(ReviewerDecision.TourMovedKind, purpose: "orient");
+
+      Assert.All(["pull request", "iteration", "mergeBase", "base side"], word => Assert.DoesNotContain(word, howToAct, StringComparison.OrdinalIgnoreCase));
+      Assert.Contains("Read pin.head with read_state", howToAct, StringComparison.Ordinal);
    }
 
    // The headings of the tour skill and its rules skill, without a section's number.

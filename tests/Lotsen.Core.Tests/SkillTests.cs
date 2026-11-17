@@ -199,6 +199,19 @@ public sealed partial class SkillTests
       Assert.DoesNotMatch("[Dd]ecline a `summarize`", keep);
    }
 
+   /// <summary>The decision's kind comes from the JSON contract, so a renamed kind must reach the skill.</summary>
+   [Fact]
+   [Trait("Category", "TourActions")]
+   public void Codebase_skill_tells_Claude_to_revise_after_a_move_by_howToAct_at_the_new_commit_and_points_at_the_shared_rules()
+   {
+      var move = Normalized(Section(Codebase, 9));
+
+      Assert.Contains($"a `{ReviewerDecision.TourMovedKind}` decision with its own `tourId`", move, StringComparison.Ordinal);
+      Assert.Contains("Revise its stale stops as its `howToAct` says, and resolve it as \"Reviewer decisions\" in `lotsen:tour-rules` says", move, StringComparison.Ordinal);
+      Assert.Contains("Read the code at the tour's new `pin.head` first", move, StringComparison.Ordinal);
+      Assert.Contains("### Reviewer decisions", Rules, StringComparison.Ordinal);
+   }
+
    /// <summary>The names come from the type of <c>create_tour</c>'s <c>diveOrigin</c>, so a field that a dive adds must reach the dive's section.</summary>
    [Fact]
    [Trait("Category", "TourActions")]

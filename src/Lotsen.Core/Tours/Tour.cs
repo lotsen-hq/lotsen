@@ -232,7 +232,11 @@ internal closed record TourPin
    /// </summary>
    /// <param name="Head">The commit that the tour shows.</param>
    /// <param name="RemoteUrl">The URL of the repository that the commit was fetched from, without user information. The clone cache keeps the tour's clone under this URL.</param>
-   internal sealed record Snapshot(CommitId Head, Uri RemoteUrl) : TourPin
+   /// <param name="Move">
+   /// The number of the move that pinned the tour to the commit, 0 for the tour's first pin and for a dive's pin at creation. Each move raises it by one, and a stale marker of the tour names it.
+   /// JSON leaves it out when 0.
+   /// </param>
+   internal sealed record Snapshot(CommitId Head, Uri RemoteUrl, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int Move = 0) : TourPin
    {
       /// <summary>The first sentence of a refusal of anything that names the base side in a repository tour. Each refusal adds its own fix after it.</summary>
       public const string HeadOnly = "a repository tour has only the head side, the one commit of its snapshot.";
@@ -435,8 +439,9 @@ internal closed record Stop(string Id, string Title, StopKind Kind, string Chapt
    /// The content's earlier versions, oldest first, so a version's number is its index plus 1. An agent session's read of the tour leaves them out and keeps <see cref="Version"/>.
    /// </param>
    /// <param name="StaleOn">
-   /// The number of the iteration whose update made the content stale, or null when the content is not stale. The content's passages and code references then stay on the pin before that update
-   /// until <c>put_stop</c> writes the stop again, which clears the marker. JSON leaves it out when null.
+   /// The number of the iteration whose update made the content stale, or of the move for a repository tour, as <see cref="TourPin.Snapshot.Move"/> numbers it, or null when the content is not
+   /// stale. The content's passages and code references then stay on the pin before that update or move until <c>put_stop</c> writes the stop again, which clears the marker. JSON leaves it out
+   /// when null.
    /// </param>
    /// <param name="SeenVersion">
    /// The newest version of the content that the reviewer has seen, as <see cref="Seen"/> records it, or null before the reviewer opened one: the reviewer's own reading state, so an agent session's

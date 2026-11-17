@@ -29,7 +29,7 @@ public sealed class OperationWireTests
             ("threadNotFound", 404), ("requestNotPending", 409), ("questionAnswered", 409), ("questionWaiting", 409), ("questionFollowedUp", 409), ("wrongNonce", 409),
             ("noteSent", 409), ("threadIsNote", 409), ("threadTakesNoType", 409), ("checkNotFound", 404), ("answerNotFound", 404), ("batchNotFound", 404), ("planAwaitsApproval", 409),
             ("noAnswersToSend", 409), ("iterationNotAvailable", 409), ("tourChanged", 409), ("tourRuleBroken", 500), ("newerPreferences", 409), ("operationNotFound", 404),
-            ("buildMismatch", 409), ("serverExiting", 503), ("sessionUnknown", 401), ("notPullRequestTour", 409),
+            ("buildMismatch", 409), ("serverExiting", 503), ("sessionUnknown", 401), ("notPullRequestTour", 409), ("moveNotAvailable", 409), ("tourNotStored", 500),
          ],
          OperationErrorCode.All.Select(code => (code.Name, (int)OperationWire.StatusOf(code.Kind))));
    }

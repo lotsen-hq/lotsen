@@ -158,7 +158,7 @@ internal sealed record StopOffers(Offer Explain, Offer Revise, [property: JsonIg
 /// <param name="Stops">The threads of the explain and revise tour actions on each stop, as a whole or text in it, by stop ID. A stop without one has no entry.</param>
 /// <param name="Plan">The threads that hold back a replan and a reorder: the replans, the reorders and the reviewer decisions.</param>
 /// <param name="Level">The thread of the familiarity change or the plan approval, or null when neither waits. JSON leaves it out when null.</param>
-/// <param name="Iteration">The thread of the iteration update, or null when none waits. JSON leaves it out when null.</param>
+/// <param name="Iteration">The thread of the iteration update or the move, or null when neither waits. JSON leaves it out when null.</param>
 /// <param name="Summary">The thread of each tour action of the summary page, by its kind: summarize and the follow-up actions. A kind without one has no entry.</param>
 internal sealed record PendingWork(
    IReadOnlyDictionary<string, IReadOnlyList<string>> Stops,

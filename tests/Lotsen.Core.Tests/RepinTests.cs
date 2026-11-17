@@ -6,7 +6,7 @@ using static Lotsen.Tests.IterationRows;
 
 namespace Lotsen.Tests;
 
-/// <summary>Covers what <see cref="Repin.Map"/> makes of a tour on a new pin: the moved content, the stale markers, the file marks, the anchors' fact and the decision, from hand-built git facts.</summary>
+/// <summary>Covers what the overloads of <c>Repin.Map</c> makes of a tour on a new pin: the moved content, the stale markers, the file marks, the anchors' fact and the decision, from hand-built git facts.</summary>
 /// <remarks>The new head inserts one line at the top of a.txt, so every range there moves down by one line, and replaces line 9 of b.txt.</remarks>
 [Trait("Category", "Remap")]
 public sealed class RepinTests
@@ -81,8 +81,9 @@ public sealed class RepinTests
       Assert.Same(earlier, stops[1]);
       Assert.Null(stops[2].StaleOn);
       Assert.Equal(["s1", "s2"], repin.StaleStops);
-      Assert.Equal(["s1", "s2"], repin.Decision!.StopIds);
-      Assert.Equal(2, repin.Decision.Iteration);
+      var decision = Assert.IsType<ReviewerDecision.IterationUpdated>(repin.Decision);
+      Assert.Equal(["s1", "s2"], decision.StopIds);
+      Assert.Equal(2, decision.Iteration);
    }
 
    [Fact]
@@ -134,6 +135,27 @@ public sealed class RepinTests
       Assert.Equal(QuestionThreadState.Outdated, settled.Threads.Single(thread => thread.Id == "t2").State);
       Assert.Equal(threads[2].Anchor, settled.Threads.Single(thread => thread.Id == "t3").Anchor);
       Assert.Equal(QuestionThreadState.Open, settled.Threads.Single(thread => thread.Id == "t3").State);
+   }
+
+   /// <summary>The tour is at its snapshot's first move, so the move to the new head is its second, and s3 is stale from that first move.</summary>
+   [Fact]
+   public void Move_between_snapshots_marks_each_stale_stop_with_the_moves_number_and_reports_a_tour_moved_decision()
+   {
+      var (from, to) = (new TourPin.Snapshot(Head, Remote, 1), new TourPin.Snapshot(NewHead, Remote, 2));
+      var tour = TourOf([Stop("s1", StopKind.Inspect, Passage("a.txt", 3, 3)), Stop("s2", StopKind.Context, Passage("b.txt", 9, 9)), Stop("s3", StopKind.Context, Passage("b.txt", 1, 1)) with { StaleOn = 1 }]) with
+      {
+         Target = new RepositoryTarget(Remote),
+         Pin = from,
+      };
+
+      var repin = Assert.IsType<Decision<Repin>.Decided>(Repin.Map(tour, from, to, Shifted)).Value;
+
+      Assert.Equal(to, repin.Tour.Pin);
+      Assert.Equal([null, 2, 1], repin.Tour.Plan!.Stops.Cast<Stop.Written>().Select(stop => stop.StaleOn));
+      Assert.Equal(["s2", "s3"], repin.StaleStops);
+      var decision = Assert.IsType<ReviewerDecision.TourMoved>(repin.Decision);
+      Assert.Equal((2, NewHead), (decision.Move, decision.Commit));
+      Assert.Equal(["s2", "s3"], decision.StopIds);
    }
 
    private static Repin Map(Tour tour) => Assert.IsType<Decision<Repin>.Decided>(Repin.Map(tour, Pin, NewPin, Shifted)).Value;

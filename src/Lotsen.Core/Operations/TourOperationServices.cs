@@ -18,6 +18,7 @@ internal static class TourOperationServices
       .AddSingleton<AnswerOperations>()
       .AddSingleton<ReadingOperations>()
       .AddSingleton<ReviewerDecisions>()
+      .AddSingleton<TourMoves>()
       .AddSingleton<TourDeletion>();
 }
 
