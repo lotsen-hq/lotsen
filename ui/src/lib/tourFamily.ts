@@ -81,6 +81,51 @@ export function divesOf(tourId: string, tours: readonly TourSummary[]): TourSumm
    return oldestFirst(tours.filter((tour) => tour.diveOrigin?.parentId === tourId));
 }
 
+/** A dive of a tour's subtree, with the dives that start from it. */
+export interface DiveBranch {
+   tour: TourSummary;
+   dives: DiveBranch[];
+}
+
+/**
+ * Returns the dives below the tour, each with its own dives, oldest first: the subtree that a delete or an archive of the tour takes with it.
+ *
+ * Only a damaged store holds a cycle of parents, and then each tour of the cycle shows once.
+ */
+export function subtreeOf(tourId: string, tours: readonly TourSummary[]): DiveBranch[] {
+   const seen = new Set([tourId]);
+   const branchesOf = (parentId: string): DiveBranch[] => {
+      const dives = divesOf(parentId, tours).filter((dive) => !seen.has(dive.id));
+      dives.forEach((dive) => seen.add(dive.id));
+      return dives.map((dive) => ({ tour: dive, dives: branchesOf(dive.id) }));
+   };
+   return branchesOf(tourId);
+}
+
+/** Returns the tours of the branches, each before its dives. */
+export function flatDives(branches: readonly DiveBranch[]): TourSummary[] {
+   return branches.flatMap((branch) => [branch.tour, ...flatDives(branch.dives)]);
+}
+
+/** Returns the branches cut to their first dives, at most `max` of them, in the order that {@link flatDives} lists them. */
+export function firstDives(branches: readonly DiveBranch[], max: number): DiveBranch[] {
+   let left = max;
+   const cut = (list: readonly DiveBranch[]): DiveBranch[] => {
+      const kept: DiveBranch[] = [];
+      for (const branch of list) {
+         if (left === 0) {
+            break;
+         }
+
+         left--;
+         kept.push({ tour: branch.tour, dives: cut(branch.dives) });
+      }
+
+      return kept;
+   };
+   return cut(branches);
+}
+
 /**
  * Returns the parent's dives by the ID of the stop that shows each one.
  *

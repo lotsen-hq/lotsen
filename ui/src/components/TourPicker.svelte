@@ -8,7 +8,7 @@
    import { buttonVariants } from '$lib/components/ui/button';
    import * as AlertDialog from '$lib/components/ui/alert-dialog';
    import * as Popover from '$lib/components/ui/popover';
-   import { tourName } from '../lib/tourFamily';
+   import { firstDives, flatDives, subtreeOf, tourName, type DiveBranch } from '../lib/tourFamily';
    import { repositoryHeading, splitLabel, type RepositoryHeading } from '../lib/tourLabel';
    import type { TourSummary } from '../lib/types';
    import TourList from './TourList.svelte';
@@ -16,6 +16,7 @@
 
    let {
       tours,
+      allTours,
       hiddenCount,
       showHidden,
       loaded,
@@ -30,6 +31,8 @@
    }: {
       /** The tours that the list shows. */
       tours: TourSummary[];
+      /** Every tour, the hidden ones too, from which the list's archive buttons and the delete confirmation name the dives below a tour, or undefined for the listed tours alone. */
+      allTours?: readonly TourSummary[];
       /** The number of tours that the list hides while hidden tours do not show. */
       hiddenCount: number;
       showHidden: boolean;
@@ -49,6 +52,9 @@
    } = $props();
 
    const id = $props.id();
+   const everyTour = $derived(allTours ?? tours);
+   // The confirmation names this many dives at most and counts the rest, so the dialog stays short for a large family.
+   const maxShownDives = 10;
    let open = $state(false);
    let anchor = $state<HTMLElement | null>(null);
    let listTrigger = $state<HTMLElement | null>(null);
@@ -63,6 +69,13 @@
    const targetUrl = $derived(selectedTour && URL.canParse(selectedTour.target.url) && new URL(selectedTour.target.url).protocol === 'https:' ? selectedTour.target.url : null);
    const heading = $derived(selectedTour === null ? null : repositoryHeading(selectedTour));
    const deletedName = $derived(deleting === null ? '' : deleting.title === undefined ? `of ${deleting.label}` : `“${deleting.title}” of ${deleting.label}`);
+   // The dives as the reviewer confirmed them, which the dialog keeps while the delete runs and while the dialog closes, as the deleted tours leave the list.
+   let confirmedDives = $state.raw<DiveBranch[] | null>(null);
+   // Until the confirmation, the dives come from the current list, so a dive that Claude creates while the dialog is open shows too.
+   const deletedDives = $derived(confirmedDives ?? (deleting === null ? [] : subtreeOf(deleting.id, everyTour)));
+   const deletedDiveCount = $derived(flatDives(deletedDives).length);
+   const shownDives = $derived(firstDives(deletedDives, maxShownDives));
+   const unshownDiveCount = $derived(deletedDiveCount - flatDives(shownDives).length);
 
    /** Moves the focus to the switcher's trigger, which stays in place when another tour opens. */
    export function focusSwitcher(): void {
@@ -83,6 +96,7 @@
    function askToDelete(tour: TourSummary) {
       open = false;
       deleting = tour;
+      confirmedDives = null;
       deleteError = null;
       confirming = true;
    }
@@ -93,6 +107,7 @@
       }
 
       busy = true;
+      confirmedDives = deletedDives;
       try {
          deleteError = await ondelete(deleting.id);
       } finally {
@@ -101,6 +116,8 @@
 
       if (deleteError === null) {
          confirming = false;
+      } else {
+         confirmedDives = null;
       }
    }
 </script>
@@ -159,7 +176,7 @@
       </Popover.Trigger>
       <!-- The list anchors to the whole switcher, so it opens below the label's left edge. -->
       <Popover.Content customAnchor={anchor} align="start" class="scroll-box max-h-96 w-96 gap-0 p-0">
-         <TourList {tours} {hiddenCount} {showHidden} {loaded} {error} {selectedTourId} onselect={select} {onshowhidden} {onarchive} ondelete={askToDelete} />
+         <TourList {tours} allTours={everyTour} {hiddenCount} {showHidden} {loaded} {error} {selectedTourId} onselect={select} {onshowhidden} {onarchive} ondelete={askToDelete} />
       </Popover.Content>
    </Popover.Root>
 </div>
@@ -252,6 +269,20 @@
    </nav>
 {/snippet}
 
+<!-- Each dive's list nests under it, as the family does. -->
+{#snippet diveList(branches: DiveBranch[], labelledBy?: string)}
+   <ul class="mt-1 list-disc pl-5" aria-labelledby={labelledBy}>
+      {#each branches as branch (branch.tour.id)}
+         <li class="wrap-anywhere">
+            {tourName(branch.tour)}
+            {#if branch.dives.length > 0}
+               {@render diveList(branch.dives)}
+            {/if}
+         </li>
+      {/each}
+   </ul>
+{/snippet}
+
 <AlertDialog.Root bind:open={confirming}>
    <!-- The delete button left with the list, so the focus returns to the list's trigger. -->
    <AlertDialog.Content
@@ -264,9 +295,23 @@
       <AlertDialog.Header>
          <AlertDialog.Title>Delete this tour?</AlertDialog.Title>
          <AlertDialog.Description>
-            The tour {deletedName} is deleted for good, with its plan, stops, threads, notes and answers. This cannot be undone. Claude's session can no longer work on it.
+            {#if deletedDiveCount === 0}
+               The tour {deletedName} is deleted for good, with its plan, stops, threads, notes and answers. This cannot be undone. Claude's session can no longer work on it.
+            {:else}
+               The tour {deletedName} and {deletedDiveCount === 1 ? 'the dive' : `the ${deletedDiveCount} dives`} below it are deleted for good, each with its plan, stops, threads, notes and answers. This
+               cannot be undone. Claude's session can no longer work on them.
+            {/if}
          </AlertDialog.Description>
       </AlertDialog.Header>
+      {#if deletedDiveCount > 0}
+         <div class="text-sm" data-deleted-dives>
+            <p id="{id}-dives" class="font-medium">Dives deleted with it</p>
+            {@render diveList(shownDives, `${id}-dives`)}
+            {#if unshownDiveCount > 0}
+               <p class="mt-1 text-muted-foreground">and {unshownDiveCount === 1 ? '1 more dive' : `${unshownDiveCount} more dives`}</p>
+            {/if}
+         </div>
+      {/if}
       {#if busy}
          <p id="{id}-deleting" class="text-sm text-muted-foreground" role="status">Deleting the tour…</p>
       {/if}

@@ -22,4 +22,4 @@ export async function openTourList() {
 }
 
 /** Matches a tour's button in the tour list, and not the archive and delete buttons beside it. */
-export const tourButton = { name: (name: string) => !/^(Archive|Unarchive|Delete) this tour$/.test(name) };
+export const tourButton = { name: (name: string) => !/^(Archive|Unarchive|Delete) this tour( and .+)?$/.test(name) };

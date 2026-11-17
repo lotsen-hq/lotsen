@@ -90,3 +90,25 @@ test("a dive marker's menu opens the dive from the keyboard and leaves the focus
    await expect(breadcrumb(page).getByRole('button', { name: orientTour })).toBeVisible();
    await expect(switcher(page)).toBeFocused();
 });
+
+test('deleting a parent names its dive in the confirmation, and both leave the tour list', async ({ page }) => {
+   const diveName = 'How a payment reaches the gateway';
+   await openDemoTour(page, orientTour);
+   await switcher(page).click();
+   const list = page.getByRole('navigation', { name: 'Tours' });
+   const row = list.getByRole('listitem').filter({ has: page.locator('[id^="tour-label-"]', { hasText: orientTour }) });
+   await row.getByRole('button', { name: 'Delete this tour' }).click();
+
+   const dialog = page.getByRole('alertdialog', { name: 'Delete this tour?' });
+   await expect(dialog).toContainText(`The tour “${orientTour}” of`);
+   await expect(dialog).toContainText('and the dive below it are deleted for good');
+   await expect(dialog.getByRole('list', { name: 'Dives deleted with it' }).getByRole('listitem')).toHaveText([diveName]);
+   await dialog.getByRole('button', { name: 'Delete tour' }).click();
+
+   await expect(dialog).toHaveCount(0);
+   await expect(page.getByRole('button', { name: 'Choose a tour' })).toBeFocused();
+   await page.getByRole('button', { name: 'Choose a tour' }).click();
+   await expect(list.locator('[id^="tour-label-"]', { hasText: orientTour })).toHaveCount(0);
+   await expect(list.locator('[id^="tour-label-"]', { hasText: diveName })).toHaveCount(0);
+   await expect(list.getByRole('listitem').first()).toBeVisible();
+});

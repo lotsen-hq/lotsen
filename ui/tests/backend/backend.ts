@@ -120,7 +120,7 @@ export interface Template<T = unknown> {
    readonly build: (world: World) => Promise<T>;
 }
 
-/** One real server and what it stands on. Only what no operation can do goes through here: commits, the pull request, the repository, the clock, restarts. */
+/** One real server and what it stands on. Only what no operation can do goes through here: commits, the pull request, the repository, the clock, restarts, damage to a stored tour. */
 export interface World {
    readonly id: string;
    /** What the world's template built, or undefined for a world without one. */
@@ -154,6 +154,8 @@ export interface World {
    quiet(comment?: string): Promise<void>;
    /** Stops the server and starts it again on the same data directory, with new credentials. */
    restart(): Promise<void>;
+   /** Cuts the tour's stored file in half, so the server can no longer read the tour, as after damage on disk. */
+   damageTour(tourId: string): Promise<void>;
    /** Stops the world and removes its data directory. */
    dispose(): Promise<void>;
    /** Opens a real agent session, which acks each probe at once unless `confirm` is false. */
@@ -322,6 +324,7 @@ function createWorld(info: WorldInfo, seed: unknown, control: Control, fetchFn: 
       reviewer,
       idle: async () => void (await control('jobs.idle', { world: id })),
       quiet: async (comment) => void (await control('jobs.quiet', { world: id, ...(comment === undefined ? {} : { comment }) })),
+      damageTour: async (tourId) => void (await control('tour.damage', { world: id, tourId })),
       async restart() {
          // On Windows a connection to the stopping server can stay unanswered, so the page's requests are refused until the new server listens.
          restarting = true;

@@ -7,6 +7,7 @@ using Lotsen.Git;
 using Lotsen.Hosting;
 using Lotsen.Platforms;
 using Lotsen.Tests;
+using Lotsen.Tours;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -159,6 +160,9 @@ public static class Program
                   Commits(body["branches"]),
                   Commits(body["tags"]),
                   body["commits"]?.AsArray().Select(commit => CommitId.Parse((string)commit!)).ToList() ?? []);
+               return [];
+            case "tour.damage":
+               WorldOf(body).DamageTour(TourId.TryParse(Text(body, "tourId"), out var damaged) ? damaged : throw new ArgumentException("tour.damage needs a tour ID."));
                return [];
             case "pr.fail":
                WorldOf(body).FailPullRequest(Text(body, "reason"));

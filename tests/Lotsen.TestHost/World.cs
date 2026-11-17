@@ -5,14 +5,15 @@ using Lotsen.Operations;
 using Lotsen.Platforms;
 using Lotsen.Server;
 using Lotsen.Tests;
+using Lotsen.Tours;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lotsen.TestHost;
 
 /// <summary>One real server and what it stands on: its own data directory, manual clock and test platform, over the host's shared origin.</summary>
 /// <remarks>
-/// The world provides only what no operation can: commits, the pull request and the repository that the platform reports, the clock and restarts. Everything else goes through the server's operations, so the
-/// rules that a test meets are the server's own.
+/// The world provides only what no operation can: commits, the pull request and the repository that the platform reports, the clock, restarts and damage to a stored tour. Everything else
+/// goes through the server's operations, so the rules that a test meets are the server's own.
 /// </remarks>
 internal sealed class World : IAsyncDisposable
 {
@@ -127,6 +128,14 @@ internal sealed class World : IAsyncDisposable
       {
          _repositoryAnswer = answer;
       }
+   }
+
+   /// <summary>Cuts the tour's stored file in half, so the server can no longer read the tour, as after damage on disk.</summary>
+   public void DamageTour(TourId tourId)
+   {
+      var path = new FileTourStore(DataDirectory).PathOf(tourId);
+      var content = File.ReadAllText(path);
+      File.WriteAllText(path, content[..(content.Length / 2)]);
    }
 
    /// <summary>Makes every resolve of a pull request fail with this reason, as the platform's API would.</summary>

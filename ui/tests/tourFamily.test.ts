@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { breadcrumb, divesByStop, divesOf, groupFamilies, readingStateOf } from '../src/lib/tourFamily';
+import { breadcrumb, divesByStop, divesOf, firstDives, flatDives, groupFamilies, readingStateOf, subtreeOf, type DiveBranch } from '../src/lib/tourFamily';
+import { archiveLabel } from '../src/lib/tourList';
 import type { Plan, Stop, StopKind, TourSummary } from '../src/lib/types';
 import { familySummary } from './family';
 
@@ -87,6 +88,67 @@ describe("a parent's dives", () => {
    it('show on the first stop when no stop is an overview, and nowhere without a plan', () => {
       expect([...divesByStop(divesOf('root', tours), plan(['s1', 'context'], ['s2', 'inspect'])).keys()]).toEqual(['s1', 's2']);
       expect(divesByStop(divesOf('root', tours), null).size).toBe(0);
+   });
+});
+
+// Each branch as its ID, followed by its dives in brackets.
+const shape = (branches: readonly DiveBranch[]): string[] => branches.map((branch) => (branch.dives.length === 0 ? branch.tour.id : `${branch.tour.id}[${shape(branch.dives).join(' ')}]`));
+
+describe("a tour's subtree", () => {
+   const tours = [
+      tour('root', 0),
+      tour('later', 3, { parent: 'root', root: 'root', stop: 's2' }),
+      tour('whole', 1, { parent: 'root', root: 'root' }),
+      tour('deeper', 2, { parent: 'whole', root: 'root' }),
+      tour('deepest', 5, { parent: 'deeper', root: 'root' }),
+      tour('other', 4),
+   ];
+
+   it('holds every dive below the tour, each with its own dives, oldest first', () => {
+      expect(shape(subtreeOf('root', tours))).toEqual(['whole[deeper[deepest]]', 'later']);
+      expect(flatDives(subtreeOf('root', tours)).map((dive) => dive.id)).toEqual(['whole', 'deeper', 'deepest', 'later']);
+   });
+
+   it("holds a dive's own dives alone, and nothing for a tour without dives", () => {
+      expect(shape(subtreeOf('whole', tours))).toEqual(['deeper[deepest]']);
+      expect(subtreeOf('other', tours)).toEqual([]);
+   });
+
+   it('shows each tour of a cycle of parents once, as only a damaged store holds it', () => {
+      const cycle = [tour('a', 0, { parent: 'b', root: 'b' }), tour('b', 1, { parent: 'a', root: 'a' }), tour('c', 2, { parent: 'b', root: 'a' })];
+
+      expect(shape(subtreeOf('a', cycle))).toEqual(['b[c]']);
+   });
+
+   it('cuts to its first dives in the order that the flat list gives them', () => {
+      const subtree = subtreeOf('root', tours);
+
+      expect(shape(firstDives(subtree, 2))).toEqual(['whole[deeper]']);
+      expect(shape(firstDives(subtree, 3))).toEqual(['whole[deeper[deepest]]']);
+      expect(shape(firstDives(subtree, 10))).toEqual(['whole[deeper[deepest]]', 'later']);
+   });
+});
+
+describe("the archive button's name", () => {
+   const root = tour('root', 0);
+   const dive = tour('dive', 1, { parent: 'root', root: 'root' });
+   const deeper = tour('deeper', 2, { parent: 'dive', root: 'root' });
+   const archived = { state: 'archived' } as const;
+
+   it('names the dives below the tour that the archive takes, without those already archived', () => {
+      expect(archiveLabel(root, [root])).toBe('Archive this tour');
+      expect(archiveLabel(root, [root, dive])).toBe('Archive this tour and the dive below it');
+      expect(archiveLabel(root, [root, dive, deeper])).toBe('Archive this tour and the 2 dives below it');
+      expect(archiveLabel(root, [root, { ...dive, ...archived }, deeper])).toBe('Archive this tour and the dive below it');
+      expect(archiveLabel(root, [root, { ...dive, ...archived }])).toBe('Archive this tour');
+   });
+
+   it('speaks of the dives archived with the tour while any dive below it is archived', () => {
+      const archivedRoot = { ...root, ...archived };
+
+      expect(archiveLabel(archivedRoot, [archivedRoot, { ...dive, ...archived }])).toBe('Unarchive this tour and the dives archived with it');
+      expect(archiveLabel(archivedRoot, [archivedRoot, dive])).toBe('Unarchive this tour');
+      expect(archiveLabel(archivedRoot, [archivedRoot])).toBe('Unarchive this tour');
    });
 });
 

@@ -227,3 +227,90 @@ describe('deleting a dive', () => {
       expect(ids).toHaveLength(3);
    });
 });
+
+/** Opens the tour list and returns the row of the tour with the title. */
+async function rowOf(title: string): Promise<HTMLElement> {
+   const list = await openTourList();
+   return await waitFor(() => list.getAllByRole('listitem').find((item) => item.querySelector('[id^="tour-label-"]')?.textContent === title)!);
+}
+
+/** Clicks the button of the tour's row whose name starts with the prefix, such as its delete or archive button. */
+async function clickRowButton(title: string, prefix: string): Promise<void> {
+   const row = await rowOf(title);
+   await fireEvent.click(within(row).getByRole('button', { hidden: true, name: (_, element) => element.getAttribute('aria-label')?.startsWith(prefix) === true }));
+}
+
+// Each item as its text, followed by its nested items in brackets.
+const nested = (list: HTMLElement): string[] =>
+   [...list.children].map((item) => {
+      const inner = item.querySelector(':scope > ul');
+      const text = [...item.childNodes]
+         .filter((node) => node.nodeType === Node.TEXT_NODE)
+         .map((node) => node.textContent)
+         .join('')
+         .trim();
+      return inner === null ? text : `${text}[${nested(inner as HTMLElement).join(', ')}]`;
+   });
+
+const listedTitles = async () => (await openTourList()).getAllByRole('listitem').map((item) => item.querySelector('[id^="tour-label-"]')!.textContent);
+
+describe('deleting a family', () => {
+   it('names the dives in the confirmation, then drops the family from the list and closes the open dive', async () => {
+      const { app, world, seed } = await openFamily();
+      await openTour(app, deeperTitle);
+
+      await clickRowButton(rootTitle, 'Delete this tour');
+      const dialog = await screen.findByRole('alertdialog', { name: 'Delete this tour?' });
+      expect(dialog.textContent).toContain('and the 3 dives below it are deleted for good');
+      expect(nested(within(dialog).getByRole('list', { name: 'Dives deleted with it' }))).toEqual([`${stopDiveTitle}[${deeperTitle}]`, wholeDiveTitle]);
+      await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete tour' }));
+
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+      expect(app.selectedTourId).toBeNull();
+      expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Choose a tour' })));
+      await settled(app);
+      expect(await listedTitles()).toEqual([otherTitle]);
+      const stored = (await world.reviewer.call('list_tours', {})).tours.map((tour) => tour.id);
+      expect(stored).toHaveLength(1);
+      expect(stored).not.toContain(seed.rootId);
+   });
+
+   it("shows the server's reason in the dialog when a dive below the tour cannot be read, and keeps the family", async () => {
+      const { app, world, seed } = await openFamily();
+      await world.damageTour(seed.deeperId);
+
+      await clickRowButton(rootTitle, 'Delete this tour');
+      const dialog = await screen.findByRole('alertdialog', { name: 'Delete this tour?' });
+      await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete tour' }));
+
+      expect((await within(dialog).findByRole('alert')).textContent).toContain(`Tour ${seed.deeperId} could not be read`);
+      expect(screen.queryByRole('alertdialog')).not.toBeNull();
+      expect(app.tours).toHaveLength(5);
+      expect(nested(within(dialog).getByRole('list', { name: 'Dives deleted with it' }))).toEqual([`${stopDiveTitle}[${deeperTitle}]`, wholeDiveTitle]);
+   });
+});
+
+describe('archiving a family', () => {
+   it("names the dives on the archive button, hides them with the root and marks them archived in the open parent's Dives row, and an unarchive restores them", async () => {
+      const { app, seed } = await openFamily();
+      await openTour(app, rootTitle);
+      await openStop(app, seed.rootStopIds[1]!);
+      const diveLink = () => within(stopPanel().getByRole('region', { name: 'Dives' })).getByRole('button', { name: stopDiveTitle });
+
+      await clickRowButton(rootTitle, 'Archive this tour and the 3 dives below it');
+      await settled(app);
+
+      await waitFor(() => expect(descriptionOf(diveLink())).toBe('Archived'));
+      expect(await listedTitles()).toEqual([otherTitle]);
+      expect(app.tours.filter((tour) => tour.state === 'archived').map((tour) => tour.id)).toEqual(expect.arrayContaining([seed.rootId, seed.stopDiveId, seed.wholeDiveId, seed.deeperId]));
+
+      app.setShowHiddenTours(true);
+      await clickRowButton(rootTitle, 'Unarchive this tour and the dives archived with it');
+      await settled(app);
+
+      await waitFor(() => expect(descriptionOf(diveLink())).toBe('In progress'));
+      app.setShowHiddenTours(false);
+      await waitFor(async () => expect(await listedTitles()).toEqual([otherTitle, rootTitle, stopDiveTitle, wholeDiveTitle, deeperTitle]));
+   });
+});

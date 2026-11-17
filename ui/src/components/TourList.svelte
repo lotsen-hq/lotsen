@@ -6,13 +6,14 @@
    import CornerDownRight from '@lucide/svelte/icons/corner-down-right';
    import { groupFamilies, tourName } from '../lib/tourFamily';
    import { repositoryHeading } from '../lib/tourLabel';
-   import { pullRequestFlag, tourLine, tourStateLabels } from '../lib/tourList';
+   import { archiveLabel, pullRequestFlag, tourLine, tourStateLabels } from '../lib/tourList';
    import type { TourSummary } from '../lib/types';
    import TooltipButton from './TooltipButton.svelte';
    import WithTooltip from './WithTooltip.svelte';
 
    let {
       tours,
+      allTours,
       hiddenCount,
       showHidden,
       loaded,
@@ -25,6 +26,8 @@
    }: {
       /** The tours that the list shows, as `listedTours` picks them, which the list groups by family as {@link groupFamilies} does. */
       tours: TourSummary[];
+      /** Every tour, the hidden ones too, from which each archive button names the dives below its tour, or undefined for the listed tours alone. */
+      allTours?: readonly TourSummary[];
       /** The number of tours that the list hides while hidden tours do not show. */
       hiddenCount: number;
       showHidden: boolean;
@@ -40,6 +43,7 @@
    } = $props();
 
    let archiveError = $state<string | null>(null);
+   const everyTour = $derived(allTours ?? tours);
    const rows = $derived(groupFamilies(tours));
    const byId = $derived(new Map(tours.map((tour) => [tour.id, tour])));
 
@@ -68,6 +72,7 @@
       <ul>
          {#each rows as { tour, depth } (tour.id)}
             {@const archived = tour.state === 'archived'}
+            {@const archiveName = archiveLabel(tour, everyTour)}
             {@const heading = repositoryHeading(tour)}
             {@const flag = pullRequestFlag(tour)}
             {@const parent = tour.diveOrigin === undefined ? undefined : byId.get(tour.diveOrigin.parentId)}
@@ -109,11 +114,11 @@
                   {/snippet}
                </WithTooltip>
                <TooltipButton
-                  tooltip={archived ? 'Unarchive this tour' : 'Archive this tour'}
+                  tooltip={archiveName}
                   variant="ghost"
                   size="icon"
                   class="shrink-0"
-                  aria-label={archived ? 'Unarchive this tour' : 'Archive this tour'}
+                  aria-label={archiveName}
                   aria-describedby={`tour-label-${tour.id}`}
                   deferEscape
                   onclick={() => void archive(tour)}

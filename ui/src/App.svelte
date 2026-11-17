@@ -275,6 +275,7 @@
                <TourPicker
                   bind:this={tourPicker}
                   tours={app.listedTours}
+                  allTours={app.tours}
                   hiddenCount={app.hiddenTourCount}
                   showHidden={app.showHiddenTours}
                   onshowhidden={(show) => app.setShowHiddenTours(show)}

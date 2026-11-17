@@ -339,3 +339,127 @@ describe('a tour family in the tour switcher', () => {
       expect(items[1]!.querySelector('[data-dive-parent]')).toBeNull();
    });
 });
+
+describe('the delete confirmation of a tour family', () => {
+   const root = familySummary('root', 0);
+   const dive = familySummary('dive', 1, { parent: 'root', root: 'root', stop: 's1' });
+   const deeper = familySummary('deeper', 2, { parent: 'dive', root: 'root' });
+   // An archived dive, which the list hides and the delete still takes.
+   const hidden = familySummary('hidden', 3, { parent: 'root', root: 'root' }, { state: 'archived' });
+   const other = familySummary('other', 4);
+
+   function renderFamily(allTours: TourSummary[], ondelete: (tourId: string) => Promise<string | null> = vi.fn(async () => null)) {
+      const tours = allTours.filter((tour) => tour.state !== 'archived').reverse();
+      render(TourPicker, {
+         props: {
+            tours,
+            allTours,
+            hiddenCount: allTours.length - tours.length,
+            showHidden: false,
+            loaded: true,
+            error: null,
+            selectedTourId: null,
+            selectedTour: null,
+            onselect: vi.fn(),
+            onshowhidden: vi.fn(),
+            onarchive: vi.fn(),
+            ondelete,
+         },
+      });
+   }
+
+   /** Opens the list, clicks the delete button of the tour with the title, and returns the dialog. */
+   async function askToDelete(title: string): Promise<HTMLElement> {
+      await fireEvent.click(screen.getByRole('button', { name: 'Choose a tour' }));
+      const list = within(await screen.findByRole('navigation', { name: 'Tours' }));
+      const row = list.getAllByRole('listitem').find((item) => item.querySelector('[id^="tour-label-"]')?.textContent === title)!;
+      await fireEvent.click(within(row).getByRole('button', { hidden: true, name: (_, element) => element.getAttribute('aria-label') === 'Delete this tour' }));
+      return screen.findByRole('alertdialog', { name: 'Delete this tour?' });
+   }
+
+   // Each item as its text, followed by its nested items in brackets.
+   const nested = (list: HTMLElement): string[] =>
+      [...list.children].map((item) => {
+         const inner = item.querySelector(':scope > ul');
+         const text = [...item.childNodes]
+            .filter((node) => node.nodeType === Node.TEXT_NODE)
+            .map((node) => node.textContent)
+            .join('')
+            .trim();
+         return inner === null ? text : `${text}[${nested(inner as HTMLElement).join(', ')}]`;
+      });
+
+   it('names every dive below the tour, nested as in the family and with the hidden ones, and says they are deleted with it', async () => {
+      renderFamily([root, dive, deeper, hidden, other]);
+
+      const dialog = await askToDelete('Tour root');
+
+      expect(
+         within(dialog)
+            .getByText(/is deleted for good|are deleted for good/)
+            .textContent.replace(/\s+/g, ' ')
+            .trim(),
+      ).toBe(
+         "The tour “Tour root” of shop and the 3 dives below it are deleted for good, each with its plan, stops, threads, notes and answers. This cannot be undone. Claude's session can no longer work on them.",
+      );
+      const list = within(dialog).getByRole('list', { name: 'Dives deleted with it' });
+      expect(nested(list)).toEqual(['Tour dive[Tour deeper]', 'Tour hidden']);
+   });
+
+   it("names a dive's own dives alone when the dive is deleted", async () => {
+      renderFamily([root, dive, deeper, other]);
+
+      const dialog = await askToDelete('Tour dive');
+
+      expect(dialog.textContent).toContain('The tour “Tour dive” of shop and the dive below it are deleted for good');
+      expect(nested(within(dialog).getByRole('list', { name: 'Dives deleted with it' }))).toEqual(['Tour deeper']);
+   });
+
+   it('asks as before for a tour without dives', async () => {
+      renderFamily([root, dive, other]);
+
+      const dialog = await askToDelete('Tour other');
+
+      expect(
+         within(dialog)
+            .getByText(/is deleted for good/)
+            .textContent.replace(/\s+/g, ' ')
+            .trim(),
+      ).toBe("The tour “Tour other” of shop is deleted for good, with its plan, stops, threads, notes and answers. This cannot be undone. Claude's session can no longer work on it.");
+      expect(within(dialog).queryByRole('list')).toBeNull();
+   });
+
+   it('names the first ten dives of a large family and counts the rest', async () => {
+      const dives = Array.from({ length: 13 }, (_, index) => familySummary(`d${index}`, index + 1, { parent: 'root', root: 'root' }));
+      renderFamily([root, ...dives]);
+
+      const dialog = await askToDelete('Tour root');
+
+      expect(dialog.textContent).toContain('the 13 dives below it');
+      expect(nested(within(dialog).getByRole('list', { name: 'Dives deleted with it' }))).toHaveLength(10);
+      expect(within(dialog).getByText('and 3 more dives')).toBeTruthy();
+   });
+
+   it('shows the reason of a refused delete in the dialog, which keeps naming the dives', async () => {
+      const reason = 'tour root and its dives stay as they are. Tour deeper could not be read.';
+      renderFamily(
+         [root, dive, deeper],
+         vi.fn(async () => reason),
+      );
+
+      const dialog = await askToDelete('Tour root');
+      await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete tour' }));
+
+      expect((await within(dialog).findByRole('alert')).textContent).toBe(reason);
+      expect(nested(within(dialog).getByRole('list', { name: 'Dives deleted with it' }))).toEqual(['Tour dive[Tour deeper]']);
+   });
+
+   it('names the dives below a tour on its archive button', async () => {
+      renderFamily([root, dive, deeper, other]);
+      await fireEvent.click(screen.getByRole('button', { name: 'Choose a tour' }));
+      const list = within(await screen.findByRole('navigation', { name: 'Tours' }));
+      const archiveNames = list.getAllByRole('listitem').map((item) => item.querySelector('button[aria-label^="Archive"]')!.getAttribute('aria-label'));
+
+      expect(archiveNames).toEqual(['Archive this tour', 'Archive this tour and the 2 dives below it', 'Archive this tour and the dive below it', 'Archive this tour']);
+   });
+});

@@ -1,4 +1,5 @@
 import { familiarityLine } from './labels';
+import { flatDives, subtreeOf } from './tourFamily';
 import type { PullRequestState, TourState, TourSummary } from './types';
 
 /** The name of each tour state, as the tour list shows it. */
@@ -63,4 +64,20 @@ export function listedTours(tours: readonly TourSummary[], showHidden: boolean):
 /** Returns the number of tours that {@link hiddenReason} hides. */
 export function hiddenCount(tours: readonly TourSummary[]): number {
    return tours.filter((tour) => hiddenReason(tour) !== null).length;
+}
+
+/**
+ * Returns the name of the tour list's archive button for the tour, which names the dives that the archive or the unarchive changes with it.
+ *
+ * An archive takes each dive below the tour that is not archived yet. An unarchive restores only the dives that the same archive took. The summaries do not tell those apart from a dive that
+ * the reviewer archived on its own, so the name speaks of the dives archived with the tour while any dive below it is archived.
+ */
+export function archiveLabel(tour: TourSummary, tours: readonly TourSummary[]): string {
+   const dives = flatDives(subtreeOf(tour.id, tours));
+   if (tour.state === 'archived') {
+      return dives.some((dive) => dive.state === 'archived') ? 'Unarchive this tour and the dives archived with it' : 'Unarchive this tour';
+   }
+
+   const taken = dives.filter((dive) => dive.state !== 'archived').length;
+   return taken === 0 ? 'Archive this tour' : taken === 1 ? 'Archive this tour and the dive below it' : `Archive this tour and the ${taken} dives below it`;
 }
