@@ -156,7 +156,7 @@ internal sealed class ReadingOperations
 
       var agentSummary = AgentView.Summary(tour);
       var fingerprint = agentSummary.Fingerprint(tour.Pin);
-      var summary = ReviewSummary.Of(AgentView.For(viewer, tour), tour) with { SummaryFingerprint = fingerprint, FollowUps = SummaryFollowUps.Of(agentSummary) };
+      var summary = ReviewSummary.Of(AgentView.For(viewer, tour), tour) with { SummaryFingerprint = fingerprint, FollowUps = SummaryFollowUps.Of(tour, agentSummary) };
       return tour.Synthesis is not { } synthesis
          ? summary
          : summary with { Synthesis = new SummarySynthesis(synthesis.Text, synthesis.WrittenAt, synthesis.Pin, synthesis.BasedOn != fingerprint) };

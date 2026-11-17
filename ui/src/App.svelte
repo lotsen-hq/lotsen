@@ -28,7 +28,7 @@
    import type { PickedAnchor } from './lib/viewState';
    import { versionOf } from './lib/stops';
    import type { AnswerWrites, CheckAnswers } from './lib/answers';
-   import { disabledReason, threadsOf } from './lib/controls';
+   import { disabledReason, offeredFollowUps, threadsOf } from './lib/controls';
    import { attachmentOf } from './lib/labels';
    import { LinkHover } from './lib/linkHover';
    import { providePaneSplit } from './lib/paneSplit.svelte';
@@ -36,7 +36,7 @@
    import { changedFilePaths } from './lib/pin';
    import { changedFileAnchor } from './lib/selectionAsk';
    import { fileThreads } from './lib/threadView';
-   import { followUpKinds, type StopActionKind } from './lib/tourActions';
+   import type { StopActionKind } from './lib/tourActions';
    import { generationStatus } from './lib/generationStatus';
    import type { SummaryAnswer, ThreadAnchor } from './lib/types';
    import { Settings } from './lib/settings.svelte';
@@ -385,7 +385,7 @@
                                     onrequest={(text) => app.requestAction({ kind: 'summarize' }, 'tour', text)}
                                     onopenthread={openThread}
                                  />
-                                 {#each followUpKinds as kind (kind)}
+                                 {#each offeredFollowUps(app.selectedControls) as kind (kind)}
                                     {@const waitingFollowUp = pending[kind]}
                                     <SummaryAction
                                        {kind}

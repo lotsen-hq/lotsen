@@ -5,7 +5,7 @@ import { followUpKinds, tourActionLabels, tourActionPending } from '../../src/li
 import type { LotsenApp } from '../../src/lib/app.svelte';
 import type { AnswerType, FollowUpKind, QuestionThread, Tour, UpdatedThread } from '../../src/lib/types';
 import type { ClaudeSession, Transport, World } from '../backend/backend';
-import { attachClaude, backend, cartContent, openTour, readTour, seedTour, startApp } from '../harness';
+import { attachClaude, backend, cartContent, openTour, readTour, seedRepositoryTour, seedTour, startApp } from '../harness';
 
 beforeEach(() => {
    sessionStorage.clear();
@@ -72,6 +72,20 @@ async function seedAnswers(world: World, send: boolean): Promise<Seed> {
 
    await answer(world, tourId, stopId!, c4!, 'DRAFT-WORDS', 'decision');
    return { tourId, stopId: stopId! };
+}
+
+const repositoryTitle = 'How the cart adds up';
+
+/** Seeds a repository tour with one written stop and a sent typed thread of each answer type. */
+async function seedRepositoryFindings(world: World): Promise<{ tourId: string }> {
+   const passages = [{ side: 'head', path: 'src/cart.ts', startLine: 2, endLine: 2, role: 'primary' }];
+   const stops = [{ title: 'The cart', kind: 'overview' as const, content: { headline: 'The cart sums its lines.', passages } }];
+   const { tourId } = await seedRepositoryTour(world, { title: repositoryTitle, chapters: [{ title: 'Cart', stops }] });
+   for (const type of Object.values(typeOf)) {
+      await world.reviewer.call('ask_question', { tourId, text: `A ${type}.`, anchor: { kind: 'tour' }, type });
+   }
+
+   return { tourId };
 }
 
 const sent = backend().template('followUps-sent', (world) => seedAnswers(world, true));
@@ -260,5 +274,25 @@ describe('the follow-up actions on the summary page', () => {
 
       expect((await actions().findByRole('alert')).textContent).toMatch(/holds at most 10000 characters/);
       expect((actions().getByRole('textbox') as HTMLTextAreaElement).value).toBe(words);
+   });
+});
+
+describe('the follow-up actions on the summary page of a repository tour', () => {
+   it('offers Draft work items and Walk through open questions, and shows no Draft PR comments, which needs a pull request', async () => {
+      const world = await backend().world();
+      await seedRepositoryFindings(world);
+      const { app } = await startApp(world);
+      await openTour(app, repositoryTitle);
+      app.openSummary();
+      await waitFor(() => expect(app.selectedSummary?.state).toBe('loaded'));
+
+      await enabled('draftWorkItems');
+      await enabled('walkOpenQuestions');
+      expect(actions().queryByRole('button', { name: tourActionLabels.draftComments })).toBeNull();
+      expect(
+         actions()
+            .getAllByRole('button')
+            .map((shown) => shown.textContent?.trim()),
+      ).toEqual(['Summarize', tourActionLabels.draftWorkItems, tourActionLabels.walkOpenQuestions]);
    });
 });

@@ -42,7 +42,10 @@ internal closed record Offer
 /// <param name="Reorder">Whether the reviewer can propose an order of the plan's stops.</param>
 /// <param name="Stops">The tour actions on each stop of the plan, by stop ID.</param>
 /// <param name="Summarize">Whether the reviewer can ask Claude to summarize the review.</param>
-/// <param name="FollowUps">Whether the reviewer can request each follow-up action, by its kind: draftWorkItems, walkOpenQuestions and draftComments.</param>
+/// <param name="FollowUps">
+/// Whether the reviewer can request each follow-up action that the tour's review target has, by its kind: draftWorkItems, walkOpenQuestions and draftComments. A kind that
+/// <see cref="ActionRules.NotOffered"/> refuses has no entry, so the summary page shows no button for it.
+/// </param>
 /// <param name="Threads">What the reviewer can do in each thread, by thread ID.</param>
 /// <param name="Pending">The waiting threads, by what each holds back.</param>
 internal sealed record TourOffers(
@@ -88,7 +91,7 @@ internal sealed record TourOffers(
             stop => new StopOffers(Action(tour, new ActionRequest.Explain(new StopTarget.WholeStop(stop.Id))), Action(tour, new ActionRequest.Revise(new StopTarget.WholeStop(stop.Id)), "?")),
             StringComparer.Ordinal),
          Action(tour, new ActionRequest.Summarize()),
-         FollowUpRequests.ToDictionary(KindOf, request => Action(tour, request), StringComparer.Ordinal),
+         FollowUpRequests.Where(request => ActionRules.NotOffered(tour, request) is null).ToDictionary(KindOf, request => Action(tour, request), StringComparer.Ordinal),
          tour.Threads.ToDictionary(thread => thread.Id, thread => ThreadOffersOf(tour, thread), StringComparer.Ordinal),
          PendingWork.Of(tour));
    }

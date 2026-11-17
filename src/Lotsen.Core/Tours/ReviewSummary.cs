@@ -314,7 +314,7 @@ internal sealed record SummaryStaleStop(string StopId, string Title, int StaleOn
 /// </param>
 internal sealed record SummarySynthesis(string Text, DateTimeOffset WrittenAt, SynthesisPin Pin, bool PredatesSummary);
 
-/// <summary>Why each follow-up action has nothing to hand to Claude, the reason that a request of it gets, so the summary page disables its button with that reason.</summary>
+/// <summary>Why the tour has no follow-up action of each kind, or nothing for it to hand to Claude, the reason that a request of it gets.</summary>
 /// <param name="DraftWorkItems">
 /// The reason for <c>draftWorkItems</c>, or null when the summary holds a decision or a typed thread that <see cref="TourAction.FollowUp.DraftWorkItems"/> hands to Claude. JSON leaves it out
 /// when null.
@@ -324,17 +324,18 @@ internal sealed record SummarySynthesis(string Text, DateTimeOffset WrittenAt, S
 /// leaves it out when null.
 /// </param>
 /// <param name="DraftComments">
-/// The reason for <c>draftComments</c>, or null when the summary holds a concern, a typed thread or a risk stop that <see cref="TourAction.FollowUp.DraftComments"/> hands to Claude. JSON leaves
-/// it out when null.
+/// The reason for <c>draftComments</c>, which a repository tour does not have, or null when the summary holds a concern, a typed thread or a risk stop that
+/// <see cref="TourAction.FollowUp.DraftComments"/> hands to Claude. JSON leaves it out when null.
 /// </param>
 internal sealed record SummaryFollowUps(
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? DraftWorkItems,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? WalkOpenQuestions,
    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? DraftComments)
 {
-   /// <summary>Returns the reasons from the summary that an agent session reads, which the follow-up actions collect their items from.</summary>
-   public static SummaryFollowUps Of(ReviewSummary agentSummary) => new(
-      ActionRules.NothingToHand(new ActionRequest.FollowUp.DraftWorkItems(), agentSummary),
-      ActionRules.NothingToHand(new ActionRequest.FollowUp.WalkOpenQuestions(), agentSummary),
-      ActionRules.NothingToHand(new ActionRequest.FollowUp.DraftComments(), agentSummary));
+   /// <summary>Returns the reasons of the tour, from its review target and from the summary that an agent session reads, which the follow-up actions collect their items from.</summary>
+   public static SummaryFollowUps Of(Tour tour, ReviewSummary agentSummary)
+   {
+      string? Reason(ActionRequest.FollowUp request) => ActionRules.NotOffered(tour, request) ?? ActionRules.NothingToHand(request, agentSummary);
+      return new(Reason(new ActionRequest.FollowUp.DraftWorkItems()), Reason(new ActionRequest.FollowUp.WalkOpenQuestions()), Reason(new ActionRequest.FollowUp.DraftComments()));
+   }
 }

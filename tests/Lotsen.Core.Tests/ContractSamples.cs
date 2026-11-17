@@ -250,7 +250,7 @@ internal static class ContractSamples
       return ReviewSummary.Of(tour, tour) with
       {
          SummaryFingerprint = fingerprint,
-         FollowUps = SummaryFollowUps.Of(agentSummary),
+         FollowUps = SummaryFollowUps.Of(tour, agentSummary),
          Synthesis = new SummarySynthesis(synthesis.Text, synthesis.WrittenAt, synthesis.Pin, synthesis.BasedOn != fingerprint),
       };
    }

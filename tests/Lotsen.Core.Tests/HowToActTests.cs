@@ -66,6 +66,14 @@ public sealed partial class HowToActTests : IAsyncLifetime
       ["evaluate"] = ["a judgment", "whether to rely on the code", "its strengths and its weak spots", "what stays open", "Name the open questions and the concerns that no answer settled yet"],
    };
 
+   // What the draftWorkItems rule of a repository tour asks about where the work items go, in the words of the rule.
+   private static readonly string[] RepositoryWorkItems =
+   [
+      "ask the user in the terminal where the work items belong: the user's own project, or the tracker of the project that the tour shows",
+      "Create a work item there with your own tools only after the user approves its draft in the terminal",
+      "create none before that",
+   ];
+
    private static readonly IReadOnlyDictionary<string, (string Sample, string Carrier, string[] Says)> Decisions = new Dictionary<string, (string, string, string[])>
    {
       [ReviewerDecision.FamiliarityChangedKind] = (
@@ -172,6 +180,28 @@ public sealed partial class HowToActTests : IAsyncLifetime
 
       Assert.DoesNotContain("purpose", howToAct, StringComparison.Ordinal);
       Assert.All(purposeOnly, phrase => Assert.DoesNotContain(phrase, howToAct, StringComparison.Ordinal));
+   }
+
+   [Theory]
+   [MemberData(nameof(Purposes))]
+   public async Task Draft_work_items_rule_of_a_repository_tour_asks_where_the_work_items_belong_and_files_none_before_the_user_approves(string purpose)
+   {
+      var howToAct = await RuleAsync(TourAction.DraftWorkItemsKind, purpose);
+
+      Assert.All(RepositoryWorkItems, phrase => Assert.Contains(phrase, howToAct, StringComparison.Ordinal));
+      Assert.DoesNotContain("pull request", howToAct, StringComparison.Ordinal);
+      Assert.All(
+         ["the decisions that the reviewer had sent when they asked", "Say which decisions need none", "lotsen itself creates no work item", "names each work item you created, or says that the user approved none", ThreadsAreTheirs],
+         phrase => Assert.Contains(phrase, howToAct, StringComparison.Ordinal));
+   }
+
+   [Fact]
+   public async Task Draft_work_items_rule_of_a_pull_requests_tour_asks_nothing_about_where_the_work_items_belong()
+   {
+      var howToAct = await RuleAsync(TourAction.DraftWorkItemsKind);
+
+      Assert.All(RepositoryWorkItems, phrase => Assert.DoesNotContain(phrase, howToAct, StringComparison.Ordinal));
+      Assert.Contains("such as a change that the reviewer decided on and the pull request does not make", howToAct, StringComparison.Ordinal);
    }
 
    [Theory]

@@ -1,5 +1,5 @@
-import type { StopActionKind } from './tourActions';
-import type { Offer, PendingWork, QuestionOutcome, QuestionThread, StopOffers, ThreadOffers, TourControls } from './types';
+import { followUpKinds, type StopActionKind } from './tourActions';
+import type { FollowUpKind, Offer, PendingWork, QuestionOutcome, QuestionThread, StopOffers, ThreadOffers, TourControls } from './types';
 
 /** Why the page cannot use a control before the tour's controls arrive with its load. */
 export const controlsNotLoaded = 'The tour is not loaded yet.';
@@ -39,6 +39,11 @@ export function stopOffers(controls: TourControls | null, stopId: string): StopO
 export function stopActionReasons(controls: TourControls | null, stopId: string): Record<StopActionKind, string | null> {
    const offers = stopOffers(controls, stopId);
    return { explain: disabledReason(offers?.explain), revise: disabledReason(offers?.revise) };
+}
+
+/** Returns the follow-up actions that the tour's controls offer, in the order of `followUpKinds`, or none while the page has no controls, so the summary page shows no button that the tour lacks. */
+export function offeredFollowUps(controls: TourControls | null): FollowUpKind[] {
+   return followUpKinds.filter((kind) => controls?.offers.followUps[kind] !== undefined);
 }
 
 /** Returns the controls of the thread, or undefined while the page has none for it. */

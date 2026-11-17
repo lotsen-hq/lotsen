@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { stopsWithWaitingActions } from '../src/lib/controls';
+import { offeredFollowUps, stopsWithWaitingActions } from '../src/lib/controls';
 import { defaultThreadFilter, filteredThreads, nowhere, revealing } from '../src/lib/threadFilters';
 import { actionOf } from '../src/lib/threadView';
 import type { QuestionThread, TourAction } from '../src/lib/types';
@@ -40,5 +40,16 @@ describe('the threads of tour actions', () => {
       expect(revealing(hidden, explain, nowhere).actions).toBe(true);
       expect(revealing(hidden, question, nowhere)).toEqual(hidden);
       expect(filteredThreads([explain, question], hidden, nowhere).map((thread) => thread.id)).toEqual(['plain']);
+   });
+});
+
+describe('the follow-up actions of the summary page', () => {
+   it('are those that the controls offer, in their order, and none before the controls arrive', () => {
+      const controls = eventFixtures.controlsChanged;
+      const withoutComments = Object.fromEntries(Object.entries(controls.offers.followUps).filter(([kind]) => kind !== 'draftComments'));
+
+      expect(offeredFollowUps(controls)).toEqual(['draftWorkItems', 'walkOpenQuestions', 'draftComments']);
+      expect(offeredFollowUps({ ...controls, offers: { ...controls.offers, followUps: withoutComments } })).toEqual(['draftWorkItems', 'walkOpenQuestions']);
+      expect(offeredFollowUps(null)).toEqual([]);
    });
 });
