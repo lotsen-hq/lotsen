@@ -7,7 +7,7 @@ import { availableOn, iterationCheckState, type IterationCheck, type IterationCh
 import { connectEventStream, logEventFailure, type ConnectionState, type EventStreamConnection, type helloEvent, type Schedule } from './eventStream';
 import { historyWrite, navigationFragment, navigationState, noNavigation, readNavigation, recordedNavigation, type LineSpan, type Navigation } from './navigation';
 import { applyPreference, booleanPreference, detachPreferences, syncPreferences } from './preference';
-import { changedFilePaths, inFile, pinIteration, referenceAtPin, type FilePaths, type PinCommits, pinCommits } from './pin';
+import { changedFilePaths, inFile, pinStepOf, referenceAtPin, type FilePaths, type PinCommits, pinCommits } from './pin';
 import { filePassageDecorations, noPassageDecorations, withHoveredReference, withThreads, type CodeThread, type DecorationSwitches, type PassageDecorations } from './passageMarks';
 import { changedFilesAt } from './repositoryTree';
 import { endSession, linkCode, startSession, type SessionEnvironment } from './session';
@@ -15,6 +15,7 @@ import type { SseEvent } from './sse';
 import { steppedTarget } from './skips';
 import { stackFileKey, stopFileStack, type FileReference, type StackFile } from './stopFiles';
 import { breadcrumb, divesByStop, divesOf } from './tourFamily';
+import { moveOfferOf, type MoveCheckOutcome, type MoveOffer, type MoveRefusal } from './tourMoves';
 import { hiddenCount, listedTours } from './tourList';
 import { TourRecord, type DoneState, type KnownFiles, type KnownSummary, type ReviewState } from './tourRecord.svelte';
 import { rowOf, touched, withPart, withSummary, type RowPart, type RowParts, type TourRow } from './tourRows';
@@ -184,9 +185,9 @@ export class LotsenApp {
 
    selectedTour = $derived(this.tours.find((tour) => tour.id === this.selectedTourId) ?? null);
    // Strings, so a write that leaves the pin as it was does not derive the passages and decorations again.
-   private pinnedBase = $derived(this.selectedTour?.pin.state === 'pinned' ? this.selectedTour.pin.mergeBase : null);
-   private pinnedHead = $derived(this.selectedTour?.pin.state === 'pinned' ? this.selectedTour.pin.head : null);
-   /** The commits that the selected tour's pin shows at each side, or null while no pinned tour is selected. */
+   private pinnedBase = $derived(pinCommits(this.selectedTour?.pin)?.base ?? null);
+   private pinnedHead = $derived(pinCommits(this.selectedTour?.pin)?.head ?? null);
+   /** The commits that the selected tour's pin shows at each side, as {@link pinCommits} gives them, or null while no pinned tour is selected. */
    selectedPinCommits = $derived<PinCommits | null>(this.pinnedBase === null || this.pinnedHead === null ? null : { base: this.pinnedBase, head: this.pinnedHead });
    selectedPlan = $derived(this.selectedRecord?.knownPlan);
    /** The selected dive's breadcrumb, root first down to its parent, as {@link breadcrumb} walks it, or no tours for a tour that is not a dive. The tour list's rows keep it live. */
@@ -219,6 +220,8 @@ export class LotsenApp {
    selectedAvailableIteration = $derived<AvailableIteration | null>(availableOn(this.selectedRecord?.availableIteration, this.selectedTour?.pin));
    /** The state of the reviewer's iteration check of the selected tour. {@link iterationCheckState} says when a change to the available iteration hides its failure. */
    selectedIterationCheck = $derived<IterationCheckState>(iterationCheckState(this.selectedRecord?.iterationCheck, this.selectedRecord?.availableIteration));
+   /** Whether the selected tour's ref can move, as {@link TourRecord.moveOffer} says, or undefined before a check and for a tour that is not pinned to a snapshot. */
+   selectedMoveOffer = $derived<MoveOffer | undefined>(this.selectedTour?.pin.state === 'snapshot' ? this.selectedRecord?.moveOffer : undefined);
    /** Whether the page waits for a skip write of the selected tour. An approval waits for it, because the approval sends the page's skips and the server stores them in place of the tour's. */
    selectedSkipsSaving = $derived((this.selectedRecord?.skipsSaving ?? 0) > 0);
    /** The selected tour's answers, empty while no tour is selected. */
@@ -252,10 +255,15 @@ export class LotsenApp {
    selectedFiles = $derived(this.selectedRecord?.files);
    /**
     * The pin that the selected tour's file reads are keyed by: the pin of its loaded changed files, or the tour's pin once their load failed, or null while they load or the tour is not pinned.
+    * A repository tour has no changed files, so its snapshot keys its reads.
     *
     * The open diff, the open file and the stop-files stack load again when it changes. So at a new pin they load once the changed files arrive, which hold a renamed file's old path there.
     */
    filesPin = $derived.by((): string | null => {
+      if (this.selectedTour?.pin.state === 'snapshot') {
+         return pinKey(this.selectedPinCommits);
+      }
+
       const known = this.selectedFiles;
       return pinKey(known?.state === 'loaded' ? { base: known.list.mergeBase, head: known.list.head } : known?.state === 'failed' ? this.selectedPinCommits : null);
    });
@@ -598,6 +606,13 @@ export class LotsenApp {
                this.showHiddenTours = false;
             }
          });
+         // The top bar offers a move only for a ref that can move, and only a check tells a branch from a tag, so the page checks a repository tour when it shows the tour and its record holds no check yet.
+         $effect(() => {
+            const tour = this.selectedTour;
+            if (tour?.pin.state === 'snapshot' && this.selectedRecord?.moveOffer === undefined) {
+               untrack(() => void this.checkMove(tour.id));
+            }
+         });
          $effect(() => {
             const reading = this.readingPlace;
             if (reading !== null) {
@@ -782,7 +797,7 @@ export class LotsenApp {
             signOut: () => this.signOut(),
          };
          const pin = () => (tourId === this.selectedTourId ? this.selectedPinCommits : pinCommits(this.tours.find((tour) => tour.id === tourId)?.pin));
-         const openStop = new OpenStop(record, pin, () => pinIteration(this.tours.find((tour) => tour.id === tourId)?.pin));
+         const openStop = new OpenStop(record, pin, () => pinStepOf(this.tours.find((tour) => tour.id === tourId)?.pin));
          this.threadSides.set(tourId, { view, actions: new ThreadActions(tourId, page, record, view), openStop });
          this.records.set(tourId, record);
       }
@@ -1780,6 +1795,57 @@ export class LotsenApp {
    }
 
    /**
+    * Checks whether a repository tour has a move to the latest commit of its ref, with the dives below it that are at another commit, and keeps whether its ref can move. It changes no tour.
+    *
+    * @returns The check, or the reason it failed. A refused UI credential signs the page out.
+    */
+   async checkMove(tourId: string): Promise<MoveCheckOutcome> {
+      const record = this.recordOf(tourId);
+      if (record !== undefined && record.moveOffer === undefined) {
+         record.moveOffer = 'checking';
+      }
+
+      try {
+         const checked = await this.requireApi().checkMove(tourId);
+         if (record !== undefined) {
+            record.moveOffer = moveOfferOf(checked);
+         }
+
+         return { checked };
+      } catch (error) {
+         if (record !== undefined && record.moveOffer !== 'fixed') {
+            record.moveOffer = 'movable';
+         }
+
+         return { failure: this.refusalOf(error, 'The tour could not be checked for a move.') };
+      }
+   }
+
+   /**
+    * Moves a repository tour and the ticked dives to the latest commit of its ref that a check showed, which reports the move to each moved tour's bound session as a tourMoved decision when a
+    * stop goes stale, and applies the tour's new pin and the decision's thread at once. The dives' pins, the new plans and the threads whose anchors moved come with the move's events.
+    *
+    * @returns Null once the server stored the move, or the refusal. A refused UI credential signs the page out.
+    */
+   async moveTour(tourId: string, commit: string, diveIds: readonly string[]): Promise<MoveRefusal | null> {
+      const reveal = this.revealAfterWrite(tourId);
+      try {
+         const { output: moved, revision } = await this.requireApi().moveTour(tourId, commit, [...diveIds]);
+         this.applyPin(moved, revision);
+         if (moved.thread !== undefined) {
+            this.recordOf(tourId)?.putThread(moved.thread, revision);
+            reveal(moved.thread);
+         }
+
+         return null;
+      } catch (error) {
+         // These refusals say that the ref or the tours changed since the check, so a new check shows what a move takes now.
+         const code = error instanceof ApiError ? error.error?.code : undefined;
+         return { reason: this.refusalOf(error, 'The tour could not be moved.'), recheck: code === 'moveNotAvailable' || code === 'tourNotStored' || code === 'tourChanged' };
+      }
+   }
+
+   /**
     * Stores a tour's pin unless the tour list holds a newer message of the pin, so a late response does not undo a newer event. A pin that differs from the stored one loads the selected tour's
     * changed files again, and the open diff or file loads at their pin, as {@link LotsenApp.filesPin} says. An event loads the changed files again for the same pin too, because the review marks
     * may have changed with it.
@@ -1795,7 +1861,10 @@ export class LotsenApp {
          return;
       }
 
-      if (moved || fromEvent) {
+      // A snapshot has no changed files to load first, so the open file loads at the new snapshot at once.
+      if (pin.state === 'snapshot' && moved) {
+         this.loadOpenFileAtPin(tourId);
+      } else if (moved || fromEvent) {
          this.loadFilesIfPinned(tourId);
       }
    }

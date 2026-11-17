@@ -1,5 +1,5 @@
 import { stopsWithWaitingActions } from './controls';
-import { atPin, type PinCommits } from './pin';
+import { atPin, type PinCommits, type PinStep } from './pin';
 import { changedFilesAt } from './repositoryTree';
 import { contentOf, staleOnOf, versionOf } from './stops';
 import { decisionOf } from './threadView';
@@ -34,11 +34,11 @@ export interface FocusTarget {
 }
 
 /**
- * Whether the stop under view is stale, from its stale marker alone. A stale stop names the iteration of the update that made it stale, the iteration that its revision is for, whether that update
- * waits for Claude and names the stop, and whether any of its passages is at an earlier commit than the pin's. A stop that stayed stale across a later update has a target past `since`, and its
- * target is null only while the page knows no iteration of the tour's pin.
+ * Whether the stop under view is stale, from its stale marker alone. A stale stop names the kind of pin step that made it stale, an update or a move, and that step's number. It also names the
+ * number of the step that its revision is for, whether that step waits for Claude and names the stop, and whether any of its passages is at an earlier commit than the pin's. A stop that stayed
+ * stale across a later step has a target past `since`, and its target is null only while the page knows no step of the tour's pin.
  */
-export type StaleStatus = { kind: 'current' } | { kind: 'stale'; since: number; target: number | null; revising: boolean; earlierPassages: boolean };
+export type StaleStatus = { kind: 'current' } | { kind: 'stale'; step: PinStep['kind']; since: number; target: number | null; revising: boolean; earlierPassages: boolean };
 
 const current: StaleStatus = { kind: 'current' };
 
@@ -59,10 +59,16 @@ export interface PlanSource {
 interface WantedRevisions {
    /** The IDs of the stops whose own tour action waits. */
    stops: ReadonlySet<string>;
-   /** Whether an action on the plan waits that asks for revisions of any stop, which every such action but an iteration update does. */
+   /** Whether an action on the plan waits that asks for revisions of any stop, which every such action but an iteration update or a move does. */
    plan: boolean;
-   /** The iteration of the waiting iteration update and the IDs of the stale stops it names, or null when none waits. */
-   update: { iteration: number; stopIds: readonly string[] } | null;
+   /** The waiting iteration update or move and the IDs of the stale stops it names, or null when none waits. */
+   update: WaitingStep | null;
+}
+
+/** An iteration update or a move whose decided thread waits for Claude, with the IDs of the stale stops that it names. */
+interface WaitingStep {
+   step: PinStep;
+   stopIds: readonly string[];
 }
 
 /**
@@ -75,7 +81,7 @@ interface WantedRevisions {
 export class OpenStop {
    private readonly record: TourRecord;
    private readonly pin: () => PinCommits | null;
-   private readonly pinnedIteration: () => number | null;
+   private readonly pinnedStep: () => PinStep | null;
    private openId = $state<string | null>(null);
    /** The earlier version that the page shows in place of the current one, with why, or null for the current version. It applies only while it is older than the stop's current version. */
    private held = $state.raw<{ version: KnownVersion; reason: ShownReason } | null>(null);
@@ -137,8 +143,8 @@ export class OpenStop {
    });
    /** The focused passage, or null when the open stop has no passages. */
    focusedPassage = $derived<StopPassage | null>(this.stepPassages[this.focusedIndex] ?? null);
-   /** The update that waits for Claude, when the controls name one and the record holds its thread, or null. */
-   private waitingUpdate = $derived.by(() => this.updateOf(this.record.controls?.offers.pending.iteration));
+   /** The iteration update or move that waits for Claude, when the controls name one and the record holds its thread, or null. */
+   private waitingStep = $derived.by(() => this.stepOf(this.record.controls?.offers.pending.iteration));
    /** Whether the open stop, at the version the page shows, is stale: from its stale marker alone, so an earlier version is never stale. */
    stale = $derived.by((): StaleStatus => {
       const stop = this.stop;
@@ -148,11 +154,13 @@ export class OpenStop {
       }
 
       const commits = this.pin();
+      const target = this.waitingStep?.step ?? this.pinnedStep();
       return {
          kind: 'stale',
+         step: target?.kind ?? 'update',
          since,
-         target: this.waitingUpdate?.iteration ?? this.pinnedIteration(),
-         revising: this.waitingUpdate?.stopIds.includes(stop.id) === true,
+         target: target?.number ?? null,
+         revising: this.waitingStep?.stopIds.includes(stop.id) === true,
          // A stop can be stale with every passage at the pin, as when its primary passage no longer touches the diff.
          earlierPassages: contentOf(stop)?.passages.some((passage) => !atPin(passage, commits)) === true,
       };
@@ -161,12 +169,12 @@ export class OpenStop {
    /**
     * @param record - The tour's record, which holds its plan, its earlier stop versions, its threads and its controls.
     * @param pin - Returns the commits of the tour's pin as the page holds them, or null while the tour is not pinned.
-    * @param pinnedIteration - Returns the number of the iteration that the tour is pinned to as the page holds it, or null while the tour is not pinned.
+    * @param pinnedStep - Returns the step that brought the tour to its pin as the page holds it, as `pinStepOf` gives it, or null while the tour is not pinned.
     */
-   constructor(record: TourRecord, pin: () => PinCommits | null, pinnedIteration: () => number | null) {
+   constructor(record: TourRecord, pin: () => PinCommits | null, pinnedStep: () => PinStep | null) {
       this.record = record;
       this.pin = pin;
-      this.pinnedIteration = pinnedIteration;
+      this.pinnedStep = pinnedStep;
    }
 
    /** The ID of the open stop, or null when none is open. It may name a stop that the plan does not hold yet, as while a history entry waits for the plan. */
@@ -286,25 +294,35 @@ export class OpenStop {
 
       const version: KnownVersion = { stopId: viewed.id, number: viewed.version, title: viewed.title, kind: viewed.kind, content: viewed.content, replacedAt };
       this.record.addEarlierVersions([version]);
-      this.held = { version, reason: update !== null ? { kind: 'iterationUpdate', iteration: update.iteration } : { kind: 'revised' } };
+      this.held = {
+         version,
+         reason: update === null ? { kind: 'revised' } : update.step.kind === 'update' ? { kind: 'iterationUpdate', iteration: update.step.number } : { kind: 'tourMove', move: update.step.number },
+      };
    }
 
-   /** Returns the revisions that the tour actions wanted at any store after revision `after` and up to revision `upTo`, with the latest of their iteration updates. */
+   /** Returns the revisions that the tour actions wanted at any store after revision `after` and up to revision `upTo`, with the latest of their iteration updates and moves. */
    private wantedWithin(after: number, upTo: number): WantedRevisions {
       const held = this.record.waitingWithin(after, upTo);
       return {
          // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a new set for each union, which nothing renders.
          stops: new Set(held.flatMap((pending) => [...stopsWithWaitingActions(pending)])),
          plan: held.some((pending) => pending.plan.some((threadId) => threadId !== pending.iteration)),
-         update: held.reduce<WantedRevisions['update']>((latest, pending) => this.updateOf(pending.iteration) ?? latest, null),
+         update: held.reduce<WantedRevisions['update']>((latest, pending) => this.stepOf(pending.iteration) ?? latest, null),
       };
    }
 
-   /** Returns the iteration update of the thread with the ID, when the record holds its thread, or null. */
-   private updateOf(iteration: string | undefined): WantedRevisions['update'] {
-      const thread = iteration === undefined ? undefined : this.record.thread(iteration);
+   /** Returns the iteration update or the move of the thread with the ID, when the record holds its thread, or null. */
+   private stepOf(threadId: string | undefined): WaitingStep | null {
+      const thread = threadId === undefined ? undefined : this.record.thread(threadId);
       const decision = thread === undefined ? null : decisionOf(thread);
-      return decision?.kind === 'iterationUpdated' ? { iteration: decision.iteration, stopIds: decision.stopIds } : null;
+      switch (decision?.kind) {
+         case 'iterationUpdated':
+            return { step: { kind: 'update', number: decision.iteration }, stopIds: decision.stopIds };
+         case 'tourMoved':
+            return { step: { kind: 'move', number: decision.move }, stopIds: decision.stopIds };
+         default:
+            return null;
+      }
    }
 
    /** Returns the passage at a place of the version on screen as the plan holds it now, null when that version has no passage there, or undefined when the place is of no such version. */

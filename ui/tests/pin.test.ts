@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { atPin, changedFilePaths, inFile, pinCommits, pinnedReferenceAtPin, pointsInto, referenceAtPin } from '../src/lib/pin';
+import { atPin, changedFilePaths, inFile, pinCommits, pinnedReferenceAtPin, pinStepOf, pointsInto, referenceAtPin } from '../src/lib/pin';
 import type { CodeReference, FileSide, StopPassage, WrittenStop } from '../src/lib/types';
 
 function stopPassage(side: FileSide, path: string, startLine: number, endLine: number, role: StopPassage['role'] = 'related', label?: string): StopPassage {
@@ -88,6 +88,14 @@ describe('the lines at the pin', () => {
       expect(atPin({ side: 'head', commit: 'a'.repeat(40) }, commits)).toBe(false);
    });
 
+   it("are a snapshot's lines at its head, and never lines at the base, which a snapshot lacks", () => {
+      const snapshot = pinCommits({ state: 'snapshot', head: 'b'.repeat(40), remoteUrl: 'https://code.example/repo.git', move: 1 });
+
+      expect(atPin({ side: 'head', commit: 'b'.repeat(40) }, snapshot)).toBe(true);
+      expect(atPin({ side: 'head', commit: 'c'.repeat(40) }, snapshot)).toBe(false);
+      expect(atPin({ side: 'base', commit: 'b'.repeat(40) }, snapshot)).toBe(false);
+   });
+
    it('take every commit while the tour is not pinned', () => {
       expect(pinCommits({ state: 'pinning' })).toBeNull();
       expect(atPin({ side: 'head', commit: 'c'.repeat(40) }, null)).toBe(true);
@@ -151,5 +159,14 @@ describe("a ref: link of Claude's synthesis at the pin", () => {
 
    it('is at the pin while the tour has no commits at each side, as a snapshot has none at the base', () => {
       expect(sides(pinnedReferenceAtPin(snapshot, null))).toEqual([true, true]);
+   });
+});
+
+describe('the step that brought a tour to its pin', () => {
+   it("is the iteration of a pull request's tour, and the move of a repository tour's snapshot, 0 for its first pin", () => {
+      expect(pinStepOf({ state: 'pinned', mergeBase: 'a'.repeat(40), head: 'b'.repeat(40), iteration: 3, remoteUrl: 'https://code.example/repo.git' })).toEqual({ kind: 'update', number: 3 });
+      expect(pinStepOf({ state: 'snapshot', head: 'b'.repeat(40), remoteUrl: 'https://code.example/repo.git', move: 2 })).toEqual({ kind: 'move', number: 2 });
+      expect(pinStepOf({ state: 'snapshot', head: 'b'.repeat(40), remoteUrl: 'https://code.example/repo.git' })).toEqual({ kind: 'move', number: 0 });
+      expect(pinStepOf({ state: 'pinning' })).toBeNull();
    });
 });

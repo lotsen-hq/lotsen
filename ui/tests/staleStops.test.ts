@@ -38,25 +38,25 @@ function renderInline(status: StaleStatus): void {
 
 describe('a stale stop in the inline explanation', () => {
    it('shows its marker, saying that Claude is revising it while the update waits', () => {
-      renderInline({ kind: 'stale', since: 2, target: 2, revising: true, earlierPassages: true });
+      renderInline({ kind: 'stale', step: 'update', since: 2, target: 2, revising: true, earlierPassages: true });
 
       expect(screen.getByRole('status', { name: 'Stale stop' }).textContent).toMatch(/Stale since update 2: Claude is revising this stop for update 2\. Its passages are lines from before update 2, /);
    });
 
    it('names the update that the tour moves to, which a stop that stayed stale across a later update differs from', () => {
-      renderInline({ kind: 'stale', since: 2, target: 3, revising: true, earlierPassages: true });
+      renderInline({ kind: 'stale', step: 'update', since: 2, target: 3, revising: true, earlierPassages: true });
 
       expect(screen.getByRole('status', { name: 'Stale stop' }).textContent).toMatch(/Stale since update 2: Claude is revising this stop for update 3\. Its passages are lines from before update 2, /);
    });
 
    it("says the new update while the page does not know the number of the tour's pin", () => {
-      renderInline({ kind: 'stale', since: 2, target: null, revising: false, earlierPassages: false });
+      renderInline({ kind: 'stale', step: 'update', since: 2, target: null, revising: false, earlierPassages: false });
 
       expect(screen.getByRole('status', { name: 'Stale stop' }).textContent).toMatch(/this stop waits for Claude to revise it for the new update\./);
    });
 
    it('marks its notice as a warning', () => {
-      renderInline({ kind: 'stale', since: 2, target: 2, revising: false, earlierPassages: false });
+      renderInline({ kind: 'stale', step: 'update', since: 2, target: 2, revising: false, earlierPassages: false });
 
       const notice = screen.getByRole('status', { name: 'Stale stop' });
       expect(notice.textContent).toMatch(/Stale since update 2: this stop waits for Claude to revise it for update 2\./);
@@ -64,8 +64,24 @@ describe('a stale stop in the inline explanation', () => {
    });
 
    it('reads its ref: links as at an earlier commit', () => {
-      renderInline({ kind: 'stale', since: 2, target: 2, revising: false, earlierPassages: true });
+      renderInline({ kind: 'stale', step: 'update', since: 2, target: 2, revising: false, earlierPassages: true });
 
       expect(screen.getByRole('link', { name: 'the head line, at an earlier commit' }).getAttribute('aria-disabled')).toBe('true');
+   });
+});
+
+describe("a repository tour's stale stop in the inline explanation", () => {
+   it('names the move that made it stale and the move that Claude revises it for', () => {
+      renderInline({ kind: 'stale', step: 'move', since: 1, target: 2, revising: true, earlierPassages: true });
+
+      expect(screen.getByRole('status', { name: 'Stale stop' }).textContent).toMatch(
+         /Stale since move 1: Claude is revising this stop for move 2\. Its passages are lines from before move 1, so the file view does not mark them and they do not open\./,
+      );
+   });
+
+   it("says the latest commit while the page does not know the number of the tour's move", () => {
+      renderInline({ kind: 'stale', step: 'move', since: 1, target: null, revising: false, earlierPassages: false });
+
+      expect(screen.getByRole('status', { name: 'Stale stop' }).textContent).toMatch(/Stale since move 1: this stop waits for Claude to revise it for the latest commit\./);
    });
 });

@@ -113,9 +113,12 @@
    A collapsed label turns sr-only, so it stays a control's accessible name or a live region's text. -->
 <header bind:this={bar} class="@container flex items-center gap-4 border-b bg-card px-4 py-1.5 outline-hidden" tabindex="-1">
    <Wordmark class="@max-bar-wordmark:hidden" />
-   <!-- The bar has three zones: which tour, where in it, then Claude and the workspace. The update check sits in the tour zone, so only the label moves it.
-      A dive's breadcrumb widens the zone, until a narrow bar keeps only the breadcrumb's last step. -->
-   <div class="flex max-w-72 min-w-0 shrink-0 items-center gap-2 has-data-breadcrumb:max-w-136 @max-bar-repository:has-data-breadcrumb:max-w-72" data-tour-zone>
+   <!-- The bar has three zones: which tour, where in it, then Claude and the workspace. The update check and a repository tour's commit sit in the tour zone, so only the label moves them.
+      A dive's breadcrumb and a repository tour's commit widen the zone, until a narrow bar keeps only the breadcrumb's last step and Move…. -->
+   <div
+      class="flex max-w-72 min-w-0 shrink-0 items-center gap-2 has-data-breadcrumb:max-w-136 has-data-tour-move:max-w-128 @max-bar-repository:has-data-breadcrumb:max-w-72 @max-bar-repository:has-data-tour-move:max-w-72"
+      data-tour-zone
+   >
       {@render picker()}
       {@render iteration?.()}
    </div>

@@ -10,7 +10,7 @@
    import { answerStateText, answerStateTexts, outdatedAnswerText } from '../lib/answers';
    import { anchorLabel, shortened } from '../lib/labels';
    import type { LinkHover } from '../lib/linkHover';
-   import { pinnedReferenceAtPin, type PinCommits } from '../lib/pin';
+   import { pinnedReferenceAtPin, pinStepName, type PinCommits, type PinStep } from '../lib/pin';
    import { summaryThreadKindLabel } from '../lib/tourActions';
    import { threadStateLabels, threadWords } from '../lib/threadView';
    import type { CheckAnswer, CodeReference, Plan, QuestionThread, SummaryAnswer, SummaryThread, SummaryTypedThread, SummaryTypedThreads, TourSummary } from '../lib/types';
@@ -34,6 +34,7 @@
       pinCommits = null,
       dives = [],
       onopendive = () => {},
+      pinStep = 'update',
       actions,
    }: {
       /** The selected tour's review summary. */
@@ -62,6 +63,8 @@
       dives?: readonly TourSummary[];
       /** Opens a dive by its tour ID. */
       onopendive?: (tourId: string) => void;
+      /** The kind of pin step whose number a stale stop shows: an update for a pull request's tour, a move for a repository tour. */
+      pinStep?: PinStep['kind'];
       /** The buttons that act on the summary, or undefined for none. Each one that needs a session shows disabled with its reason while none is bound. */
       actions?: Snippet;
    } = $props();
@@ -285,7 +288,7 @@
                   {#each summary.staleStops as stale (stale.stopId)}
                      <li class="summary-meta">
                         {@render stopLink(stale.stopId, stale.title)}
-                        <span class="text-muted-foreground">Stale since update {stale.staleOn}</span>
+                        <span class="text-muted-foreground">Stale since {pinStepName(pinStep, stale.staleOn)}</span>
                      </li>
                   {/each}
                </ul>

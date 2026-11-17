@@ -14,6 +14,7 @@
    import { doneClick, type DoneClick } from '../lib/doneClick';
    import { readingStateLabels, readingStateOf, tourName } from '../lib/tourFamily';
    import type { DoneState, KnownPlan } from '../lib/tourRecord.svelte';
+   import { pinStepName, type PinStep } from '../lib/pin';
    import { staleOnOf } from '../lib/stops';
    import { doneCheckboxLabel, doneRowLabel, doneTooltip, revisedTooltip, skipTooltip, stopKindLabels, stopStatusLabels, unwrittenStopLabel, type Attachment } from '../lib/labels';
    import type { PlanActionKind } from '../lib/tourActions';
@@ -55,6 +56,7 @@
       onfold = null,
       dives = new Map(),
       onopendive = () => {},
+      pinStep = 'update',
    }: {
       tourSelected: boolean;
       known: KnownPlan | undefined;
@@ -111,6 +113,8 @@
       dives?: ReadonlyMap<string, readonly TourSummary[]>;
       /** Opens a dive by its tour ID. */
       onopendive?: (tourId: string) => void;
+      /** The kind of pin step whose number a stale stop shows: an update for a pull request's tour, a move for a repository tour. */
+      pinStep?: PinStep['kind'];
    } = $props();
 
    // Skips of different stops may save at the same time: the server stores them in turn, and the page keeps the newest skips by the tour's update time.
@@ -251,6 +255,7 @@
             {@const isSkipped = skipped.has(stop.id)}
             {@const doneLabel = doneRowLabel(done.get(stop.id) ?? { state: 'none' })}
             {@const diveCount = dives.get(stop.id)?.length ?? 0}
+            {@const staleOn = staleOnOf(stop)}
             <!-- The row keeps room only for the controls that show without the pointer: a skip, a done mark on any version, and the dive marker. -->
             {@const kept = (onskip !== null && isSkipped ? 1 : 0) + (onsetdone !== null && doneLabel !== null ? 1 : 0) + (diveCount > 0 ? 1 : 0)}
             <li class="stop-item">
@@ -261,7 +266,7 @@
                   aria-label={[
                      `${number} ${kind}: ${stop.title}`,
                      ...(status === null ? [] : [status]),
-                     ...(staleOnOf(stop) === undefined ? [] : [`stale since update ${staleOnOf(stop)}`]),
+                     ...(staleOn === undefined ? [] : [`stale since ${pinStepName(pinStep, staleOn)}`]),
                      ...(isSkipped ? ['skipped'] : []),
                      ...(doneLabel === null ? [] : [doneLabel]),
                      ...(diveCount === 0 ? [] : [diveCount === 1 ? '1 dive' : `${diveCount} dives`]),
@@ -286,8 +291,8 @@
                            {/snippet}
                         </WithTooltip>
                      {/if}
-                     {#if staleOnOf(stop) !== undefined}
-                        <span class="status stale" data-cell><ClockAlert aria-hidden="true" />Stale since update {staleOnOf(stop)}</span>
+                     {#if staleOn !== undefined}
+                        <span class="status stale" data-cell><ClockAlert aria-hidden="true" />Stale since {pinStepName(pinStep, staleOn)}</span>
                      {/if}
                      {#if isSkipped}
                         <span class="status skipped" data-cell><SkipForward aria-hidden="true" />Skipped</span>

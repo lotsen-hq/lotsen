@@ -18,6 +18,7 @@
    import SummaryPage from './components/SummaryPage.svelte';
    import TooltipScope from './components/TooltipScope.svelte';
    import TopBar from './components/TopBar.svelte';
+   import TourMove from './components/TourMove.svelte';
    import TourPicker from './components/TourPicker.svelte';
    import ViewModeSwitch from './components/ViewModeSwitch.svelte';
    import Workspace from './components/Workspace.svelte';
@@ -109,6 +110,8 @@
 
    /** Whether the selected tour is a repository tour, which has no changed files and no base. */
    const repositoryTour = $derived(app.selectedTour?.target.kind === 'repository');
+   /** The kind of pin step whose number the selected tour's stale stops show. */
+   const pinStep = $derived(repositoryTour ? 'move' : 'update');
    /** Claude's mark on the selected changed file, or null for none. */
    const selectedMark = $derived(app.selectedFile === null ? null : (app.selectedFileMarks.get(app.selectedFile.path) ?? null));
    const writes: AnswerWrites = {
@@ -303,8 +306,21 @@
                {/if}
             {/snippet}
             {#snippet iteration()}
-               {#if app.selectedTour?.pin.state === 'pinned'}
+               {@const tour = app.selectedTour}
+               {#if tour?.pin.state === 'pinned'}
                   <IterationCheck running={app.selectedIterationCheck.running} oncheck={() => void app.checkIteration()} />
+               {:else if tour?.pin.state === 'snapshot' && tour.target.kind === 'repository'}
+                  <!-- Each tour gets its own dialog, so a check or a refusal for one tour never shows on the next. -->
+                  {#key tour.id}
+                     <TourMove
+                        commit={tour.pin.head}
+                        offer={app.selectedMoveOffer}
+                        refName={tour.target.ref ?? null}
+                        oncheck={() => app.checkMove(tour.id)}
+                        onmove={(commit, diveIds) => app.moveTour(tour.id, commit, diveIds)}
+                        onfocuslost={() => tourPicker?.focusSwitcher()}
+                     />
+                  {/key}
                {/if}
             {/snippet}
          </TopBar>
@@ -382,6 +398,7 @@
                      onfold={(partId, folded) => app.setPartFolded(partId, folded)}
                      dives={app.selectedDivesByStop}
                      onopendive={openDive}
+                     {pinStep}
                   />
                {/key}
             {/snippet}
@@ -405,6 +422,7 @@
                            pinCommits={app.selectedPinCommits}
                            dives={app.selectedDives}
                            onopendive={openDive}
+                           {pinStep}
                         >
                            {#snippet actions()}
                               <!-- Each tour gets its own button, so a request in flight or a refusal for one tour never shows on the next. -->

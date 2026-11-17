@@ -90,6 +90,8 @@ The purpose says what the tour is for: `orient` to find your way around the code
 
 To go deeper into part of a codebase tour, choose Dive… in the Stop panel's Ask Claude menu, or in the Plan panel's ⋯ menu for the whole tour, with a purpose, a familiarity level and your words on what to cover, which a dive from the whole tour needs. Claude writes the dive as a new tour at the same commit. Its top bar shows a breadcrumb back to the tour it came from, that tour lists it in a Dives row on its stop, and the tour list groups the dives under their first tour. Deleting or archiving a tour takes its dives with it, and unarchiving it restores the dives archived with it.
 
+A codebase tour stays at its commit. The top bar shows that commit, and for a tour that follows a branch, Move… takes the tour to the branch's latest commit, with the dives that you tick. Claude then revises the stops whose code changed, which show as stale until it does. A tour at a tag or a commit has no move.
+
 ## Commands
 
 Claude Code starts a background server when a session needs one, and it stops by itself once nothing uses it. These commands are for the times you want to step in. They need the global install from [Install](#install). Without it, run a command through npx with the plugin's version, such as `npx -y lotsen@<version> open`, with the version that Lotsen's errors in Claude Code name.

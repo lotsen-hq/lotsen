@@ -74,17 +74,22 @@ describe('the sample tours in the UI', () => {
 
    it('open the summary page of every sample tour without an error', async () => {
       const { world } = await sampleWorld();
-      await seedPinningTour(world, await world.claude());
       const { app } = await startApp(world);
-
-      for (const key of [...specs.map((spec) => spec.key), pinningTour.key]) {
+      const expectSummary = async (key: string) => {
          await select(app, key);
          app.openSummary();
          const page = within(await screen.findByRole('main', { name: 'Summary' }));
          expect(await page.findByRole('region', { name: /^Decisions/ }), key).toBeTruthy();
          expect(page.queryAllByRole('alert'), key).toEqual([]);
+      };
+
+      for (const key of specs.map((spec) => spec.key)) {
+         await expectSummary(key);
       }
 
+      // The hold of the pinning tour's pull request also holds a repository tour's check for a move, so the pinning tour comes once every other tour's check answered.
+      await seedPinningTour(world, await world.claude());
+      await expectSummary(pinningTour.key);
       await world.pullRequest.release();
    });
 

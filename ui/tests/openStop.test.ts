@@ -17,6 +17,8 @@ const update = outputFixtures.update_iteration;
 const updateThread = update.thread as QuestionThread;
 const newHead = (update.pin as typeof pinned).head;
 const updatedAt = '2026-10-30T09:10:00+00:00';
+// A move's decided thread in place of the update's, which names s4 and waits for Claude.
+const moveThread: QuestionThread = { ...updateThread, id: 't-move', decision: { kind: 'tourMoved', move: 2, commit: newHead, stopIds: ['s4'] } } as QuestionThread;
 
 function controls(pending: Partial<PendingWork>, revision = at): TourControls {
    const offers = eventFixtures.controlsChanged.offers;
@@ -40,7 +42,7 @@ function opened(stopId: string | null, pending: Partial<PendingWork> = {}): Open
    const open = new OpenStop(
       record,
       () => commits.value,
-      () => iteration.value,
+      () => (iteration.value === null ? null : { kind: 'update', number: iteration.value }),
    );
    open.open(stopId);
    return { record, commits, iteration, open };
@@ -144,6 +146,15 @@ describe('the open stop', () => {
          revise(state, revised(stopOf(state.record, 's4'), 'Retry, for iteration 2.'));
 
          expect(state.open.shownVersion).toEqual({ number: 1, current: 2, reason: { kind: 'iterationUpdate', iteration: 2 } });
+      });
+
+      it("keeps the version for a waiting move that names the stop, and names the move's number", () => {
+         const state = opened('s4', { plan: [moveThread.id], iteration: moveThread.id });
+         state.record.putThread(moveThread, at);
+
+         revise(state, revised(stopOf(state.record, 's4'), 'Retry, at the latest commit.'));
+
+         expect(state.open.shownVersion).toEqual({ number: 1, current: 2, reason: { kind: 'tourMove', move: 2 } });
       });
 
       it("keeps the version for an update that waited before a load brought the revision with Claude's reply", () => {
@@ -307,7 +318,7 @@ describe('the open stop', () => {
          expect(state.open.stale).toEqual({ kind: 'current' });
          state.open.open('s4');
          expect(state.open.pinnedPassages).toEqual([]);
-         expect(state.open.stale).toEqual({ kind: 'stale', since: 2, target: 2, revising: false, earlierPassages: true });
+         expect(state.open.stale).toEqual({ kind: 'stale', step: 'update', since: 2, target: 2, revising: false, earlierPassages: true });
       });
 
       it('says that Claude revises a stale stop while the update that names it waits', () => {
@@ -337,6 +348,15 @@ describe('the open stop', () => {
          state.open.open('s4');
 
          expect(state.open.stale).toMatchObject({ kind: 'stale', since: 2, target: 3, revising: false });
+      });
+
+      it('names the move that waits as the target of a stale stop that Claude revises', () => {
+         const state = opened('s4', { iteration: moveThread.id });
+         state.record.putThread(moveThread, at);
+
+         updated(state, 0);
+
+         expect(state.open.stale).toMatchObject({ kind: 'stale', step: 'move', since: 2, target: 2, revising: true });
       });
 
       it('has no target while the page knows no iteration of the pin and no update waits', () => {

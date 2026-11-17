@@ -1,5 +1,6 @@
 import { idleAnswerSend, type AnswerSendState } from './answers';
 import type { IterationCheck } from './iterations';
+import type { MoveOffer } from './tourMoves';
 import { Revisioned, RevisionedValue } from './revisioned.svelte';
 import { skippedIn } from './stops';
 import { versionsOf, withEarlierVersions, type KnownVersion } from './versions';
@@ -143,6 +144,8 @@ export class TourRecord {
    summary = $state.raw<KnownSummary | undefined>(undefined);
    /** The reviewer's last iteration check of the tour, or undefined before one. */
    iterationCheck = $state.raw<IterationCheck | undefined>(undefined);
+   /** Whether the repository tour's ref can move, as the page's last check of a move learned it, or undefined before a check. */
+   moveOffer = $state.raw<MoveOffer | undefined>(undefined);
    /** The number of the skip writes that the page waits for, from any panel. */
    skipsSaving = $state(0);
    /** The state of the tour's send of its answers. */

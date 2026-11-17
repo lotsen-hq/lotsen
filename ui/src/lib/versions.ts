@@ -35,9 +35,9 @@ export function stopVersions(known: readonly KnownVersion[], stop: Stop | null):
 }
 /**
  * Why the page shows an earlier stop version: the reviewer opened it, or a revision of the stop under view kept it on screen. A revision for an iteration update that named the stop names
- * the update's iteration.
+ * the update's iteration, and one for a move that named it names the move's number.
  */
-export type ShownReason = { kind: 'opened' } | { kind: 'revised' } | { kind: 'iterationUpdate'; iteration: number };
+export type ShownReason = { kind: 'opened' } | { kind: 'revised' } | { kind: 'iterationUpdate'; iteration: number } | { kind: 'tourMove'; move: number };
 
 /** An earlier stop version of the open stop that the page shows in place of the current one. */
 export interface ShownVersion {

@@ -6,17 +6,49 @@ export interface FilePaths {
    head: string | null;
 }
 
-/** The commits that a pinned tour shows at each side: its merge base at the base and its head at the head. */
+/**
+ * The commits that a pinned tour shows at each side: its merge base at the base and its head at the head.
+ *
+ * A snapshot has no base, so its base side holds an empty string, which no commit of lines equals.
+ */
 export type PinCommits = Readonly<Record<FileSide, string>>;
 
-/** Returns the commits that a tour's pin shows at each side, or null while the tour is not pinned. */
+/** Returns the commits that a tour's pin shows at each side, or null while the tour is not pinned to an iteration or a snapshot. */
 export function pinCommits(pin: TourPin | undefined): PinCommits | null {
-   return pin?.state === 'pinned' ? { base: pin.mergeBase, head: pin.head } : null;
+   switch (pin?.state) {
+      case 'pinned':
+         return { base: pin.mergeBase, head: pin.head };
+      case 'snapshot':
+         return { base: '', head: pin.head };
+      default:
+         return null;
+   }
 }
 
-/** Returns the number of the iteration that a tour is pinned to, or null while the tour is not pinned. */
-export function pinIteration(pin: TourPin | undefined): number | null {
-   return pin?.state === 'pinned' ? pin.iteration : null;
+/**
+ * A change of a tour's pin that can make stops stale: an iteration update of a pull request's tour, numbered by the iteration, or a move of a repository tour, numbered by the move.
+ * A stale marker holds the number of the step that made its stop stale.
+ */
+export interface PinStep {
+   kind: 'update' | 'move';
+   number: number;
+}
+
+/** Returns the step that brought a tour to its pin: the iteration it is pinned to, or the move of its snapshot, 0 for a snapshot that no move made. It is null while the tour has neither. */
+export function pinStepOf(pin: TourPin | undefined): PinStep | null {
+   switch (pin?.state) {
+      case 'pinned':
+         return { kind: 'update', number: pin.iteration };
+      case 'snapshot':
+         return { kind: 'move', number: pin.move ?? 0 };
+      default:
+         return null;
+   }
+}
+
+/** Returns the name of a pin step as the page shows it, such as "update 2" or "move 1". */
+export function pinStepName(kind: PinStep['kind'], number: number): string {
+   return `${kind} ${number}`;
 }
 
 /**
