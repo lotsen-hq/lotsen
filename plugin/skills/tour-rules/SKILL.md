@@ -115,8 +115,8 @@ The tour's familiarity level, which `read_state` returns, sets how much each sto
 when the reviewer is likely to misread it, find it confusing or not know it.
 
 - `familiar`: the headline, `why` and `designChoices` carry the stop. Keep `how` to what is not obvious from the
-  code. Don't explain the codebase's own conventions. The overview has no vocabulary, except a line for a name that
-  misleads, such as one that means something other than it says.
+  code. Don't explain the codebase's own conventions. The overview's vocabulary holds only the terms that a pull
+  request introduces and a name that misleads, such as one that means something other than it says.
 - `some`: explain in `how` the code that the change relies on but does not show, with a related passage or a `ref:`
   link to it. Name a convention once, where a stop first relies on it. The overview's vocabulary holds the project's
   terms that the tour relies on and the reviewer likely does not know.
