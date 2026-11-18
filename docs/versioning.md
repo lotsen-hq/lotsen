@@ -39,7 +39,7 @@ A release publishes three npm packages: `@lotsen-hq/lotsen-linux-x64` and `@lots
 
 After the version, `--version` prints a digest of the executable's assemblies. The adapter refuses a server whose build differs from its own, so two builds of one version still count as different builds.
 
-The plugin has no version of its own, in its manifest or in its marketplace entry, so Claude Code uses the commit to detect an update. The marketplace entry is pinned to the release tag, and the plugin at that tag starts the npm version of the same release, so the skill matches the executable. The release workflow moves the entry in `lotsen-hq/plugins` to the new tag of each release without a suffix. A pre-release leaves the entry as it is, so the marketplace, like npm's `latest`, offers no release candidate.
+The plugin has no version of its own, in its manifest or in its marketplace entry, so Claude Code uses the commit to detect an update. The marketplace entry is pinned to the release tag, and the plugin at that tag starts the npm version of the same release, so the skills match the executable. The release workflow moves the entry in `lotsen-hq/plugins` to the new tag of each release without a suffix. A pre-release leaves the entry as it is, so the marketplace, like npm's `latest`, offers no release candidate.
 
 ## What counts as a breaking change
 
@@ -52,4 +52,4 @@ A change is breaking if it changes one of these in a way that existing users or 
 
 Before 1.0, nothing is compatible by promise: stored tours, the state file and the HTTP API can change freely, with no migration.
 
-From then on, a breaking change raises the minor version while the version is below 1.0, and the major version after that.
+A breaking change raises the minor version below 1.0, and the major version from 1.0 on.

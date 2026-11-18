@@ -1,6 +1,6 @@
 {
   "name": "lotsen",
-  "description": "Guided tours of Azure DevOps and GitHub pull requests in the lotsen web UI",
+  "description": "Guided tours of Azure DevOps and GitHub pull requests and repositories in the lotsen web UI",
   "author": { "name": "lotsen-hq" },
   "license": "Apache-2.0",
   "keywords": ["code-review", "pull-request", "azure-devops", "github", "tour"]

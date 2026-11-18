@@ -41,6 +41,8 @@ in `platform`, which a tour of another host lacks.
   `{organization}@vs-ssh.visualstudio.com:v3/{organization}/{project}/{repository}`. lotsen still clones the
   repository over https.
 - **Sign-in:** lotsen reads the repository with the Azure CLI's sign-in, which `az login` sets.
+- **Work item:** an Azure DevOps work item. Label a mention of one with its ID, as `[#1234](workitem:1234)`, and a
+  mention of a pull request in the repository as `[!42](pullrequest:42)`.
 
 ### GitHub (`github`)
 
@@ -49,6 +51,8 @@ in `platform`, which a tour of another host lacks.
   `git@github.com:{owner}/{repository}` or `ssh://git@github.com/{owner}/{repository}`, with or without `.git`.
   lotsen still clones the repository over https.
 - **Sign-in:** lotsen reads the repository with the GitHub CLI's sign-in, which `gh auth login` sets.
+- **Work item:** an issue in the repository. Label a mention of one with its number, as `[#17](workitem:17)`, and a
+  mention of a pull request with `#` and its number too, as GitHub does: `[#42](pullrequest:42)`.
 
 ### Other hosts
 
@@ -59,6 +63,8 @@ in `platform`, which a tour of another host lacks.
 - **Sign-in:** none. lotsen reads the repository with git alone and sends no credential, so a private repository
   there fails to pin with a reason that says so. Tell the user that lotsen tours only public repositories on other
   hosts, and ask for the URL of a public repository, or of the repository on a platform above.
+- **Work item:** none. lotsen links no `workitem:` or `pullrequest:` mention there, so write a mention of an issue or
+  a pull request as plain text, or as its full `https:` link.
 
 ## 1. Take the repository, the ref, the purpose and the familiarity level
 
@@ -115,9 +121,10 @@ When neither the current branch nor `HEAD`'s commit is on `origin`, tell the use
 
 ### Offer a saved tour of the repository
 
-Once you have the repository URL, call `find_tours` with `repository`, holding the `url` alone, first, before you ask
-for the purpose, the words and the familiarity level and before you create a tour. It returns the repository's saved
-tours at every ref, newest first, whatever form of the repository's URL you pass. When it returns no tours, go on as
+Once you have the repository URL, call `find_tours` with `repository`, holding the `url` alone without a ref in it,
+first, before you ask for the purpose, the words and the familiarity level and before you create a tour. Drop a
+`/tree/{ref}` or a `version` query from the URL, because a URL that names a ref finds only that ref's tours. It returns
+the repository's saved tours at every ref, newest first. When it returns no tours, go on as
 below.
 
 When it returns one or more tours, always ask the user once whether to reopen one of them or to create a new one.
@@ -458,7 +465,7 @@ reaches you as a `dive` action. Follow its `howToAct`:
 
    lotsen pins the dive to the parent's commit at once, so its `pin.state` is `snapshot` with the parent's
    `pin.head`, and section 3 has nothing to wait for. Creating the dive attaches it to this session. The reviewer finds
-   the dive under its parent in the tour list, so the dive needs no `open_ui`.
+   the dive under the first tour of its family in the tour list, so the dive needs no `open_ui`.
 3. **Reply.** Resolve the action with a `done` reply of one sentence that names the dive's title. Then write the dive.
 4. **Read the code** at the dive's `pin.head`, from the clean checkout, the worktree or the clone that you read the
    parent from, as section 4 says. When it is gone or no longer clean, set one up again as section 4 says.

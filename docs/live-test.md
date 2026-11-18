@@ -1,7 +1,7 @@
 # Live test: a tour from Claude Code
 
-How to check by hand that a live Claude Code session creates a tour, its plan and its stops, and that they appear in the
-browser without a reload. Sections 7 to 11 then follow that tour through answers, revisions, a new update and the
+How to check by hand that a live Claude Code session creates a pull request's tour, its plan and its stops, and that
+they appear in the browser without a reload. It does not cover codebase tours. Sections 7 to 11 then follow that tour through answers, revisions, a new update and the
 end-of-tour summary. Section 12 checks on github.com what no test can show for a GitHub PR. The session uses the
 tour-pr skill in [`plugin/`](../plugin) and runs `lotsen mcp` as a development channel.
 
@@ -146,7 +146,7 @@ Check before you go on:
 - `/mcp` lists `lotsen` as connected, with the tools `find_tours`, `create_tour`, `attach_tour`, `set_plan`,
   `put_stop`, `read_state`, `fetch_question`, `reply`, `ack`, `pin_tour`, `open_ui`, `start_thread`,
   `add_thread_message`, `outdate_thread`, `delete_thread`, `fetch_answers`, `read_summary` and `write_synthesis`.
-- `/lotsen:tour-pr` is in the `/` menu.
+- `/lotsen:tour-pr` and `/lotsen:tour-repo` are in the `/` menu.
 - Without a `lotsen serve`, `lotsen open` in another terminal opens the UI, so Claude Code started a background
   server. `<lotsen>/scripts/live-test.sh check` reports the server as running.
 - Once you end the session with no `lotsen serve` running, `lotsen open` still opens the UI for about 60 seconds, and
@@ -273,7 +273,7 @@ which the browser's address shows after `#tour=`.
 - Write a third question, pick "Concern" as its "Type" in the ask box and save it as a note. Open the summary page:
   the note shows under Concerns, marked "Your note", and its link opens its thread. In the thread view, change its type
   to "Open question": it moves to Open questions. Ask Claude for the tour's `read_summary`: it has no typed note.
-  Discard the note from its thread's menu.
+  Delete the note with "Delete" in its thread's menu.
 - Write another question, pick "Concern" as its "Type", save it as a note and click "Send to Claude" in its thread
   view. Claude's reply treats the note as a concern, and its `fetch_question` shows `"type": "concern"` on the thread.
   The thread view shows "Type" as "Concern", and the summary page lists the thread under Concerns, marked "Your
@@ -283,7 +283,7 @@ which the browser's address shows after `#tour=`.
   answer of yours is a decision. Click it and send it. Claude's `fetch_question` lists the thread under
   `decisionThreads` of the action, and Claude proposes a work item for your finding in the terminal, in your words, not
   as its own. Decline it there. Save a note of type "Open question" without sending it: "Walk through open questions"
-  stays disabled. Discard the note.
+  stays disabled. Delete the note with "Delete" in its thread's menu.
 - Write a question, pick "Open question" as its "Type" in the ask box and press Enter. The "Type" goes back to "No
   type". Claude's `fetch_question` shows `"type": "openQuestion"` on the thread, and the thread view shows "Type" as
   "Open question". Delete the thread from its menu.

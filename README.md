@@ -33,12 +33,12 @@ Everything stays on your machine. The UI runs on 127.0.0.1, Lotsen keeps its own
 - [Claude Code](https://code.claude.com/docs/en/overview), allowed to use channels. On a Team or Enterprise plan, your organization has to enable them with `channelsEnabled`.
 - git 2.46 or newer.
 - [Node.js](https://nodejs.org/) 18 or later, with npm. Claude Code starts Lotsen through npx.
-- For Azure DevOps, the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), signed in with `az login` to an account that can read the pull request's repository.
-- For GitHub, the [GitHub CLI](https://cli.github.com/), signed in with `gh auth login` to an account that can read the pull request's repository. Lotsen needs the sign-in for a public repository too.
+- For Azure DevOps, the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), signed in with `az login` to an account that can read the repository that you tour.
+- For GitHub, the [GitHub CLI](https://cli.github.com/), signed in with `gh auth login` to an account that can read the repository that you tour. Lotsen needs the sign-in for a public repository too.
 
 ## Limits
 
-- **Azure DevOps Services and github.com.** Lotsen tours pull requests at `dev.azure.com`, `<organization>.visualstudio.com` and `github.com`. It does not support Azure DevOps Server, GitHub Enterprise Server, GitHub Enterprise on GHE.com or any other hosting service for now.
+- **Azure DevOps Services and github.com.** Lotsen tours pull requests and repositories at `dev.azure.com`, `<organization>.visualstudio.com` and `github.com`, and public repositories on any other host that git clones over `https`. It does not support Azure DevOps Server, GitHub Enterprise Server or GitHub Enterprise on GHE.com, and it tours no pull request on any other hosting service for now.
 - **Linux x64 and Windows x64.** On Linux it needs glibc, and WSL counts as Linux. Its npm packages hold no executable for any other system, such as macOS or Arm.
 - **The channel needs a flag or an allowlist.** Your questions reach Claude through a Claude Code channel, and Lotsen is not on Anthropic's list of allowed channel plugins. You start Claude Code with a development flag, or your organization adds Lotsen to its own list, as [Start a tour](#start-a-tour) shows.
 - **One reviewer per machine.** The UI serves only your own browser, on 127.0.0.1. A tour is a reading aid for you, not a review that your team shares.

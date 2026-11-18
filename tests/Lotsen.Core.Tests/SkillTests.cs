@@ -319,7 +319,7 @@ public sealed partial class SkillTests
       {
          var vocabulary = level switch
          {
-            Familiarity.Familiar => "The overview's vocabulary holds only the terms that a pull request introduces and a name that misleads,",
+            Familiarity.Familiar => "The overview's vocabulary holds only a name that misleads, such as one that means something other than it says, and in a pull request's tour, the terms that the pull request introduces.",
             Familiarity.Some => "The overview's vocabulary holds the project's terms that the tour relies on and the reviewer likely does not know.",
             Familiarity.New => "The overview's vocabulary holds every project term that the tour uses.",
             _ => throw new UnreachableException($"The test names no vocabulary for the level {level}."),
