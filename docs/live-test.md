@@ -27,7 +27,7 @@ The steps below write `<lotsen>` for the absolute path of this repository's chec
 
 | Command                             | Does                                                                                                                                                               |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `check`                             | Reports whether the publish, the server, the MCP registration, the Azure CLI sign-in and the GitHub CLI sign-in are ready.                                         |
+| `check`                             | Reports whether the publish, the server, the MCP registration and its scope, the Azure CLI sign-in and the GitHub CLI sign-in are ready.                           |
 | `build`                             | Step 1.                                                                                                                                                            |
 | `serve`                             | Step 2, when you want the server in the foreground.                                                                                                                |
 | `register`                          | Step 3, replacing an older entry.                                                                                                                                  |
@@ -38,7 +38,8 @@ The steps below write `<lotsen>` for the absolute path of this repository's chec
 | `demo-link`                         | Prints a new link to the UI of the demo's server, which works once. `just demo-print-link` runs it.                                                                |
 
 `just demo <pr-url> [familiarity] [dir]` runs `demo` from any directory. It publishes lotsen first when the publish is missing or older than its sources. It refuses to start while the sign-in
-that the PR needs is missing: the GitHub CLI's for a github.com PR, and the Azure CLI's for an Azure DevOps PR. The session loads this checkout's publish through `--mcp-config`, which replaces the user-scope `lotsen` from step 3 for that session, so `demo` needs no registration.
+that the PR needs is missing: the GitHub CLI's for a github.com PR, and the Azure CLI's for an Azure DevOps PR. For the session, `demo` registers this checkout's publish as a local-scope `lotsen` in `dir`, and removes it when the session ends, so `demo` needs no registration from step 3. The local-scope entry overrides a
+user-scope `lotsen` in that project. `demo` refuses a `dir` that already has a local-scope `lotsen`.
 Its server keeps its tours, clones and the UI's preferences in a data directory of its own, `~/.local/share/lotsen-demo` (under `$XDG_DATA_HOME` when that is set), and never touches your other tours. Delete that
 directory to start the next demo with no tours. Claude runs in `dir`, by default a new empty directory, and starts with `/lotsen:tour-pr <pr-url> <familiarity>`, `familiar` when you give none.
 Pass a checkout of the PR's repository as `dir` to let Claude read the code with git. For a new link to the UI, run `just demo-print-link`, which prints one that works once, or
@@ -113,7 +114,7 @@ on 2.1.319, `plugin:lotsen@inline` reports "plugin not installed".
 The channels documentation shows `server:<name>` only with a server from a project `.mcp.json`. It does not say which
 scopes count. In Claude Code 2.1.308 the startup check for `server:` entries collects server names from the
 enterprise, managed, user, project and local scopes. A live session on 2.1.310 confirmed that a user-scope entry
-matches.
+matches. A server passed with `--mcp-config` does not count: on 2.1.327 the startup screen reports `server:lotsen · no MCP server configured with that name` for it, and channel events do not reach the session.
 
 If the startup screen in step 4 does not show the channel, use a project `.mcp.json` in the PR's checkout instead.
 That is the form the earlier channel tests confirmed. Claude Code asks once to approve it. Add `.mcp.json` to

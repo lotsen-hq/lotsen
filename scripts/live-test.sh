@@ -58,11 +58,13 @@ plugin_copy() {
 check() {
    [[ -x "$lotsen" ]] && echo "publish:      yes" || echo "publish:      no (run build)"
    pgrep -f "$lotsen (serve|daemon)" >/dev/null && echo "server:       running" || echo "server:       not running (run serve, or let Claude Code start one)"
-   local registered
-   registered=$(claude mcp get lotsen 2>/dev/null | sed -n 's/^[[:space:]]*Command: //p') || true
+   local entry registered scope
+   entry=$(claude mcp get lotsen 2>/dev/null) || true
+   registered=$(sed -n 's/^[[:space:]]*Command: //p' <<<"$entry")
+   scope=$(sed -n 's/^[[:space:]]*Scope: \([[:alpha:]]*\).*/\1/p' <<<"$entry")
    case "$registered" in
-      "") echo "registration: no (run register)" ;;
-      "$lotsen") echo "registration: yes" ;;
+      "") echo "registration: no (run register, which demo does not need)" ;;
+      "$lotsen") echo "registration: yes, ${scope,,} scope" ;;
       *) echo "registration: $registered is not this checkout's publish (run register)" ;;
    esac
    az_signed_in && echo "az:           signed in" || echo "az:           not signed in (run az login)"
@@ -107,18 +109,22 @@ demo() {
    else
       az_signed_in || { echo "The Azure CLI is not signed in, so the server cannot pin the PR. Run: az login" >&2; exit 1; }
    fi
+   cd "${dir:-$(mktemp -d)}"
+   if claude mcp get lotsen 2>/dev/null | grep -q '^[[:space:]]*Scope: Local'; then
+      echo "$PWD already has a local-scope lotsen, which demo would replace. Remove it with: claude mcp remove --scope local lotsen" >&2
+      exit 1
+   fi
    if stale; then
       build
       # A demo server that still runs the earlier build refuses the new adapter.
       LOTSEN_DATA_DIR="$demo_data" "$lotsen" stop
    fi
-   cd "${dir:-$(mktemp -d)}"
-   # An --mcp-config server named lotsen replaces the user-scope registration for this session.
-   local config
-   config=$(printf '{"mcpServers":{"lotsen":{"command":"%s","args":["mcp"],"env":{"LOTSEN_DATA_DIR":"%s"}}}}' "$lotsen" "$demo_data")
+   # The channel needs a lotsen in a registered scope (docs/live-test.md, step 3). A local-scope entry applies to this project alone and overrides a user-scope one.
+   claude mcp add --scope local lotsen -e LOTSEN_DATA_DIR="$demo_data" -- "$lotsen" mcp >/dev/null
+   trap 'claude mcp remove --scope local lotsen >/dev/null 2>&1 || true' EXIT
    echo "Demo data directory: $demo_data. A new link to the UI: just demo-print-link"
-   # The prompt comes first, because --mcp-config and the channel flag each take every word after them.
-   exec claude "/lotsen:tour-pr $url $familiarity" --plugin-dir "$(plugin_copy)" --mcp-config "$config" --dangerously-load-development-channels server:lotsen
+   # The prompt comes first, because the channel flag takes every word after it.
+   claude "/lotsen:tour-pr $url $familiarity" --plugin-dir "$(plugin_copy)" --dangerously-load-development-channels server:lotsen
 }
 
 case "${1:-}" in
