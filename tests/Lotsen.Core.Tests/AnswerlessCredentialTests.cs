@@ -59,6 +59,7 @@ public sealed class AnswerlessCredentialTests : IAsyncLifetime
    [Fact]
    public async Task Empty_auth_that_the_user_scoped_to_the_remote_sends_no_header()
    {
+      Assert.SkipWhen(OperatingSystem.IsWindows(), "Git for Windows sends no empty credential for http.emptyAuth after a Basic challenge, so the setting has no effect to isolate.");
       await WriteUserConfigAsync($"[http \"{_server.RepositoryUrl.AbsoluteUri}\"]\n\temptyAuth = true\n");
 
       await AssertRefusedWithoutHeaderAsync();
