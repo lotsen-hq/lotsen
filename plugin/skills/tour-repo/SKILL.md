@@ -326,7 +326,9 @@ The kinds of stop:
 
 - `overview`: the first stop, always. A map of the repository, or of the part for `prepare`: what it is for, its
   areas, the route of the tour and the areas that it passes over lightly. Its vocabulary follows the familiarity
-  level, as "Depth by familiarity" in `lotsen:tour-rules` says.
+  level, as "Depth by familiarity" in `lotsen:tour-rules` says. In a `prepare` tour, the overview links each file of
+  the part with a `ref:` link, or each entry point of a part too large to link every file, so that the Files panel's
+  Visited view, grouped by stop, lists the part's files under this stop.
 - `context`: background that the reviewer needs before the code that follows, such as a convention, a configuration
   or a concept.
 - `inspect`: a walk through code on one of the main paths. Use it when no other kind fits.
