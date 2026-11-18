@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { repositoryHeading, splitLabel } from '../src/lib/tourLabel';
+import { repositoryHeading, splitLabel, switcherLines } from '../src/lib/tourLabel';
 
 describe('the split of a tour label', () => {
    it('splits an Azure DevOps label into its repository and its number', () => {
@@ -52,5 +52,28 @@ describe('the heading of a repository tour', () => {
 
    it('is absent for a pull request tour', () => {
       expect(repositoryHeading({ target: { kind: 'pullRequest', platform: 'test', url: 'https://platform.test/shop/pull/1' }, label: 'shop #1' })).toBeNull();
+   });
+});
+
+describe("the tour switcher's lines", () => {
+   const repository = { kind: 'repository', platform: 'test', url: 'https://platform.test/shop', ref: 'v1.2.0' } as const;
+   const pullRequest = { kind: 'pullRequest', platform: 'test', url: 'https://platform.test/shop/pull/1' } as const;
+   const snapshot = { state: 'snapshot', head: 'c'.repeat(40), remoteUrl: 'https://platform.test/shop.git' } as const;
+   const pinned = { state: 'pinned', mergeBase: 'a'.repeat(40), head: 'b'.repeat(40), iteration: 1, remoteUrl: 'https://platform.test/shop.git' } as const;
+
+   it("put a repository tour's title below its repository, ref and short commit", () => {
+      expect(switcherLines({ target: repository, label: 'shop@v1.2.0', title: 'Cart', pin: snapshot })).toEqual({ title: 'Cart', place: 'shop@v1.2.0', commit: 'cccccccc' });
+   });
+
+   it('leave the commit out while a repository tour has no snapshot', () => {
+      expect(switcherLines({ target: repository, label: 'shop@v1.2.0', title: 'Cart', pin: { state: 'pinning' } })).toEqual({ title: 'Cart', place: 'shop@v1.2.0', commit: null });
+   });
+
+   it("put a pull request's number below its repository, with no commit", () => {
+      expect(switcherLines({ target: pullRequest, label: 'contoso/shop #12', pin: pinned })).toEqual({ title: 'Pull request #12', place: 'contoso/shop', commit: null });
+   });
+
+   it('show a label that ends in no number whole, on one line', () => {
+      expect(switcherLines({ target: pullRequest, label: 'https://platform.test/shop/pull/1', pin: pinned })).toEqual({ title: 'https://platform.test/shop/pull/1', place: null, commit: null });
    });
 });

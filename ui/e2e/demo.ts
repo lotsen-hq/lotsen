@@ -16,6 +16,9 @@ export interface DemoSettings {
 /** The checkout sample tour, which pins the storefront change with every kind of stop. */
 export const checkoutTour = 'storefront #412';
 
+/** The accessible name of the top bar's tour switcher, with a tour selected or without one. */
+export const tourSwitcherName = /^Choose a tour$|, choose another tour$/;
+
 /** A color theme family in light or dark, as the contrast tests take each palette. */
 export interface Palette {
    colorTheme: ColorTheme;
@@ -54,7 +57,7 @@ export async function openDemoTour(page: Page, tour: string, settings: DemoSetti
       }
    }, stored);
    await page.goto('/');
-   await page.getByRole('button', { name: /^(Choose a tour|Choose another tour)$/ }).click();
+   await page.getByRole('button', { name: tourSwitcherName }).click();
    await page
       .getByRole('navigation', { name: 'Tours' })
       .getByRole('button', { name: new RegExp(tour) })
@@ -96,7 +99,7 @@ export async function openSecondPage(browser: Browser, baseURL: string | undefin
       });
       await page.goto('/');
       // The page waits for a world of its own and binds its sample tours before it shows.
-      await expect(page.getByRole('button', { name: /^(Choose a tour|Choose another tour)$/ })).toBeVisible({ timeout: 90_000 });
+      await expect(page.getByRole('button', { name: tourSwitcherName })).toBeVisible({ timeout: 90_000 });
       return { page, close: () => context.close() };
    } catch (error) {
       await context.close();

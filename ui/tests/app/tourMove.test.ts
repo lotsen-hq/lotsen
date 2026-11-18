@@ -4,6 +4,7 @@ import type { LotsenApp } from '../../src/lib/app.svelte';
 import type { World } from '../backend/backend';
 import { attachClaude, backend, cartHead, openStop, openTour, readTour, seedDive, seedRepositoryTour, settled, startApp } from '../harness';
 import { planPanel, resetPageEachTest, tab, worldOf } from './appPanels';
+import { hoverOwnTooltip } from '../tooltip';
 
 resetPageEachTest();
 
@@ -76,35 +77,46 @@ const short = (commit: string) => commit.slice(0, 8);
 // The page's top bar is its first banner, before the header of an open file.
 const topBar = () => screen.getAllByRole('banner')[0]!;
 const banner = () => within(topBar());
-const commitText = () => topBar().querySelector('[data-tour-commit]')?.textContent.replace(/\s+/g, ' ').trim();
-const moveButton = () => banner().getByRole('button', { name: 'Move…' });
+const commitText = () => topBar().querySelector('[data-tour-commit]')?.textContent.trim();
+const moveName = 'Move the tour to the latest commit…';
+const moveButton = () => banner().getByRole('button', { name: moveName });
 const dialog = () => within(screen.getByRole('dialog', { name: 'Move to the latest commit' }));
 const dives = () => within(screen.getByRole('list', { name: 'Dives that move with it' }));
 const checkbox = (name: string) => dives().getByRole('checkbox', { name }) as HTMLInputElement;
 const commitsOf = () => [...screen.getByRole('dialog').querySelectorAll('[data-move-commits] dd')].map((value) => value.textContent.trim());
 
 async function openMoveDialog(): Promise<void> {
-   await fireEvent.click(await banner().findByRole('button', { name: 'Move…' }));
+   await fireEvent.click(await banner().findByRole('button', { name: moveName }));
    await screen.findByRole('dialog', { name: 'Move to the latest commit' });
 }
 
 describe("a repository tour's commit in the top bar", () => {
-   it('shows Move… beside the commit for a branch, once the check of the ref answers', async () => {
+   it("shows the commit on the switcher's top line, and a Move button described by the commit for a branch, once the check of the ref answers", async () => {
       const { seed } = await openFamily();
 
-      expect(commitText()).toBe(`at ${short(seed.head)}`);
-      await waitFor(() => expect(moveButton()).toBeTruthy());
+      expect(commitText()).toBe(short(seed.head));
+      const move = await waitFor(() => moveButton());
+      expect(document.getElementById(move.getAttribute('aria-describedby')!)?.textContent).toBe(`The tour shows commit ${short(seed.head)}`);
+      expect(await hoverOwnTooltip(move)).toBe(moveName);
    });
 
-   it('shows the commit without Move… for a tour at a tag', async () => {
+   it('opens the move dialog from the Move button', async () => {
+      await openFamily();
+
+      await fireEvent.click(await waitFor(() => moveButton()));
+
+      expect(await screen.findByRole('dialog', { name: 'Move to the latest commit' })).toBeTruthy();
+   });
+
+   it('shows the commit without a Move button for a tour at a tag', async () => {
       const world = await backend().world();
       const tagged = await seedRepositoryTour(world, { title: 'At a tag', ref: 'v1.2.0', bound: false });
       const { app } = await startApp(world);
       await openTour(app, 'At a tag');
       await settled(app);
 
-      expect(commitText()).toBe(`at ${short(tagged.head)}`);
-      expect(banner().queryByRole('button', { name: 'Move…' })).toBeNull();
+      expect(commitText()).toBe(short(tagged.head));
+      expect(banner().queryByRole('button', { name: moveName })).toBeNull();
    });
 });
 
@@ -163,7 +175,7 @@ describe('a move', () => {
       await fireEvent.click(dialog().getByRole('button', { name: 'Move' }));
 
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-      await waitFor(() => expect(commitText()).toBe(`at ${short(seed.latest)}`));
+      await waitFor(() => expect(commitText()).toBe(short(seed.latest)));
       await waitFor(() => expect(document.activeElement).toBe(moveButton()));
       const row = await waitFor(() => planPanel().getByRole('button', { name: /^2 Context: Rounding/ }));
       await waitFor(() => expect(row.getAttribute('aria-label')).toBe('2 Context: Rounding, stale since move 1, 1 dive'));
@@ -213,7 +225,7 @@ describe('a move', () => {
 
       await fireEvent.click(dialog().getByRole('button', { name: 'Move' }));
 
-      await waitFor(() => expect(commitText()).toBe(`at ${short(seed.latest)}`));
+      await waitFor(() => expect(commitText()).toBe(short(seed.latest)));
       for (const tourId of [seed.diveId, seed.deeperId]) {
          expect((await readTour(world, tourId)).pin).toMatchObject({ head: seed.head });
       }
@@ -230,7 +242,7 @@ describe('a move', () => {
 
       await waitFor(() => expect(dialog().getByRole('alert').textContent).toMatch(/the ref moved on to commit/));
       await waitFor(() => expect(commitsOf()).toEqual([short(seed.head), short(newer)]));
-      expect(commitText()).toBe(`at ${short(seed.head)}`);
+      expect(commitText()).toBe(short(seed.head));
    });
 
    it('says that a dive changed when a ticked dive was deleted since the check, and checks again, keeping the unticks', async () => {
@@ -258,6 +270,6 @@ describe('a move', () => {
 
       await waitFor(() => expect(dialog().getByRole('alert').textContent).toMatch(/session/));
       expect(screen.getByRole('dialog', { name: 'Move to the latest commit' })).toBeTruthy();
-      expect(commitText()).toBe(`at ${short(seed.head)}`);
+      expect(commitText()).toBe(short(seed.head));
    });
 });

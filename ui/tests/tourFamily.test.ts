@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { breadcrumb, divesByStop, divesOf, firstDives, flatDives, groupFamilies, readingStateOf, subtreeOf, type DiveBranch } from '../src/lib/tourFamily';
+import { divesByStop, divesOf, firstDives, flatDives, groupFamilies, parentOf, readingStateOf, subtreeOf, type DiveBranch } from '../src/lib/tourFamily';
 import { archiveLabel } from '../src/lib/tourList';
 import type { Plan, Stop, StopKind, TourSummary } from '../src/lib/types';
 import { familySummary } from './family';
@@ -49,20 +49,24 @@ describe('the family grouping', () => {
    });
 });
 
-describe('the breadcrumb', () => {
+describe("a dive's parent", () => {
    const tours = [tour('root', 0), tour('dive', 1, { parent: 'root', root: 'root' }), tour('deeper', 2, { parent: 'dive', root: 'root' })];
 
-   it('runs from the root down to the parent', () => {
-      expect(breadcrumb(tours[2]!, tours).map((step) => step.id)).toEqual(['root', 'dive']);
-      expect(breadcrumb(tours[1]!, tours).map((step) => step.id)).toEqual(['root']);
+   it('is the tour that the dive started from', () => {
+      expect(parentOf(tours[2]!, tours)?.id).toBe('dive');
+      expect(parentOf(tours[1]!, tours)?.id).toBe('root');
    });
 
-   it('is empty for a tour that is not a dive', () => {
-      expect(breadcrumb(tours[0]!, tours)).toEqual([]);
+   it('is null for a tour that is not a dive', () => {
+      expect(parentOf(tours[0]!, tours)).toBeNull();
    });
 
-   it('keeps the root first when the list lacks a tour between', () => {
-      expect(breadcrumb(tours[2]!, [tours[0]!, tours[2]!]).map((step) => step.id)).toEqual(['root']);
+   it('is the root when the list lacks the parent', () => {
+      expect(parentOf(tours[2]!, [tours[0]!, tours[2]!])?.id).toBe('root');
+   });
+
+   it('is null when the list lacks the parent and the root', () => {
+      expect(parentOf(tours[2]!, [tours[2]!])).toBeNull();
    });
 });
 

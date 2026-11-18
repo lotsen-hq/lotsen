@@ -16,6 +16,7 @@ import {
    palettes,
    showPanel,
    themeColor,
+   tourSwitcherName,
    type Rgba,
 } from './demo';
 
@@ -693,7 +694,7 @@ test.describe('the Threads panel', () => {
       const before = (await field(page).boundingBox())!.height;
       await page.getByRole('button', { name: 'Hide the threads' }).click();
 
-      await page.getByRole('button', { name: 'Choose another tour' }).click();
+      await page.getByRole('button', { name: tourSwitcherName }).click();
       await page
          .getByRole('navigation', { name: 'Tours' })
          .getByRole('button', { name: /storefront #433/ })
@@ -886,7 +887,7 @@ test.describe('the Files tree', () => {
 });
 
 test.describe('the page height', () => {
-   const picker = (page: Page) => page.getByRole('button', { name: /^(Choose a tour|Choose another tour)$/ });
+   const picker = (page: Page) => page.getByRole('button', { name: tourSwitcherName });
    const tourList = (page: Page) => page.getByRole('navigation', { name: 'Tours' });
    const plan = (page: Page) => page.getByRole('tabpanel', { name: 'Plan' });
 
@@ -925,9 +926,10 @@ test.describe('the page height', () => {
       for (const tour of tours) {
          await picker(page).click();
          await tourList(page).getByRole('button', { name: tour, exact: false }).first().click();
-         // A pull request tour's label is its link, and a repository tour's title is its heading.
+         // The switcher names a pull request tour by its number, and a repository tour by its title.
+         const number = /^.+ (#\d+)$/.exec(tour)?.[1];
          const zone = page.getByRole('banner').locator('[data-tour-zone]');
-         await expect(zone.getByRole('link', { name: tour, exact: true }).or(zone.locator('[data-heading-part="title"]', { hasText: tour }))).toBeVisible();
+         await expect(zone.getByRole('button', { name: `${number === undefined ? tour : `Pull request ${number}`}, choose another tour`, exact: true })).toBeVisible();
          for (const region of ['Stop', 'Threads']) {
             await expect(page.getByRole('region', { name: region, exact: true })).toBeVisible();
          }

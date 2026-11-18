@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { sampleRepository, sampleRepositoryUrl } from '../demo/sampleTours';
 import type { QuestionThread, Tour } from '../src/lib/contract.generated';
 import { joinWorld } from '../tests/backend/backend';
-import { checkoutTour, nextWorld, openDemoTour } from './demo';
+import { checkoutTour, nextWorld, openDemoTour, tourSwitcherName } from './demo';
 
 const tourTitle = 'Where the checkout starts';
 const diveTitle = 'How a payment is charged';
@@ -11,7 +11,8 @@ const paymentPath = 'src/checkout/payment.ts';
 const roundedPayment = sampleRepository.push[paymentPath]!.replace('const amount = total(cart.items, taxRate);', 'const amount = Math.round(total(cart.items, taxRate) * 100) / 100;');
 
 const header = (page: Page) => page.getByRole('banner').first();
-const switcher = (page: Page) => page.getByRole('button', { name: /^(Choose a tour|Choose another tour)$/ });
+const switcher = (page: Page) => page.getByRole('button', { name: tourSwitcherName });
+const moveButton = (page: Page) => header(page).getByRole('button', { name: 'Move the tour to the latest commit…' });
 const planPanel = (page: Page) => page.getByRole('tabpanel', { name: 'Plan' });
 
 async function openTour(page: Page, title: string): Promise<void> {
@@ -70,16 +71,16 @@ test('a move takes a repository tour and its ticked dive to the latest commit of
    await world.repository.set(latest, { tags });
 
    await openTour(page, tourTitle);
-   await expect(header(page).locator('[data-tour-commit]')).toHaveText(`at ${pushed.slice(0, 8)}`);
-   await header(page).getByRole('button', { name: 'Move…' }).click();
+   await expect(header(page).locator('[data-tour-commit]')).toHaveText(pushed.slice(0, 8));
+   await moveButton(page).click();
    const dialog = page.getByRole('dialog', { name: 'Move to the latest commit' });
    await expect(dialog.locator('[data-move-commits] dd')).toHaveText([pushed.slice(0, 8), latest.slice(0, 8)]);
    await expect(dialog.getByRole('list', { name: 'Dives that move with it' }).getByRole('checkbox', { name: diveTitle })).toBeChecked();
    await dialog.getByRole('button', { name: 'Move' }).click();
 
    await expect(dialog).toHaveCount(0);
-   await expect(header(page).getByRole('button', { name: 'Move…' })).toBeFocused();
-   await expect(header(page).locator('[data-tour-commit]')).toHaveText(`at ${latest.slice(0, 8)}`);
+   await expect(moveButton(page)).toBeFocused();
+   await expect(header(page).locator('[data-tour-commit]')).toHaveText(latest.slice(0, 8));
    await page.getByRole('tab', { name: 'Plan' }).click();
    await expect(planPanel(page).getByRole('button', { name: /^2 Inspect: Paying/ })).toContainText('Stale since move 1');
    await expect(planPanel(page).getByRole('button', { name: /^1 Context: The cart/ })).not.toContainText('Stale');
@@ -88,7 +89,7 @@ test('a move takes a repository tour and its ticked dive to the latest commit of
    expect(thread.kind === 'decided' && thread.decision).toMatchObject({ kind: 'tourMoved', move: 1, commit: latest, stopIds: [paymentStop] });
 
    await openTour(page, diveTitle);
-   await expect(header(page).locator('[data-tour-commit]')).toHaveText(`at ${latest.slice(0, 8)}`);
+   await expect(header(page).locator('[data-tour-commit]')).toHaveText(latest.slice(0, 8));
    await page.getByRole('tab', { name: 'Plan' }).click();
    await expect(planPanel(page).getByRole('button', { name: /^1 Inspect: The charge/ })).toContainText('Stale since move 1');
 });

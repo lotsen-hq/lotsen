@@ -2,11 +2,19 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
 import { expect } from 'vitest';
 
 /** The accessible name of the tour list's trigger in the top bar, with a tour selected or without one. */
-export const tourSwitcherName = /^(Choose a tour|Choose another tour)$/;
+export const tourSwitcherName = /^Choose a tour$|, choose another tour$/;
 
-/** Returns the top bar's link to the selected tour's pull request, which the tour's label names. */
-export function selectedTourLink(label: string): HTMLElement {
-   return within(screen.getByRole('banner')).getByRole('link', { name: label });
+/** Returns the top bar's tour switcher while it shows the tour with the title: a repository tour's title, or "Pull request" and the number of a pull request's tour. */
+export function selectedTourSwitcher(title: string): HTMLElement {
+   return within(screen.getByRole('banner')).getByRole('button', { name: `${title}, choose another tour` });
+}
+
+/** Returns the top bar's tour switcher while it shows the pull request's tour with the label, such as `shop #43`: the number on the bottom line and the repository on the top line. */
+export function selectedPullRequestSwitcher(label: string): HTMLElement {
+   const [, repository, number] = /^(.*) (#\d+)$/.exec(label)!;
+   const switcher = selectedTourSwitcher(`Pull request ${number}`);
+   expect(switcher.querySelector('[data-switcher-line="place"]')?.textContent.trim()).toBe(repository);
+   return switcher;
 }
 
 /** Opens the tour switcher in the top bar unless it is open, and returns its list. */

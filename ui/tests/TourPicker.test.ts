@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import TourPicker from '../src/components/TourPicker.svelte';
 import type { TourSummary } from '../src/lib/types';
 import { familySummary } from './family';
-import { hoverTooltip } from './tooltip';
+import { hoverOwnTooltip, hoverTooltip } from './tooltip';
 
 const pinnedPin = { state: 'pinned', mergeBase: 'a'.repeat(40), head: 'b'.repeat(40), iteration: 1, remoteUrl: 'https://platform.test/shop.git' } as const;
 
@@ -30,9 +30,6 @@ function withUrl(tour: TourSummary, url: string): TourSummary {
    return { ...tour, target: { ...tour.target, url } };
 }
 
-/** Returns the element that shows the label, whose repository and number are elements of their own. */
-const labelText = (label: string) => screen.getByText((_, element) => element?.getAttribute('data-slot') === 'tooltip-trigger' && element.textContent.replace(/\s+/g, ' ') === label);
-
 function renderSwitcher(selected: TourSummary | null) {
    const onselect = vi.fn();
    const result = render(TourPicker, {
@@ -54,75 +51,92 @@ function renderSwitcher(selected: TourSummary | null) {
    return { ...result, onselect, list };
 }
 
+const line = (name: 'place' | 'title') => document.querySelector<HTMLElement>(`[data-switcher-line="${name}"]`);
+const descriptionOf = (element: HTMLElement) =>
+   document
+      .getElementById(element.getAttribute('aria-describedby') ?? '')
+      ?.textContent.replace(/\s+/g, ' ')
+      .trim();
+/** Returns the line's text as a browser renders it, where the space between the line's parts collapses. */
+const textOf = (element: HTMLElement | null) => element?.textContent.replace(/\s+/g, ' ').trim();
+
 describe('the tour switcher', () => {
-   it('reads Choose a tour as one button, with no link, while no tour is selected', async () => {
+   it('reads Choose a tour as one button, with no link and no up button, while no tour is selected', async () => {
       renderSwitcher(null);
       const switcher = screen.getByRole('button', { name: 'Choose a tour' });
 
       expect(screen.getAllByRole('button')).toEqual([switcher]);
       expect(switcher.textContent.trim()).toBe('Choose a tour');
       expect(screen.queryByRole('link')).toBeNull();
+      expect(screen.queryByRole('button', { name: /^Back to / })).toBeNull();
       expect(await hoverTooltip(switcher)).toBe('Choose a tour');
    });
 
-   it('links the selected tour’s label to its pull request in a new tab, with the label and the URL in the link’s tooltip', async () => {
+   it("shows a pull request tour's repository on the top line and its number on the bottom line, named by the bottom line and described by the top line", async () => {
       renderSwitcher(tours[1]!);
-      const link = screen.getByRole('link', { name: 'contoso/shop/api #2' });
+      const switcher = screen.getByRole('button', { name: 'Pull request #2, choose another tour' });
+
+      expect(textOf(line('place'))).toBe('contoso/shop/api');
+      expect(line('title')?.textContent).toBe('Pull request #2');
+      expect(line('title')!.classList.contains('truncate')).toBe(true);
+      expect(descriptionOf(switcher)).toBe('contoso/shop/api');
+      expect(switcher.querySelector('.lucide-git-pull-request')).not.toBeNull();
+      expect(await hoverOwnTooltip(switcher)).toBe('Pull request #2\ncontoso/shop/api\nChoose another tour');
+   });
+
+   it('shows a label that does not end in a number whole on one line, with no top line', () => {
+      renderSwitcher({ ...tours[0]!, label: 'https://platform.test/pull/1' });
+      const switcher = screen.getByRole('button', { name: 'https://platform.test/pull/1, choose another tour' });
+
+      expect(line('title')?.textContent).toBe('https://platform.test/pull/1');
+      expect(line('place')).toBeNull();
+      expect(switcher.hasAttribute('aria-describedby')).toBe(false);
+   });
+
+   it('opens the tour list on a click on the bottom line, and a choice closes it and names the chosen tour', async () => {
+      const { list, onselect } = renderSwitcher(tours[0]!);
+      const switcher = screen.getByRole('button', { name: 'Pull request #1, choose another tour' });
+
+      await fireEvent.click(line('title')!);
+      expect(switcher.getAttribute('aria-expanded')).toBe('true');
+      await fireEvent.click(within(list()!).getByRole('button', { name: /#2/ }));
+
+      expect(onselect).toHaveBeenCalledWith('2');
+      await waitFor(() => expect(list()).toBeNull());
+      expect(switcher.getAttribute('aria-expanded')).toBe('false');
+   });
+
+   it('opens the tour list on a click on the top line', async () => {
+      const { list } = renderSwitcher(tours[0]!);
+
+      await fireEvent.click(line('place')!);
+
+      expect(list()).not.toBeNull();
+   });
+
+   it('links the pull request in a new tab with an icon button beside the switcher, with the URL under the name in its tooltip', async () => {
+      renderSwitcher(tours[1]!);
+      const link = screen.getByRole('link', { name: 'Open the pull request in a new tab' });
 
       expect(link.getAttribute('href')).toBe('https://platform.test/pull/2');
       expect(link.getAttribute('target')).toBe('_blank');
       expect(link.getAttribute('rel')).toBe('noopener noreferrer');
-      expect(await hoverTooltip(link)).toBe('contoso/shop/api #2\nOpen the pull request in a new tab\nhttps://platform.test/pull/2');
-   });
-
-   it('shows the number of a label that ends in one as an element of its own that never shrinks, beside the repository that truncates', () => {
-      renderSwitcher(tours[1]!);
-      const link = screen.getByRole('link', { name: 'contoso/shop/api #2' });
-
-      const number = within(link).getByText((_, element) => element?.textContent === '\u00a0#2' && element.classList.contains('shrink-0'));
-      const repository = within(link).getByText('contoso/shop/api');
-      expect(repository.classList.contains('truncate')).toBe(true);
-      expect(repository.nextElementSibling).toBe(number);
-   });
-
-   it('shows a label that does not end in a number as one element that truncates', () => {
-      renderSwitcher({ ...tours[0]!, label: 'https://platform.test/pull/1' });
-
-      const label = within(screen.getByRole('link', { name: 'https://platform.test/pull/1' })).getByText('https://platform.test/pull/1');
-      expect(label.classList.contains('truncate')).toBe(true);
+      expect(link.textContent.trim()).toBe('');
+      expect(await hoverTooltip(link)).toBe('Open the pull request in a new tab\nhttps://platform.test/pull/2');
    });
 
    it('links a URL whose https: scheme is in upper case', () => {
       renderSwitcher(withUrl(tours[0]!, 'HTTPS://platform.test/pull/1'));
 
-      expect(screen.getByRole('link', { name: 'contoso/shop/web #1' }).getAttribute('href')).toBe('HTTPS://platform.test/pull/1');
+      expect(screen.getByRole('link', { name: 'Open the pull request in a new tab' }).getAttribute('href')).toBe('HTTPS://platform.test/pull/1');
    });
 
-   it.each(['http://platform.test/pull/1', 'javascript:alert(1)', 'data:text/html,x', 'not a url'])(
-      'shows the label of a tour whose URL is %s as text, and Choose another tour still opens the list',
-      async (url) => {
-         const { list } = renderSwitcher(withUrl(tours[0]!, url));
+   it.each(['http://platform.test/pull/1', 'javascript:alert(1)', 'data:text/html,x', 'not a url'])('shows no link for a tour whose URL is %s, and the switcher still opens the list', async (url) => {
+      const { list } = renderSwitcher(withUrl(tours[0]!, url));
 
-         expect(screen.queryByRole('link')).toBeNull();
-         const label = labelText('contoso/shop/web #1');
-         expect(await hoverTooltip(label)).toBe(`contoso/shop/web #1\n${url}`);
-         await fireEvent.click(screen.getByRole('button', { name: 'Choose another tour' }));
-         expect(list()).not.toBeNull();
-      },
-   );
-
-   it('opens the tour list from Choose another tour, and a choice closes it and names the chosen tour', async () => {
-      const { list, onselect } = renderSwitcher(tours[0]!);
-      const chooser = screen.getByRole('button', { name: 'Choose another tour' });
-      expect(await hoverTooltip(chooser)).toBe('Choose another tour');
-
-      await fireEvent.click(chooser);
-      expect(chooser.getAttribute('aria-expanded')).toBe('true');
-      await fireEvent.click(within(list()!).getByRole('button', { name: /#2/ }));
-
-      expect(onselect).toHaveBeenCalledWith('2');
-      await waitFor(() => expect(list()).toBeNull());
-      expect(chooser.getAttribute('aria-expanded')).toBe('false');
+      expect(screen.queryByRole('link')).toBeNull();
+      await fireEvent.click(screen.getByRole('button', { name: 'Pull request #1, choose another tour' }));
+      expect(list()).not.toBeNull();
    });
 
    it('returns focus to itself when Escape closes the list', async () => {
@@ -140,7 +154,7 @@ describe('the tour switcher', () => {
 
    it('closes the list on one Escape after opening from the keyboard, while the focused tour shows its tooltip', async () => {
       renderSwitcher(tours[0]!);
-      const chooser = screen.getByRole('button', { name: 'Choose another tour' });
+      const chooser = screen.getByRole('button', { name: 'Pull request #1, choose another tour' });
       // jsdom never positions the popover, which leaves the list hidden from role queries, so this finds it by its markup.
       const list = () => document.querySelector('nav[aria-labelledby="tour-list-heading"]');
       chooser.focus();
@@ -159,7 +173,7 @@ describe('the tour switcher', () => {
    it('closes the list on one Escape while an archive button shows its tooltip', async () => {
       const { list } = renderSwitcher(tours[0]!);
       // A click opens the list without the keyboard focus that would show the trigger's own tooltip.
-      await fireEvent.click(screen.getByRole('button', { name: 'Choose another tour' }));
+      await fireEvent.click(screen.getByRole('button', { name: 'Pull request #1, choose another tour' }));
       const nav = () => document.querySelector('nav[aria-labelledby="tour-list-heading"]');
       const archive = await waitFor(() => nav()!.querySelector<HTMLElement>('button[aria-label="Archive this tour"]')!);
       await fireEvent.pointerEnter(archive, { pointerType: 'mouse' });
@@ -179,7 +193,7 @@ describe('the tour switcher', () => {
       await rerender({ selectedTourId: '1', selectedTour: tours[0]! });
 
       expect(switcher.isConnected).toBe(true);
-      expect(switcher.getAttribute('aria-label')).toBe('Choose another tour');
+      expect(switcher.getAttribute('aria-label')).toBe('Pull request #1, choose another tour');
    });
 });
 
@@ -194,34 +208,53 @@ function repositorySummary(ref?: string, url = 'https://platform.test/shop'): To
 }
 
 describe('a repository tour in the tour switcher', () => {
-   const part = (name: string) => document.querySelector<HTMLElement>(`[data-heading-part="${name}"]`);
-
-   it('shows the title, with the repository linked to its URL in a new tab and the ref beside it', async () => {
+   it('shows the repository, the ref and the short commit on the top line and the title on the bottom line', async () => {
       renderSwitcher(repositorySummary('v1.2.0'));
-      const link = screen.getByRole('link', { name: 'shop' });
+      const switcher = screen.getByRole('button', { name: 'How the cart adds up, choose another tour' });
 
-      expect(part('title')?.textContent).toBe('How the cart adds up');
-      expect(link.getAttribute('href')).toBe('https://platform.test/shop');
-      expect(link.getAttribute('target')).toBe('_blank');
-      expect(part('ref')?.textContent).toBe('@v1.2.0');
-      expect(document.querySelector('.lucide-git-pull-request')).toBeNull();
-      expect(await hoverTooltip(part('title')!)).toBe('How the cart adds up\nshop@v1.2.0');
-      expect(await hoverTooltip(link)).toBe('Open the repository in a new tab\nhttps://platform.test/shop');
+      expect(textOf(line('place'))).toBe('shop@v1.2.0 · cccccccc');
+      expect(line('title')?.textContent).toBe('How the cart adds up');
+      expect(descriptionOf(switcher)).toBe('shop@v1.2.0 · cccccccc');
+      expect(switcher.querySelector('.lucide-book-open')).not.toBeNull();
+      expect(switcher.querySelector('.lucide-git-pull-request')).toBeNull();
+      expect(await hoverOwnTooltip(switcher)).toBe('How the cart adds up\nshop@v1.2.0 · cccccccc\nChoose another tour');
+   });
+
+   it('truncates the repository and the ref, never the commit', () => {
+      renderSwitcher(repositorySummary('v1.2.0'));
+      const commit = line('place')!.querySelector<HTMLElement>('[data-tour-commit]')!;
+
+      expect(commit.textContent).toBe('cccccccc');
+      expect(commit.closest('.shrink-0')).not.toBeNull();
+      expect(within(line('place')!).getByText('shop@v1.2.0').classList.contains('truncate')).toBe(true);
    });
 
    it('leaves the ref out for the default branch', () => {
       renderSwitcher(repositorySummary());
 
-      expect(part('repository')?.textContent).toBe('shop');
-      expect(part('ref')).toBeNull();
+      expect(textOf(line('place'))).toBe('shop · cccccccc');
    });
 
-   it('shows the repository of a URL that is not https as text', () => {
-      renderSwitcher(repositorySummary(undefined, 'http://platform.test/shop'));
+   it('links the repository in a new tab with an icon button', async () => {
+      renderSwitcher(repositorySummary('v1.2.0'));
+      const link = screen.getByRole('link', { name: 'Open the repository in a new tab' });
 
-      expect(screen.queryByRole('link')).toBeNull();
-      expect(part('repository')?.textContent).toBe('shop');
+      expect(link.getAttribute('href')).toBe('https://platform.test/shop');
+      expect(link.getAttribute('target')).toBe('_blank');
+      expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+      expect(await hoverTooltip(link)).toBe('Open the repository in a new tab\nhttps://platform.test/shop');
    });
+
+   it.each(['http://platform.test/shop', 'javascript:alert(1)', 'data:text/html,x', 'not a url'])(
+      'shows no link for a repository whose URL is %s, and the switcher still opens the list',
+      async (url) => {
+         const { list } = renderSwitcher(repositorySummary(undefined, url));
+
+         expect(screen.queryByRole('link')).toBeNull();
+         await fireEvent.click(screen.getByRole('button', { name: 'How the cart adds up, choose another tour' }));
+         expect(list()).not.toBeNull();
+      },
+   );
 
    it('lists the tour by its title, repository and ref, with its purpose and level, and no pull request flag', async () => {
       const tour = { ...repositorySummary('v1.2.0'), pullRequestState: 'completed' as const };
@@ -275,7 +308,7 @@ describe('a tour family in the tour switcher', () => {
    const deeper = familySummary('deeper', 3, { parent: 'dive', root: 'root' });
    const other = familySummary('other', 1);
 
-   function renderFamily(selected: TourSummary, breadcrumb: TourSummary[]) {
+   function renderFamily(selected: TourSummary, parent: TourSummary | null) {
       const onselect = vi.fn();
       render(TourPicker, {
          props: {
@@ -286,50 +319,41 @@ describe('a tour family in the tour switcher', () => {
             error: null,
             selectedTourId: selected.id,
             selectedTour: selected,
-            breadcrumb,
+            parent,
             onselect,
             onshowhidden: vi.fn(),
             onarchive: vi.fn(),
             ondelete: vi.fn(),
          },
       });
-      return { onselect, nav: () => within(screen.getByRole('navigation', { name: 'Breadcrumb' })) };
+      return { onselect };
    }
 
-   it("shows a dive's breadcrumb from the root down to the dive's title, each step a button that opens its tour", async () => {
-      const { onselect, nav } = renderFamily(deeper, [root, dive]);
+   it("shows a dive's up button, named by its parent, which opens the parent and leaves the focus on the switcher", async () => {
+      const { onselect } = renderFamily(deeper, dive);
+      const up = screen.getByRole('button', { name: 'Back to Tour dive' });
+      const switcher = screen.getByRole('button', { name: 'Tour deeper, choose another tour' });
 
-      expect(
-         nav()
-            .getAllByRole('listitem')
-            .map((item) => item.textContent.trim()),
-      ).toEqual(['Tour root', 'Tour dive', 'Tour deeper']);
-      expect(nav().getByText('Tour deeper').closest('[aria-current="page"]')).not.toBeNull();
-      expect(await hoverTooltip(nav().getByRole('button', { name: 'Tour root' }))).toBe('Open the tour Tour root');
+      expect(up.querySelector('.lucide-corner-left-up')).not.toBeNull();
+      expect(up.compareDocumentPosition(switcher) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(await hoverTooltip(up)).toBe('Back to Tour dive');
+      up.focus();
+      await fireEvent.click(up);
 
-      await fireEvent.click(nav().getByRole('button', { name: 'Tour root' }));
-      expect(onselect).toHaveBeenCalledExactlyOnceWith('root');
+      expect(onselect).toHaveBeenCalledExactlyOnceWith('dive');
+      await waitFor(() => expect(document.activeElement).toBe(switcher));
    });
 
-   it('keeps only the parent step, after an ellipsis, in a narrow bar', () => {
-      const { nav } = renderFamily(deeper, [root, dive]);
-      const steps = nav().getAllByRole('listitem');
+   it('shows no up button for a tour that is not a dive', () => {
+      renderFamily(root, null);
 
-      expect(steps[0]!.className).toContain('@max-bar-repository:hidden');
-      expect(steps.find((step) => step.textContent.trim() === 'Tour dive')!.className).not.toContain('@max-bar-repository:hidden');
-      expect(nav().getByText('…', { exact: false }).closest('li')!.getAttribute('aria-hidden')).toBe('true');
-   });
-
-   it('shows no breadcrumb for a tour that is not a dive', () => {
-      renderFamily(root, []);
-
-      expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
-      expect(document.querySelector('[data-heading-part="title"]')?.textContent).toBe('Tour root');
+      expect(screen.queryByRole('button', { name: /^Back to / })).toBeNull();
+      expect(line('title')?.textContent).toBe('Tour root');
    });
 
    it("lists the family under its root, one level deep, with each dive's parent in place of the repository", async () => {
-      renderFamily(root, []);
-      await fireEvent.click(screen.getByRole('button', { name: 'Choose another tour' }));
+      renderFamily(root, null);
+      await fireEvent.click(screen.getByRole('button', { name: 'Tour root, choose another tour' }));
       const list = within(await screen.findByRole('navigation', { name: 'Tours' }));
       const items = list.getAllByRole('listitem');
 

@@ -1,14 +1,20 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { checkoutTour, contrast, drawnColors, expectPalette, openDemoTour, openStop, over, paletteName, palettes } from './demo';
+import { checkoutTour, contrast, drawnColors, expectPalette, openDemoTour, openStop, over, paletteName, palettes, tourSwitcherName } from './demo';
 
 const header = (page: Page) => page.getByRole('banner');
 const tourZone = (page: Page) => header(page).locator('[data-tour-zone]');
 const updateCheck = (page: Page) => header(page).getByRole('button', { name: 'Check the PR for a new update' });
 const sendAnswers = (page: Page) => header(page).getByRole('button', { name: 'Send answers' });
 const statusChip = (page: Page) => header(page).locator('[data-status-chip]');
+const switcher = (page: Page) => header(page).getByRole('button', { name: tourSwitcherName });
+const pullRequestLink = (page: Page) => header(page).getByRole('link', { name: 'Open the pull request in a new tab', exact: true });
 
-/** The icon-only actions of the bar, by their accessible names. */
-const iconActions = ['Check the PR for a new update', 'Settings', 'Choose another tour'];
+/** The icon-only actions of the bar, by their roles and accessible names, with the first line of each tooltip. */
+const iconActions = [
+   { role: 'button', name: 'Check the PR for a new update' },
+   { role: 'button', name: 'Settings' },
+   { role: 'link', name: 'Open the pull request in a new tab' },
+] as const;
 
 /** Returns the element's computed style properties. */
 const styleOf = <P extends string>(element: Locator, properties: readonly P[]) =>
@@ -38,9 +44,9 @@ test.describe("the top bar's controls", () => {
       }
    });
 
-   test('show each icon-only action as a ghost button with a name and a tooltip', async ({ page }) => {
-      for (const name of iconActions) {
-         const button = header(page).getByRole('button', { name, exact: true });
+   test('show each icon-only action as a ghost button with a name and a tooltip that starts with the name', async ({ page }) => {
+      for (const { role, name } of iconActions) {
+         const button = header(page).getByRole(role, { name, exact: true });
          const style = await styleOf(button, ['border-top-color', 'border-top-width', 'box-shadow']);
          expect.soft(transparent(style['border-top-color']) || style['border-top-width'] === '0px', `${name}'s border, ${style['border-top-color']}`).toBe(true);
          expect.soft(style['box-shadow'], `${name}'s shadow`).toBe('none');
@@ -48,20 +54,30 @@ test.describe("the top bar's controls", () => {
          await button.hover();
          await expect(button).toHaveAttribute('aria-describedby', /.+/);
          const tooltip = page.locator(`[id="${await button.getAttribute('aria-describedby')}"]`);
-         await expect.soft(tooltip, `${name}'s tooltip`).toHaveText(name);
+         expect.soft((await tooltip.innerText()).split('\n')[0], `${name}'s tooltip`).toBe(name);
          await page.mouse.move(0, 500);
          await expect(tooltip).toHaveCount(0);
       }
    });
 
-   test('underline the pull request link without hover, and mark it as external', async ({ page }) => {
-      const link = header(page).getByRole('link', { name: checkoutTour, exact: true });
-      const style = await styleOf(link, ['text-decoration-line', 'text-decoration-color']);
+   test('show the tour switcher as a flat drop-down with the kind icon, two lines that fit its height and a chevron, and the link as an external-link icon', async ({ page }) => {
+      const style = await styleOf(switcher(page), ['border-top-color', 'border-top-width', 'box-shadow']);
+      expect(transparent(style['border-top-color']) || style['border-top-width'] === '0px', `the switcher's border, ${style['border-top-color']}`).toBe(true);
+      expect(style['box-shadow']).toBe('none');
+      await expect(switcher(page)).toHaveAccessibleName('Pull request #412, choose another tour');
+      await expect(switcher(page)).toHaveAccessibleDescription('storefront');
+      await expect(switcher(page).locator('svg.lucide-git-pull-request')).toBeVisible();
+      await expect(switcher(page).locator('svg.lucide-chevron-down')).toBeVisible();
 
-      expect(style['text-decoration-line']).toBe('underline');
-      expect(transparent(style['text-decoration-color']), `the underline's color, ${style['text-decoration-color']}`).toBe(false);
-      await expect(link.locator('svg.lucide-git-pull-request')).toBeVisible();
-      await expect(link.locator('svg.lucide-external-link')).toBeVisible();
+      const box = (await switcher(page).boundingBox())!;
+      for (const line of ['place', 'title']) {
+         const shown = (await switcher(page).locator(`[data-switcher-line="${line}"]`).boundingBox())!;
+         expect.soft(shown.y, `the ${line} line's top`).toBeGreaterThanOrEqual(box.y - 0.5);
+         expect.soft(shown.y + shown.height, `the ${line} line's bottom`).toBeLessThanOrEqual(box.y + box.height + 0.5);
+      }
+
+      await expect(pullRequestLink(page).locator('svg.lucide-external-link')).toBeVisible();
+      await expect(pullRequestLink(page)).toHaveAttribute('target', '_blank');
    });
 
    test('show the Claude session state as a pill with an edge', async ({ page }) => {
@@ -193,7 +209,7 @@ test.describe("the top bar's zones", () => {
       const edges: number[] = [];
       for (const tour of [checkoutTour, 'storefront #428', 'storefront #433']) {
          await openDemoTour(page, tour, { fontSize: 'medium' });
-         await expect(header(page).getByRole('link', { name: tour, exact: true })).toBeVisible();
+         await expect(switcher(page)).toHaveAccessibleName(`Pull request ${tour.slice(tour.indexOf('#'))}, choose another tour`);
          edges.push((await updateCheck(page).boundingBox())!.x);
       }
 
@@ -554,7 +570,6 @@ test.describe('the top bar in a narrow window', () => {
       { item: 'the generation line', selector: '[data-generation-status]' },
       { item: 'Panels', selector: '[data-panels-label]' },
       { item: 'Send answers', selector: '[data-send-label]' },
-      { item: 'the repository', selector: '[data-label-part="repository"]' },
       { item: 'the long position', selector: '[data-stop-position="long"]' },
       { item: 'the wordmark', selector: 'svg[aria-label="Lotsen"]' },
    ] as const;
@@ -624,6 +639,71 @@ test.describe('the top bar in a narrow window', () => {
       });
    }
 
+   /** Long names in the tour list's answer, as an Azure DevOps repository and a dive several levels down give them. */
+   const longNames: [string, string][] = [
+      [JSON.stringify(checkoutTour), JSON.stringify('contoso-enterprise/platform-services-and-integrations/checkout-and-payments-services/storefront #412')],
+      ['Find your way around the storefront', 'Find your way around the storefront and the checkout services that it calls'],
+      ['How a payment reaches the gateway', 'How the checkout service hands a payment to the gateway and back again'],
+      ['"storefront@', '"contoso-enterprise/platform-services-and-integrations/storefront@'],
+   ];
+
+   const longTours = [
+      { name: 'a pull request tour', tour: checkoutTour, stop: gatewayStop },
+      { name: 'a repository tour', tour: 'Find your way around the storefront and the checkout', stop: null },
+      { name: 'a dive', tour: 'How the checkout service hands a payment', stop: null },
+   ] as const;
+
+   for (const { name, tour, stop } of longTours) {
+      for (const fontSize of ['small', 'medium', 'large'] as const) {
+         test(`fits the window from 2000px down to 720px at ${fontSize} with the long names of ${name}, and keeps the stop line 12rem wide until "4/7"`, async ({ page }) => {
+            await page.route('**/api/ops/list_tours', async (route) => {
+               const response = await route.fetch();
+               let body = await response.text();
+               for (const [from, to] of longNames) body = body.split(from).join(to);
+               await route.fulfill({ response, body });
+            });
+            await page.setViewportSize({ width: 2000, height: 1000 });
+            await openDemoTour(page, tour, { fontSize });
+            if (stop === null) {
+               // The keyboard opens the first stop, as in `openStop`.
+               const row = page.getByRole('tabpanel', { name: 'Plan' }).locator('button.stop-row').first();
+               await row.focus();
+               await page.keyboard.press('Enter');
+               await expect(row).toHaveAttribute('aria-current', 'step');
+            } else {
+               await openStop(page, stop);
+            }
+
+            const faults: string[] = [];
+            for (let width = 2000; width >= 720; width -= 20) {
+               await page.setViewportSize({ width, height: 1000 });
+               const bar = await header(page).evaluate((node) => {
+                  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+                  const outside = [...node.querySelectorAll('button, a')]
+                     .filter((control) => control.getBoundingClientRect().left < -0.5 || control.getBoundingClientRect().right > window.innerWidth + 0.5)
+                     .map((control) => control.getAttribute('aria-label') ?? control.textContent.trim());
+                  const long = node.querySelector('[data-stop-position="long"]');
+                  return {
+                     barSpill: node.scrollWidth - node.clientWidth,
+                     pageSpill: document.documentElement.scrollWidth - window.innerWidth,
+                     outside,
+                     line: node.querySelector('nav[aria-label="Stops"] p')!.getBoundingClientRect().width / rem,
+                     short: long === null || getComputedStyle(long).position === 'absolute',
+                     title: node.querySelector('[data-switcher-line="title"]')!.getBoundingClientRect().width / rem,
+                  };
+               });
+               if (bar.barSpill > 0) faults.push(`${width}px: the bar's content runs ${bar.barSpill}px past it`);
+               if (bar.pageSpill > 0) faults.push(`${width}px: the page scrolls ${bar.pageSpill}px sideways`);
+               if (bar.outside.length > 0) faults.push(`${width}px: ${bar.outside.join(', ')} outside the window`);
+               if (!bar.short && bar.line < 12) faults.push(`${width}px: the stop line is ${bar.line.toFixed(2)}rem wide before "4/7"`);
+               if (bar.title < 3) faults.push(`${width}px: the switcher's title is ${bar.title.toFixed(2)}rem wide`);
+            }
+
+            expect(faults).toEqual([]);
+         });
+      }
+   }
+
    /** Returns the width at which each step's item leaves the view, found in 10px steps down from 2000px. */
    async function stepWidths(page: Page): Promise<Record<(typeof steps)[number]['item'], number>> {
       const widths: Partial<Record<(typeof steps)[number]['item'], number>> = {};
@@ -660,7 +740,7 @@ test.describe('the top bar in a narrow window', () => {
       return text;
    }
 
-   test('keeps each collapsed control named and with a tooltip, the live regions whole and the pull request number whole', async ({ page }) => {
+   test('keeps each collapsed control named and with a tooltip, and the live regions whole', async ({ page }) => {
       await page.setViewportSize({ width: 2000, height: 1000 });
       await openDemoTour(page, checkoutTour, { fontSize: 'medium' });
       await openStop(page, gatewayStop);
@@ -705,16 +785,6 @@ test.describe('the top bar in a narrow window', () => {
       await expect(sendAnswers(page).locator('[data-unsent-count]')).toHaveText('3');
       expect(await tooltipOver(page, sendAnswers(page))).toBe('Send your answers to Claude');
 
-      const link = header(page).getByRole('link', { name: checkoutTour, exact: true });
-      const number = link.locator('[data-label-part="number"]');
-      const atRepository = at['the repository'];
-      await page.setViewportSize({ width: atRepository + 10, height: 1000 });
-      expect(await shows(link.locator('[data-label-part="repository"]')), 'the repository just above its step').toBe(true);
-      await page.setViewportSize({ width: atRepository, height: 1000 });
-      await expect(number).toHaveText('#412');
-      expect(await number.evaluate((node) => node.scrollWidth <= node.clientWidth), 'whether the number shows whole').toBe(true);
-      expect(await tooltipOver(page, link)).toMatch(/^storefront #412\n/);
-
       const atPosition = at['the long position'];
       await page.setViewportSize({ width: atPosition + 10, height: 1000 });
       await expect(header(page).locator('[data-stop-position="short"]')).toBeHidden();
@@ -732,22 +802,26 @@ test.describe('the top bar in a narrow window', () => {
       }
    });
 
-   test('keeps the pull request number whole while the tour zone cuts a long repository short', async ({ page }) => {
-      const label = 'contoso-enterprise/platform-services/storefront #412';
+   test("shows a long repository whole on a wide bar, and cuts it short on a narrow bar with the number whole and the whole label in the switcher's tooltip", async ({ page }) => {
+      const repository = 'contoso-enterprise/platform-services-and-integrations/storefront';
       await page.route('**/api/ops/list_tours', async (route) => {
          const response = await route.fetch();
-         await route.fulfill({ response, body: (await response.text()).split(JSON.stringify(checkoutTour)).join(JSON.stringify(label)) });
+         await route.fulfill({ response, body: (await response.text()).split(JSON.stringify(checkoutTour)).join(JSON.stringify(`${repository} #412`)) });
       });
-      await page.setViewportSize({ width: 1600, height: 1000 });
+      await page.setViewportSize({ width: 1920, height: 1000 });
       await openDemoTour(page, checkoutTour, { fontSize: 'medium' });
+      const place = switcher(page).locator('[data-switcher-line="place"] > span').first();
+      const title = switcher(page).locator('[data-switcher-line="title"]');
+      const cut = (element: Locator) => element.evaluate((node) => node.scrollWidth > node.clientWidth);
 
-      const link = header(page).getByRole('link', { name: label, exact: true });
-      const repository = link.locator('[data-label-part="repository"]');
-      const number = link.locator('[data-label-part="number"]');
-      await expect(number).toHaveText('#412');
-      expect(await repository.evaluate((node) => node.scrollWidth > node.clientWidth), 'whether the repository is cut short').toBe(true);
-      expect(await number.evaluate((node) => node.scrollWidth <= node.clientWidth), 'whether the number shows whole').toBe(true);
-      expect(await tooltipOver(page, link)).toMatch(new RegExp(`^${label}\n`));
+      await expect(place).toHaveText(repository);
+      expect(await cut(place), 'whether the repository is cut short at 1920px').toBe(false);
+
+      await page.setViewportSize({ width: 720, height: 1000 });
+      await expect.poll(() => cut(place), { message: 'whether the repository is cut short at 720px' }).toBe(true);
+      expect(await cut(title), 'whether the number is cut short').toBe(false);
+      await page.mouse.move(0, 500);
+      expect(await tooltipOver(page, switcher(page))).toBe(`Pull request #412\n${repository}\nChoose another tour`);
    });
 
    test('collapses Review the plan to its hourglass with its name and tooltip', async ({ page }) => {

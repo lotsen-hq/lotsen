@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { arrange, center, checkoutTour, dragTab, groups, nextWorld, openDemoTour, openSecondPage, openStop, showPanel } from './demo';
+import { arrange, center, checkoutTour, dragTab, groups, nextWorld, openDemoTour, openSecondPage, openStop, showPanel, tourSwitcherName } from './demo';
 
 const region = (page: Page, name: string) => page.getByRole('region', { name, exact: true });
 
@@ -102,7 +102,7 @@ test.describe('the workspace', () => {
    test('saves no layout until the reviewer changes it, through a tour that opens and a resize', async ({ page }) => {
       const saved = () => page.evaluate(() => localStorage.getItem('lotsen.workspaceLayout'));
       await page.goto('/');
-      await page.getByRole('button', { name: /^(Choose a tour|Choose another tour)$/ }).click();
+      await page.getByRole('button', { name: tourSwitcherName }).click();
       await page
          .getByRole('navigation', { name: 'Tours' })
          .getByRole('button', { name: new RegExp(checkoutTour) })
@@ -167,7 +167,7 @@ test.describe('the workspace', () => {
       await page.setViewportSize({ width: 1440, height: 600 });
       await openDemoTour(page, checkoutTour);
 
-      await page.getByRole('button', { name: 'Choose another tour' }).click();
+      await page.getByRole('button', { name: tourSwitcherName }).click();
       const tours = page.getByRole('navigation', { name: 'Tours' });
       await expect(tours).toBeVisible();
 

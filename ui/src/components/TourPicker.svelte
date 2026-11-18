@@ -2,15 +2,16 @@
    import { tick } from 'svelte';
    import BookOpen from '@lucide/svelte/icons/book-open';
    import ChevronDown from '@lucide/svelte/icons/chevron-down';
-   import ChevronRight from '@lucide/svelte/icons/chevron-right';
+   import CornerLeftUp from '@lucide/svelte/icons/corner-left-up';
    import ExternalLink from '@lucide/svelte/icons/external-link';
    import GitPullRequest from '@lucide/svelte/icons/git-pull-request';
    import { buttonVariants } from '$lib/components/ui/button';
    import * as AlertDialog from '$lib/components/ui/alert-dialog';
    import * as Popover from '$lib/components/ui/popover';
    import { firstDives, flatDives, subtreeOf, tourName, type DiveBranch } from '../lib/tourFamily';
-   import { repositoryHeading, splitLabel, type RepositoryHeading } from '../lib/tourLabel';
+   import { switcherLines } from '../lib/tourLabel';
    import type { TourSummary } from '../lib/types';
+   import TooltipButton from './TooltipButton.svelte';
    import TourList from './TourList.svelte';
    import WithTooltip from './WithTooltip.svelte';
 
@@ -23,7 +24,7 @@
       error,
       selectedTourId,
       selectedTour,
-      breadcrumb = [],
+      parent = null,
       onselect,
       onshowhidden,
       onarchive,
@@ -41,8 +42,8 @@
       selectedTourId: string | null;
       /** The selected tour's summary, or null while no tour is selected or the list does not hold it yet. */
       selectedTour: TourSummary | null;
-      /** The selected dive's breadcrumb, from its root down to its parent, each step a button that opens that tour, or no tours for a tour that is not a dive. */
-      breadcrumb?: readonly TourSummary[];
+      /** The tour that the selected dive's up button opens, or null for a tour that is not a dive. */
+      parent?: TourSummary | null;
       onselect: (tourId: string) => void;
       onshowhidden: (show: boolean) => void;
       /** Archives a tour or unarchives it, and returns null once stored, or the reason the write failed. */
@@ -56,18 +57,20 @@
    // The confirmation names this many dives at most and counts the rest, so the dialog stays short for a large family.
    const maxShownDives = 10;
    let open = $state(false);
-   let anchor = $state<HTMLElement | null>(null);
    let listTrigger = $state<HTMLElement | null>(null);
    // The tour whose delete the dialog asks to confirm. The dialog lives outside the list's popover, which closes when the dialog opens.
    let deleting = $state<TourSummary | null>(null);
    let confirming = $state(false);
    let busy = $state(false);
    let deleteError = $state<string | null>(null);
-   // The list trigger's name and tooltip. A null tooltip would render the trigger as a new element, which drops the focus that the closing list returns to it.
-   const triggerName = $derived(selectedTour ? 'Choose another tour' : 'Choose a tour');
+   const lines = $derived(selectedTour === null ? null : switcherLines(selectedTour));
+   const topLine = $derived(lines === null || lines.place === null ? null : lines.commit === null ? lines.place : `${lines.place} · ${lines.commit}`);
+   // The name holds the bottom line, the text that a speech user reads on the button. A null tooltip would render the trigger as a new element, which drops the focus that the closing list returns to it.
+   const triggerName = $derived(lines === null ? 'Choose a tour' : `${lines.title}, choose another tour`);
+   const triggerTooltip = $derived(lines === null ? 'Choose a tour' : [lines.title, topLine, 'Choose another tour'].filter((line) => line !== null).join('\n'));
    // Only an https: URL becomes a link.
    const targetUrl = $derived(selectedTour && URL.canParse(selectedTour.target.url) && new URL(selectedTour.target.url).protocol === 'https:' ? selectedTour.target.url : null);
-   const heading = $derived(selectedTour === null ? null : repositoryHeading(selectedTour));
+   const linkName = $derived(selectedTour?.target.kind === 'repository' ? 'Open the repository in a new tab' : 'Open the pull request in a new tab');
    const deletedName = $derived(deleting === null ? '' : deleting.title === undefined ? `of ${deleting.label}` : `“${deleting.title}” of ${deleting.label}`);
    // The dives as the reviewer confirmed them, which the dialog keeps while the delete runs and while the dialog closes, as the deleted tours leave the list.
    let confirmedDives = $state.raw<DiveBranch[] | null>(null);
@@ -82,8 +85,8 @@
       listTrigger?.focus();
    }
 
-   // The step's button leaves with the breadcrumb or with the dive's title, so the focus moves to the switcher's trigger, as a choice in the list leaves it there.
-   function openStep(tourId: string): void {
+   // The up button leaves once the parent is a root, so the focus moves to the switcher's trigger, as a choice in the list leaves it there.
+   function openParent(tourId: string): void {
       onselect(tourId);
       void tick().then(focusSwitcher);
    }
@@ -122,152 +125,68 @@
    }
 </script>
 
-<div bind:this={anchor} class="flex max-w-full min-w-0 items-center gap-2">
-   {#if selectedTour && heading !== null}
-      {@render repositoryTour(selectedTour, heading)}
-   {:else if selectedTour && targetUrl !== null}
-      <WithTooltip text={`${selectedTour.label}\nOpen the pull request in a new tab\n${targetUrl}`}>
-         {#snippet trigger({ props })}
-            <!-- The underline shows without hover, so the label reads as a link. -->
-            <a
-               {...props}
-               href={targetUrl}
-               target="_blank"
-               rel="noopener noreferrer"
-               class="inline-flex h-8 min-w-0 items-center gap-1.5 rounded-sm underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-current focus-visible:decoration-current focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden"
-            >
-               <GitPullRequest class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-               {@render label(selectedTour.label)}
-               <ExternalLink class="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
-            </a>
-         {/snippet}
-      </WithTooltip>
-   {:else if selectedTour}
-      <span class="flex min-w-0 items-center gap-1.5">
-         <GitPullRequest class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-         <WithTooltip text={`${selectedTour.label}\n${selectedTour.target.url}`}>
-            {#snippet trigger({ props })}
-               <span {...props} class="flex min-w-0">{@render label(selectedTour.label)}</span>
-            {/snippet}
-         </WithTooltip>
-      </span>
+<div class="flex max-w-full min-w-0 items-center gap-1">
+   {#if parent !== null}
+      {@const up = parent}
+      {@const upName = `Back to ${tourName(up)}`}
+      <TooltipButton tooltip={upName} variant="ghost" size="icon-sm" class="shrink-0" aria-label={upName} onclick={() => openParent(up.id)}>
+         <CornerLeftUp aria-hidden="true" />
+      </TooltipButton>
    {/if}
    <Popover.Root bind:open>
       <Popover.Trigger>
          {#snippet child({ props: popoverProps })}
-            <WithTooltip text={triggerName} {...popoverProps}>
+            <WithTooltip text={triggerTooltip} {...popoverProps}>
                {#snippet trigger({ props })}
-                  <!-- The same element with or without a selected tour, so it keeps the focus that the closing list returns when the first tour is chosen. -->
+                  <!-- The same element with or without a selected tour, so it keeps the focus that the closing list returns when the first tour is chosen.
+                     The top line describes the button in place of the tooltip, which exists only while it shows. -->
                   <button
                      {...props}
                      bind:this={listTrigger}
                      type="button"
-                     class={selectedTour ? buttonVariants({ variant: 'ghost', size: 'icon-sm' }) : buttonVariants({ variant: 'outline', size: 'sm', class: 'max-w-full min-w-0 shrink font-normal' })}
+                     class={lines === null
+                        ? buttonVariants({ variant: 'outline', size: 'sm', class: 'max-w-full min-w-0 shrink font-normal' })
+                        : buttonVariants({ variant: 'ghost', size: 'sm', class: 'max-w-full min-w-24 shrink justify-start gap-1.5 px-1.5 text-left font-normal' })}
                      aria-label={triggerName}
+                     {...topLine === null ? {} : { 'aria-describedby': `${id}-place` }}
                   >
-                     {#if !selectedTour}
+                     {#if lines === null}
                         <span class="truncate text-muted-foreground">Choose a tour</span>
+                     {:else}
+                        {#if selectedTour?.target.kind === 'repository'}
+                           <BookOpen class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        {:else}
+                           <GitPullRequest class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        {/if}
+                        <!-- The two lines fill the button's height, 2rem, so the bar stays as tall with a tour open. -->
+                        <span class="flex min-w-0 flex-col">
+                           {#if lines.place !== null}
+                              <!-- The place truncates, and the commit never does. -->
+                              <span id="{id}-place" class="flex min-w-0 text-xs leading-3.5 text-muted-foreground" data-switcher-line="place"
+                                 ><span class="min-w-0 truncate">{lines.place}</span>{#if lines.commit !== null}<span class="shrink-0"
+                                       >&nbsp;·&nbsp;<span class="font-mono" data-tour-commit>{lines.commit}</span></span
+                                    >{/if}</span
+                              >
+                           {/if}
+                           <span class="min-w-0 truncate leading-4.5" data-switcher-line="title">{lines.title}</span>
+                        </span>
                      {/if}
-                     <ChevronDown class={selectedTour ? 'size-4 shrink-0' : 'size-3 shrink-0'} />
+                     <ChevronDown class={lines === null ? 'size-3 shrink-0' : 'size-4 shrink-0 text-muted-foreground'} aria-hidden="true" />
                   </button>
                {/snippet}
             </WithTooltip>
          {/snippet}
       </Popover.Trigger>
-      <!-- The list anchors to the whole switcher, so it opens below the label's left edge. -->
-      <Popover.Content customAnchor={anchor} align="start" class="scroll-box max-h-96 w-96 gap-0 p-0">
+      <Popover.Content align="start" class="scroll-box max-h-96 w-96 gap-0 p-0">
          <TourList {tours} allTours={everyTour} {hiddenCount} {showHidden} {loaded} {error} {selectedTourId} onselect={select} {onshowhidden} {onarchive} ondelete={askToDelete} />
       </Popover.Content>
    </Popover.Root>
-</div>
-
-<!-- The pull request number never truncates, and a narrow bar shows it alone, with the repository left to the accessible name and the tooltip. -->
-{#snippet label(text: string)}
-   {@const parts = splitLabel(text)}
-   {#if parts === null}
-      <span class="min-w-0 truncate">{text}</span>
-   {:else}
-      <span class="flex min-w-0">
-         <span class="min-w-0 truncate @max-bar-repository:sr-only" data-label-part="repository">{parts.repository}</span>
-         <!-- The space starts the number's line, so it leaves with the repository, and the link's underline runs through it. -->
-         <span class="shrink-0 decoration-spaces" data-label-part="number"><span class="@max-bar-repository:hidden">&nbsp;</span>{parts.number}</span>
-      </span>
+   {#if targetUrl !== null}
+      <TooltipButton tooltip={`${linkName}\n${targetUrl}`} variant="ghost" size="icon-sm" class="shrink-0" href={targetUrl} target="_blank" rel="noopener noreferrer" aria-label={linkName}>
+         <ExternalLink aria-hidden="true" />
+      </TooltipButton>
    {/if}
-{/snippet}
-
-<!-- The title truncates first, and a narrow bar keeps the title alone, with the repository and the ref left to the screen reader and the title's tooltip. -->
-{#snippet repositoryTour(tour: TourSummary, { title, repository, ref }: RepositoryHeading)}
-   {@const place = ref === null ? repository : `${repository}@${ref}`}
-   <span class="flex min-w-0 items-center gap-1.5" data-repository-heading>
-      <BookOpen class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-      {#if breadcrumb.length > 0}
-         {@render diveBreadcrumb(title, place)}
-      {:else}
-         {@render headingTitle(title, place)}
-      {/if}
-      <span class="flex max-w-1/2 min-w-0 shrink-0 items-center text-sm text-muted-foreground @max-bar-repository:sr-only">
-         {#if targetUrl !== null}
-            <WithTooltip text={`Open the repository in a new tab\n${targetUrl}`}>
-               {#snippet trigger({ props })}
-                  <a
-                     {...props}
-                     href={targetUrl}
-                     target="_blank"
-                     rel="noopener noreferrer"
-                     class="min-w-0 truncate rounded-sm underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-current focus-visible:decoration-current focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden"
-                     data-heading-part="repository">{repository}</a
-                  >
-               {/snippet}
-            </WithTooltip>
-         {:else}
-            <WithTooltip text={tour.target.url}>
-               {#snippet trigger({ props })}
-                  <span {...props} class="min-w-0 truncate" data-heading-part="repository">{repository}</span>
-               {/snippet}
-            </WithTooltip>
-         {/if}
-         {#if ref !== null}
-            <span class="min-w-0 truncate" data-heading-part="ref">@{ref}</span>
-         {/if}
-      </span>
-   </span>
-{/snippet}
-
-{#snippet headingTitle(title: string, place: string)}
-   <WithTooltip text={`${title}\n${place}`}>
-      {#snippet trigger({ props })}
-         <span {...props} class="min-w-0 truncate" data-heading-part="title">{title}</span>
-      {/snippet}
-   </WithTooltip>
-{/snippet}
-
-<!-- Each step before the dive's title truncates on its own. A narrow bar keeps only the parent's step, after an ellipsis that stands for the steps it hides. -->
-{#snippet diveBreadcrumb(title: string, place: string)}
-   <nav aria-label="Breadcrumb" class="flex min-w-0 items-center" data-breadcrumb>
-      <ol class="flex min-w-0 items-center gap-1">
-         {#each breadcrumb as step, index (step.id)}
-            {@const parent = index === breadcrumb.length - 1}
-            {#if parent && index > 0}
-               <li class="hidden shrink-0 text-muted-foreground @max-bar-repository:flex" aria-hidden="true">…<ChevronRight class="size-3.5" /></li>
-            {/if}
-            <li class={['flex max-w-28 min-w-0 shrink items-center gap-1 text-sm', !parent && '@max-bar-repository:hidden']} data-breadcrumb-step>
-               <WithTooltip text={`Open the tour ${tourName(step)}`}>
-                  {#snippet trigger({ props })}
-                     <button
-                        {...props}
-                        type="button"
-                        class="h-8 min-w-0 cursor-pointer truncate rounded-sm text-muted-foreground underline decoration-muted-foreground/50 underline-offset-4 hover:text-foreground hover:decoration-current focus-visible:decoration-current focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden"
-                        onclick={() => openStep(step.id)}>{tourName(step)}</button
-                     >
-                  {/snippet}
-               </WithTooltip>
-               <ChevronRight class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-            </li>
-         {/each}
-         <li class="flex min-w-0 items-center" aria-current="page">{@render headingTitle(title, place)}</li>
-      </ol>
-   </nav>
-{/snippet}
+</div>
 
 <!-- Each dive's list nests under it, as the family does. -->
 {#snippet diveList(branches: DiveBranch[], labelledBy?: string)}

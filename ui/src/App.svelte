@@ -79,7 +79,7 @@
 
    let tourPicker = $state<TourPicker>();
 
-   /** Opens a tour in the default view mode, from the tour list or a breadcrumb. */
+   /** Opens a tour in the default view mode, from the tour list or the up button. */
    function openTour(tourId: string): void {
       app.selectTour(tourId, settings.defaultViewMode);
    }
@@ -288,7 +288,7 @@
                   error={app.toursError}
                   selectedTourId={app.selectedTourId}
                   selectedTour={app.selectedTour}
-                  breadcrumb={app.selectedBreadcrumb}
+                  parent={app.selectedParent}
                   onselect={openTour}
                />
             {/snippet}

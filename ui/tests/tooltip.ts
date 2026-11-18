@@ -16,3 +16,14 @@ export async function openTooltip(element: Element): Promise<string> {
    });
    return document.getElementById(id)?.textContent?.trim() ?? '';
 }
+
+/** Points at an element whose own description replaces the tooltip's, and returns the text of the tooltip that opens for it. */
+export async function hoverOwnTooltip(element: Element): Promise<string> {
+   await fireEvent.pointerEnter(element, { pointerType: 'mouse' });
+   const content = await waitFor(() => {
+      const shown = document.querySelector('[data-slot="tooltip-content"]');
+      expect(shown).not.toBeNull();
+      return shown!;
+   });
+   return content.textContent.trim();
+}

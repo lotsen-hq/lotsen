@@ -1,9 +1,10 @@
 <!--
-   The top bar's commit of an open repository tour, with Move… while its ref can move, and the dialog that moves the tour and the dives that the reviewer ticks to the latest commit of the ref.
+   The top bar's Move button of an open repository tour, which shows while its ref can move, and the dialog that moves the tour and the dives that the reviewer ticks to the latest commit of the ref.
    The dialog checks for a move each time it opens, and checks again after a refusal of the move, so it shows what a move takes now.
 -->
 <script lang="ts">
    import { tick } from 'svelte';
+   import FastForward from '@lucide/svelte/icons/fast-forward';
    import LoaderCircle from '@lucide/svelte/icons/loader-circle';
    import { Button, buttonVariants } from '$lib/components/ui/button';
    import * as Dialog from '$lib/components/ui/dialog';
@@ -20,7 +21,7 @@
    }: {
       /** The commit that the tour shows, its snapshot's head. */
       commit: string;
-      /** Whether the tour's ref can move, or undefined before a check. Move… shows only for a movable ref. */
+      /** Whether the tour's ref can move, or undefined before a check. The Move button shows only for a movable ref. */
       offer: MoveOffer | undefined;
       /** The tour's ref, or null for the default branch. */
       refName: string | null;
@@ -28,11 +29,12 @@
       oncheck: () => Promise<MoveCheckOutcome>;
       /** Moves the tour and the dives with the IDs to the commit, and returns null once moved, or the reason the move was refused. */
       onmove: (commit: string, diveIds: readonly string[]) => Promise<string | null>;
-      /** Moves the focus to a stable control of the bar, once the dialog closes after a check that found the ref cannot move, which takes Move… away. */
+      /** Moves the focus to a stable control of the bar, once the dialog closes after a check that found the ref cannot move, which takes the Move button away. */
       onfocuslost: () => void;
    } = $props();
 
    const id = $props.id();
+   const moveName = 'Move the tour to the latest commit…';
    const short = (full: string) => full.slice(0, 8);
    const place = $derived(refName === null ? 'the default branch' : refName);
    let open = $state(false);
@@ -116,18 +118,17 @@
    }
 </script>
 
-<!-- A narrow bar keeps Move… alone, with the commit left to the screen reader and the button's description. -->
-<span class="flex min-w-0 shrink-0 items-center gap-1 text-sm text-muted-foreground" data-tour-move>
-   <WithTooltip text={`The tour shows commit ${commit}`}>
+{#if offer === 'movable' || open}
+   <!-- The switcher's top line shows the commit, and this description gives it to the button for a screen reader. -->
+   <span id="{id}-commit" class="sr-only">The tour shows commit {short(commit)}</span>
+   <WithTooltip text={moveName}>
       {#snippet trigger({ props })}
-         <span {...props} class="whitespace-nowrap @max-bar-repository:sr-only" data-tour-commit><span id="{id}-commit">at <span class="font-mono">{short(commit)}</span></span></span>
+         <Button {...props} bind:ref={moveButton} variant="ghost" size="icon-sm" class="shrink-0" aria-label={moveName} aria-describedby="{id}-commit" onclick={start}>
+            <FastForward aria-hidden="true" />
+         </Button>
       {/snippet}
    </WithTooltip>
-   {#if offer === 'movable' || open}
-      <span class="@max-bar-repository:hidden" aria-hidden="true">·</span>
-      <Button bind:ref={moveButton} variant="ghost" size="sm" class="shrink-0 px-2" aria-describedby="{id}-commit" onclick={start}>Move…</Button>
-   {/if}
-</span>
+{/if}
 
 {#snippet branchList(list: MoveBranch[], labelledBy?: string)}
    <ul class={labelledBy === undefined ? 'mt-1 flex flex-col gap-1 pl-6' : 'flex flex-col gap-1'} aria-labelledby={labelledBy}>

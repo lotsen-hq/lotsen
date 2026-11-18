@@ -1,14 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
 import type { QuestionThread, Tour } from '../src/lib/contract.generated';
 import { joinWorld } from '../tests/backend/backend';
-import { nextWorld, openDemoTour, openStop } from './demo';
+import { nextWorld, openDemoTour, openStop, tourSwitcherName } from './demo';
 
 const orientTour = 'Find your way around the storefront';
 const diveTitle = 'How the cart merges its lines';
 
 const stopPanel = (page: Page) => page.getByRole('region', { name: 'Stop', exact: true });
-const switcher = (page: Page) => page.getByRole('button', { name: 'Choose another tour' });
-const breadcrumb = (page: Page) => page.getByRole('banner').first().getByRole('navigation', { name: 'Breadcrumb' });
+const banner = (page: Page) => page.getByRole('banner').first();
+const switcher = (page: Page) => banner(page).getByRole('button', { name: tourSwitcherName });
+const upButton = (page: Page) => banner(page).getByRole('button', { name: /^Back to / });
 
 test("a dive from a stop shows in the parent's Dives row and Plan panel, and its top bar leads back to the parent", async ({ page, baseURL }) => {
    const demo = nextWorld(page);
@@ -54,28 +55,37 @@ test("a dive from a stop shows in the parent's Dives row and Plan panel, and its
    await page.keyboard.press('Enter');
    await expect(switcher(page)).toBeFocused();
 
-   await expect(breadcrumb(page).getByRole('button', { name: orientTour })).toBeVisible();
-   await expect(breadcrumb(page).locator('[aria-current="page"]')).toHaveText(diveTitle);
+   await expect(switcher(page)).toHaveAccessibleName(`${diveTitle}, choose another tour`);
+   await expect(upButton(page)).toHaveAccessibleName(`Back to ${orientTour}`);
 
-   await breadcrumb(page).getByRole('button', { name: orientTour }).focus();
+   await upButton(page).focus();
    await page.keyboard.press('Enter');
    await expect(switcher(page)).toBeFocused();
 
-   await expect(breadcrumb(page)).toHaveCount(0);
-   await expect(page.getByRole('banner').first().locator('[data-heading-part="title"]')).toHaveText(orientTour);
+   await expect(upButton(page)).toHaveCount(0);
+   await expect(switcher(page)).toHaveAccessibleName(`${orientTour}, choose another tour`);
 });
 
-test("a dive's breadcrumb widens the tour zone, and a narrow top bar keeps the zone at its usual width", async ({ page }) => {
-   await openDemoTour(page, 'How a payment reaches the gateway');
-   const zone = page.getByRole('banner').first().locator('[data-tour-zone]');
-   await expect(breadcrumb(page).getByRole('button', { name: orientTour })).toBeVisible();
-   const zoneLimit = 18 * (await page.locator('html').evaluate((node) => parseFloat(getComputedStyle(node).fontSize)));
+test("a dive's tour zone shows the names whole on a wide bar, and keeps to its share of a narrow bar with the up button and the switcher in view", async ({ page }) => {
+   const diveName = 'How a payment reaches the gateway';
+   await page.setViewportSize({ width: 1920, height: 1000 });
+   await openDemoTour(page, diveName, { fontSize: 'medium' });
+   const zone = banner(page).locator('[data-tour-zone]');
+   await expect(upButton(page)).toHaveAccessibleName(`Back to ${orientTour}`);
+   const cut = (line: string) =>
+      switcher(page)
+         .locator(`[data-switcher-line="${line}"]`)
+         .evaluate((node) => [node, ...node.querySelectorAll('*')].some((part) => part.scrollWidth > part.clientWidth));
 
-   expect((await zone.boundingBox())!.width).toBeGreaterThan(zoneLimit);
+   expect(await cut('title'), 'whether the title is cut short').toBe(false);
+   expect(await cut('place'), 'whether the repository, the ref or the commit is cut short').toBe(false);
 
-   await page.setViewportSize({ width: 900, height: 800 });
-   await expect.poll(async () => (await zone.boundingBox())!.width).toBeLessThanOrEqual(zoneLimit + 0.5);
-   await expect(breadcrumb(page).getByRole('button', { name: orientTour })).toBeVisible();
+   await page.setViewportSize({ width: 720, height: 1000 });
+   const share = async () =>
+      (await zone.boundingBox())!.width / (await banner(page).evaluate((node) => node.clientWidth - parseFloat(getComputedStyle(node).paddingLeft) - parseFloat(getComputedStyle(node).paddingRight)));
+   await expect.poll(share).toBeLessThanOrEqual(0.45 + 0.001);
+   await expect(upButton(page)).toBeInViewport();
+   await expect(switcher(page).locator('[data-switcher-line="title"]')).toBeInViewport();
 });
 
 test("a dive marker's menu opens the dive from the keyboard and leaves the focus on the tour switcher", async ({ page }) => {
@@ -87,7 +97,7 @@ test("a dive marker's menu opens the dive from the keyboard and leaves the focus
 
    await page.keyboard.press('Enter');
 
-   await expect(breadcrumb(page).getByRole('button', { name: orientTour })).toBeVisible();
+   await expect(upButton(page)).toHaveAccessibleName(`Back to ${orientTour}`);
    await expect(switcher(page)).toBeFocused();
 });
 

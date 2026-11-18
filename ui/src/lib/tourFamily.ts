@@ -56,24 +56,14 @@ export function groupFamilies(tours: readonly TourSummary[]): ListedTour[] {
    return tours.flatMap((tour): ListedTour[] => (rootOf(tour) !== null ? [] : [{ tour, depth: 0 }, ...oldestFirst(dives.get(tour.id) ?? []).map((dive): ListedTour => ({ tour: dive, depth: 1 }))]));
 }
 
-/**
- * Returns the tours from a dive's root down to its parent, root first, or no tours for a tour that is not a dive.
- *
- * The walk follows each parent that the tours hold, and puts the root first when a gap in the tours cuts the walk short of it.
- */
-export function breadcrumb(tour: TourSummary, tours: readonly TourSummary[]): TourSummary[] {
-   const byId = new Map(tours.map((candidate) => [candidate.id, candidate]));
-   const steps: TourSummary[] = [];
-   const seen = new Set([tour.id]);
-   let parent = tour.diveOrigin === undefined ? undefined : byId.get(tour.diveOrigin.parentId);
-   while (parent !== undefined && !seen.has(parent.id)) {
-      seen.add(parent.id);
-      steps.unshift(parent);
-      parent = parent.diveOrigin === undefined ? undefined : byId.get(parent.diveOrigin.parentId);
+/** Returns the tour that a dive's up button opens: its parent, or its root when the tours lack the parent, or null for a tour that is not a dive or when the tours lack both. */
+export function parentOf(tour: TourSummary, tours: readonly TourSummary[]): TourSummary | null {
+   if (tour.diveOrigin === undefined) {
+      return null;
    }
 
-   const root = tour.diveOrigin === undefined ? undefined : byId.get(tour.diveOrigin.rootId);
-   return root === undefined || seen.has(root.id) ? steps : [root, ...steps];
+   const { parentId, rootId } = tour.diveOrigin;
+   return tours.find((candidate) => candidate.id === parentId && candidate.id !== tour.id) ?? tours.find((candidate) => candidate.id === rootId && candidate.id !== tour.id) ?? null;
 }
 
 /** Returns the dives that start from the tour, oldest first, without their own dives. */

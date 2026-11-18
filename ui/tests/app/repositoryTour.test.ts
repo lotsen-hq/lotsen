@@ -51,7 +51,7 @@ async function openTagged(): Promise<{ app: LotsenApp; world: World; tourId: str
 }
 
 const banner = () => within(screen.getByRole('banner'));
-const headingPart = (name: string) => screen.getByRole('banner').querySelector<HTMLElement>(`[data-heading-part="${name}"]`);
+const switcherLine = (name: 'place' | 'title') => screen.getByRole('banner').querySelector<HTMLElement>(`[data-switcher-line="${name}"]`);
 const stopPanel = () => within(screen.getByRole('region', { name: 'Stop' }));
 
 async function showPlanPanel(): Promise<void> {
@@ -60,12 +60,12 @@ async function showPlanPanel(): Promise<void> {
 }
 
 describe('a repository tour', () => {
-   it('shows its title in the top bar, with the repository linked and the ref beside it, and no update check', async () => {
+   it("shows its title in the top bar's switcher below the repository and the ref, with a link to the repository, and no update check", async () => {
       await openTagged();
 
-      expect(headingPart('title')?.textContent).toBe(title);
-      expect(banner().getByRole('link', { name: 'shop' }).getAttribute('href')).toBe(repositoryUrl);
-      expect(headingPart('ref')?.textContent).toBe('@v1.2.0');
+      expect(switcherLine('title')?.textContent).toBe(title);
+      expect(switcherLine('place')?.textContent).toMatch(/^shop@v1\.2\.0\s·\s[0-9a-f]{8}$/);
+      expect(banner().getByRole('link', { name: 'Open the repository in a new tab' }).getAttribute('href')).toBe(repositoryUrl);
       expect(banner().queryByRole('button', { name: 'Check the PR for a new update' })).toBeNull();
       expect(screen.queryByText(/iteration/i)).toBeNull();
    });
@@ -76,8 +76,7 @@ describe('a repository tour', () => {
       const { app } = await startApp(world);
       await openTour(app, 'The default branch');
 
-      expect(headingPart('repository')?.textContent).toBe('shop');
-      expect(headingPart('ref')).toBeNull();
+      expect(switcherLine('place')?.textContent).toMatch(/^shop\s·\s[0-9a-f]{8}$/);
    });
 
    it('lists its title, repository and ref, with its purpose, level and stops', async () => {

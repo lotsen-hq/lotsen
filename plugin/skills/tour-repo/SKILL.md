@@ -420,7 +420,7 @@ actions in the UI. Each reaches you as a question, and `lotsen:tour-rules` and t
 
 ### After a move
 
-The reviewer can move a tour, and the dives they tick, to the latest commit of its ref with Move… in the top bar. Each
+The reviewer can move a tour, and the dives they tick, to the latest commit of its ref with the Move button in the top bar. Each
 moved tour with stale stops sends you a `tourMoved` decision with its own `tourId`. Revise its stale stops as its
 `howToAct` says, and resolve it as "Reviewer decisions" in `lotsen:tour-rules` says. Read the code at the tour's new
 `pin.head` first: move the worktree or the clone that you read the tour from to that commit, as section 4 says, or

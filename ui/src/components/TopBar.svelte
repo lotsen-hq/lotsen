@@ -71,7 +71,7 @@
       picker: Snippet;
       /** The stop navigation. */
       navigation: Snippet;
-      /** The open tour's iteration check, which the bar shows beside the tour switcher, absent while it has none. */
+      /** The open tour's own action, its iteration check or Move, which the bar shows after the tour switcher, absent while it has none. */
       iteration?: Snippet;
    } = $props();
 
@@ -113,20 +113,18 @@
    A collapsed label turns sr-only, so it stays a control's accessible name or a live region's text. -->
 <header bind:this={bar} class="@container flex items-center gap-4 border-b bg-card px-4 py-1.5 outline-hidden" tabindex="-1">
    <Wordmark class="@max-bar-wordmark:hidden" />
-   <!-- The bar has three zones: which tour, where in it, then Claude and the workspace. The update check and a repository tour's commit sit in the tour zone, so only the label moves them.
-      A dive's breadcrumb and a repository tour's commit widen the zone, until a narrow bar keeps only the breadcrumb's last step and Move…. -->
-   <div
-      class="flex max-w-72 min-w-0 shrink-0 items-center gap-2 has-data-breadcrumb:max-w-136 has-data-tour-move:max-w-128 @max-bar-repository:has-data-breadcrumb:max-w-72 @max-bar-repository:has-data-tour-move:max-w-72"
-      data-tour-zone
-   >
+   <!-- The bar has three zones: which tour, where in it, then Claude and the workspace. The tour's own action, the update check or Move, ends the tour zone.
+      The zone takes its content's width up to a share of the bar, so a wide bar shows the tour's names whole. On a narrow bar the zone alone shrinks, and the switcher's lines truncate. -->
+   <div class="flex max-w-9/20 min-w-0 items-center gap-1" data-tour-zone>
       {@render picker()}
       {@render iteration?.()}
    </div>
    {#if attachment !== null}
       <div class="h-5 w-px shrink-0 bg-border" aria-hidden="true" data-zone-divider></div>
    {/if}
-   <!-- The other items keep their widths, all but a popout notice, so the stop line takes the bar's slack. The floor keeps both stop buttons in it. -->
-   <div class="flex min-w-24 flex-1">
+   <!-- The other items keep their widths, all but a popout notice, so the stop line takes the bar's slack.
+      The floor keeps 12rem for the line, beside both stop buttons, until the line shortens its position, and then both buttons alone. -->
+   <div class="flex min-w-70 flex-1 @max-bar-position:min-w-24">
       {@render navigation()}
    </div>
    {#if attachment !== null}

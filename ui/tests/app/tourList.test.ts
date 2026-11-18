@@ -1,10 +1,10 @@
-import { fireEvent, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import type { Familiarity, Tour } from '../../src/lib/types';
 import type { World } from '../backend/backend';
 import { backend, cartBase, cartHead, readTour, seedTour, startApp } from '../harness';
 import { hoverTooltip } from '../tooltip';
-import { openTourList, selectedTourLink, tourButton, tourSwitcherName } from '../tourPicker';
+import { openTourList, selectedPullRequestSwitcher, tourButton, tourSwitcherName } from '../tourPicker';
 import { planPanel, resetPageEachTest } from './appPanels';
 
 resetPageEachTest();
@@ -49,7 +49,7 @@ describe('the tour list and the plan', () => {
       expect(items[1]!.textContent).toContain('New to the code');
    });
 
-   it("shows the selected tour's label as a link to its pull request, with the URL in its tooltip", async () => {
+   it("shows the selected tour's number and repository in the same switcher, beside a link to its pull request with the URL in its tooltip", async () => {
       const world = await backend().world();
       await cartPullRequest(world);
       await createTour(world, 'https://platform.test/web/pull/9');
@@ -59,10 +59,10 @@ describe('the tour list and the plan', () => {
 
       (await (await openTourList()).findByRole('button', tourButton)).click();
 
-      const link = await waitFor(() => selectedTourLink('web #9'));
+      expect(await waitFor(() => selectedPullRequestSwitcher('web #9'))).toBe(switcher);
+      const link = within(screen.getByRole('banner')).getByRole('link', { name: 'Open the pull request in a new tab' });
       expect(link.getAttribute('href')).toBe('https://platform.test/web/pull/9');
-      expect(await hoverTooltip(link)).toBe('web #9\nOpen the pull request in a new tab\nhttps://platform.test/web/pull/9');
-      expect(switcher.getAttribute('aria-label')).toBe('Choose another tour');
+      expect(await hoverTooltip(link)).toBe('Open the pull request in a new tab\nhttps://platform.test/web/pull/9');
    });
 
    it('chooses a tour from the switcher, which closes and marks the chosen tour when it opens again', async () => {
@@ -76,7 +76,7 @@ describe('the tour list and the plan', () => {
       fireEvent.click(await (await openTourList()).findByRole('button', { name: /#1/ }));
 
       await waitFor(() => expect(app.selectedTourId).toBe(first.id));
-      await waitFor(() => expect(selectedTourLink('web #1')).toBeTruthy());
+      await waitFor(() => expect(selectedPullRequestSwitcher('web #1')).toBeTruthy());
       await waitFor(() => expect(screen.queryByRole('navigation', { name: 'Tours' })).toBeNull());
       expect(picker.getAttribute('aria-expanded')).toBe('false');
       const list = await openTourList();
@@ -85,7 +85,7 @@ describe('the tour list and the plan', () => {
 
       fireEvent.click(list.getByRole('button', { name: /#2/ }));
 
-      await waitFor(() => expect(selectedTourLink('api #2')).toBeTruthy());
+      await waitFor(() => expect(selectedPullRequestSwitcher('api #2')).toBeTruthy());
    });
 
    it('adds a tour from a tourCreated event without a reload', async () => {

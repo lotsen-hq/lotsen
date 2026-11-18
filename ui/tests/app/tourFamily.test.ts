@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { LotsenApp } from '../../src/lib/app.svelte';
 import type { World } from '../backend/backend';
 import { attachClaude, backend, openStop, openTour, seedDive, seedRepositoryTour, settled, startApp, withEventHolds } from '../harness';
-import { openTourList } from '../tourPicker';
+import { openTourList, tourSwitcherName } from '../tourPicker';
 import { planPanel, resetPageEachTest, tab, worldOf } from './appPanels';
 
 resetPageEachTest();
@@ -73,7 +73,7 @@ async function openFamily(): Promise<{ app: LotsenApp; world: World; seed: Famil
 }
 
 const stopPanel = () => within(screen.getByRole('region', { name: 'Stop' }));
-const switcher = () => screen.getByRole('button', { name: 'Choose another tour' });
+const switcher = () => screen.getByRole('button', { name: tourSwitcherName });
 
 /** Focuses the control and clicks it, as the keyboard's Enter does. */
 async function press(control: HTMLElement): Promise<void> {
@@ -105,18 +105,19 @@ describe('the tour list', () => {
 });
 
 describe("a dive's top bar", () => {
-   it('shows the breadcrumb back to the root, and a step opens its tour', async () => {
+   it('shows a button back to the parent, which opens the parent and leaves the focus on the switcher', async () => {
       const { app, seed } = await openFamily();
       await openTour(app, deeperTitle);
-      const breadcrumb = within(screen.getByRole('navigation', { name: 'Breadcrumb' }));
+      expect(switcher().getAttribute('aria-label')).toBe(`${deeperTitle}, choose another tour`);
 
-      expect(breadcrumb.getAllByRole('button').map((step) => step.textContent.trim())).toEqual([rootTitle, stopDiveTitle]);
-      expect(breadcrumb.getByText(deeperTitle).closest('[aria-current="page"]')).not.toBeNull();
+      await press(screen.getByRole('button', { name: `Back to ${stopDiveTitle}` }));
 
-      await press(breadcrumb.getByRole('button', { name: rootTitle }));
+      await waitFor(() => expect(app.selectedTourId).toBe(seed.stopDiveId));
+      await waitFor(() => expect(document.activeElement).toBe(switcher()));
+      await press(screen.getByRole('button', { name: `Back to ${rootTitle}` }));
 
       await waitFor(() => expect(app.selectedTourId).toBe(seed.rootId));
-      expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
+      expect(screen.queryByRole('button', { name: /^Back to / })).toBeNull();
       await waitFor(() => expect(document.activeElement).toBe(switcher()));
    });
 });
@@ -258,6 +259,7 @@ describe('deleting a family', () => {
    it('names the dives in the confirmation, then drops the family from the list and closes the open dive', async () => {
       const { app, world, seed } = await openFamily();
       await openTour(app, deeperTitle);
+      expect(screen.getByRole('button', { name: `Back to ${stopDiveTitle}` })).toBeTruthy();
 
       await clickRowButton(rootTitle, 'Delete this tour');
       const dialog = await screen.findByRole('alertdialog', { name: 'Delete this tour?' });
@@ -267,7 +269,7 @@ describe('deleting a family', () => {
 
       await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
       expect(app.selectedTourId).toBeNull();
-      expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
+      expect(screen.queryByRole('button', { name: /^Back to / })).toBeNull();
       await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Choose a tour' })));
       await settled(app);
       expect(await listedTitles()).toEqual([otherTitle]);
