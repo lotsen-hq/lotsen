@@ -310,7 +310,7 @@ describe('the dive marker', () => {
 
       expect(screen.getByRole('button', { name: 'Dives from stop 1: 2' }).closest('.stop-item')).toBe(row().closest('.stop-item'));
       expect(row().getAttribute('aria-label')).toBe('1 Overview: The checkout at a glance, 2 dives');
-      expect(row().classList.contains('keeps-one')).toBe(true);
+      expect(row().dataset.keptPlaces).toBe('3');
       expect(screen.getAllByRole('button', { name: /^Dives from/ })).toHaveLength(1);
    });
 
@@ -324,5 +324,82 @@ describe('the dive marker', () => {
       await fireEvent.click(menu.getByRole('menuitem', { name: 'Tour d2, Not started', hidden: true }));
 
       expect(onopendive).toHaveBeenCalledExactlyOnceWith('d2');
+   });
+});
+
+describe("a stop row's controls", () => {
+   const rowPlan: Plan = {
+      chapters: [{ id: 'a', title: 'The shop' }],
+      stops: [
+         stop('s1', 'Done', 'overview', 'ready', 'a'),
+         stop('s2', 'Skipped', 'context', 'ready', 'a'),
+         stop('s3', 'With dives', 'inspect', 'ready', 'a'),
+         stop('s4', 'Untouched', 'context', 'ready', 'a'),
+         stop('s5', 'Pending', 'risk', 'pending', 'a'),
+         stop('s6', 'Done earlier and skipped', 'risk', 'revised', 'a'),
+      ],
+      fileMarks: [],
+   };
+   const dives = new Map([['s3', [familySummary('d1', 1, { parent: 'root', root: 'root', stop: 's3' })]]]);
+   const done = new Map([
+      ['s1', { state: 'done' } as const],
+      ['s6', { state: 'earlier', version: 1 } as const],
+   ]);
+
+   function renderRows(withSkip = true) {
+      render(PlanPanel, {
+         props: {
+            tourSelected: true,
+            known: { plan: rowPlan },
+            error: null,
+            attachment: 'confirmed',
+            dives,
+            done,
+            skipped: new Set(['s2', 's6']),
+            onskip: withSkip ? async () => null : null,
+            onsetdone: async () => null,
+         },
+      });
+      const items = [...document.querySelectorAll<HTMLElement>('.stop-item')];
+      const places = (item: HTMLElement) => [...item.querySelectorAll<HTMLElement>('.stop-actions > .action-place')];
+      const placeNames = (item: HTMLElement) => places(item).map((place) => place.dataset.place);
+      // The control in each place by its class, or null for an empty place.
+      const controls = (item: HTMLElement) =>
+         places(item).map((place) => place.querySelector('.dive-marker, .skip-toggle, .done-toggle')?.classList.value.match(/dive-marker|skip-toggle|done-toggle/)?.[0] ?? null);
+      const kept = (item: HTMLElement) => item.querySelector<HTMLElement>('.stop-row')!.dataset.keptPlaces;
+      return { items, placeNames, controls, kept };
+   }
+
+   it('sit in three places, dive marker, skip, then done, and a place stays when its control is hidden or missing', () => {
+      const { items, placeNames, controls } = renderRows();
+
+      expect(items.map(placeNames)).toEqual(items.map(() => ['dive', 'skip', 'done']));
+      expect(items.map(controls)).toEqual([
+         [null, 'skip-toggle', 'done-toggle'],
+         [null, 'skip-toggle', 'done-toggle'],
+         ['dive-marker', 'skip-toggle', 'done-toggle'],
+         [null, 'skip-toggle', 'done-toggle'],
+         [null, 'skip-toggle', null],
+         [null, 'skip-toggle', 'done-toggle'],
+      ]);
+   });
+
+   it('leave the skip place empty without a skip', () => {
+      const { items, placeNames, controls } = renderRows(false);
+
+      expect(placeNames(items[2]!)).toEqual(['dive', 'skip', 'done']);
+      expect(controls(items[2]!)).toEqual(['dive-marker', null, 'done-toggle']);
+   });
+
+   it('keep room at rest for the leftmost place that shows: 1 for a done stop, 2 for a skipped stop, 3 for a stop with dives', () => {
+      const { items, kept } = renderRows();
+
+      expect(items.map(kept)).toEqual(['1', '2', '3', '0', '0', '2']);
+   });
+
+   it('keep no room for a skip that the page does not offer', () => {
+      const { items, kept } = renderRows(false);
+
+      expect(items.map(kept)).toEqual(['1', '0', '3', '0', '0', '1']);
    });
 });

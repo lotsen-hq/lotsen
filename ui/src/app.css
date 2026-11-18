@@ -426,42 +426,68 @@
       }
    }
 
-   /* A stop's done checkbox and skip toggle lie over the right end of its row, so a control that shows only under the pointer or the focus takes no room from the
-      title. The row keeps room for the controls that always show. */
+   /* A stop's dive marker, skip toggle and done checkbox lie over the right end of its row, each in a place of its own, so a control that shows only under the pointer or the
+      focus takes no room from the title and moves no other control. The row keeps room up to the leftmost place whose control always shows. */
    .plan .stop-item {
       @apply relative;
+      /* A place holds a size-6 control and the 0.25rem before it. */
+      --action-place: 1.75rem;
 
-      & .stop-row.keeps-one {
-         padding-right: 2.25rem;
+      /* The row's own 0.5rem of padding, then the places that it keeps room for. */
+      & .stop-row {
+         padding-right: calc(0.5rem + var(--kept-places, 0) * var(--action-place));
+
+         &[data-kept-places='1'] {
+            --kept-places: 1;
+         }
+
+         &[data-kept-places='2'] {
+            --kept-places: 2;
+         }
+
+         &[data-kept-places='3'] {
+            --kept-places: 3;
+         }
       }
 
-      & .stop-row.keeps-two {
-         padding-right: 4rem;
-      }
-
-      & .stop-row.keeps-three {
-         padding-right: 5.75rem;
-      }
-
+      /* Clicks on an empty place or a hidden control reach the row below it. */
       & .stop-actions {
-         @apply absolute inset-y-0 right-1 flex items-center gap-1;
+         @apply pointer-events-none absolute inset-y-0 right-1 flex items-center;
       }
 
-      /* Important, because the button's display is a utility, which wins over this layer. */
+      & .action-place {
+         @apply flex h-full items-center justify-end;
+         width: var(--action-place);
+
+         & > * {
+            @apply pointer-events-auto;
+         }
+      }
+
+      /* A hidden control keeps its box but leaves the tab order and the accessibility tree. The important wins over the button's transition utility, which would keep it visible for
+         the transition's duration. */
       &:not(:hover, :focus-within) :is(.skip-toggle[aria-pressed='false'], .done-toggle:not(.checked, .earlier)) {
-         @apply hidden!;
+         @apply invisible transition-none!;
       }
 
-      /* Under the pointer or the focus, the controls cover the end of the title with the row's background. */
-      &:is(:hover, :focus-within) .stop-actions {
-         @apply rounded-md bg-card;
+      /* Under the pointer or the focus, the controls cover the end of the title with the row's background, from the leftmost place with a control. */
+      &:is(:hover, :focus-within) :is(.action-place:has(> *), .action-place:has(> *) ~ .action-place) {
+         @apply bg-card;
       }
 
-      &:has(.stop-row.current) .stop-actions {
+      &:is(:hover, :focus-within) .action-place:has(> *):not(.action-place:has(> *) ~ *) {
+         @apply rounded-l-md;
+      }
+
+      &:is(:hover, :focus-within) .action-place:last-child {
+         @apply rounded-r-md;
+      }
+
+      &:is(:hover, :focus-within):has(.stop-row.current) :is(.action-place:has(> *), .action-place:has(> *) ~ .action-place) {
          @apply bg-accent;
       }
 
-      /* Without a pointer that hovers, every control always shows, beside the row. */
+      /* Without a pointer that hovers, every control always shows, beside the row, in the same places. */
       @media (hover: none) {
          @apply flex items-center gap-1;
 
@@ -474,7 +500,7 @@
          }
 
          &:not(:hover, :focus-within) :is(.skip-toggle[aria-pressed='false'], .done-toggle:not(.checked, .earlier)) {
-            @apply inline-flex!;
+            @apply visible;
          }
       }
    }

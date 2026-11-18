@@ -256,12 +256,13 @@
             {@const doneLabel = doneRowLabel(done.get(stop.id) ?? { state: 'none' })}
             {@const diveCount = dives.get(stop.id)?.length ?? 0}
             {@const staleOn = staleOnOf(stop)}
-            <!-- The row keeps room only for the controls that show without the pointer: a skip, a done mark on any version, and the dive marker. -->
-            {@const kept = (onskip !== null && isSkipped ? 1 : 0) + (onsetdone !== null && doneLabel !== null ? 1 : 0) + (diveCount > 0 ? 1 : 0)}
+            <!-- The row keeps room up to the leftmost place whose control shows without the pointer: the dive marker, a skip, then a done mark on any version. -->
+            {@const keptPlaces = diveCount > 0 ? 3 : onskip !== null && isSkipped ? 2 : onsetdone !== null && stop.stage === 'written' && doneLabel !== null ? 1 : 0}
             <li class="stop-item">
                <button
                   type="button"
-                  class={['stop-row', current && 'current', isSkipped && 'skipped-row', kept === 1 && 'keeps-one', kept === 2 && 'keeps-two', kept === 3 && 'keeps-three']}
+                  class={['stop-row', current && 'current', isSkipped && 'skipped-row']}
+                  data-kept-places={keptPlaces}
                   aria-current={current ? 'step' : undefined}
                   aria-label={[
                      `${number} ${kind}: ${stop.title}`,
@@ -299,10 +300,11 @@
                      {/if}
                   </span>
                </button>
+               <!-- Each control has a place of its own, which stays when the control is hidden or missing, so showing a control moves no other. -->
                <span class="stop-actions">
-                  {@render diveMarker(stop.id, number)}
-                  {@render doneToggle(stop, number)}
-                  {@render skipToggle(stop.id, number)}
+                  <span class="action-place" data-place="dive">{@render diveMarker(stop.id, number)}</span>
+                  <span class="action-place" data-place="skip">{@render skipToggle(stop.id, number)}</span>
+                  <span class="action-place" data-place="done">{@render doneToggle(stop, number)}</span>
                </span>
             </li>
          {/each}
